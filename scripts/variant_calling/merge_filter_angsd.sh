@@ -103,8 +103,8 @@ while getopts ":R:r:m:a:f:n:O:" options; do
       fi
 	;;
 	f)                             
-      freq=${OPTARG}
-	  echo freq=${freq}	  
+      maf=${OPTARG}
+	  echo maf=${maf}	  
 	;;
 	n)                             
       missing_prop=${OPTARG}
