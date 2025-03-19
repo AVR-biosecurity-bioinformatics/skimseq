@@ -593,7 +593,7 @@ filter_snp_sites tmp2.snpstats ${Sample}.filtered ${dp_lower} ${dp_upper} ${maf}
 
 # zip and copy sitelists
 pigz -p ${SLURM_CPUS_PER_TASK} *_filtsummary.txt
-cp *.sites ${output}/.
+cat ${Sample}.filtered.sites | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $2}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.filtered.sites.gz
 cp *_filtsummary.txt.gz ${output}/.
 
 #--------------------------------------------------------------------------------
@@ -721,6 +721,8 @@ cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4,
 # Prune based on adjusted LD - Keeping higher maf sites first
 /home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
 
+echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
+
 # TODO: Should i add a thinning step that sets LD between all snps less than 1kb away to high?
 # TODO: Run PCAngsd again on pruned SNPs?
 
@@ -731,7 +733,7 @@ cp ${Sample}.cov ${output}/${Sample}.pcaone.cov
 #cp ${Sample}.eigvecs2 ${output}/${Sample}.pcaone.eigvecs2
 cp ${Sample}.log ${output}/${Sample}.pcaone.log
 cp ${Sample}.ld.gz ${output}/${Sample}.pcaone.ld.gz
-cat ${Sample}.ld.prune.in | awk -v 'OFS=\t' -v 'FS=\t' '{print $1, $4}' > ${output}/${Sample}.pruned.sites
+cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.pruned.sites.gz
 
 # Output useful job stats
 /usr/local/bin/showJobStats.scr 

@@ -44,7 +44,7 @@ fi
 # Get sample info from submission
 FullSampleName=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
 Sample=$(basename $FullSampleName | sed 's/_S[0-9].*$//')  # | cut -d'_' -f1
-SequencePath=$( find $(/usr/bin/ls -d ${SLURM_SUBMIT_DIR}/fastq) -maxdepth 3 -name '*.fastq.gz' -type f | grep /${Sample}_ | sort | uniq )
+SequencePath=$( find $(/usr/bin/ls -d ${SLURM_SUBMIT_DIR}/fastq) -maxdepth 3 -name '*.fastq.gz' -type f | grep [\/_-]${Sample}_ | sort | uniq )
 
 echo FullSampleName=${FullSampleName}
 echo Sample=${Sample}
@@ -177,7 +177,6 @@ cp ${ReferenceGenome}* .
 cp ${ReferenceGenome}.fai .
 cp $(find $(dirname $ReferenceGenome) -name *dict -type f) .
 cp ${MitoGenome}* .
-cp ${known_variants} .
 pigz -p${SLURM_CPUS_PER_TASK} -d ./*.fastq.gz
 
 ls
@@ -516,9 +515,13 @@ if [[ "$recalibrate" = true ]]; then
 	module load shifter/22.02.1
 	module load R/4.2.0-foss-2021b
 	#module load BCFtools/1.12-GCC-9.3.0
-
+	
+	# Transform sitelist into bed file
+	pigz -cd ${known_variants} -p ${SLURM_CPUS_PER_TASK} | awk -v FS=':' -v OFS='\t' '{print $1,$2-1,$2}' > known_variants.bed
+	
+	# Index bed file
 	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk IndexFeatureFile \
-		-I $(basename ${known_variants})
+		-I known_variants.bed
 	
 	# Make sure known sites file is indexed
 	#bcftools index $(basename ${known_variants})
@@ -527,7 +530,7 @@ if [[ "$recalibrate" = true ]]; then
 	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk BaseRecalibrator \
 		-I ${Sample}.realigned.bam \
 		-R $(basename ${ReferenceGenome}) \
-		-known-sites $(basename ${known_variants}) \
+		-known-sites known_variants.bed \
 		-O ${Sample}.recal_data.table1 
 
 	# Run BQSR to recalibrate quality scores
@@ -542,7 +545,7 @@ if [[ "$recalibrate" = true ]]; then
 	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk BaseRecalibrator \
 		-I ${Sample}.recal.bam \
 		-R $(basename ${ReferenceGenome}) \
-		-known-sites $(basename ${known_variants}) \
+		-known-sites known_variants.bed \
 		-O ${Sample}.recal_data.table2 
 
 	# make before and after plot
@@ -554,7 +557,8 @@ if [[ "$recalibrate" = true ]]; then
 	mv ${Sample}.recal.bam ${Sample}.bam 
     
     mkdir recal
-    cp ${Sample}.recal_data.table* recal
+    cp ${Sample}.recal_data.table* recal/.
+	cp ${Sample}.recalplots.pdf recal/.
     cp -r recal ${outdir}/qc/.
 
 else
@@ -583,54 +587,6 @@ cp -r stats ${outdir}/qc/.
 # Copy BAM files back to drive
 cp ${Sample}.bam ${outdir}/bams/.
 cp ${Sample}.bam.bai ${outdir}/bams/.
-
-#--------------------------------------------------------------------------------
-#-                 		 	Create pileups per sample                     		-
-#--------------------------------------------------------------------------------
-# TODO: In future versions this could be done per sample?
-
-#mkdir ${outdir}/pileup
-#module purge
-#module load SAMtools/1.18-GCC-12.3.0
-
-#samtools mpileup -a -f "$(basename "${ReferenceGenome}")" -o ${Sample}.pileup ${Sample}.bam 
-
-# Copy pilup file back to drive
-#cp ${Sample}.pileup ${outdir}/pileup/.
-#--------------------------------------------------------------------------------
-#-                 		 		Infer GLs per sample           		      		-
-#--------------------------------------------------------------------------------
-# TODO: in future verisons this could be done per sample?
-# GL's are only a per sample measure
-#mkdir ${outdir}/gl
-
-#module purge
-#module load BCFtools/1.18-GCC-12.3.0
-#bcftools mpileup -f "$(basename "${ReferenceGenome}")" ${Sample}.bam 
-
-#--------------------------------------------------------------------------------
-#-                 		 	Call variants per sample                     		-
-#--------------------------------------------------------------------------------
-# This step calls variants on a per sample basis using GATK haplotypecaller
-# TODO: Replace with bcftools/samtools?
-
-if [[ "$call_variants" = true ]]; then
-	module purge
-	module load shifter/22.02.1
-
-	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk --java-options "-Xmx20G" HaplotypeCaller \
-	  -R $(basename ${ReferenceGenome}) \
-	  -I ${Sample}.bam \
-	  -O ${Sample}.g.vcf.gz \
-	  --native-pair-hmm-threads ${SLURM_CPUS_PER_TASK} \
-	  --min-base-quality-score 15 \
-	  -ERC GVCF
-	  
-	  cp ${Sample}.g.vcf.gz ${outdir}/gvcf/.
-	  cp ${Sample}.g.vcf.gz.tbi ${outdir}/gvcf/.
-else
-	echo skipping variant calling
-fi
 
 # Output useful job stats
 /usr/local/bin/showJobStats.scr 
