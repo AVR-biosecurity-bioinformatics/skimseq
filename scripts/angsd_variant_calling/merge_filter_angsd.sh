@@ -6,7 +6,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -145,11 +145,13 @@ pwd
 # Make directories for outputs
 mkdir -p ${output}
 
-# Load modules 
-module load GSL/2.7-GCC-11.2.0
-module load HTSlib/1.15-GCC-11.2.0
-module load BCFtools/1.15-GCC-11.2.0
-module load Rust/1.75.0-GCCcore-12.3.0
+#Load Modules
+module purge
+module load GSL/2.8-GCC-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load HTSlib/1.21-GCC-13.3.0
+module load BCFtools/1.21-GCC-13.3.0
+module load Rust/1.78.0-GCCcore-13.3.0
 
 #--------------------------------------------------------------------------------
 #-                             Create interval list                             -
@@ -227,6 +229,42 @@ if [ $starting_pos -eq $merged_pos ]; then
     echo $starting_pos positions in starting beagle files and $merged_pos positions in merged beagle file
 else
     echo ERROR: $starting_pos positions in starting beagle files and $merged_pos positions in merged beagle file
+    #exit 1
+fi
+
+
+#--------------------------------------------------------------------------------
+#-                              Merge VCF files                                 -
+#--------------------------------------------------------------------------------
+# VCF files made with -doBcf 1 then converted to vcf
+echo merging VCF files
+
+# Create nsnp file
+echo -n "" > nsnp.txt
+
+# Count number of starting positions
+while read i; do
+  file=$(cat ${manifest} | grep $i | sed -e 's/.beagle.gz/.vcf.gz/g')
+  # if file exists - add it to merged file
+  if [ ! -z "$file" ]
+  then
+    bcftools query -f '%POS\n' ${file} | wc -l >> nsnp.txt
+  fi
+done <interval_list.txt
+
+# Run bcftools concat 
+cat ${manifest} | sed -e 's/.beagle.gz/.vcf.gz/g' > file.list
+bcftools concat -f file.list -a --threads ${SLURM_CPUS_PER_TASK} -Ou | bcftools sort -Oz -o ${output}/${Sample}.vcf.gz
+
+# Check how many SNPS in starting and merged files
+
+starting_pos=$(awk '{s+=$1} END {print s}' nsnp.txt)
+merged_pos=$(bcftools query -f '%POS\n' ${output}/${Sample}.vcf.gz | wc -l)
+
+if [ $starting_pos -eq $merged_pos ]; then
+    echo $starting_pos positions in starting vcf files and $merged_pos positions in merged vcf file
+else
+    echo ERROR: $starting_pos positions in starting vcf files and $merged_pos positions in merged vcf file
     #exit 1
 fi
 
@@ -337,7 +375,7 @@ cat snps.txt | awk -v FS='\t' -v OFS='\t' '{print $1,$2-1,$2}' > snps.bed
 # NGS paralog mask
 # Calculate BH corrected pvals for the lr's
 module purge
-module load R/4.1.0-foss-2021a
+module load R/4.4.2-gfbf-2024a
 
 cat tmp.snpstats | awk -v FS='\t' -v OFS='\t' '{ print $1,$2,$32}' > ngsparalog.lr
 echo -e "input_args <- commandArgs(TRUE)
@@ -355,9 +393,12 @@ Rscript --vanilla lrpval.R ngsparalog.lr
 
 # Create bed file for masking sites within 1kb of significant paralogs
 module purge 
-module load BEDTools/2.30.0-GCC-11.2.0
+module load BEDTools/2.31.1-GCC-13.3.0
 awk -v 'OFS=\t' -v 'FS=\t' '$5 < 0.001 {start = $2 - 1000; if (start < 0) start = 0; end = $2 + 1000; print $1, start, end}' tmp.lr > signif.bed
 bedtools merge -i signif.bed > paralog_mask.bed
+
+# Print number of sites in mask
+echo $(cat paralog_mask.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in paralog_mask
 
 # Intersect the SNPs with the merged mask file
 bedtools intersect -a snps.bed -b paralog_mask.bed -wa -wb > snps_overlaps.bed
@@ -369,6 +410,8 @@ awk 'NR==FNR{overlap[$1"\t"$2]=$0; next} ($1"\t"$2) in overlap {print 1; next} {
 # If repeat mask is provided, check if SNPs are in mask files
 if [[ "$mask_repeats" = true ]]; then
 	cat ${repeat_mask} > repeat_mask.bed
+	echo $(cat repeat_mask.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in repeat_mask
+
 	# intersect the SNPs with the merged mask file
     bedtools intersect -a snps.bed -b repeat_mask.bed -wa -wb > snps_overlaps.bed
 
@@ -390,6 +433,8 @@ fi
 # If mapping mask is provided, check if SNPs are in mask files
 if [[ "$mask_mapping" = true ]]; then
 	cat ${mapping_mask} > mapping_mask.bed
+	echo $(cat mapping_mask.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in mapping_mask
+
 
 	# intersect the SNPs with the merged mask file
     bedtools intersect -a snps.bed -b mapping_mask.bed -wa -wb > snps_overlaps.bed
@@ -414,7 +459,8 @@ if [[ "$keep_autosomes" = true ]]; then
 
 	# Create a bed file of non-autosomes
 	cat ${ReferenceGenome}.fai | grep -v ${autosome} | awk -v FS='\t' -v OFS='\t' '{print $1,0,$2}' > auto_mask.bed
-	
+	echo $(cat auto_mask.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in auto_mask
+
 	# intersect the SNPs with the merged mask file
     bedtools intersect -a snps.bed -b auto_mask.bed -wa -wb > snps_overlaps.bed
 
@@ -469,6 +515,36 @@ awk '{
 
 # Copy updated snpstats  to output
 cat tmp2.snpstats | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.snpstats.gz
+
+#--------------------------------------------------------------------------------
+#-                        		  Non-snp sitelists		                        -
+#--------------------------------------------------------------------------------		 
+
+# Get a bed file of the entire reference genome
+cat ${ReferenceGenome}.fai | awk -v FS='\t' -v OFS='\t' '{print $1,0,$2}' > ref_sites.bed
+
+module purge 
+module load BEDTools/2.31.1-GCC-13.3.0
+
+# Create a union of all the masks
+echo -n > all_masks.bed
+cat paralog_mask.bed >> all_masks.bed
+cat repeat_mask.bed >> all_masks.bed 
+cat mapping_mask.bed >> all_masks.bed
+cat auto_mask.bed >> all_masks.bed
+echo $(cat all_masks.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in all_masks
+
+# Sort and merge the different masks
+bedtools sort -i all_masks.bed > all_masks_sorted.bed
+bedtools merge -i all_masks_sorted.bed > all_masks_merged.bed
+
+echo $(cat all_masks_merged.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in all_masks_merged
+
+# Keep reference genome sites that arent in combined masks
+bedtools subtract -a ref_sites.bed -b all_masks_merged.bed > ${Sample}_allsites_masked.bed
+echo $(cat ${Sample}_allsites_masked.bed | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}' | wc -l) sites in ${Sample}_allsites_masked.bed
+
+cp ${Sample}_allsites_masked.bed ${output}/.
 
 #--------------------------------------------------------------------------------
 #-                        		Filter SNPs 			                        -
@@ -597,36 +673,8 @@ cat ${Sample}.filtered.sites | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $2}' | pigz
 cp *_filtsummary.txt.gz ${output}/.
 
 #--------------------------------------------------------------------------------
-#-                        		  Non-snp sitelists		                        -
-#--------------------------------------------------------------------------------		 
-
-# Get a bed file of the entire reference genome
-cat ${ReferenceGenome}.fai | awk -v FS='\t' -v OFS='\t' '{print $1,0,$2}' > ref_sites.bed
-
-module purge 
-module load BEDTools/2.30.0-GCC-11.2.0
-
-# Create a union of all the masks
-echo -n > all_masks.bed
-cat paralog_mask.bed >> all_masks.bed
-cat repeat_mask.bed >> all_masks.bed 
-cat mapping_mask.bed >> all_masks.bed
-cat auto_mask.bed >> all_masks.bed
-
-# Sort and merge the different masks
-bedtools sort -i all_masks.bed > all_masks_sorted.bed
-bedtools merge -i all_masks_sorted.bed > all_masks_merged.bed
-
-# Keep reference genome sites that arent in combined masks
-bedtools subtract -a ref_sites.bed -b all_masks_merged.bed > ${Sample}_allsites_masked.bed
-
-cp ${Sample}_allsites_masked.bed ${output}/.
-#--------------------------------------------------------------------------------
 #-                        		  LD pruning			                        -
 #--------------------------------------------------------------------------------
-module purge
-module load HTSlib/1.15-GCC-11.2.0
-
 ## Use only the sites that pass all filters
 cat ${Sample}.filtered.sites | sed 's/:/\t/g' | tail -n+2 | sort -V -k1,1 -k2,2 | sed 's/\t/_/g'  > to_keep
 
@@ -637,7 +685,8 @@ pigz tmp.beagle -p ${SLURM_CPUS_PER_TASK} --fast
 
 # Use PCAngsd to estimate the best number of principal components and calculate genotype posteriors
 module purge
-module load Python/3.11.3-GCCcore-12.3.0
+module load Python/3.12.3-GCCcore-13.3.0
+
 /home/ap0y/.local/bin/pcangsd -b tmp.beagle.gz -o ${Sample}.pcangsd --threads ${SLURM_CPUS_PER_TASK} \
  --maf 0 \
  --inbreed-sites \
@@ -647,7 +696,7 @@ module load Python/3.11.3-GCCcore-12.3.0
  --pi-save \
  --maf-save \
  --admix
-  
+ 
 # Get number of eigenvectors used
 k=$(grep "using [0-9]\+ eigenvectors" ${Sample}.pcangsd.log | awk '{print $(NF-1)}')
 
@@ -703,37 +752,116 @@ cp ${Sample}.pcangsd* ${output}/.
 #cp combined.pcangsd.geno.npy tempF.npy
 #python convert.py
 
-# Calculate ancestry adjusted LD using PCAone
-
-# Create Bim file for PCAone
+# Calculate ancestry adjusted LD using PCAone - pruning by higher maf
 cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4, $5, $7}'  \
 | grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3, $4}' > ${Sample}.post.beagle.gz.bim
 
-# PCAone calculating adjusted residuals (--ld-stats 0)
-# Run PCAone and calculate residuals
+# PCAone LD adjusted residuals (--ld-stats 0)
 /home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 0 --ld -o ${Sample} --svd 1
 
-# TODO: Can i do these two steps below together?
-
-## Report LD statistics using standard method
+# Report LD
 /home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
 
 # Prune based on adjusted LD - Keeping higher maf sites first
 /home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
 
 echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
+cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.adjmafld.sites.gz
+
+
+
+# Calculate ancestry adjusted LD using PCAone - pruning randomly
+cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4, $5, $7}'  \
+| grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3}' > ${Sample}.post.beagle.gz.bim
+
+# PCAone LD adjusted residuals (--ld-stats 0)
+/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 0 --ld -o ${Sample} --svd 1
+
+# Report LD
+/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+
+# Prune based on adjusted LD - Keeping higher maf sites first
+/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+
+echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
+cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.adjld.sites.gz
+
+
+
+# Calculate standard LD using PCAone - pruning by higher maf
+cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4, $5, $7}'  \
+| grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3, $4}' > ${Sample}.post.beagle.gz.bim
+
+# PCAone LD adjusted residuals (--ld-stats 0)
+/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 1 --ld -o ${Sample} --svd 1
+
+# Report LD
+/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+
+# Prune based on adjusted LD - Keeping higher maf sites first
+/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+
+echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
+cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.stdmafld.sites.gz
+
+
+
+# Calculate ancestry adjusted LD using PCAone - pruning randomly
+cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4, $5, $7}'  \
+| grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3}' > ${Sample}.post.beagle.gz.bim
+
+# PCAone LD adjusted residuals (--ld-stats 0)
+/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 1 --ld -o ${Sample} --svd 1
+
+# Report LD
+/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+
+# Prune based on adjusted LD - Keeping higher maf sites first
+/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+
+echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
+cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.stdld.sites.gz
+
+# Thinning SNPs instead
+thin_dist=10000
+# Initialize variables and files
+prev_chromosome=""
+last_position=0
+touch ${Sample}.thinned.sites
+
+# Loop through each line in the file (after sorting by chromosome and position)
+sort -t ':' -k1,1 -k2,2n ${Sample}.filtered.sites | while read -r line; do
+    # Extract chromosome and position from the line
+    chromosome=$(echo "$line" | cut -d':' -f1)
+    position=$(echo "$line" | cut -d':' -f2)
+
+    # If this is the first site for a chromosome or if it's greater than 10,000 from the last selected position
+    if [[ "$chromosome" != "$prev_chromosome" ]] || (( position - last_position >= ${thin_dist} )); then
+        # Print the site to the output file
+        echo "$line" >> ${Sample}.thinned.sites
+        # Update the last selected position
+        last_position=$position
+        # Update the previous chromosome
+        prev_chromosome="$chromosome"
+    fi
+done
+
+cat ${Sample}.filtered.sites | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.filtered.sites 
+
+#cp ${Sample}.cov ${output}/${Sample}.pcaone.cov
+#cp ${Sample}.log ${output}/${Sample}.pcaone.log
+
 
 # TODO: Should i add a thinning step that sets LD between all snps less than 1kb away to high?
 # TODO: Run PCAngsd again on pruned SNPs?
 
 # Do i need to keep all of these? or just eigvals, eigvecs2, and sites?
-cp ${Sample}.cov ${output}/${Sample}.pcaone.cov
+
+
 #cp ${Sample}.eigvals ${output}/${Sample}.pcaone.eigvals
 #cp ${Sample}.eigvecs ${output}/${Sample}.pcaone.eigvecs
 #cp ${Sample}.eigvecs2 ${output}/${Sample}.pcaone.eigvecs2
-cp ${Sample}.log ${output}/${Sample}.pcaone.log
-cp ${Sample}.ld.gz ${output}/${Sample}.pcaone.ld.gz
-cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.pruned.sites.gz
+#cp ${Sample}.ld.gz ${output}/${Sample}.pcaone.ld.gz
 
 # Output useful job stats
 /usr/local/bin/showJobStats.scr 

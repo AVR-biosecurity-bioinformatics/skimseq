@@ -6,7 +6,7 @@
 #SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -79,7 +79,7 @@ exit_abnormal() {
 
 # Get input options
 OPTIND=1
-while getopts ":R:I:O:" options; do       
+while getopts ":R:I:O:q:m:" options; do       
   # use silent error checking;
   case "${options}" in
     R)                             
@@ -99,6 +99,14 @@ while getopts ":R:I:O:" options; do
     O)
       output=${OPTARG}
       echo output=${output}
+    ;;
+	q)
+      basequal=${OPTARG}
+      echo basequal=${basequal}
+    ;;
+    m)
+      mapqual=${OPTARG}
+      echo mapqual=${mapqual}
     ;;
 	:) 
 	# Exit If expected argument omitted
@@ -144,13 +152,10 @@ sleep 5
 cp ${ReferenceGenome}.fai .
 
 #Load Modules
-
-
-#module load angsd/0.933-GCC-9.3.0
-
 module purge 
-module load parallel/20210722-GCCcore-11.2.0
-module load SAMtools/1.15-GCC-11.2.0
+module load parallel/20240722-GCCcore-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load angsd/20250306-GCC-13.3.0
 
 # Copy files across, then index
 cat ${outname}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "cp {} . && samtools index ./{/.}.bam && echo copied {/.}"
@@ -161,28 +166,24 @@ samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
 #--------------------------------------------------------------------------------
 #-                                GetFASTA                                      -
 #--------------------------------------------------------------------------------
-module purge
-module load GSL/2.7-GCC-11.2.0
-module load SAMtools/1.15-GCC-11.2.0
-module load HTSlib/1.15-GCC-11.2.0
 
 # Keep only sites present in half of samples
 nind=$(cat ${outname}_bams.txt | wc -l)
 nind=$(( nind / 2 ))
 
 # launch angsd (local github version) 
-/home/ap0y/angsd/angsd/angsd -bam ${outname}_bams.txt \
--ref $(basename ${ReferenceGenome}) \
--minMapQ 20 -baq 2 -C 50 -minQ 20 \
--remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
--doMaf 1 -doMajorMinor 1 \
---ignore-RG 0 \
--doCounts 1 -SNP_pval 1.0 -minMaf 0 \
--GL 2 -minind ${nind} \
--nThreads ${SLURM_CPUS_PER_TASK} \
--doFasta 2 \
--explode 1 \
--out ${outname} 
+angsd -bam ${outname}_bams.txt \
+	-ref $(basename ${ReferenceGenome}) \
+	-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
+	-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
+	-doMaf 1 -doMajorMinor 1 \
+	--ignore-RG 0 \
+	-doCounts 1 -SNP_pval 1.0 -minMaf 0 \
+	-GL 2 -minind ${nind} \
+	-nThreads ${SLURM_CPUS_PER_TASK} \
+	-doFasta 2 \
+	-explode 1 \
+	-out ${outname} 
 
 #-rmSNPs 1 - dont remove all snps as this loses too much data!, just keep most coman base with doFasta2
 
@@ -191,7 +192,7 @@ pigz -d -p ${SLURM_CPUS_PER_TASK} ${outname}.fa.gz
 samtools faidx ${outname}.fa
 
 module purge
-module load seqtk/1.3-GCC-8.2.0-2.31.1
+module load seqtk/1.4-GCC-13.3.0
 
 # Count number of N bases in output
 total_bases=$(seqtk comp ${outname}.fa | awk '{sum += $2} END {print sum}')

@@ -3,10 +3,10 @@
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=400GB 
-#SBATCH --time=640:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -112,7 +112,7 @@ if [[ "$test_run" = true ]]; then
 	echo "TEST RUN - Subsetting to first chr for testing"
 	## Load BCFtools for filteering
 	module purge
-	module load BCFtools/1.9-intel-2019a
+	module load BCFtools/1.21-GCC-13.3.0
 
 	# Loop across vcf files
 	for i in $(cat to_merge.list);do 
@@ -134,8 +134,8 @@ fi
 #-                                 Merge VCFs                                   -
 #--------------------------------------------------------------------------------
 module purge
-module load BCFtools/1.12-GCC-9.3.0
-module load shifter/22.02.1
+module load BCFtools/1.21-GCC-13.3.0
+module load GATK/4.6.1.0-GCCcore-13.3.0-Java-21
 
 # Make sure the files are sorted
 rm file.list
@@ -150,10 +150,7 @@ done
 bcftools concat -a -f file.list -Oz -o ${Sample}.vcf.gz
 bcftools index ${Sample}.vcf.gz 
 
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk IndexFeatureFile -I ${Sample}.vcf.gz --verbosity ERROR
+gatk IndexFeatureFile -I ${Sample}.vcf.gz --verbosity ERROR
 
 # Count number of snps in merged vcf 
 zcat ${Sample}.vcf.gz | grep -v "^#" | wc -l
@@ -171,138 +168,108 @@ zcat ${Sample}.vcf.gz | grep -v "^#" | wc -l
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
 # Subset to biallelic SNPS-only
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk SelectVariants \
-		--verbosity ERROR \
-		-V ${Sample}.vcf.gz \
-		-select-type SNP \
-		--restrict-alleles-to BIALLELIC \
-		-O ${Sample}_snps.vcf.gz
+gatk SelectVariants \
+	--verbosity ERROR \
+	-V ${Sample}.vcf.gz \
+	-select-type SNP \
+	--restrict-alleles-to BIALLELIC \
+	-O ${Sample}_snps.vcf.gz
 
 # Extract SNP quality scores pre filtering
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk VariantsToTable \
-		--verbosity ERROR \
-		-V ${Sample}_snps.vcf.gz \
-		-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
-		-F AF -F ExcessHet \
-		-O ${Sample}_snps.table
+gatk VariantsToTable \
+	--verbosity ERROR \
+	-V ${Sample}_snps.vcf.gz \
+	-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
+	-F AF -F ExcessHet \
+	-O ${Sample}_snps.table
 
 pigz -p${SLURM_CPUS_PER_TASK} ${Sample}_snps.table
 
 # Hard-filter SNPs
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk VariantFiltration \
-		--verbosity ERROR \
-		-V ${Sample}_snps.vcf.gz \
-		-filter "QD < 2.0" --filter-name "QD2" \
-		-filter "QUAL < 30.0" --filter-name "QUAL30" \
-		-filter "SOR > 3.0" --filter-name "SOR3" \
-		-filter "FS > 60.0" --filter-name "FS60" \
-		-filter "MQ < 40.0" --filter-name "MQ40" \
-		-filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" \
-		-filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" \
-		-filter "AF < 0.05" --filter-name "MAF005" \
-		-filter "ExcessHet > 54.69" --filter-name "ExcessHet" \
-		-filter "DP < 6" --filter-name "DPmin" \
-		-filter "DP > 1500" --filter-name "DPmax" \
-		-O ${Sample}_snps_tmp.vcf.gz
+gatk VariantFiltration \
+	--verbosity ERROR \
+	-V ${Sample}_snps.vcf.gz \
+	-filter "QD < 2.0" --filter-name "QD2" \
+	-filter "QUAL < 30.0" --filter-name "QUAL30" \
+	-filter "SOR > 3.0" --filter-name "SOR3" \
+	-filter "FS > 60.0" --filter-name "FS60" \
+	-filter "MQ < 40.0" --filter-name "MQ40" \
+	-filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" \
+	-filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" \
+	-filter "AF < 0.05" --filter-name "MAF005" \
+	-filter "ExcessHet > 54.69" --filter-name "ExcessHet" \
+	-filter "DP < 6" --filter-name "DPmin" \
+	-filter "DP > 1500" --filter-name "DPmax" \
+	-O ${Sample}_snps_tmp.vcf.gz
 
 # Transform filtered genotypes to nocall and keep only those with <5% missing data
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk SelectVariants \
-		--verbosity ERROR \
-		-V ${Sample}_snps_tmp.vcf.gz \
-		--set-filtered-gt-to-nocall \
-		--max-nocall-fraction 0.05 \
-		--exclude-filtered \
-		-O ${Sample}_snps_filtered.vcf.gz 
+gatk SelectVariants \
+	--verbosity ERROR \
+	-V ${Sample}_snps_tmp.vcf.gz \
+	--set-filtered-gt-to-nocall \
+	--max-nocall-fraction 0.05 \
+	--exclude-filtered \
+	-O ${Sample}_snps_filtered.vcf.gz 
 
 # Extract SNP quality scores post filtering
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk VariantsToTable \
-		--verbosity ERROR \
-		-V ${Sample}_snps_filtered.vcf.gz \
-		-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
-		-F AF -F ExcessHet \
-		-O ${Sample}_snps_filtered.table
+gatk VariantsToTable \
+	--verbosity ERROR \
+	-V ${Sample}_snps_filtered.vcf.gz \
+	-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
+	-F AF -F ExcessHet \
+	-O ${Sample}_snps_filtered.table
 
 pigz -p${SLURM_CPUS_PER_TASK} ${Sample}_snps_filtered.table
 
 # Subset to biallelic INDELS 
 #NOTE: MIXED events (INDEL + SNP) will be lost
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk SelectVariants \
-		--verbosity ERROR \
-		-V ${Sample}.vcf.gz \
-		-select-type INDEL \
-		--restrict-alleles-to BIALLELIC \
-		-O ${Sample}_indels.vcf.gz 
+gatk SelectVariants \
+	--verbosity ERROR \
+	-V ${Sample}.vcf.gz \
+	-select-type INDEL \
+	--restrict-alleles-to BIALLELIC \
+	-O ${Sample}_indels.vcf.gz 
 
 # Extract INDEL quality scores pre filtering
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk VariantsToTable \
-		--verbosity ERROR \
-		-V ${Sample}_indels.vcf.gz \
-		-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
-		-F AF -F ExcessHet \
-		-O ${Sample}_indels.table
+gatk VariantsToTable \
+	--verbosity ERROR \
+	-V ${Sample}_indels.vcf.gz \
+	-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
+	-F AF -F ExcessHet \
+	-O ${Sample}_indels.table
 
 pigz -p${SLURM_CPUS_PER_TASK} ${Sample}_indels.table
 
 # Hard-filter INDELS
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk VariantFiltration \
-		--verbosity ERROR \
-		-V ${Sample}_indels.vcf.gz \
-		-filter "QD < 2.0" --filter-name "QD2" \
-		-filter "QUAL < 30.0" --filter-name "QUAL30" \
-		-filter "FS > 200.0" --filter-name "FS200" \
-		-filter "ReadPosRankSum < -20.0" --filter-name "ReadPosRankSum-20" \
-		-filter "AF <0.05" --filter-name "MAF005" \
-		-filter "ExcessHet > 54.69" --filter-name "ExcessHet" \
-		-filter "DP < 6" --filter-name "DPmin" \
-		-filter "DP > 1500" --filter-name "DPmax" \
-		-O ${Sample}_indels_tmp.vcf.gz
+gatk VariantFiltration \
+	--verbosity ERROR \
+	-V ${Sample}_indels.vcf.gz \
+	-filter "QD < 2.0" --filter-name "QD2" \
+	-filter "QUAL < 30.0" --filter-name "QUAL30" \
+	-filter "FS > 200.0" --filter-name "FS200" \
+	-filter "ReadPosRankSum < -20.0" --filter-name "ReadPosRankSum-20" \
+	-filter "AF <0.05" --filter-name "MAF005" \
+	-filter "ExcessHet > 54.69" --filter-name "ExcessHet" \
+	-filter "DP < 6" --filter-name "DPmin" \
+	-filter "DP > 1500" --filter-name "DPmax" \
+	-O ${Sample}_indels_tmp.vcf.gz
 
 # Transform filtered genotypes to nocall and keep only those with <5% missing data
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk SelectVariants \
-		--verbosity ERROR \
-		-V ${Sample}_indels_tmp.vcf.gz \
-		--set-filtered-gt-to-nocall \
-		--max-nocall-fraction 0.05 \
-		--exclude-filtered \
-		-O ${Sample}_indels_filtered.vcf.gz
+gatk SelectVariants \
+	--verbosity ERROR \
+	-V ${Sample}_indels_tmp.vcf.gz \
+	--set-filtered-gt-to-nocall \
+	--max-nocall-fraction 0.05 \
+	--exclude-filtered \
+	-O ${Sample}_indels_filtered.vcf.gz
 
 # Extract INDEL SNP quality scores post filtering
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk VariantsToTable \
-		--verbosity ERROR \
-		-V ${Sample}_indels_filtered.vcf.gz \
-		-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
-		-F AF -F ExcessHet \
-		-O ${Sample}_indels_filtered.table
+gatk VariantsToTable \
+	--verbosity ERROR \
+	-V ${Sample}_indels_filtered.vcf.gz \
+	-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
+	-F AF -F ExcessHet \
+	-O ${Sample}_indels_filtered.table
 
 pigz -p${SLURM_CPUS_PER_TASK} ${Sample}_indels_filtered.table 
 
@@ -329,6 +296,49 @@ I=${Sample}_indels_filtered_tmp.vcf.gz \
 O=${Sample}_filtered.vcf.gz
 
 rm *tmp.vcf.gz*
+
+#--------------------------------------------------------------------------------
+#-                                 Create Beagle files                          -
+#--------------------------------------------------------------------------------
+# NOTE: This code should instead be conducted 
+
+# Create beagle style genotype likelihood file for use with angsd
+module load BCFtools/1.21-GCC-13.3.0
+
+# Start with the genotype probabilities GVCF
+
+# Remove <NON_REF> alleles at sites with variants but retain them at HOM REF
+# then remove multiallelic sites, indel sites, sites with no depth, and spanning indels '*'
+# NOTE should i replace sites with star alleles to <NON_REF> rather than filtering them out altogether?
+bcftools view -A ${outname}.g.vcf.gz | bcftools view -m2 -M2 --exclude-types indels -e 'sum(FMT/DP) == 0 || ALT=="*"'  -o filtered_output.vcf
+
+# Count the types of variants that made it through
+#bcftools query -f '%ALT\n' filtered_output.vcf | sort | uniq -c
+#bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\n' filtered_output.vcf 
+
+# PP fields isnt filled for missing data, so replace with a uniform prior
+bcftools query -f '%CHROM\t%POS[\t%PP]' filtered_output.vcf | awk -F'\t' 'BEGIN {OFS="\t"} {for(i=3; i<=NF; i++) if ($i == ".") $i="0,0,0"; print $0}' | bgzip > udpdated_pp.txt.gz
+
+# Index the file with tabix
+tabix -s1 -b2 -e2 udpdated_pp.txt.gz
+
+# Replace the PP field with the updated ones
+bcftools annotate -a udpdated_pp.txt.gz -c CHROM,POS,FORMAT/PP filtered_output.vcf -o filtered_output_updated.vcf
+
+# Drop existing PL tag and change the name of the PP tag to PL 
+# NOTE - Skip this step if a genotype likelihood rather than posterior file is required
+echo FORMAT/PP PL > rename_file
+bcftools annotate -x FORMAT/PL --rename-annots rename_file filtered_output_updated.vcf > filtered_output_posteriors.vcf
+
+# Use BCFtools to convert phred scaled likelihoods into probabilities (similar to beagle file)
+bcftools +tag2tag filtered_output_posteriors.vcf -- -r --pl-to-gp > filtered_rescaled.vcf
+
+# Expand gvcf reference blocks
+bcftools convert --gvcf2vcf filtered_rescaled.vcf --fasta-ref ${ReferenceGenome} > expanded.vcf
+
+# Create beagle file of posterior probabilities
+paste -d '\t' <(echo -e "marker\tallele1\tallele2") <(bcftools query -l expanded.vcf  | awk '{for(i=1; i<=3; i++) print $0}' | tr '\n' '\t') > ${outname}.beagle
+bcftools query -f '%CHROM:%POS\t%REF\t%ALT[\t%GP]\n' expanded.vcf | tr ',' '\t' >> ${outname}.beagle
 
 #--------------------------------------------------------------------------------
 #-                                  LD Pruning                                  -

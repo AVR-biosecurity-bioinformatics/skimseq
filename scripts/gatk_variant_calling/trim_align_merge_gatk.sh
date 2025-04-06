@@ -3,10 +3,10 @@
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=20gb
-#SBATCH --time=240:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -44,6 +44,8 @@ fi
 # Get sample info from submission
 FullSampleName=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
 Sample=$(basename $FullSampleName | sed 's/_S[0-9].*$//')  # | cut -d'_' -f1
+
+# NOTE THIS CAUSES INCOMPATIBILITY WITH OLD DATA - WHERE SAMPLE NAME IS PRECEDED BY FLOWCELL
 SequencePath=$( find $(/usr/bin/ls -d ${SLURM_SUBMIT_DIR}/fastq) -maxdepth 3 -name '*.fastq.gz' -type f | grep /${Sample}_ | sort | uniq )
 
 echo FullSampleName=${FullSampleName}
@@ -185,7 +187,7 @@ cat ${Sample}_R1.txt
 if [[ "$test_run" = true ]]; then
 	echo "TEST RUN - SUBSAMPLING ALL FASTQS"
 	module purge
-	module load BBMap/38.87-GCCcore-8.2.0
+	module load BBMap/39.17-GCC-13.3.0
 	
 	# Loop across fastq files
 	for R1 in $(cat ${Sample}_R1.txt ) ;do 
@@ -207,7 +209,7 @@ if [[ "$run_fastqc" = true ]]; then
 	
   # Load modules
   module purge
-  module load FastQC/0.11.8-Java-1.8
+  module load FastQC/0.12.1-Java-11
   
   # Run FastQC on all fastq files
   mkdir fastqc_pretrim
@@ -226,7 +228,7 @@ fi
 # This step uses the fastp tool to quality filter reads, and remove adapters and polyG tails
 # Load modules
 module purge
-module load fastp/0.20.0-foss-2019a
+module load fastp/0.23.4-GCC-13.3.0
 
 mkdir fastp
 # Loop across fastq files
@@ -271,7 +273,7 @@ if [[ "$run_fastqc" = true ]]; then
 	
   # Load modules
   module purge
-  module load FastQC/0.11.8-Java-1.8
+  module load FastQC/0.12.1-Java-11
   
   # Run FastQC on all fastq files
   mkdir fastqc_posttrim
@@ -294,9 +296,9 @@ if [[ "$align_mito" = true ]]; then
 
 	## Load modules
 	module purge
-	module load BWA/0.7.17-intel-2019a
-	module load SAMtools/1.18-GCC-12.3.0
-	module load BCFtools/1.12-GCC-9.3.0
+	module load BWA/0.7.18-GCCcore-13.3.0
+	module load SAMtools/1.21-GCC-13.3.0
+	module load BCFtools/1.21-GCC-13.3.0
 
 	# Loop across fastq files
 	for R1 in $(cat ${Sample}_R1.txt ) ;do 
@@ -373,8 +375,8 @@ if [[ "$align_genome" = true ]]; then
 
 	# Load modules
 	module purge
-	module load BWA/0.7.17-intel-2019a
-	module load SAMtools/1.18-GCC-12.3.0
+	module load BWA/0.7.18-GCCcore-13.3.0
+	module load SAMtools/1.21-GCC-13.3.0
 
 	for R1 in $(cat ${Sample}_R1.txt ) ;do 
 		R2=$(echo ${R1} | sed -r 's/_R1_/_R2_/g')                                                                                               
@@ -445,6 +447,10 @@ fi
 if [[ "$extract_unaligned" = true ]]; then
 	echo extracting unaligned reads
 
+	module purge
+	module load BWA/0.7.18-GCCcore-13.3.0
+	module load SAMtools/1.21-GCC-13.3.0
+	
 	# Extract unaligned reads
 	samtools bam2fq -@ ${SLURM_CPUS_PER_TASK} -1 ${Sample}.unmapped.R1.fastq.gz -2 ${Sample}.unmapped.R2.fastq.gz -0 /dev/null -s /dev/null -f12 ${Sample}.merged.bam
 
@@ -470,19 +476,15 @@ if [[ "$recalibrate" = true ]]; then
 	echo Using known variants from ${known_variants} to recalibrate base qualities
 	module purge
 	module load GATK/4.6.1.0-GCCcore-13.3.0-Java-21
-	module load R/4.2.0-foss-2021b
-	#module load BCFtools/1.12-GCC-9.3.0
+	module load R/4.4.2-gfbf-2024a
 
 	# Transform sitelist into bed file
 	pigz -cd ${known_variants} -p ${SLURM_CPUS_PER_TASK} | awk -v FS=':' -v OFS='\t' '{print $1,$2-1,$2}' > known_variants.bed
 	
-	
+	# Index bed file
 	gatk IndexFeatureFile \
 		-I known_variants.bed
 	
-	# Make sure known sites file is indexed
-	#bcftools index $(basename ${known_variants})
-
 	# Create recalibration table
 	gatk BaseRecalibrator \
 		-I ${Sample}.realigned.bam \
@@ -520,18 +522,18 @@ if [[ "$recalibrate" = true ]]; then
 
 else
 	echo no known_variants file provided skipping base quality recalibration
-	mv ${Sample}.realigned.bam ${Sample}.bam 
+	mv ${Sample}.merged.bam ${Sample}.bam 
 fi
 
-# Remove realigned bam
-rm ${Sample}.realigned.bam
+# Remove merged bam
+rm ${Sample}.merged.bam
 
 #--------------------------------------------------------------------------------
 #-                 			Generate BAM stats 			   			            -
 #--------------------------------------------------------------------------------
 # This final step ensures the BAM is indexed properly and outputs coverage statistics
 module purge
-module load SAMtools/1.18-GCC-12.3.0
+module load SAMtools/1.21-GCC-13.3.0
 
 # Index final BAM
 samtools index -@ ${SLURM_CPUS_PER_TASK} ${Sample}.bam ${Sample}.bam.bai
@@ -550,7 +552,6 @@ cp ${Sample}.bam.bai ${outdir}/bams/.
 #-                 		 	Call variants per sample                     		-
 #--------------------------------------------------------------------------------
 # This step calls variants on a per sample basis using GATK haplotypecaller
-# TODO: Replace with bcftools/samtools?
 
 module purge
 module load GATK/4.6.1.0-GCCcore-13.3.0-Java-21

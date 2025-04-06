@@ -6,7 +6,7 @@
 #SBATCH --time=48:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -190,7 +190,7 @@ cd ${tmp_dir}
 pwd
 
 ## Create list of BAMS for input job
-find "$(/usr/bin/ls -d ${indir})" | grep -F -f "${bamlist}" | grep -E "($(tr '\n' '|' < ${bamlist} | sed 's/|$//')).bam$" | sort | uniq > "${Sample}_tmp.txt"
+find "$(/usr/bin/ls -d ${indir})" | grep -F -f "${bamlist}" | grep -E "/($(tr '\n' '|' < ${bamlist} | sed 's/|$//')).bam$" | sort | uniq > "${Sample}_tmp.txt"
 cat ${Sample}_tmp.txt | sed 's!.*/!!' | grep -v  ".bam.bai" | grep ".bam" > ${Sample}_bams.txt
 [[ ! -z "${Sample}" ]] && echo $(wc -l ${Sample}_bams.txt | awk '{ print$1 }') BAM files to process for ${Sample} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
 
@@ -212,16 +212,15 @@ else
 	echo 'no ancestral genome provided, making folded sfs'
 fi
 
-# Load modules 
+#Load Modules
 module purge
-module load SAMtools/1.15-GCC-11.2.0
-#module load winsfs/20230425-GCCcore-11.2.0
-module load BCFtools/1.15-GCC-11.2.0
-module load HTSlib/1.15-GCC-11.2.0
-module load parallel/20210722-GCCcore-11.2.0
-module load Rust/1.79.0-GCCcore-12.3.0
-module load seqtk/1.3-GCC-8.2.0-2.31.1
-module load BEDTools/2.30.0-GCC-11.2.0
+module load angsd/20250306-GCC-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load BCFtools/1.21-GCC-13.3.0
+module load Rust/1.78.0-GCCcore-13.3.0
+module load parallel/20240722-GCCcore-13.3.0
+module load seqtk/1.4-GCC-13.3.0
+module load BEDTools/2.31.1-GCC-13.3.0
 
 mkdir results
 #--------------------------------------------------------------------------------
@@ -232,12 +231,29 @@ if [[ $sitelist ]]; then
 	# Subset bam files to just those reads overlapping the target sites
 	echo subsetting bams to only reads overlapping target regions
 
-	# Create bedfile of target sites
-	zcat ${sitelist} | awk -F: '{OFS="\t"; print $1, $2-1, $2}' > sites.bed
+	# Check if the file is compressed
+	if [[ "${sitelist}" =~ \.gz$ ]]; then
+		# If the file is gzipped, use zcat (or gzip -dc or gunzip -c) to decompress it on the fly
+		zcat ${sitelist} > sitelist.txt
+	else
+		# If the file is not gzipped, process it directly
+		cat ${sitelist} > sitelist.txt
+	fi
 
-	# TODO: check if sitelist is already a bed!
+	# Check if the file matches BED or Sites format
+	if awk -F'\t' 'NF == 3' "sitelist.txt" > /dev/null; then
+		echo "BED file sitelist"
+		# make sure its an allsites bed
+		cat sitelist.txt | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}'  > sites.bed
+	elif grep -P '^[A-Za-z0-9\.]+:\d+$' "sitelist.txt" > /dev/null; then
+		echo "Sites file"
+		zcat ${sitelist} | awk -F: '{OFS="\t"; print $1, $2-1, $2}' > sites.bed
+	else
+		echo "Unknown format"
+	fi
+	echo Sites file contains $(cat sites.bed | wc -l) sites
+	
 	# TODO: Merge bed into tracts of consecutive sites using bedtools merge
-
 	# Run samtools view in parallel to subset and copy across, then index
 	
 	# TESTING - subset by map quality and read quality
@@ -378,46 +394,56 @@ cat "${Sample}_bams.txt" | parallel -j ${SLURM_CPUS_PER_TASK} ancestral_n {}
 
 if [[ $sitelist ]]; then
     echo "only analysing sites from ${sitelist}"
-
-    # Check if sitelist is tab delimited (augmented) or colon delimited (simple)
-    tmp=$(zcat ${sitelist} | head -1)
-    if echo "$tmp" | grep -q ':' ; then
-        echo 'Sitelist is semicolon delimited - assuming its a simple sites file'
-        # Setup sitelist if provided and run angsd
-        pigz -cd ${sitelist} -p ${SLURM_CPUS_PER_TASK} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
-    elif echo "$tmp" | grep -q '[[:space:]]' ; then
-        echo 'Sitelist is tab delimited - assuming its an augmented sites file'
-        pigz -cd ${sitelist} -p ${SLURM_CPUS_PER_TASK} | sort -V -k1,1 -k2,2n > sites.txt
-    fi
+	
+    ## Check if sitelist is tab delimited (augmented) or colon delimited (simple)
+    #tmp=$(zcat ${sitelist} | head -1)  
+    #if echo "$tmp" | grep -q ':' ; then
+    #    echo 'Sitelist is semicolon delimited - assuming its a simple sites file'
+    #    # Setup sitelist if provided and run angsd
+    #    pigz -cd ${sitelist} -p ${SLURM_CPUS_PER_TASK} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
+    #elif echo "$tmp" | grep -q '[[:space:]]' ; then
+    #    echo 'Sitelist is tab delimited - assuming its an augmented sites file'
+    #    pigz -cd ${sitelist} -p ${SLURM_CPUS_PER_TASK} | sort -V -k1,1 -k2,2n > sites.txt
+    #fi
+	
+	# Create angsd format sites file 
+	cat sites.bed | awk -v OFS="\t" -v FS="\t" '{print $1, $3}' | sort -V -k1,1 -k2,2n > sites.txt
 
     # Index sites file
-    /home/ap0y/angsd/angsd/angsd sites index sites.txt
+    angsd sites index sites.txt
 
 	# Validate these parameters - particularly for single / low sample numbers
     # Estimate SAFs - restricting to the sitelist
-	/home/ap0y/angsd/angsd/angsd -bam ${Sample}_bams.txt -sites sites.txt \
+	angsd -bam ${Sample}_bams.txt -sites sites.txt \
     -ref $(basename ${ReferenceGenome}) -anc $(basename ${AncestralGenome}) \
     -remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
     -minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
-    -SNP_pval 1.0 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
-    -doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
-    -GL 2 -doSaf 1 -domajorminor 5 -domaf 1 \
+    -GL 2 -doSaf 1 \
     -nThreads ${SLURM_CPUS_PER_TASK} \
     -out results/${outname}
-
+	
+	# Removed:
+	#-SNP_pval 1.0 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
+	#-doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
+	#-domajorminor 5 -domaf 1 \
+	#-GL 2 
 else
     echo 'Sitelist not provided, estimating sites denovo'
 
     # Estimate SAFs - estimating sites denovo
-    /home/ap0y/angsd/angsd/angsd -bam ${Sample}_bams.txt \
+    angsd -bam ${Sample}_bams.txt \
     -ref $(basename ${ReferenceGenome}) -anc $(basename ${AncestralGenome}) \
     -remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
     -minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
-    -SNP_pval 1.0 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
-    -doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
-    -GL 2 -doSaf 1 -domajorminor 5 -domaf 1 \
+    -GL 2 -doSaf 1\
     -nThreads ${SLURM_CPUS_PER_TASK} \
     -out results/${outname}
+	
+	#Removed
+	#-SNP_pval 1.0 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
+	#    -doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
+	#-domajorminor 5 -domaf 1 
+	# 
 fi
 
 #--------------------------------------------------------------------------------
@@ -480,17 +506,17 @@ cat results/${outname}.sfs | tail -n+2 > tmp.sfs
 
 # Calculate the thetas for each site
 if [[ "$folded" = true ]]; then
-	/home/ap0y/angsd/angsd/misc/realSFS saf2theta results/${outname}.saf.idx -fold 1 -sfs tmp.sfs -outname results/${outname} -P ${SLURM_CPUS_PER_TASK} 2> /dev/null
+	realSFS saf2theta results/${outname}.saf.idx -fold 1 -sfs tmp.sfs -outname results/${outname} -P ${SLURM_CPUS_PER_TASK} 2> /dev/null
 else 
 	# Calculate the thetas for each site
-	/home/ap0y/angsd/angsd/misc/realSFS saf2theta results/${outname}.saf.idx -sfs tmp.sfs -outname results/${outname} -P ${SLURM_CPUS_PER_TASK} 2> /dev/null
+	realSFS saf2theta results/${outname}.saf.idx -sfs tmp.sfs -outname results/${outname} -P ${SLURM_CPUS_PER_TASK} 2> /dev/null
 fi
 
 # If persite is set, calculate per-site thetas and heterozygosity
 if [[ "$persite" = true ]]; then
 	## Print per site thetas
 	# NOTE: Only the thetaW, thetaD, and tajimas D are meaningful for folded SFS
-	/home/ap0y/angsd/angsd/misc/thetaStat print results/${outname}.thetas.idx > persite_thetas.tsv 2> /dev/null
+	thetaStat print results/${outname}.thetas.idx > persite_thetas.tsv 2> /dev/null
 
 	# Get persite Heterozygosity
 	zcat results/${outname}.hwe.gz | awk '{print $10}' OFS="\t" > persite_hets.tsv
@@ -505,19 +531,13 @@ if [[ $winlength && $steplength ]]; then
 
 # Estimate diversity statistics for each chromosome
 # NOTE: Only the thetaW, thetaD, and tajimas D are meaningful for folded SFS
-/home/ap0y/angsd/angsd/misc/thetaStat do_stat results/${outname}.thetas.idx 2> /dev/null
+thetaStat do_stat results/${outname}.thetas.idx 2> /dev/null
 
 # Estimate diversity statistics in sliding windows
 # NOTE: Only the thetaW, thetaD, and tajimas D are meaningful for folded SFS
-/home/ap0y/angsd/angsd/misc/thetaStat do_stat results/${outname}.thetas.idx -win ${winlength} -step ${steplength} -outnames results/${outname_window}.thetasWindow 2> /dev/null
+thetaStat do_stat results/${outname}.thetas.idx -win ${winlength} -step ${steplength} -outnames results/${outname_window}.thetasWindow 2> /dev/null
 
 fi
-
-# Note Heterozygosity is just single sample 1d theta
-
-# Remove unnecessary results files
-rm results/${outname}.hwe.gz
-rm results/${outname}.snpStat.gz
 
 # Copy files back to drive
 cp -r results/* $(realpath ${outdir}/${outname}/)/.

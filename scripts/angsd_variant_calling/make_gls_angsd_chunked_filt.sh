@@ -3,10 +3,10 @@
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=80GB
-#SBATCH --time=48:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -79,7 +79,7 @@ exit_abnormal() {
 
 # Get input options
 OPTIND=1
-while getopts ":R:M:I:O:q:m:t" options; do       
+while getopts ":R:M:I:O:q:m:s:" options; do       
   # use silent error checking;
   case "${options}" in
     R)                             
@@ -112,9 +112,9 @@ while getopts ":R:M:I:O:q:m:t" options; do
       mapqual=${OPTARG}
       echo mapqual=${mapqual}
      ;;
-	t)
-	  echo "-t has been set, subsampling all fastqs for testing purposes" >&2
-	  test_run='true'
+	s)
+      subsample=${OPTARG}
+      echo subsample=${subsample}
     ;;
 	:) 
 	# Exit If expected argument omitted
@@ -173,12 +173,10 @@ cp ${ReferenceGenome}.fai .
 
 #Load Modules
 module purge
-module load GSL/2.7-GCC-11.2.0
-module load SAMtools/1.15-GCC-11.2.0
-module load HTSlib/1.15-GCC-11.2.0
-module load BCFtools/1.15-GCC-11.2.0
-module load Rust/1.75.0-GCCcore-12.3.0
-#module load angsd/0.933-GCC-9.3.0
+module load angsd/20250306-GCC-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load BCFtools/1.21-GCC-13.3.0
+module load Rust/1.78.0-GCCcore-13.3.0
 
 # Setup intervals and bed files
 echo ${interval} | tr ',' '\n' > intervals.txt
@@ -196,21 +194,65 @@ done <bams_to_process.txt
 samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
 
 #--------------------------------------------------------------------------------
-#-                                  TEST	                                    -
+#-                           Subsample to target coverage                       -
 #--------------------------------------------------------------------------------
 
-# if -t is set, all BAM files will be subset to the first chr and only 10% of data
-if [[ "$test_run" = true ]]; then
-	fractionOfReads=0.1
-	chr1=$( samtools idxstats $(ls | grep '.bam$' | grep -v '.bai' | head -n 1) | head -1 | awk -F '\t' '{print $1}')
-	echo subsampling BAMs to only ${chr1} and ${fractionOfReads} of reads for testing 
-		
-	for i in *.bam;	do 
-		samtools view -@ ${SLURM_CPUS_PER_TASK} -b1 $i ${chr1} -s $fractionOfReads > output.bam
-		mv output.bam $i
-		samtools index $i -@ ${SLURM_CPUS_PER_TASK}
-	done
+# Check if subsampling is specified
+if [[ $subsample ]]; then
+    export subsample  # Export subsample variable for use in parallel jobs
+
+    if [[ $sitelist ]]; then
+        export sitelist  # Export sitelist if it is defined
+    fi
+	
+    # Define a function to process a single BAM file
+    subsample_bam() {
+        local bam="$1"
+        local tmp_bam="$(mktemp --suffix=.bam)"  # Create a unique temporary BAM file
+
+        if [[ $sitelist ]]; then
+            # Calculate coverage for sites in BED file
+            cov=$(samtools depth -a -b sites.bed "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
+        else
+            # Calculate coverage for all sites
+            cov=$(samtools depth -a "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
+        fi
+
+        echo "Coverage for $bam: $cov"
+
+        # Check if coverage is higher than the subsample target
+        number_check=$(awk 'BEGIN{ print ('$subsample' < '$cov') }')
+        
+        if [[ "$number_check" -eq 1 ]]; then
+            # Calculate subsample factor
+            keepsample=$(awk -v cov="$cov" -v subsample="$subsample" 'BEGIN {print subsample / cov}')
+            echo "Subsampling $bam with factor: $keepsample"
+
+            # Subsample the BAM file into the unique temporary file
+            samtools view --subsample "$keepsample" -bo "$tmp_bam" "$bam"
+
+            # Calculate coverage after subsampling
+            if [[ $sitelist ]]; then
+                newcov=$(samtools depth -a -b sites.bed "$tmp_bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
+            else
+                newcov=$(samtools depth -a "$tmp_bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
+            fi
+
+            echo -e "Coverage after subsampling: ${newcov}"
+            mv "$tmp_bam" "$bam"  # Replace original BAM with subsampled BAM
+            samtools index "$bam"
+        else
+            echo "Sample coverage is below subsample value: ${subsample}, not subsampling $bam"
+        fi
+    }
+
+    export -f subsample_bam  # Export the function for GNU Parallel
+
+    # Run the function in parallel for all BAM files listed in ${Sample}_bams.txt
+    cat "${Sample}_bams.txt" | parallel -j "${SLURM_CPUS_PER_TASK:-1}" subsample_bam {}
 fi
+
+samtools quickcheck *.bam && echo 'all bams look ok' || echo 'bams are malformed!'
 
 #--------------------------------------------------------------------------------
 #-                                      Run ANGSD                               -
@@ -218,7 +260,7 @@ fi
 
 # Run angsd to get a list of likely sites, and their statistics
 # And create beagle file of genotype likelihoods
-/home/ap0y/angsd/angsd/angsd -bam ${Sample}_bams.txt -rf intervals.txt \
+angsd -bam ${Sample}_bams.txt -rf intervals.txt \
 -ref $(basename ${ReferenceGenome}) \
 -doMaf 1 -doMajorMinor 1 \
 -remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
@@ -226,6 +268,7 @@ fi
 -dosnpstat 1 -doHWE 1 -SNP_pval 1e-6 -minMaf 0 -rmTriallelic 1e-6 \
 -GL 2 -doGlf 2 \
 -doCounts 1 -doDepth 1 -dumpCounts 2 \
+-doBcf 1 -doGeno 1 -doPost 1 --ignore-RG 0 \
 -nThreads ${SLURM_CPUS_PER_TASK} \
 -out ${outname} 
 
@@ -252,13 +295,18 @@ paste -d '\t' <(echo "marker") <(zcat ${outname}.beagle.gz | head -1 | awk 'NR==
 paste -d '\t' <(pigz -cd ${outname}.beagle.gz -p ${SLURM_CPUS_PER_TASK} | tail -n+2  | awk -v 'FS=\t'  '{ print$1}') <(pigz -cd ${outname}.counts.gz -p ${SLURM_CPUS_PER_TASK} | tail -n+2 ) >> newcounts
 pigz -p ${SLURM_CPUS_PER_TASK} -c newcounts >  ${outname}.counts.gz
 
+# Convert bcf file to vcf.gz
+bcftools sort ${outname}.bcf -Oz -o ${outname}.vcf.gz
+bcftools index ${outname}.vcf.gz
+rm ${outname}.bcf
+
 #--------------------------------------------------------------------------------
 #-                            	NGSparalog		                                -
 #--------------------------------------------------------------------------------
 # Create pileup file for the likely sites from angsd
 # TODO Validate if instead inputting a pileup into angsd is faster
 module purge
-module load SAMtools/1.18-GCC-12.3.0
+module load SAMtools/1.21-GCC-13.3.0
 
 # Transform output sites from angsd into bed file
 pigz -p ${SLURM_CPUS_PER_TASK} -cd ${outname}.mafs.gz  | awk -v 'FS=\t' -v 'OFS=\t'  '{ print$1,$2}' | tail -n+2 > sites.txt
@@ -308,6 +356,7 @@ mkdir results
 mv ${outname}.beagle.gz results/.
 mv ${outname}.snpstats.gz results/.
 mv ${outname}.counts.gz results/.
+mv ${outname}.vcf.gz* results/.
 
 # Test
 #mv ${outname}.pileup results/.

@@ -3,10 +3,10 @@
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=20gb
-#SBATCH --time=240:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -193,7 +193,7 @@ cat ${Sample}_R1.txt
 if [[ "$test_run" = true ]]; then
 	echo "TEST RUN - SUBSAMPLING ALL FASTQS"
 	module purge
-	module load BBMap/38.87-GCCcore-8.2.0
+	module load BBMap/39.17-GCC-13.3.0
 	
 	# Loop across fastq files
 	for R1 in $(cat ${Sample}_R1.txt ) ;do 
@@ -215,7 +215,7 @@ if [[ "$run_fastqc" = true ]]; then
 	
   # Load modules
   module purge
-  module load FastQC/0.11.8-Java-1.8
+  module load FastQC/0.12.1-Java-11
   
   # Run FastQC on all fastq files
   mkdir fastqc_pretrim
@@ -234,7 +234,7 @@ fi
 # This step uses the fastp tool to quality filter reads, and remove adapters and polyG tails
 # Load modules
 module purge
-module load fastp/0.20.0-foss-2019a
+module load fastp/0.23.4-GCC-13.3.0
 
 mkdir fastp
 # Loop across fastq files
@@ -279,7 +279,7 @@ if [[ "$run_fastqc" = true ]]; then
 	
   # Load modules
   module purge
-  module load FastQC/0.11.8-Java-1.8
+  module load FastQC/0.12.1-Java-11
   
   # Run FastQC on all fastq files
   mkdir fastqc_posttrim
@@ -302,9 +302,9 @@ if [[ "$align_mito" = true ]]; then
 
 	## Load modules
 	module purge
-	module load BWA/0.7.17-intel-2019a
-	module load SAMtools/1.18-GCC-12.3.0
-	module load BCFtools/1.12-GCC-9.3.0
+	module load BWA/0.7.18-GCCcore-13.3.0
+	module load SAMtools/1.21-GCC-13.3.0
+	module load BCFtools/1.21-GCC-13.3.0
 
 	# Loop across fastq files
 	for R1 in $(cat ${Sample}_R1.txt ) ;do 
@@ -381,8 +381,8 @@ if [[ "$align_genome" = true ]]; then
 
 	# Load modules
 	module purge
-	module load BWA/0.7.17-intel-2019a
-	module load SAMtools/1.18-GCC-12.3.0
+	module load BWA/0.7.18-GCCcore-13.3.0
+	module load SAMtools/1.21-GCC-13.3.0
 
 	for R1 in $(cat ${Sample}_R1.txt ) ;do 
 		R2=$(echo ${R1} | sed -r 's/_R1_/_R2_/g')                                                                                               
@@ -478,16 +478,16 @@ if [[ "$realign_indels" = true ]]; then
 
 	# Load earlier gatk which has indel realigner
 	module purge
-	module load shifter/22.02.1
+	module load GATK/3.8-0-Java-1.8
 
 	# Create a list of target sites for realignment
-	shifter --image=broadinstitute/gatk3:3.8-1 -- java -jar /usr/GenomeAnalysisTK.jar -T RealignerTargetCreator \
+	java -jar $EBROOTGATK/GenomeAnalysisTK.jar -T RealignerTargetCreator \
 		-R $(basename ${ReferenceGenome}) \
 		-I ${Sample}.merged.bam \
 		-o ${Sample}.merged.intervals
 
 	# Realign around target sites
-	shifter --image=broadinstitute/gatk3:3.8-1 -- java -jar /usr/GenomeAnalysisTK.jar -T IndelRealigner \
+	java -jar $EBROOTGATK/GenomeAnalysisTK.jar -T IndelRealigner \
 		-R $(basename ${ReferenceGenome}) \
 		-I ${Sample}.merged.bam \
 		-targetIntervals  ${Sample}.merged.intervals \
@@ -512,29 +512,25 @@ rm ${Sample}.merged.bam
 if [[ "$recalibrate" = true ]]; then
 	echo Using known variants from ${known_variants} to recalibrate base qualities
 	module purge
-	module load shifter/22.02.1
-	module load R/4.2.0-foss-2021b
-	#module load BCFtools/1.12-GCC-9.3.0
+	module load GATK/4.6.1.0-GCCcore-13.3.0-Java-21
+	module load R/4.4.2-gfbf-2024a
 	
 	# Transform sitelist into bed file
 	pigz -cd ${known_variants} -p ${SLURM_CPUS_PER_TASK} | awk -v FS=':' -v OFS='\t' '{print $1,$2-1,$2}' > known_variants.bed
 	
 	# Index bed file
-	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk IndexFeatureFile \
+	gatk IndexFeatureFile \
 		-I known_variants.bed
-	
-	# Make sure known sites file is indexed
-	#bcftools index $(basename ${known_variants})
 
 	# Create recalibration table
-	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk BaseRecalibrator \
+	gatk BaseRecalibrator \
 		-I ${Sample}.realigned.bam \
 		-R $(basename ${ReferenceGenome}) \
 		-known-sites known_variants.bed \
 		-O ${Sample}.recal_data.table1 
 
 	# Run BQSR to recalibrate quality scores
-	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk ApplyBQSR \
+	gatk ApplyBQSR \
 		-R $(basename ${ReferenceGenome}) \
 		-I ${Sample}.realigned.bam \
 		-bqsr ${Sample}.recal_data.table1  \
@@ -542,14 +538,14 @@ if [[ "$recalibrate" = true ]]; then
 
 
 	# Analyse variation in the adjusted BAM
-	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk BaseRecalibrator \
+	gatk BaseRecalibrator \
 		-I ${Sample}.recal.bam \
 		-R $(basename ${ReferenceGenome}) \
 		-known-sites known_variants.bed \
 		-O ${Sample}.recal_data.table2 
 
 	# make before and after plot
-	shifter --image=broadinstitute/gatk:4.6.0.0 -- gatk AnalyzeCovariates \
+	gatk AnalyzeCovariates \
 		-before ${Sample}.recal_data.table1 \
 		-after ${Sample}.recal_data.table2 \
 		-plots ${Sample}.recalplots.pdf
@@ -574,7 +570,7 @@ rm ${Sample}.realigned.bam
 #--------------------------------------------------------------------------------
 # This final step ensures the BAM is indexed properly and outputs coverage statistics
 module purge
-module load SAMtools/1.18-GCC-12.3.0
+module load SAMtools/1.21-GCC-13.3.0
 
 # Index final BAM
 samtools index -@ ${SLURM_CPUS_PER_TASK} ${Sample}.bam ${Sample}.bam.bai

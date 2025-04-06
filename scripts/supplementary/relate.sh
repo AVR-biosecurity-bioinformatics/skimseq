@@ -2,11 +2,11 @@
 #SBATCH --job-name=relate         
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=6
-#SBATCH --mem=60GB 
-#SBATCH --time=640:00:00
+#SBATCH --mem=100GB 
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -57,7 +57,7 @@ exit_abnormal() {
 
 # Get input options
 OPTIND=1
-while getopts ":B:S:M:O:t" options; do       
+while getopts ":B:S:F:O:t" options; do       
   # use silent error checking;
   case "${options}" in
     B)                             
@@ -83,16 +83,16 @@ while getopts ":B:S:M:O:t" options; do
 		echo sitelist=${sitelist}
 	  fi
     ;;
-    M)                             
-      maf=${OPTARG}
+    F)                             
+      freq=${OPTARG}
 	  # Test if exists
-	  if [ ! -f "$maf" ] ; then  
-        echo "Error: -M ${maf} doesnt exist"
+	  if [ ! -f "$freq" ] ; then  
+        echo "Error: -M ${freq} doesnt exist"
         exit_abnormal
         exit 1
       fi
       freqs="true"
-	  echo maf=${maf}	  
+	  echo freq=${freq}	  
     ;;
     O)
       outdir=${OPTARG}
@@ -217,30 +217,47 @@ fi
 #--------------------------------------------------------------------------------
 #-                                 Run ngsRelate                                -
 #--------------------------------------------------------------------------------
-# Prep variables and files
-nsites=$(cat ${Sample}.beagle | tail -n +2 | wc -l) 
-nind=$(cat ${Sample}.beagle | head -1 | sed $'s/\t/\\\n/g' | uniq | grep -v  "marker" | grep -v  "allele" | wc -l)
-
-echo ${nsites} sites
-echo ${nind} samples
-
 #Load Modules
 module purge
-module load NgsRelate/2.0-GCC-11.2.0
-
-pigz ${Sample}.beagle -p ${SLURM_CPUS_PER_TASK} --fast
+module load NgsRelate/20250319-GCC-13.3.0
 
 if [[ "$freqs" = true ]]; then
     echo "Using allele frequencies file"
-    cat $(basename ${sitelist} .gz) | tr ":" "\t" > sites_to_keep
-    cp ${maf} .
-    pigz -d $(basename ${maf})
+
+    cp ${freq} .
+    pigz -d $(basename ${freq})
+	
+	# Create a new sites_to_keep file that just has the sites shared between freq and sites file
+	cat $(basename ${freq} .gz) | awk -v 'FS=\t' -v 'OFS=:' '{print $1,$2}' | sort > freq_pos
+	awk 'NR==FNR {keep[$0]; next} $0 in keep' freq_pos $(basename ${sitelist} .gz) | tr ":" "\t" > sites_to_keep
+	
+	#cat $(basename ${sitelist} .gz) | tr ":" "\t" > sites_to_keep
+	 
+	# Subset freqs to just those in sites_to_keep
     awk -v FS="\t" -v OFS="\t" 'NR==FNR{a[$1 OFS $2]; next}
         ($1 OFS $2) in a {
-            print $7
+            print $5
         }
-        ' sites_to_keep $(basename ${maf} .gz) >> freq
+        ' sites_to_keep $(basename ${freq} .gz) >> freq
+	
+	# Subset beagle to just those in sites to keep
+    cat sites_to_keep | tr "\t" "_" > sites_to_keep2
+	cat ${Sample}.beagle | head -n 1  > ${Sample}.subset.beagle
+	cat ${Sample}.beagle | grep -Fwf sites_to_keep2 >> ${Sample}.subset.beagle
+	mv ${Sample}.subset.beagle ${Sample}.beagle
+		
+	# Prep variables and files
+	nsites=$(cat ${Sample}.beagle | tail -n +2 | wc -l) 
+	nfreqs=$(cat freq | wc -l) 
+	nind=$(cat ${Sample}.beagle | head -1 | sed $'s/\t/\\\n/g' | uniq | grep -v  "marker" | grep -v  "allele" | wc -l)
+
+	echo ${nsites} sites
+	echo ${nfreqs} freqs
+	echo ${nind} samples
      
+	# Beagle has to be zipped
+	pigz ${Sample}.beagle -p ${SLURM_CPUS_PER_TASK} --fast
+
     # Run NGSRelate
     ngsRelate \
     -G ${Sample}.beagle.gz \
@@ -249,8 +266,18 @@ if [[ "$freqs" = true ]]; then
     -L ${nsites} \
     -p ${SLURM_CPUS_PER_TASK} \
     -O ${outname}.relate \
-    -l 0.05
+    -l 0
 else
+	# Prep variables and files
+	nsites=$(cat ${Sample}.beagle | tail -n +2 | wc -l) 
+	nind=$(cat ${Sample}.beagle | head -1 | sed $'s/\t/\\\n/g' | uniq | grep -v  "marker" | grep -v  "allele" | wc -l)
+
+	echo ${nsites} sites
+	echo ${nind} samples
+	
+	# Beagle has to be zipped
+	pigz ${Sample}.beagle -p ${SLURM_CPUS_PER_TASK} --fast
+
     echo "Estimating allele frequencies from beagle file"
     # Run NGSRelate
     ngsRelate \
@@ -259,7 +286,7 @@ else
     -L ${nsites} \
     -p ${SLURM_CPUS_PER_TASK} \
     -O ${outname}.relate \
-    -l 0.05
+    -l 0
 fi
 # Rename output columns to the actual sample name using join (requires sorting on the join columns)
 

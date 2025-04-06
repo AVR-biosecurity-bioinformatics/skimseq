@@ -6,7 +6,7 @@
 #SBATCH --time=640:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -159,7 +159,7 @@ if [[ "$test_run" = true ]]; then
 
     # Load BCFtools for filtering (assuming module loading is required)
     module purge
-    module load BCFtools/1.9-intel-2019a
+    module load BCFtools/1.21-GCC-13.3.0
     
     # Find name of first interval
     first_chr=$(echo "${interval}" | cut -d "," -f1)
@@ -183,43 +183,63 @@ fi
 #--------------------------------------------------------------------------------
 # Load modules 
 module purge
-module load shifter/22.02.1
+module load GATK/4.6.1.0-GCCcore-13.3.0-Java-21
 
 # Create bed file with target intervals
 echo ${interval} | tr ',' '\n' > intervals.txt
 cat intervals.txt | tr ':' '\t' | tr '-' '\t' > intervals.bed
 
 # convert bed to interval list for gatk
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk BedToIntervalList -I intervals.bed  -O $(basename ${ReferenceGenome}).interval_list -SD $(basename ${dictfile})
+gatk BedToIntervalList -I intervals.bed  -O $(basename ${ReferenceGenome}).interval_list -SD $(basename ${dictfile})
 
 # Make genomic DB from gvcf files
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk --java-options "-Xmx45G" GenomicsDBImport \
-	  --genomicsdb-workspace-path ${outname}.db \
-	  --sample-name-map cohort.sample_map \
-	  --batch-size 50 \
-	  --tmp-dir ${tmp_dir} \
-	  --reader-threads ${SLURM_CPUS_PER_TASK} \
-	  --genomicsdb-shared-posixfs-optimizations true \
-	  -L $(basename ${ReferenceGenome}).interval_list
-    
-#Joing genotype gvcfs
-shifter \
-	--image=broadinstitute/gatk:4.6.0.0 \
-	-- \
-	gatk --java-options "-Xmx45G" GenotypeGVCFs \
+# TODO: See if theres any difference starting with genomicDB vs consolidated gvcgf
+#gatk --java-options "-Xmx45G" GenomicsDBImport \
+#	  --genomicsdb-workspace-path ${outname}.db \
+#	  --sample-name-map cohort.sample_map \
+#	  --batch-size 50 \
+#	  --tmp-dir ${tmp_dir} \
+#	  --reader-threads ${SLURM_CPUS_PER_TASK} \
+#	  --genomicsdb-shared-posixfs-optimizations true \
+#	  -L $(basename ${ReferenceGenome}).interval_list
+
+# Consolidate GVCF files
+ls *.g.vcf.gz > sample.list
+gatk --java-options "-Xmx45G" CombineGVCFs \
 	  -R $(basename ${ReferenceGenome}) \
-	  -V gendb://${outname}.db \
-	  -O ${outname}.vcf.gz \
-	  --genomicsdb-shared-posixfs-optimizations true \
+	  -V sample.list \
+	  -O ${outname}_temp.g.vcf.gz \
+	  --tmp-dir ${tmp_dir} \
+	  -L $(basename ${ReferenceGenome}).interval_list
+
+# Calculate genotype posteriors
+gatk --java-options "-Xmx45G" CalculateGenotypePosteriors \
+	  -R $(basename ${ReferenceGenome}) \
+	  -V ${outname}_temp.g.vcf.gz \
+	  -O ${outname}.g.vcf.gz \
 	  --tmp-dir ${tmp_dir} 
- 
+
+# In output g.vcf, sites with no data at all have no posterior probability
+# homozygous ref have posterior probability
+
+# How to identify likely variant sites??
+
+
+# Call genotypes at variant sites
+gatk --java-options "-Xmx45G" GenotypeGVCFs \
+	  -R $(basename ${ReferenceGenome}) \
+	  -V ${outname}.g.vcf.gz  \
+	  -O ${outname}.vcf.gz \
+	  --use-posteriors-to-calculate-qual true \
+	  --genotype-assignment-method USE_POSTERIORS_ANNOTATION \
+	  --tmp-dir ${tmp_dir} 
+
+# params for genomicsdb:
+# -V gendb://${outname}.db
+# --genomicsdb-shared-posixfs-optimizations true \
+
 # Copy files back to drive
+cp ${outname}.g.vcf.gz*  ${output}
 cp ${outname}.vcf.gz*  ${output}
 
 echo completed GATK run
