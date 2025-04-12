@@ -6,7 +6,7 @@
 #SBATCH --time=240:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -58,8 +58,8 @@ if [[ ! -f "${Index}" ]]; then
   exit 1
 fi
 
-interval=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
-echo interval=${interval}
+bamlist=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
+echo bamlist=${bamlist}
 
 #--------------------------------------------------------------------------------
 #-                                  Parse Inputs                                -
@@ -80,7 +80,7 @@ exit_abnormal() {
 
 # Get input options
 OPTIND=1
-while getopts ":R:S:O:ct" options; do       
+while getopts ":R:S:I:O:q:m:ct" options; do       
   # use silent error checking;
   case "${options}" in
     R)                             
@@ -106,10 +106,22 @@ while getopts ":R:S:O:ct" options; do
 		echo sitelist=${sitelist}
 	  fi
     ;;
+	I)
+      indir=${OPTARG}
+      echo indir=${indir}
+    ;;
     O)
       output=${OPTARG}
       echo output=${output}
     ;;
+	q)
+      basequal=${OPTARG}
+      echo basequal=${basequal}
+    ;;
+    m)
+      mapqual=${OPTARG}
+      echo mapqual=${mapqual}
+      ;;
 	c)
 	  echo "-c has been set using consensus instead of single read sampling" >&2
 	  ibstype=2
@@ -139,15 +151,19 @@ fi
 #--------------------------------------------------------------------------------
 #-                                    Preparation                               -
 #--------------------------------------------------------------------------------
-# Read input params
-bamlist=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
 
 # Get sample name from vcf file
 Sample=$(basename ${bamlist} | sed 's/bamlist_//g' | sed 's/.txt//g')
 echo Sample=${Sample}
 
-#set output file name
-outname=$(echo $Sample $(echo  $(basename ${sitelist} | sed 's/.sites.*$//g' )) | sed 's/ /-/g' )
+
+#set outdir file name
+if [[ $sitelist ]]; then
+    outname=$(echo $Sample $(basename ${sitelist} | sed 's/.sites.*$//g' ) | sed 's/ /-/g' )
+
+else 
+    outname=$(echo $Sample denovo | sed 's/ /-/g' )
+fi
 
 # Make directories for outputs
 mkdir -p ${output}/${outname}
@@ -158,36 +174,65 @@ tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
 cd ${tmp_dir}
 pwd
 
+
 ## Create list of BAMS for input job
-find $(/usr/bin/ls -d ${SLURM_SUBMIT_DIR}/bams/*) | grep -F -f ${bamlist} | grep "\.bam$" | sort | uniq  > ${Sample}_tmp.txt
+find "$(/usr/bin/ls -d ${indir})" | grep -F -f "${bamlist}" | grep -E "/($(tr '\n' '|' < ${bamlist} | sed 's/|$//')).bam$" | sort | uniq > "${Sample}_tmp.txt"
 cat ${Sample}_tmp.txt | sed 's!.*/!!' | grep -v  ".bam.bai" | grep ".bam" > ${Sample}_bams.txt
 [[ ! -z "${Sample}" ]] && echo $(wc -l ${Sample}_bams.txt | awk '{ print$1 }') BAM files to process for ${Sample} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
 
-# Copy reference files to temp and decompress
+
+# Copy data files to temp and decompress
+cp ${bamlist} .
 cp ${ReferenceGenome} .
 sleep 5
 cp ${ReferenceGenome}.fai .
 
 #Load Modules
 module purge
-module load SAMtools/1.15-GCC-11.2.0
-module load HTSlib/1.15-GCC-11.2.0
-module load BCFtools/1.15-GCC-11.2.0
-module load parallel/20210722-GCCcore-11.2.0
+module load angsd/20250306-GCC-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load BCFtools/1.21-GCC-13.3.0
+module load parallel/20240722-GCCcore-13.3.0
 
 #--------------------------------------------------------------------------------
-#-                              Subset bam files                                -
+#-                          Copy and subset bam files                           -
 #--------------------------------------------------------------------------------
 
-# Subset bam files to just those reads overlapping the target sites
-echo subsetting bams to only reads overlapping target regions
+if [[ $sitelist ]]; then
+	# Subset bam files to just those reads overlapping the target sites
+	echo subsetting bams to only reads overlapping target regions
 
-# Create bedfile 
-zcat ${sitelist} | awk -F: '{OFS="\t"; print $1, $2-1, $2}' > sites.bed
+	# Check if the file is compressed
+	if [[ "${sitelist}" =~ \.gz$ ]]; then
+		# If the file is gzipped, use zcat (or gzip -dc or gunzip -c) to decompress it on the fly
+		zcat ${sitelist} > sitelist.txt
+	else
+		# If the file is not gzipped, process it directly
+		cat ${sitelist} > sitelist.txt
+	fi
 
-# Run samtools view in parallel to subset and copy across
-cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -f 1 -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
+	# Check if the file matches BED or Sites format
+	if grep -P '^[A-Za-z0-9\.]+:\d+$' "sitelist.txt" > /dev/null; then
+		echo "Sites file"
+		# Processing Sites format assuming each line is like CM028320.1:2010752
+		awk -F':' '{print $1, $2-1, $2}' sitelist.txt > sites.bed
+	# Check if the file matches BED format
+	elif awk -F'\t' 'NF == 3' sitelist.txt > /dev/null; then
+		echo "BED file sitelist"
+		# Assuming sitelist.txt is already in BED format with 3 fields
+		cp sitelist.txt sites.bed
+	else
+		echo "Unknown format"
+	fi
+	echo Sites file contains $(cat sites.bed | wc -l) sites
+	
+	# Run samtools view in parallel to subset and copy across, then index
+	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
 
+else
+	# Copy files across, then index
+	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "cp {} . && samtools index ./{/.}.bam && echo copied {/.}"
+fi
 #--------------------------------------------------------------------------------
 #-                                  TEST	                                    -
 #--------------------------------------------------------------------------------
@@ -213,60 +258,39 @@ samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
 #-                                      Run ANGSD                               -
 #--------------------------------------------------------------------------------
 
-# Setup sitelist
-zcat ${sitelist} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
+if [[ $sitelist ]]; then
+    echo "only analysing sites from ${sitelist}"
+	
+	# Setup sitelist
+	zcat ${sitelist} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
+	# Index sites file
+	angsd sites index sites.txt
 
-##Old regions file code - doesnt seem to improve performance
-#cut -f1 sites.txt |sort | uniq > chrs.txt
-#
-# SPlit regions file every 1000 SNPS - per chromosome
-#echo -n "" > rf_starts.txt
-#
-#while read c; do
-#    cat sites.txt | grep $c | head -1 > tmp.txt
-#    cat sites.txt | grep $c | sed -n '0~1000p' >> tmp.txt
-#    cat sites.txt | grep $c | tail -1 >> tmp.txt
-#    cat tmp.txt | uniq >> rf_starts.txt
-#done <chrs.txt 
-#nlines=$(cat rf_starts.txt | wc -l)
-#
-#echo -n "" > rf.txt
-#for i in $(seq 1 $(cat rf_starts.txt | wc -l)); do
-# nextline=$(($i + 1))
-# start_chr=$(cat rf_starts.txt | sed -n ${i}p | cut -f1) 
-# end_chr=$(cat rf_starts.txt | sed -n ${nextline}p | cut -f1) 
-# if [ "$start_chr" = "$end_chr" ]; then
-#     start_pos=$(cat rf_starts.txt | sed -n ${i}p | cut -f2) 
-#     end_pos=$(($(cat rf_starts.txt | sed -n ${nextline}p | cut -f2) -1))
-#     echo "$start_chr":"$start_pos"-"$end_pos" >> rf.txt
-# else
-#    # Check if its the final line, or just a chromosome break
-#    if [ "$i" -eq "$nlines" ]; then
-#        # last line - dont write anything
-#        echo 'last line in file'
-#    else
-#        echo 'moving to next chromosome'
-#    fi
-# fi
-#done
-#
-#cat rf.txt
-#cat rf.txt | sort > rf2.txt 
-
-
-# Index sites file
-/home/ap0y/angsd/angsd/angsd sites index sites.txt
-
-# launch angsd (local github version) 
-# Using -sites to subset to target sites
-/home/ap0y/angsd/angsd/angsd -bam ${Sample}_bams.txt -sites sites.txt \
--ref $(basename ${ReferenceGenome}) \
--remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
--minMapQ 20 -baq 2 -C 50 -minQ 15 \
--GL 2 -doMajorMinor 1 \
--doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 \
--nThreads ${SLURM_CPUS_PER_TASK} \
--out ${outname} 
+	# NOTE -maxFreq 1.0 is required in this version to fix bug that removes all sites
+	
+	# Using -sites to subset to target sites
+	angsd -bam ${Sample}_bams.txt -sites sites.txt \
+		-ref $(basename ${ReferenceGenome}) \
+		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
+		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
+		-GL 2 -doMajorMinor 1 \
+		-doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 -maxFreq 1.0 \
+		-nThreads ${SLURM_CPUS_PER_TASK} \
+		-out ${outname} 
+else 
+    echo 'Sitelist not provided, estimating sites denovo'
+	# Using -sites to subset to target sites
+	
+	# NOTE -maxFreq 1.0 is required in this version to fix bug that removes all sites
+	angsd -bam ${Sample}_bams.txt \
+		-ref $(basename ${ReferenceGenome}) \
+		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
+		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
+		-GL 2 -doMajorMinor 1 \
+		-doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 -maxFreq 1.0 \
+		-nThreads ${SLURM_CPUS_PER_TASK} \
+		-out ${outname} 
+fi
 
 # Removed these parameters
 # -doMaf 1 -minMaf 0.01
@@ -274,7 +298,6 @@ zcat ${sitelist} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
 # Count non-missing data per individual
 zcat ${outname}.ibs.gz | awk 'NR>1 {for (i=5; i<=NF; i++) count[i] += ($i != "-1")} END {for (i=5; i<=NF; i++) print count[i]}' > tmp
 paste <(cat ${Sample}_bams.txt) <(cat tmp) > ${outname}.indcounts.txt
-
 
 # Count non-missing data per site
 zcat ${sitelist} > sites.txt
@@ -300,7 +323,6 @@ END {
         }
     }
 }' sites.txt genotypes.txt > ${outname}.sitecounts.txt
-
 
 # Copy files back to drive
 cp ${outname}*.covMat ${output}/${outname}/.

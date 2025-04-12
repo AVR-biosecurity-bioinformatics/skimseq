@@ -241,28 +241,28 @@ if [[ $sitelist ]]; then
 	fi
 
 	# Check if the file matches BED or Sites format
-	if awk -F'\t' 'NF == 3' "sitelist.txt" > /dev/null; then
-		echo "BED file sitelist"
-		# make sure its an allsites bed
-		cat sitelist.txt | awk '{for(i=$2; i<$3; i++) print $1"\t"i"\t"i+1}'  > sites.bed
-	elif grep -P '^[A-Za-z0-9\.]+:\d+$' "sitelist.txt" > /dev/null; then
+	if grep -P '^[A-Za-z0-9\.]+:\d+$' "sitelist.txt" > /dev/null; then
 		echo "Sites file"
-		zcat ${sitelist} | awk -F: '{OFS="\t"; print $1, $2-1, $2}' > sites.bed
+		# Processing Sites format assuming each line is like CM028320.1:2010752
+		awk -F':' '{print $1, $2-1, $2}' sitelist.txt > sites.bed
+	# Check if the file matches BED format
+	elif awk -F'\t' 'NF == 3' sitelist.txt > /dev/null; then
+		echo "BED file sitelist"
+		# Assuming sitelist.txt is already in BED format with 3 fields
+		cp sitelist.txt sites.bed
 	else
 		echo "Unknown format"
 	fi
 	echo Sites file contains $(cat sites.bed | wc -l) sites
 	
-	# TODO: Merge bed into tracts of consecutive sites using bedtools merge
 	# Run samtools view in parallel to subset and copy across, then index
-	
-	# TESTING - subset by map quality and read quality
-	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -f 1 -q 20 -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
+	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
 
 else
 	# Copy files across, then index
 	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "cp {} . && samtools index ./{/.}.bam && echo copied {/.}"
 fi
+
 
 #--------------------------------------------------------------------------------
 #-                           Subsample to target coverage                       -
@@ -435,7 +435,7 @@ else
     -ref $(basename ${ReferenceGenome}) -anc $(basename ${AncestralGenome}) \
     -remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
     -minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
-    -GL 2 -doSaf 1\
+    -GL 2 -doSaf 1 \
     -nThreads ${SLURM_CPUS_PER_TASK} \
     -out results/${outname}
 	
