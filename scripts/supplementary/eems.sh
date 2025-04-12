@@ -134,7 +134,7 @@ pwd
 #Load Modules
 module purge
 module load eems/20210808-GCC-11.2.0
-module load R/4.2.0-foss-2021b
+module load R/4.4.2-gfbf-2024a
 
 #--------------------------------------------------------------------------------
 #-                                Rearrange inputs                              -

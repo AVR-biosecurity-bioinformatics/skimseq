@@ -228,12 +228,11 @@ if [[ "$freqs" = true ]]; then
     pigz -d $(basename ${freq})
 	
 	# Create a new sites_to_keep file that just has the sites shared between freq and sites file
-	cat $(basename ${freq} .gz) | awk -v 'FS=\t' -v 'OFS=:' '{print $1,$2}' | sort > freq_pos
+	cat $(basename ${freq} .gz) | awk -v 'FS=\t' -v 'OFS=:' '{print $1,$2}' > freq_pos
 	awk 'NR==FNR {keep[$0]; next} $0 in keep' freq_pos $(basename ${sitelist} .gz) | tr ":" "\t" > sites_to_keep
-	
-	#cat $(basename ${sitelist} .gz) | tr ":" "\t" > sites_to_keep
 	 
 	# Subset freqs to just those in sites_to_keep
+	touch freq
     awk -v FS="\t" -v OFS="\t" 'NR==FNR{a[$1 OFS $2]; next}
         ($1 OFS $2) in a {
             print $5
