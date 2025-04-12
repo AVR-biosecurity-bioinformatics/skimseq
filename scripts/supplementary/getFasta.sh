@@ -79,7 +79,7 @@ exit_abnormal() {
 
 # Get input options
 OPTIND=1
-while getopts ":R:I:O:q:m:" options; do       
+while getopts ":R:I:O:q:m:r" options; do       
   # use silent error checking;
   case "${options}" in
     R)                             
@@ -107,6 +107,10 @@ while getopts ":R:I:O:q:m:" options; do
     m)
       mapqual=${OPTARG}
       echo mapqual=${mapqual}
+    ;;
+	r)
+	  echo "-r has been set, removing any sites that are variable in ancestral" >&2
+	  remove_snps='true'
     ;;
 	:) 
 	# Exit If expected argument omitted
@@ -171,21 +175,37 @@ samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
 nind=$(cat ${outname}_bams.txt | wc -l)
 nind=$(( nind / 2 ))
 
-# launch angsd (local github version) 
-angsd -bam ${outname}_bams.txt \
-	-ref $(basename ${ReferenceGenome}) \
-	-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
-	-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
-	-doMaf 1 -doMajorMinor 1 \
-	--ignore-RG 0 \
-	-doCounts 1 -SNP_pval 1.0 -minMaf 0 \
-	-GL 2 -minind ${nind} \
-	-nThreads ${SLURM_CPUS_PER_TASK} \
-	-doFasta 2 \
-	-explode 1 \
-	-out ${outname} 
+# launch angsd
+if [[ "$remove_snps" = true ]]; then
+	echo "Removing all sites that are variable"
+	angsd -bam ${outname}_bams.txt \
+		-ref $(basename ${ReferenceGenome}) \
+		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
+		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
+		-doMaf 1 -doMajorMinor 1 \
+		--ignore-RG 0 \
+		-doCounts 1 -SNP_pval 0.01 -rmSNPs 1 -minMaf 0 \
+		-GL 2 -minind ${nind} \
+		-nThreads ${SLURM_CPUS_PER_TASK} \
+		-doFasta 2 \
+		-explode 1 \
+		-out ${outname} 		
+else  
+	echo "Keeping all variable sites but selecting most common allele"
+	angsd -bam ${outname}_bams.txt \
+		-ref $(basename ${ReferenceGenome}) \
+		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
+		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
+		-doMaf 1 -doMajorMinor 1 \
+		--ignore-RG 0 \
+		-doCounts 1 -SNP_pval 1.0 -minMaf 0 \
+		-GL 2 -minind ${nind} \
+		-nThreads ${SLURM_CPUS_PER_TASK} \
+		-doFasta 2 \
+		-explode 1 \
+		-out ${outname} 
 
-#-rmSNPs 1 - dont remove all snps as this loses too much data!, just keep most coman base with doFasta2
+fi
 
 # Unzip fasta and index
 pigz -d -p ${SLURM_CPUS_PER_TASK} ${outname}.fa.gz
