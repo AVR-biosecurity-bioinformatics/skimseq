@@ -3,7 +3,7 @@
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=80GB 
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
 #SBATCH --account=fruitfly
@@ -279,6 +279,7 @@ pigz -cd -p ${SLURM_CPUS_PER_TASK} $(cat ${manifest} | grep $first_int | sed -e 
 
 # This time loop through all chromosomes
 echo header > nsnp.txt
+pigz -cd -p ${SLURM_CPUS_PER_TASK} $(cat ${manifest} | grep $first_int | sed -e 's/.beagle.gz/.counts.gz/g' | head -1 ) | head -1 | tr '\t' '\n' | tail -n+2 > datacounts.txt
 while read i; do
   file=$(cat ${manifest} | grep $i | sed -e 's/.beagle.gz/.counts.gz/g' )
   # if file exists - add it to merged file
@@ -287,9 +288,48 @@ while read i; do
     # Append to main file and write number of lines to nsnp
     pigz -cd -p ${SLURM_CPUS_PER_TASK} ${file} | tail -n +2 | tee tmpfile | wc -l >> nsnp.txt
     pigz -c tmpfile -p ${SLURM_CPUS_PER_TASK} >> ${output}/${Sample}.counts.gz
+	
+	# Count amount of called data in each file
+	awk '
+	BEGIN {
+		# Initialize an array to keep track of missing data counts for each individual (column)
+		OFS="\t"
+	}
+	NR > 1 {
+		# Loop through all columns (skip the first column which is the marker)
+		for (i = 2; i <= NF; i++) {
+			# If the value is >0 , increment the count for that individual
+			if ($i != 0) {
+				non_missing_count[i]++
+			}
+		}
+	}
+	END {
+		# Print the missing data counts for each individual
+		for (i = 2; i <= NF; i++) {
+			print non_missing_count[i]
+		}
+	}
+	' tmpfile >  tmp.datacounts
+	paste <(cat datacounts.txt) <(cat tmp.datacounts) > tmp2.datacounts
+	mv tmp2.datacounts datacounts.txt
   fi
 done <interval_list.txt
 rm tmpfile
+rm tmp.datacounts
+
+# Sum the sites with data counts by row (sum across chunks for each individual)
+awk '
+{
+    sum = 0
+    # Start summing from the second column onward (skip the first column)
+    for (i = 2; i <= NF; i++) {
+        sum += $i  # Add the value in column i to the sum
+    }
+    # Print the sample ID (first column) and the sum
+    print $1, sum
+}
+' datacounts.txt > ${output}/${Sample}.IndDepth
 
 # Check how many SNPS in starting and merged files
 starting_pos=$(awk '{s+=$1} END {print s}' nsnp.txt)
@@ -302,34 +342,6 @@ else
     #exit 1
 fi
 
-#--------------------------------------------------------------------------------
-#-                               Missing data	                                -
-#--------------------------------------------------------------------------------
-
-# Calculate per individual missing data from counts file
-pigz -cd -p ${SLURM_CPUS_PER_TASK} ${output}/${Sample}.counts.gz | awk '
-BEGIN {
-    # Initialize an array to keep track of missing data counts for each individual (column)
-    OFS="\t"
-}
-NR > 1 {
-    # Loop through all columns (skip the first column which is the marker)
-    for (i = 2; i <= NF; i++) {
-        # If the value is 0 (missing data), increment the count for that individual
-        if ($i != 0) {
-            non_missing_count[i]++
-        }
-    }
-}
-END {
-    # Print the missing data counts for each individual
-    for (i = 2; i <= NF; i++) {
-        print "EF" (i-1), non_missing_count[i]
-    }
-}
-' >  ${output}/${Sample}.IndDepth
-
-# TODO: PCA of binary converted counts files to identify outliers based on missing data?
 #--------------------------------------------------------------------------------
 #-                               Merge snpstat files                            -
 #--------------------------------------------------------------------------------
@@ -676,7 +688,7 @@ cp *_filtsummary.txt.gz ${output}/.
 #-                        		  LD pruning			                        -
 #--------------------------------------------------------------------------------
 ## Use only the sites that pass all filters
-cat ${Sample}.filtered.sites | sed 's/:/\t/g' | tail -n+2 | sort -V -k1,1 -k2,2 | sed 's/\t/_/g'  > to_keep
+cat ${Sample}.filtered.sites | sed 's/:/\t/g' | sort -V -k1,1 -k2,2 | sed 's/\t/_/g'  > to_keep
 
 # Filter the beagle file just positions in to_keep
 pigz -cd ${output}/${Sample}.beagle.gz -p ${SLURM_CPUS_PER_TASK} | head -n 1  > tmp.beagle
@@ -822,31 +834,43 @@ cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4,
 echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
 cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.stdld.sites.gz
 
-# Thinning SNPs instead
-thin_dist=10000
-# Initialize variables and files
-prev_chromosome=""
-last_position=0
-touch ${Sample}.thinned.sites
+echo thinning SNPs
 
-# Loop through each line in the file (after sorting by chromosome and position)
-sort -t ':' -k1,1 -k2,2n ${Sample}.filtered.sites | while read -r line; do
-    # Extract chromosome and position from the line
-    chromosome=$(echo "$line" | cut -d':' -f1)
-    position=$(echo "$line" | cut -d':' -f2)
+# Window size
+window_size=10000
 
-    # If this is the first site for a chromosome or if it's greater than 10,000 from the last selected position
-    if [[ "$chromosome" != "$prev_chromosome" ]] || (( position - last_position >= ${thin_dist} )); then
-        # Print the site to the output file
-        echo "$line" >> ${Sample}.thinned.sites
-        # Update the last selected position
-        last_position=$position
-        # Update the previous chromosome
-        prev_chromosome="$chromosome"
+# Initialize variables
+current_chrom=""
+current_window=0
+selected_sites=()
+
+# Read the input file line by line
+while IFS=: read -r chrom site; do
+    # Check if we are still on the same chromosome
+    if [[ "$chrom" != "$current_chrom" ]]; then
+        # If not, reset current chromosome and window
+        current_chrom="$chrom"
+        current_window=0
+        selected_sites+=("$chrom:$site")
+        current_window=$((site / window_size + 1))
+    else
+        # Calculate the current window for the site
+        window=$((site / window_size + 1))
+        # Select the site if it's in a new window
+        if [[ "$window" -gt "$current_window" ]]; then
+            selected_sites+=("$chrom:$site")
+            current_window=$window
+        fi
     fi
-done
+done < ${Sample}.filtered.sites
 
-cat ${Sample}.filtered.sites | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.filtered.sites 
+# Write the selected sites to the output file
+for site in "${selected_sites[@]}"; do
+    echo "$site"
+done > ${Sample}.thinned.sites
+
+cat ${Sample}.thinned.sites | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.thinned.sites.gz
+
 
 #cp ${Sample}.cov ${output}/${Sample}.pcaone.cov
 #cp ${Sample}.log ${output}/${Sample}.pcaone.log

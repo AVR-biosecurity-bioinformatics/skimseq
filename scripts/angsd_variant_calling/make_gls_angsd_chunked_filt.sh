@@ -177,6 +177,7 @@ module load angsd/20250306-GCC-13.3.0
 module load SAMtools/1.21-GCC-13.3.0
 module load BCFtools/1.21-GCC-13.3.0
 module load Rust/1.78.0-GCCcore-13.3.0
+module load parallel/20240722-GCCcore-13.3.0
 
 # Setup intervals and bed files
 echo ${interval} | tr ',' '\n' > intervals.txt
