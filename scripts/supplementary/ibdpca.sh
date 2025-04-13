@@ -15,22 +15,14 @@
 #-                        Install sofware from github                           -
 #--------------------------------------------------------------------------------
 
-# Install latest development version of software into virtual environment
-# module purge
-# module load Python/3.8.2-GCCcore-9.3.0 
-# module load GSL/2.7-GCC-11.2.0
-# module load HTSlib/1.10.2-GCC-8.2.0-2.31.1
-# virtualenv ~/angsd
-# source ~/angsd/bin/activate
-# cd angsd
-# git clone https://github.com/angsd/angsd.git;
-# cd angsd;make
-# cd ..
-# git clone https://github.com/fgvieira/ngsLD.git
-# cd ngsLD;make
-# cd ..
-# git clone https://github.com/fgvieira/prune_graph.git
-# cd prune_graph;cargo build --release
+# Install specific version of angsd where IBS was working
+#cd ~
+#module purge
+#module load HTSlib/1.21-GCC-13.3.0
+#git clone https://github.com/angsd/angsd.git;
+#cd angsd
+#git reset --hard 68b0838
+#make
 
 #--------------------------------------------------------------------------------
 #-                                  HEADER		                                -
@@ -189,7 +181,8 @@ cp ${ReferenceGenome}.fai .
 
 #Load Modules
 module purge
-module load angsd/20250306-GCC-13.3.0
+#module load angsd/20250306-GCC-13.3.0
+module load HTSlib/1.21-GCC-13.3.0
 module load SAMtools/1.21-GCC-13.3.0
 module load BCFtools/1.21-GCC-13.3.0
 module load parallel/20240722-GCCcore-13.3.0
@@ -264,30 +257,27 @@ if [[ $sitelist ]]; then
 	# Setup sitelist
 	zcat ${sitelist} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
 	# Index sites file
-	angsd sites index sites.txt
+	~/angsd/angsd/angsd sites index sites.txt
 
-	# NOTE -maxFreq 1.0 is required in this version to fix bug that removes all sites
-	
 	# Using -sites to subset to target sites
-	angsd -bam ${Sample}_bams.txt -sites sites.txt \
+	~/angsd/angsd/angsd -bam ${Sample}_bams.txt -sites sites.txt \
 		-ref $(basename ${ReferenceGenome}) \
 		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
 		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
 		-GL 2 -doMajorMinor 1 \
-		-doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 -maxFreq 1.0 \
+		-doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 \
 		-nThreads ${SLURM_CPUS_PER_TASK} \
 		-out ${outname} 
 else 
     echo 'Sitelist not provided, estimating sites denovo'
 	# Using -sites to subset to target sites
 	
-	# NOTE -maxFreq 1.0 is required in this version to fix bug that removes all sites
-	angsd -bam ${Sample}_bams.txt \
+	~/angsd/angsd/angsd -bam ${Sample}_bams.txt \
 		-ref $(basename ${ReferenceGenome}) \
 		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
 		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
 		-GL 2 -doMajorMinor 1 \
-		-doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 -maxFreq 1.0 \
+		-doIBS ${ibstype} -doCounts 1 -doCov 1 -makeMatrix 1 \
 		-nThreads ${SLURM_CPUS_PER_TASK} \
 		-out ${outname} 
 fi
