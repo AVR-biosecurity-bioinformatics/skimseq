@@ -1,0 +1,8 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/AVR-biosecurity-bioinformatics/skimseq",
+    "title": "AVR-biosecurity-bioinformatics/skimseq pipeline parameters",
+    "description": "[IN DEVELOPMENT]",
+    "type": "object",
+    "defs": {}
+}
