@@ -10,10 +10,10 @@ process FASTP {
     module "fastp/0.23.4-GCC-13.3.0"
 
     input:
-    path(fastq_file)
+    tuple val(sample), path(fastq1), path(fastq2)
 
     output: 
-    path("*.trimmed.fastq"),             emit: fastq
+    path("trimmed.R{1,2}.fastq"),             emit: fastq
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,7 +23,9 @@ process FASTP {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${fastq_file} 
+        ${sample} \
+        ${fastq1} \
+        ${fastq2}
 
     """
 }

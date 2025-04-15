@@ -3,6 +3,7 @@
 */
 
 //// import modules
+include { FASTP                     } from '../modules/fastp'
 include { FASTQC as FASTQC_PRETRIM } from '../modules/fastqc'
 
 workflow PROCESS_READS {
@@ -17,6 +18,11 @@ workflow PROCESS_READS {
         ch_reads,
         "pretrim"
     )
+
+    FASTP (
+        ch_reads
+    )
+
 
 
     emit: 
