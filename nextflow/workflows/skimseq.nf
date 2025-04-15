@@ -15,7 +15,12 @@ workflow SKIMSEQ {
     Input channel parsing
     */    
 
-    ch_reads = Channel.fromPath("./test/*.fastq")
+    ch_reads = Channel
+        .fromFilePairs(
+            "./test/*.R{1,2}.fastq",
+            checkIfExists: true, 
+            flat: true
+        )
 
     /*
     Process genome 
