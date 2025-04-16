@@ -1,19 +1,20 @@
-process FASTP {
-    def process_name = "fastp"    
+process ALIGN_MITO {
+    def process_name = "align_mito"    
     // tag "-"
     // label "small"
-    time '15.m'
-    memory '4.GB'
+    time '30.m'
+    memory '8.GB'
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "fastp/0.23.4-GCC-13.3.0"
+    module "BWA/0.7.18-GCCcore-13.3.0:SAMtools/1.21-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
+    tuple val(sample), path(fastq1), path(fastq2), path(json)
+    tuple path(mito_genome), path(mito_index_files)
 
     output: 
-    tuple val(sample), path("trimmed.R1.fastq"), path("trimmed.R2.fastq"), path("*.json"),     emit: fastq
+    tuple val(sample), path("*.tempmito.bam"),             emit: bam
     
     script:
     def process_script = "${process_name}.sh"
@@ -25,7 +26,9 @@ process FASTP {
         ${task.cpus} \
         ${sample} \
         ${fastq1} \
-        ${fastq2}
+        ${fastq2} \
+        ${json} \
+        ${mito_genome}
 
     """
 }

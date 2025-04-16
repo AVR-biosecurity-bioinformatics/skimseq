@@ -6,7 +6,8 @@ include { PROCESS_READS                                             } from '../s
 
 
 //// import modules
-
+// include { INDEX_GENOME                                              } from '../modules/index_genome' 
+include { INDEX_MITO                                                } from '../modules/index_mito'
 
 
 workflow SKIMSEQ {
@@ -17,14 +18,45 @@ workflow SKIMSEQ {
 
     ch_reads = Channel
         .fromFilePairs(
-            "./test/*.R{1,2}.fastq",
+            "./test/*_R{1,2}_*.fastq",
             checkIfExists: true, 
             flat: true
         )
 
+    // ch_reads.view()
+
+    if ( params.mito_genome ){
+        ch_mito = Channel
+            .fromPath(
+                params.mito_genome, 
+                checkIfExists: true
+            )
+    } else {
+        ch_mito = Channel.empty()
+    } 
+
+    if ( params.ref_genome ){
+        ch_genome = Channel
+            .fromPath(
+                params.ref_genome, 
+                checkIfExists: true
+            )
+    } else {
+        ch_genome = Channel.empty()
+    } 
+
+
     /*
     Process genome 
     */
+
+    INDEX_MITO (
+        ch_mito
+    )
+
+    // INDEX_GENOME (
+    //     ch_genome
+    // )
 
     // PROCESS_GENOME (
     //     "dummy"
@@ -35,7 +67,9 @@ workflow SKIMSEQ {
     */
 
     PROCESS_READS (
-        ch_reads
+        ch_reads,
+        INDEX_MITO.out.fasta_indexed,
+        ch_genome
     )
 
 

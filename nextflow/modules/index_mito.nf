@@ -1,19 +1,19 @@
-process FASTP {
-    def process_name = "fastp"    
+process INDEX_MITO {
+    def process_name = "index_mito"    
     // tag "-"
     // label "small"
-    time '15.m'
-    memory '4.GB'
+    time '30.m'
+    memory '8.GB'
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "fastp/0.23.4-GCC-13.3.0"
+    module "BWA/0.7.18-GCCcore-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
+    path(mito_genome)
 
     output: 
-    tuple val(sample), path("trimmed.R1.fastq"), path("trimmed.R2.fastq"), path("*.json"),     emit: fastq
+    tuple path(mito_genome), path("*.fa.*"),             emit: fasta_indexed
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,9 +23,7 @@ process FASTP {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${sample} \
-        ${fastq1} \
-        ${fastq2}
+        ${mito_genome}
 
     """
 }
