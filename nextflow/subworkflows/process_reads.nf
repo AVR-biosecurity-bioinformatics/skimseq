@@ -3,6 +3,7 @@
 */
 
 //// import modules
+include { ALIGN_GENOME                    } from '../modules/align_genome'
 include { ALIGN_MITO                    } from '../modules/align_mito'
 include { CONSENSUS_MITO                         } from '../modules/consensus_mito'
 include { FASTP                         } from '../modules/fastp'
@@ -71,9 +72,10 @@ workflow PROCESS_READS {
         Nuclear variant calling
     */
 
-    // ALIGN_GENOME (
-
-    // )
+    ALIGN_GENOME (
+        FASTP.out.fastq,
+        ch_genome_indexed
+    )
 
 
 

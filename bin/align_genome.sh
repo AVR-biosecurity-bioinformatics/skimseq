@@ -7,7 +7,7 @@ set -u
 # $3 = fastq file 1
 # $4 = fastq file 2
 # $5 = fastp json file
-# $6 = mito_genome fasta
+# $6 = ref_genome fasta
 
 
 
@@ -24,4 +24,4 @@ bwa mem -t ${1} \
     $4 \
     | \
     samtools view -bS - \
-    > ${2}.tempmito.bam 
+    > ${2}.tempgenome.bam 
