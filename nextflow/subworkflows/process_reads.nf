@@ -3,10 +3,11 @@
 */
 
 //// import modules
-include { ALIGN_MITO                     } from '../modules/align_mito'
-include { FASTP                     } from '../modules/fastp'
-include { FASTQC as FASTQC_POSTTRIM } from '../modules/fastqc'
-include { FASTQC as FASTQC_PRETRIM } from '../modules/fastqc'
+include { ALIGN_MITO                    } from '../modules/align_mito'
+include { FASTP                         } from '../modules/fastp'
+include { FASTQC as FASTQC_POSTTRIM     } from '../modules/fastqc'
+include { FASTQC as FASTQC_PRETRIM      } from '../modules/fastqc'
+include { PROCESS_BAM_MITO                 } from '../modules/process_bam_mito'
 
 workflow PROCESS_READS {
 
@@ -43,13 +44,14 @@ workflow PROCESS_READS {
     )
 
     // group mito .bam files by sample
+    ALIGN_MITO.out.bam
+        .groupTuple ( by: 0 )
+        .set { ch_grouped_mito_bam }
 
-
-    // sort mito .bam, merging if necessary
-
-
-    // index mito .bam
-
+    // sort mito .bam, merging if necessary, then index
+    PROCESS_BAM_MITO (
+        ch_grouped_mito_bam
+    )
 
     // ALIGN_GENOME (
 

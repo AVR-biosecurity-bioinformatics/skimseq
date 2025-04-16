@@ -1,5 +1,5 @@
-process ALIGN_MITO {
-    def process_name = "align_mito"    
+process PROCESS_BAM_MITO {
+    def process_name = "process_bam_mito"    
     // tag "-"
     // label "small"
     time '30.m'
@@ -7,14 +7,13 @@ process ALIGN_MITO {
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BWA/0.7.18-GCCcore-13.3.0:SAMtools/1.21-GCC-13.3.0"
+    module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2), path(json)
-    tuple path(mito_genome), path(mito_index_files)
+    tuple val(sample), path(temp_bam, name: 'temp*.bam')
 
     output: 
-    tuple val(sample), path("*.tempmito.bam"),             emit: bam
+    tuple val(sample), path("sorted.bam"), path("sorted.bam.bai"),        emit: bam
     
     script:
     def process_script = "${process_name}.sh"
@@ -25,10 +24,7 @@ process ALIGN_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        ${fastq1} \
-        ${fastq2} \
-        ${json} \
-        ${mito_genome}
+        "${temp_bam}"
 
     """
 }
