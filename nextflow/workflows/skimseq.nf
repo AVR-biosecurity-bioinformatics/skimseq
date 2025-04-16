@@ -6,7 +6,7 @@ include { PROCESS_READS                                             } from '../s
 
 
 //// import modules
-// include { INDEX_GENOME                                              } from '../modules/index_genome' 
+include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 
 
@@ -47,16 +47,16 @@ workflow SKIMSEQ {
 
 
     /*
-    Process genome 
+    Process nuclear and mitochondrial genome files
     */
 
     INDEX_MITO (
         ch_mito
     )
 
-    // INDEX_GENOME (
-    //     ch_genome
-    // )
+    INDEX_GENOME (
+        ch_genome
+    )
 
     // PROCESS_GENOME (
     //     "dummy"
@@ -69,7 +69,7 @@ workflow SKIMSEQ {
     PROCESS_READS (
         ch_reads,
         INDEX_MITO.out.fasta_indexed,
-        ch_genome
+        INDEX_GENOME.out.fasta_indexed
     )
 
 

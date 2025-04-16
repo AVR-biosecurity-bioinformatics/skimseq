@@ -15,10 +15,13 @@ workflow PROCESS_READS {
     take:
     ch_reads
     ch_mito_indexed
-    ch_genome
+    ch_genome_indexed
 
     main: 
 
+    /* 
+        Read QC
+    */
 
     FASTQC_PRETRIM (
         ch_reads,
@@ -38,6 +41,10 @@ workflow PROCESS_READS {
         ch_fastqc_posttrim_input,
         "posttrim"
     )
+
+    /*
+        Mitochondrial variant calling
+    */
 
     ALIGN_MITO (
         FASTP.out.fastq,
@@ -60,6 +67,10 @@ workflow PROCESS_READS {
         ch_mito_indexed
     )
 
+    /* 
+        Nuclear variant calling
+    */
+
     // ALIGN_GENOME (
 
     // )
@@ -67,7 +78,7 @@ workflow PROCESS_READS {
 
 
     emit: 
-    FASTQC_PRETRIM.out
+    CONSENSUS_MITO.out.fasta
 
 
 }
