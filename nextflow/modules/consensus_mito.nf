@@ -1,20 +1,20 @@
-process ALIGN_MITO {
-    def process_name = "align_mito"    
+process CONSENSUS_MITO {
+    def process_name = "consensus_mito"    
     // tag "-"
     // label "small"
     time '30.m'
     memory '8.GB'
     cpus 1
-    // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BWA/0.7.18-GCCcore-13.3.0:SAMtools/1.21-GCC-13.3.0"
+    module "BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2), path(json)
+    tuple val(sample), path(bam), path(bam_index)
     tuple path(mito_genome), path(mito_index_files)
 
     output: 
-    tuple val(sample), path("*.tempmito.bam"),             emit: bam
+    tuple val(sample), path("*.mito.fa"),        emit: fasta
     
     script:
     def process_script = "${process_name}.sh"
@@ -25,9 +25,7 @@ process ALIGN_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        ${fastq1} \
-        ${fastq2} \
-        ${json} \
+        ${bam} \
         ${mito_genome}
 
     """

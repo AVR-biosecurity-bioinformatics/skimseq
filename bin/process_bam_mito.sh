@@ -22,3 +22,7 @@ fi
 
 # index bam
 samtools index -@ $1 sorted.bam
+
+# check bam if correctly formatted
+samtools quickcheck sorted.bam \
+	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )

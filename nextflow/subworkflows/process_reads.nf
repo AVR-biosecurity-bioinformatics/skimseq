@@ -4,6 +4,7 @@
 
 //// import modules
 include { ALIGN_MITO                    } from '../modules/align_mito'
+include { CONSENSUS_MITO                         } from '../modules/consensus_mito'
 include { FASTP                         } from '../modules/fastp'
 include { FASTQC as FASTQC_POSTTRIM     } from '../modules/fastqc'
 include { FASTQC as FASTQC_PRETRIM      } from '../modules/fastqc'
@@ -48,9 +49,15 @@ workflow PROCESS_READS {
         .groupTuple ( by: 0 )
         .set { ch_grouped_mito_bam }
 
-    // sort mito .bam, merging if necessary, then index
+    // process mito bam (merge, sort, index)
     PROCESS_BAM_MITO (
         ch_grouped_mito_bam
+    )
+
+    // call consensus fasta file from mito bam
+    CONSENSUS_MITO (
+        PROCESS_BAM_MITO.out.bam,
+        ch_mito_indexed
     )
 
     // ALIGN_GENOME (
