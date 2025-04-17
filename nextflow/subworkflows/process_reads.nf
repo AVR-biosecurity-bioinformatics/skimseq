@@ -3,6 +3,7 @@
 */
 
 //// import modules
+include { BAM_STATS                          } from '../modules/bam_stats'
 include { MAP_TO_GENOME                          } from '../modules/map_to_genome'
 include { MAP_TO_MITO                            } from '../modules/map_to_mito'
 include { CONSENSUS_MITO                        } from '../modules/consensus_mito'
@@ -100,11 +101,15 @@ workflow PROCESS_READS {
 
 
     // generate statistics about the genome .bam files
-
+    BAM_STATS (
+        EXTRACT_UNMAPPED.out.bam
+    )
 
 
     emit: 
-    CONSENSUS_MITO.out.fasta
+    mito_fasta = CONSENSUS_MITO.out.fasta
+    bam = BAM_STATS.out.bam
+    bam_stats = BAM_STATS.out.stats
 
 
 }
