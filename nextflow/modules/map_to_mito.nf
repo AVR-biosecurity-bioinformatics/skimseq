@@ -1,5 +1,5 @@
-process ALIGN_MITO {
-    def process_name = "align_mito"    
+process MAP_TO_MITO {
+    def process_name = "map_to_mito"    
     // tag "-"
     // label "small"
     time '30.m'

@@ -1,5 +1,5 @@
-process ALIGN_GENOME {
-    def process_name = "align_genome"    
+process EXTRACT_UNMAPPED {
+    def process_name = "extract_unmapped"    
     // tag "-"
     // label "small"
     time '30.m'
@@ -10,11 +10,11 @@ process ALIGN_GENOME {
     module "BWA/0.7.18-GCCcore-13.3.0:SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2), path(json)
-    tuple path(ref_genome), path(genome_index_files)
+    tuple val(sample), path(bam), path(bam_index)
 
     output: 
-    tuple val(sample), path("*.tempgenome.bam"),             emit: bam
+    tuple val(sample), path(bam), path(bam_index),          emit: bam
+    tuple val(sample), path("*.unmapped.R{1,2}.fastq.gz"),  emit: unmapped_fastq
     
     script:
     def process_script = "${process_name}.sh"
@@ -25,10 +25,7 @@ process ALIGN_GENOME {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        ${fastq1} \
-        ${fastq2} \
-        ${json} \
-        ${ref_genome}
+        ${bam}
 
     """
 }

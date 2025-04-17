@@ -3,13 +3,15 @@
 */
 
 //// import modules
-include { ALIGN_GENOME                    } from '../modules/align_genome'
-include { ALIGN_MITO                    } from '../modules/align_mito'
-include { CONSENSUS_MITO                         } from '../modules/consensus_mito'
-include { FASTP                         } from '../modules/fastp'
-include { FASTQC as FASTQC_POSTTRIM     } from '../modules/fastqc'
-include { FASTQC as FASTQC_PRETRIM      } from '../modules/fastqc'
-include { PROCESS_BAM_MITO                 } from '../modules/process_bam_mito'
+include { MAP_TO_GENOME                          } from '../modules/map_to_genome'
+include { MAP_TO_MITO                            } from '../modules/map_to_mito'
+include { CONSENSUS_MITO                        } from '../modules/consensus_mito'
+include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
+include { FASTP                                 } from '../modules/fastp'
+include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
+include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
+include { PROCESS_BAM_GENOME                    } from '../modules/process_bam_genome'
+include { PROCESS_BAM_MITO                      } from '../modules/process_bam_mito'
 
 workflow PROCESS_READS {
 
@@ -47,13 +49,14 @@ workflow PROCESS_READS {
         Mitochondrial variant calling
     */
 
-    ALIGN_MITO (
+    // align reads to mitochondrial genome
+    MAP_TO_MITO (
         FASTP.out.fastq,
         ch_mito_indexed
     )
 
     // group mito .bam files by sample
-    ALIGN_MITO.out.bam
+    MAP_TO_MITO.out.bam
         .groupTuple ( by: 0 )
         .set { ch_grouped_mito_bam }
 
@@ -72,10 +75,31 @@ workflow PROCESS_READS {
         Nuclear variant calling
     */
 
-    ALIGN_GENOME (
+    // align reads to nuclear genome 
+    MAP_TO_GENOME (
         FASTP.out.fastq,
         ch_genome_indexed
     )
+
+    // group nuclear .bam files by sample
+    MAP_TO_GENOME.out.bam
+        .groupTuple ( by: 0 )
+        .set { ch_grouped_genome_bam }
+
+    // process nuclear .bam (merge, sort, index)
+    PROCESS_BAM_GENOME (
+        ch_grouped_genome_bam
+    )
+
+    // extract unmapped reads
+    EXTRACT_UNMAPPED (
+        PROCESS_BAM_GENOME.out.bam
+    )
+
+    // base quality score recalibration (if a list of known variants are provided)
+
+
+    // generate statistics about the genome .bam files
 
 
 
