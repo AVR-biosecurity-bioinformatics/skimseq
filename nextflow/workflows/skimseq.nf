@@ -2,6 +2,7 @@
 
 //// import subworkflows
 // include { PROCESS_GENOME                                             } from '../subworkflows/process_genome'
+include { GATK_GENOTYPING                                             } from '../subworkflows/gatk_genotyping'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 
 
@@ -72,5 +73,9 @@ workflow SKIMSEQ {
         INDEX_GENOME.out.fasta_indexed
     )
 
+    GATK_GENOTYPING (
+        PROCESS_READS.out.bam,
+        INDEX_GENOME.out.fasta_indexed
+    )
 
 }

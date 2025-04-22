@@ -3,9 +3,9 @@
 */
 
 //// import modules
-include { BAM_STATS                          } from '../modules/bam_stats'
-include { MAP_TO_GENOME                          } from '../modules/map_to_genome'
-include { MAP_TO_MITO                            } from '../modules/map_to_mito'
+include { BAM_STATS                             } from '../modules/bam_stats'
+include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
+include { MAP_TO_MITO                           } from '../modules/map_to_mito'
 include { CONSENSUS_MITO                        } from '../modules/consensus_mito'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { FASTP                                 } from '../modules/fastp'
