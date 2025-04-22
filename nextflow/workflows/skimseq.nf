@@ -7,6 +7,7 @@ include { PROCESS_READS                                             } from '../s
 
 
 //// import modules
+include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 
@@ -62,6 +63,11 @@ workflow SKIMSEQ {
     // PROCESS_GENOME (
     //     "dummy"
     // )
+
+    // create genome intervals for genotyping
+    CREATE_INTERVALS (
+        INDEX_GENOME.out.fasta_indexed
+    )
 
     /*
     Process reads per sample, aligning to the genome, and merging
