@@ -102,13 +102,13 @@ workflow PROCESS_READS {
 
     // generate statistics about the genome .bam files
     BAM_STATS (
-        EXTRACT_UNMAPPED.out.bam
+        PROCESS_BAM_GENOME.out.bam
     )
 
 
     emit: 
     mito_fasta = CONSENSUS_MITO.out.fasta
-    bam = BAM_STATS.out.bam
+    bam = PROCESS_BAM_GENOME.out.bam
     bam_stats = BAM_STATS.out.stats
 
 
