@@ -17,18 +17,28 @@ workflow SKIMSEQ {
     Input channel parsing
     */    
 
-    ch_reads = Channel
-        .fromFilePairs(
-            "./test/*_R{1,2}_*.fastq",
-            checkIfExists: true, 
-            flat: true
-        )
-
-    // ch_reads.view()
+    if ( params.samplesheet ){
+        ch_samplesheet = Channel
+            .fromPath (
+                params.samplesheet,
+                checkIfExists: true
+            )
+    } else {
+        println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
+    }
+    
+    ch_samplesheet 
+        .splitCsv ( by: 1, skip: 1 )
+        .map { row -> [ 
+            row[0],                                 // sample
+            file( row[1], checkIfExists: true ),    // read1 
+            file( row[2], checkIfExists: true )     // read2
+            ] }
+        .set { ch_reads }
 
     if ( params.mito_genome ){
         ch_mito = Channel
-            .fromPath(
+            .fromPath (
                 params.mito_genome, 
                 checkIfExists: true
             )
@@ -38,7 +48,7 @@ workflow SKIMSEQ {
 
     if ( params.ref_genome ){
         ch_genome = Channel
-            .fromPath(
+            .fromPath (
                 params.ref_genome, 
                 checkIfExists: true
             )
