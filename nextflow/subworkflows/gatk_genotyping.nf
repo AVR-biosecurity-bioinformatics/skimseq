@@ -4,6 +4,7 @@
 
 //// import modules
 include { CALL_VARIANTS                                                 } from '../modules/call_variants'
+include { COMBINE_GVCFS                                              } from '../modules/combine_gvcfs' 
 include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 
@@ -55,9 +56,22 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed
     )
 
-    // joint genotype GVCFs over genomic intervals
+    // combine GVCFs into a single element
+    CALL_VARIANTS.out.gvcf
+        .map { sample, gvcf, tbi -> [ gvcf, tbi ] }
+        .collect()
+        .set { ch_gvcfs }
 
-    
+    // ch_gvcfs.view()
+
+    // combine GVCFs into one file
+    COMBINE_GVCFS (
+        ch_gvcfs,
+        ch_genome_indexed
+    )
+
+    // calculate genotype posteriors over each genomic interval
+
 
     emit: 
     CALL_VARIANTS.out
