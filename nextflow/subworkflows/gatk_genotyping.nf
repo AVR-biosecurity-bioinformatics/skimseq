@@ -32,9 +32,14 @@ workflow GATK_GENOTYPING {
         params.interval_size
     )
 
-    // turn intervals file into GATK format via .bed
+    // split intervals file into chunks of 50 lines for conversion
+    CREATE_INTERVALS.out.intervals
+        .splitText ( by: 50, file: true )
+        .set { ch_intervals }
+
+    // turn intervals into GATK format via .bed
     CONVERT_INTERVALS (
-        CREATE_INTERVALS.out.intervals,
+        ch_intervals,
         ch_genome_indexed
     )
 

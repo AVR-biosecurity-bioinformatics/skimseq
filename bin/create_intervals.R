@@ -8,8 +8,6 @@ projectDir              <- args[1]
 params.rdata            <- args[2]
 params.interval_size    <- args[3]
 
-print(projectDir)
-
 sys.source(paste0(projectDir,"/bin/functions.R"), envir = .GlobalEnv)
 
 ### load only required packages

@@ -63,7 +63,9 @@ workflow SKIMSEQ {
     //     "dummy"
     // )
 
-    
+    ch_mito_indexed = INDEX_MITO.out.fasta_indexed.first()
+
+    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
 
     /*
     Process reads per sample, aligning to the genome, and merging
@@ -71,13 +73,13 @@ workflow SKIMSEQ {
 
     PROCESS_READS (
         ch_reads,
-        INDEX_MITO.out.fasta_indexed,
-        INDEX_GENOME.out.fasta_indexed
+        ch_mito_indexed,
+        ch_genome_indexed
     )
 
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
-        INDEX_GENOME.out.fasta_indexed
+        ch_genome_indexed
     )
 
 }
