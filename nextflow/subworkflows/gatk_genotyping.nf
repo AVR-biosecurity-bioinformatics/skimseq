@@ -7,6 +7,7 @@ include { CALL_VARIANTS                                                 } from '
 include { COMBINE_GVCFS                                              } from '../modules/combine_gvcfs' 
 include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
+include { GENOTYPE_POSTERIORS                                              } from '../modules/genotype_posteriors' 
 
 
 
@@ -62,8 +63,6 @@ workflow GATK_GENOTYPING {
         .collect()
         .set { ch_gvcfs }
 
-    // ch_gvcfs.view()
-
     // combine GVCFs into one file
     COMBINE_GVCFS (
         ch_gvcfs,
@@ -71,7 +70,12 @@ workflow GATK_GENOTYPING {
     )
 
     // calculate genotype posteriors over each genomic interval
+    GENOTYPE_POSTERIORS (
+        COMBINE_GVCFS.out.gvcf,
+        ch_interval_list
+    )
 
+    // call genotypes at variant sites
 
     emit: 
     CALL_VARIANTS.out
