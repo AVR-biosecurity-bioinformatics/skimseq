@@ -11,6 +11,7 @@ process CREATE_INTERVALS {
 
     input:
     tuple path(ref_fasta), path(indexes)
+    val(interval_size)
 
     output: 
     path("intervals.txt"),             emit: intervals
@@ -21,7 +22,8 @@ process CREATE_INTERVALS {
     shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
-        ${params.rdata}
+        ${params.rdata} \
+        ${interval_size}
     """
     // """
     // #!/usr/bin/env Rscript
