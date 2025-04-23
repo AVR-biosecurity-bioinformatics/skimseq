@@ -8,6 +8,7 @@ include { COMBINE_GVCFS                                              } from '../
 include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 include { GENOTYPE_POSTERIORS                                              } from '../modules/genotype_posteriors' 
+include { JOINT_GENOTYPE                                              } from '../modules/joint_genotype' 
 
 
 
@@ -76,6 +77,10 @@ workflow GATK_GENOTYPING {
     )
 
     // call genotypes at variant sites
+    JOINT_GENOTYPE (
+        GENOTYPE_POSTERIORS.out.gvcf_intervals,
+        ch_genome_indexed
+    )
 
     emit: 
     CALL_VARIANTS.out

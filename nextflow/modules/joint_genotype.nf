@@ -1,5 +1,5 @@
-process GENOTYPE_POSTERIORS {
-    def process_name = "genotype_posteriors"    
+process JOINT_GENOTYPE {
+    def process_name = "joint_genotype"    
     // tag "-"
     // label "small"
     time '30.m'
@@ -10,12 +10,11 @@ process GENOTYPE_POSTERIORS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple path(gvcf), path(gvcf_tbi)
-    // tuple path(ref_genome), path(genome_index_files)
-    path(interval_list)
+    tuple path(gvcf), path(gvcf_tbi), path(interval_list)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), path(interval_list),      emit: gvcf_intervals
+    tuple path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
@@ -26,6 +25,7 @@ process GENOTYPE_POSTERIORS {
     bash ${process_script} \
         ${task.cpus} \
         ${gvcf} \
+        ${ref_genome} \
         ${interval_list}
 
     """
