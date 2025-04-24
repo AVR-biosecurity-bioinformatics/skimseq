@@ -2,6 +2,7 @@
 
 //// import subworkflows
 // include { PROCESS_GENOME                                             } from '../subworkflows/process_genome'
+include { FILTER_VARIANTS                                             } from '../subworkflows/filter_variants'
 include { GATK_GENOTYPING                                             } from '../subworkflows/gatk_genotyping'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 
@@ -87,9 +88,21 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
 
+    /*
+    Call variants per sample, then combine and joint-genotype across genomic intervals
+    */
+
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_genome_indexed
+    )
+
+    /*
+    Filter SNP and INDEL variants
+    */
+
+    FILTER_VARIANTS (
+        GATK_GENOTYPING.out.vcf
     )
 
 }

@@ -107,7 +107,8 @@ workflow GATK_GENOTYPING {
     )
 
     emit: 
-    MERGE_VCFS.out
+    vcf = MERGE_VCFS.out.vcf
+    posteriors = ch_posteriors
 
 
 }
