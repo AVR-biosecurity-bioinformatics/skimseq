@@ -6,6 +6,7 @@
 include { CALL_VARIANTS                                                 } from '../modules/call_variants'
 include { COMBINE_GVCFS                                              } from '../modules/combine_gvcfs' 
 include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
+include { CREATE_BEAGLE                                              } from '../modules/create_beagle' 
 include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 include { GENOTYPE_POSTERIORS                                              } from '../modules/genotype_posteriors' 
 include { JOINT_GENOTYPE                                              } from '../modules/joint_genotype' 
@@ -93,11 +94,20 @@ workflow GATK_GENOTYPING {
         ch_vcfs
     )
 
-    // merge genotype posterior .g.vcfs into a single file
+    // get just posterior .g.vcfs from channel
+    GENOTYPE_POSTERIORS.out.gvcf_intervals
+        .map { gvcf, gvcf_tbi, interval_list -> [ gvcf, gvcf_tbi ] }
+        .set { ch_posteriors }
 
+    // create beagle file from .g.vcf files with posteriors
+    /// NOTE: Could move this to an ANGSD-specific workflow
+    CREATE_BEAGLE (
+        ch_posteriors,
+        ch_genome_indexed
+    )
 
     emit: 
-    CALL_VARIANTS.out
+    MERGE_VCFS.out
 
 
 }
