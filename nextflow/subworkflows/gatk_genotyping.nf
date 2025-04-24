@@ -9,6 +9,7 @@ include { CONVERT_INTERVALS                                             } from '
 include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 include { GENOTYPE_POSTERIORS                                              } from '../modules/genotype_posteriors' 
 include { JOINT_GENOTYPE                                              } from '../modules/joint_genotype' 
+include { MERGE_VCFS                                              } from '../modules/merge_vcfs' 
 
 
 
@@ -27,7 +28,7 @@ workflow GATK_GENOTYPING {
     }
 
     /* 
-        Read QC
+        Genotype samples individually and jointly
     */
 
     // create genome intervals for genotyping
@@ -81,6 +82,19 @@ workflow GATK_GENOTYPING {
         GENOTYPE_POSTERIORS.out.gvcf_intervals,
         ch_genome_indexed
     )
+
+    // collect .vcfs into a single element
+    JOINT_GENOTYPE.out.vcf
+        .collect()
+        .set { ch_vcfs }
+
+    // merge interval .vcfs into a single file
+    MERGE_VCFS (
+        ch_vcfs
+    )
+
+    // merge genotype posterior .g.vcfs into a single file
+
 
     emit: 
     CALL_VARIANTS.out
