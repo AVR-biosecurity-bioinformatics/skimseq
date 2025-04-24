@@ -5,6 +5,7 @@
 //// import modules
 include { FILTER_INDELS                                                 } from '../modules/filter_indels'
 include { FILTER_SNPS                                                 } from '../modules/filter_snps'
+include { MERGE_FILTERED                                                 } from '../modules/merge_filtered'
 
 
 
@@ -21,6 +22,11 @@ workflow FILTER_VARIANTS {
     
     FILTER_INDELS (
         ch_vcf
+    )
+
+    MERGE_FILTERED (
+        FILTER_SNPS.out.vcf,
+        FILTER_INDELS.out.vcf
     )
 
 
