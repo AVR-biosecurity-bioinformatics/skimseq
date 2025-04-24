@@ -11,3 +11,7 @@ ls *.vcf.gz > vcf.list
 gatk MergeVcfs \
     -I vcf.list \
     -O merged.vcf.gz
+
+# reindex the file
+gatk IndexFeatureFile \
+    -I merged.vcf.gz 
