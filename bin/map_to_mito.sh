@@ -17,7 +17,7 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]')
 
 # Align to Mitochondrial Genome using the bwa-mem algorithm
-bwa mem -t ${1} \
+bwa-mem2 mem -t ${1} \
     -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}\tPI:${RG_PI}") \
     $6 \
     $3 \

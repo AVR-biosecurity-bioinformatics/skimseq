@@ -5,4 +5,6 @@ set -u
 # $1 = cpus 
 # $2 = mito_genome fasta
 
-bwa index $2
+## trivial to index mitochondrial genome, so this doesn't check for existing index files in the supplied file's directory
+
+bwa-mem2 index $2
