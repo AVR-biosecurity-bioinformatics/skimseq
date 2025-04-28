@@ -3,7 +3,7 @@ process CREATE_INTERVALS {
     // tag "-"
     // label "small"
     time '5.m'
-    memory '4.GB'
+    memory '2.GB'
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"

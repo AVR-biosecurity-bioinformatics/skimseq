@@ -21,13 +21,23 @@ seqkit sample /group/pathogens/IAWS/Projects/Phylloxera/genomics/fastq/Sample_HG
 
 ### test commands
 
+```
 export NXF_VER=23.05.0-edge
 
 nextflow run . -profile basc_modules,debug
 
 nextflow run . -profile basc_modules,debug --mito_genome test/Dv_mitochondrial_genome.fa --ref_genome test/Dv_genome_V3.1.fa
 
+# downsampled files 
 nextflow run . -profile basc_modules,debug \
     --mito_genome test/Dv_mitochondrial_genome.fa \
     --ref_genome test/Dv_genome_V3.1.fa \
     --samplesheet test/samplesheet.csv
+
+# full files
+nextflow run . -profile basc_modules,debug \
+    --mito_genome test/Dv_mitochondrial_genome.fa \
+    --ref_genome test/Dv_genome_V3.1.fa \
+    --samplesheet test/samplesheet_full.csv
+
+```
