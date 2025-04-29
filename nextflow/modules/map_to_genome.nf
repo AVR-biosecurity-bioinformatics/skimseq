@@ -2,9 +2,9 @@ process MAP_TO_GENOME {
     def process_name = "map_to_genome"    
     // tag "-"
     // label "small"
-    time '30.m'
+    time '1.h'
     memory '8.GB'
-    cpus 1
+    cpus 4
     // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0"

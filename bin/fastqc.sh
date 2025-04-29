@@ -7,7 +7,7 @@ set -u
 # $3 = fastq file 2
 # $4 = type (pretrim or posttrim)
 
-fastqc $2 $3
+fastqc -t $1 $2 $3
 
 if [[ $4 = "pretrim" ]]; then 
     for i in *.html; do

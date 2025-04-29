@@ -2,9 +2,9 @@ process PROCESS_BAM_GENOME {
     def process_name = "process_bam_genome"    
     // tag "-"
     // label "small"
-    time '30.m'
+    time '2.h'
     memory '8.GB'
-    cpus 1
+    cpus 4
     // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
