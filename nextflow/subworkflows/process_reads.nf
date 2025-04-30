@@ -34,7 +34,21 @@ workflow PROCESS_READS {
     )
 
     FASTP (
-        ch_reads
+        ch_reads,
+        params.rf_quality,
+        params.rf_length,
+        params.rf_n_bases,
+        params.rf_trim_polyg,
+        params.rf_cut_right,
+        params.rf_cut_window_size,
+        params.rf_cut_mean_quality,
+        params.rf_lc_filter,
+        params.rf_lc_threshold,
+        params.rf_correction,
+        params.rf_overlap_length,
+        params.rf_overlap_diff,
+        params.rf_overlap_diff_pc,
+        params.rf_custom_flags
     )
 
     // channel for post-trim fastqc
