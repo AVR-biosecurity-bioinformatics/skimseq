@@ -8,7 +8,10 @@ set -u
 
 ## merge bams if list of input files is greater than 1
 if [[ $(wc -w <<< "$3") > 1 ]]; then
-    samtools merge -@ $1 -O BAM $3 \
+	# get list of .bam files in directory
+	ls *.bam > bam.list	
+
+    samtools merge -@ $1 -O BAM -b bam.list -o - \
 		| samtools sort -@ $1 -n -O BAM \
 		| samtools fixmate -@ $1 -m - - \
 		| samtools sort -@ $1 -O BAM \

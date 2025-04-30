@@ -13,6 +13,7 @@ include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
 include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
 include { PROCESS_BAM_GENOME                    } from '../modules/process_bam_genome'
 include { PROCESS_BAM_MITO                      } from '../modules/process_bam_mito'
+include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 
 workflow PROCESS_READS {
 
@@ -46,13 +47,55 @@ workflow PROCESS_READS {
         "posttrim"
     )
 
+    // split paired fastq into chunks using seqtk
+    SPLIT_FASTQ (
+        FASTP.out.fastq,
+        params.fastq_chunk_size
+    )
+
+    // combine matching chunks from paired files
+    SPLIT_FASTQ.out.fastq
+        .transpose()
+        .multiMap { sample, file1, file2, json ->
+            first: [ sample, json, file1 ]
+            second:  [ sample, json, file2 ]
+        }
+        .set { ch_split_multi }
+
+    ch_split_multi.first
+        .map { sample, json, reads_file ->
+            def filename_list = reads_file.getFileName().toString().split("\\.")
+            [ sample, json, filename_list[1], reads_file ]
+        }
+        .set { ch_split_read1 }
+    
+    ch_split_multi.second
+        .map { sample, json, reads_file ->
+            def filename_list = reads_file.getFileName().toString().split("\\.")
+            [ sample, json, filename_list[1], reads_file ]
+        }
+        .set { ch_split_read2 }
+
+    ch_split_read1
+        .join ( 
+            ch_split_read2, 
+            by: [0,1,2],
+            failOnDuplicate: true,
+            failOnMismatch: true
+        )
+        .map { sample, json, chunk, file1, file2 ->
+            [ sample, file1, file2, json ]
+        }
+        .set { ch_fastq_split }
+
+
     /*
         Mitochondrial variant calling
     */
 
     // align reads to mitochondrial genome
     MAP_TO_MITO (
-        FASTP.out.fastq,
+        ch_fastq_split,
         ch_mito_indexed
     )
 
@@ -78,7 +121,7 @@ workflow PROCESS_READS {
 
     // align reads to nuclear genome 
     MAP_TO_GENOME (
-        FASTP.out.fastq,
+        ch_fastq_split,
         ch_genome_indexed
     )
 
