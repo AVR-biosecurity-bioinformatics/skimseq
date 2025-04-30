@@ -2,9 +2,9 @@ process CALL_VARIANTS {
     def process_name = "call_variants"    
     // tag "-"
     // label "small"
-    time '60.m'
+    time '8.h'
     memory '8.GB'
-    cpus 4
+    cpus 8
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
