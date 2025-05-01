@@ -4,6 +4,16 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = vcf
+# $3 = indel_qd
+# $4 = indel_qual
+# $5 = indel_fs
+# $6 = indel_rprs
+# $7 = indel_maf
+# $8 = indel_eh
+# $9 = indel_dp_min
+# $10 = indel_dp_max
+# $11 = indel_custom_flags
+# $12 = max_missing
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -35,25 +45,35 @@ gatk VariantsToTable \
 pigz -p${1} indels.table
 
 # Hard-filter INDELS
-gatk VariantFiltration \
-	--verbosity ERROR \
-	-V indels.vcf.gz \
-	-filter "QD < 2.0" --filter-name "QD2" \
-	-filter "QUAL < 30.0" --filter-name "QUAL30" \
-	-filter "FS > 200.0" --filter-name "FS200" \
-	-filter "ReadPosRankSum < -20.0" --filter-name "ReadPosRankSum-20" \
-	-filter "AF <0.05" --filter-name "MAF005" \
-	-filter "ExcessHet > 54.69" --filter-name "ExcessHet" \
-	-filter "DP < 6" --filter-name "DPmin" \
-	-filter "DP > 1500" --filter-name "DPmax" \
-	-O indels_tmp.vcf.gz
+if [[ ${11} == "none" ]]; then
+	# use individual parameters
+	gatk VariantFiltration \
+		--verbosity ERROR \
+		-V indels.vcf.gz \
+		-filter "QD < ${3}" --filter-name "QD${3}" \
+		-filter "QUAL < ${4}" --filter-name "QUAL${4}" \
+		-filter "FS > ${5}" --filter-name "FS${5}" \
+		-filter "ReadPosRankSum < ${6}" --filter-name "ReadPosRankSum${6}" \
+		-filter "AF < ${7}" --filter-name "MAF${7}" \
+		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
+		-filter "DP < ${9}" --filter-name "DPmin" \
+		-filter "DP > ${10}" --filter-name "DPmax" \
+		-O indels_tmp.vcf.gz
+else
+	# use custom filters
+	gatk VariantFiltration \
+		--verbosity ERROR \
+		-V indels.vcf.gz \
+		${11} \
+		-O indels_tmp.vcf.gz
+fi
 
 # Transform filtered genotypes to nocall and keep only those with <5% missing data
 gatk SelectVariants \
 	--verbosity ERROR \
 	-V indels_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
-	--max-nocall-fraction 0.05 \
+	--max-nocall-fraction ${12} \
 	--exclude-filtered \
 	-O indels_filtered_tmp.vcf.gz
 

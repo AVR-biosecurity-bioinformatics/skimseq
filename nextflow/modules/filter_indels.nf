@@ -11,6 +11,8 @@ process FILTER_INDELS {
 
     input:
     tuple path(vcf), path(vcf_tbi)
+    tuple val(indel_qd), val(indel_qual), val(indel_fs), val(indel_rprs), val(indel_maf), val(indel_eh), val(indel_dp_min), val(indel_dp_max), val(indel_custom_flags)
+    val(max_missing)
 
     output: 
     tuple path("indels_filtered.vcf.gz"), path("indels_filtered.vcf.gz.tbi"),   emit: vcf
@@ -24,7 +26,17 @@ process FILTER_INDELS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${vcf}
+        ${vcf} \
+        "${indel_qd}" \
+        "${indel_qual}" \
+        "${indel_fs}" \
+        "${indel_rprs}" \
+        "${indel_maf}" \
+        "${indel_eh}" \
+        "${indel_dp_min}" \
+        "${indel_dp_max}" \
+        "${indel_custom_flags}" \
+        ${max_missing}
 
     """
 }
