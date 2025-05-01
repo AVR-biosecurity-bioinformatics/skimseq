@@ -4,6 +4,19 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = vcf
+# $3 = snp_qd
+# $4 = snp_qual
+# $5 = snp_sor
+# $6 = snp_fs
+# $7 = snp_mq
+# $8 = snp_mqrs
+# $9 = snp_rprs
+# $10 = snp_maf
+# $11 = snp_eh
+# $12 = snp_dp_min
+# $13 = snp_dp_max
+# $14 = snp_custom_flags
+# $15 = max_missing
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -34,28 +47,38 @@ gatk VariantsToTable \
 pigz -p${1} snps.table
 
 # Hard-filter SNPs
-gatk VariantFiltration \
-	--verbosity ERROR \
-	-V snps.vcf.gz \
-	-filter "QD < 2.0" --filter-name "QD2" \
-	-filter "QUAL < 30.0" --filter-name "QUAL30" \
-	-filter "SOR > 3.0" --filter-name "SOR3" \
-	-filter "FS > 60.0" --filter-name "FS60" \
-	-filter "MQ < 40.0" --filter-name "MQ40" \
-	-filter "MQRankSum < -12.5" --filter-name "MQRankSum-12.5" \
-	-filter "ReadPosRankSum < -8.0" --filter-name "ReadPosRankSum-8" \
-	-filter "AF < 0.05" --filter-name "MAF005" \
-	-filter "ExcessHet > 54.69" --filter-name "ExcessHet" \
-	-filter "DP < 6" --filter-name "DPmin" \
-	-filter "DP > 1500" --filter-name "DPmax" \
-	-O snps_tmp.vcf.gz
+if [[ ${14} == "none" ]]; then
+	# use individual parameters
+	gatk VariantFiltration \
+		--verbosity ERROR \
+		-V snps.vcf.gz \
+		-filter "QD < ${3}" --filter-name "QD${3}" \
+		-filter "QUAL < ${4}" --filter-name "QUAL${4}" \
+		-filter "SOR > ${5}" --filter-name "SOR${5}" \
+		-filter "FS > ${6}" --filter-name "FS${6}" \
+		-filter "MQ < ${7}" --filter-name "MQ${7}" \
+		-filter "MQRankSum < ${8}" --filter-name "MQRankSum${8}" \
+		-filter "ReadPosRankSum < ${9}" --filter-name "ReadPosRankSum${9}" \
+		-filter "AF < ${10}" --filter-name "MAF${10}" \
+		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
+		-filter "DP < ${12}" --filter-name "DPmin" \
+		-filter "DP > ${13}" --filter-name "DPmax" \
+		-O snps_tmp.vcf.gz
+else
+	# use custom filters
+	gatk VariantFiltration \
+		--verbosity ERROR \
+		-V snps.vcf.gz \
+		${14} \
+		-O snps_tmp.vcf.gz
+fi
 
 # Transform filtered genotypes to nocall and keep only those with <5% missing data
 gatk SelectVariants \
 	--verbosity ERROR \
 	-V snps_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
-	--max-nocall-fraction 0.05 \
+	--max-nocall-fraction ${15} \
 	--exclude-filtered \
 	-O snps_filtered_tmp.vcf.gz 
 

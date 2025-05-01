@@ -11,6 +11,8 @@ process FILTER_SNPS {
 
     input:
     tuple path(vcf), path(vcf_tbi)
+    tuple val(snp_qd), val(snp_qual), val(snp_sor), val(snp_fs), val(snp_mq), val(snp_mqrs), val(snp_rprs), val(snp_maf), val(snp_eh), val(snp_dp_min), val(snp_dp_max), val(snp_custom_flags)
+    val(max_missing)
 
     output: 
     tuple path("snps_filtered.vcf.gz"), path("snps_filtered.vcf.gz.tbi"),   emit: vcf
@@ -24,7 +26,20 @@ process FILTER_SNPS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${vcf}
+        ${vcf} \
+        "${snp_qd}" \
+        "${snp_qual}" \
+        "${snp_sor}" \
+        "${snp_fs}" \
+        "${snp_mq}" \
+        "${snp_mqrs}" \
+        "${snp_rprs}" \
+        "${snp_maf}" \
+        "${snp_eh}" \
+        "${snp_dp_min}" \
+        "${snp_dp_max}" \
+        "${snp_custom_flags}" \
+        ${max_missing}
 
     """
 }
