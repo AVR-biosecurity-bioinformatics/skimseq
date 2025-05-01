@@ -24,17 +24,8 @@ workflow PROCESS_READS {
 
     main: 
 
-    /* 
-        Read QC
-    */
-
-    FASTQC_PRETRIM (
-        ch_reads,
-        "pretrim"
-    )
-
-    FASTP (
-        ch_reads,
+    // collect FASTP filtering parameters into a single list
+    Channel.of(
         params.rf_quality,
         params.rf_length,
         params.rf_n_bases,
@@ -49,6 +40,22 @@ workflow PROCESS_READS {
         params.rf_overlap_diff,
         params.rf_overlap_diff_pc,
         params.rf_custom_flags
+    )
+    .collect( sort: false )
+    .set { ch_fastp_filters }
+
+    /* 
+        Read QC
+    */
+
+    FASTQC_PRETRIM (
+        ch_reads,
+        "pretrim"
+    )
+
+    FASTP (
+        ch_reads,
+        ch_fastp_filters
     )
 
     // channel for post-trim fastqc
