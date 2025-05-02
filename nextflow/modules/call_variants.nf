@@ -10,11 +10,11 @@ process CALL_VARIANTS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(sample), path(bam), path(bam_index)
+    tuple val(sample), path(bam), path(bam_index), val(interval_hash), path(interval_list)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),       emit: gvcf
+    tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_list),     emit: gvcf_intervals
     
     script:
     def process_script = "${process_name}.sh"
@@ -26,7 +26,9 @@ process CALL_VARIANTS {
         ${task.cpus} \
         ${sample} \
         ${bam} \
-        ${ref_genome}
+        ${ref_genome} \
+        ${interval_hash} \
+        ${interval_list}
 
     """
 }

@@ -2,7 +2,7 @@ process JOINT_GENOTYPE {
     def process_name = "joint_genotype"    
     // tag "-"
     // label "small"
-    time '30.m'
+    time '2.h'
     memory '8.GB'
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
@@ -10,7 +10,7 @@ process JOINT_GENOTYPE {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple path(gvcf), path(gvcf_tbi), path(interval_list)
+    tuple val(interval_hash), path(interval_list), path(gvcf), path(gvcf_tbi)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
@@ -26,6 +26,7 @@ process JOINT_GENOTYPE {
         ${task.cpus} \
         ${gvcf} \
         ${ref_genome} \
+        ${interval_hash} \
         ${interval_list}
 
     """

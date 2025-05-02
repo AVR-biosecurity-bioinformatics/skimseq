@@ -14,7 +14,7 @@ process CONVERT_INTERVALS {
     tuple path(ref_fasta), path(indexes)
 
     output: 
-    path("*.interval_list"),                emit: interval_list
+    path("*.interval_list"),              emit: interval_list
     
     script:
     def process_script = "${process_name}.sh"

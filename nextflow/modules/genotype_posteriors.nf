@@ -2,7 +2,7 @@ process GENOTYPE_POSTERIORS {
     def process_name = "genotype_posteriors"    
     // tag "-"
     // label "small"
-    time '30.m'
+    time '2.h'
     memory '8.GB'
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
@@ -10,12 +10,11 @@ process GENOTYPE_POSTERIORS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple path(gvcf), path(gvcf_tbi)
-    // tuple path(ref_genome), path(genome_index_files)
-    path(interval_list)
+    tuple val(interval_hash), path(interval_list), path(gvcf), path(gvcf_tbi)
+
 
     output: 
-    tuple path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), path(interval_list),      emit: gvcf_intervals
+    tuple val(interval_hash), path(interval_list), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),      emit: gvcf_intervals
     
     script:
     def process_script = "${process_name}.sh"
@@ -26,6 +25,7 @@ process GENOTYPE_POSTERIORS {
     bash ${process_script} \
         ${task.cpus} \
         ${gvcf} \
+        ${interval_hash} \
         ${interval_list}
 
     """

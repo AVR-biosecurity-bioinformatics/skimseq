@@ -10,11 +10,11 @@ process COMBINE_GVCFS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    path(gvcfs)
+    tuple val(interval_hash), path(interval_list), path(gvcf), path(tbi)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple path("combined.g.vcf.gz"), path("combined.g.vcf.gz.tbi"),       emit: gvcf
+    tuple val(interval_hash), path(interval_list), path("*.combined.g.vcf.gz"), path("*.combined.g.vcf.gz.tbi"),      emit: gvcf_intervals
     
     script:
     def process_script = "${process_name}.sh"
@@ -24,7 +24,9 @@ process COMBINE_GVCFS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${ref_genome}
+        ${ref_genome} \
+        ${interval_hash} \
+        ${interval_list}
 
     """
 }

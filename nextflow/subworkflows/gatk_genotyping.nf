@@ -52,30 +52,41 @@ workflow GATK_GENOTYPING {
     // create intervals channel, with one interval_list file per element
     CONVERT_INTERVALS.out.interval_list
         .flatten()
+        // get hash from interval_list name as element to identify intervals
+        .map { interval_list ->
+            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
+            [ interval_hash, interval_list ] }
         .set { ch_interval_list }
 
-    // call variants for single samples
+    // combine sample-level bams with each interval_list file and interval hash
+    ch_sample_bam
+        .combine ( ch_interval_list )
+        .set { ch_sample_intervals }
+
+    // call variants for single samples across intervals
     CALL_VARIANTS (
-        ch_sample_bam,
+        ch_sample_intervals,
         ch_genome_indexed
     )
 
-    // combine GVCFs into a single element
-    CALL_VARIANTS.out.gvcf
-        .map { sample, gvcf, tbi -> [ gvcf, tbi ] }
-        .collect()
-        .set { ch_gvcfs }
+    // group GVCFs by interval 
+    CALL_VARIANTS.out.gvcf_intervals
+        .map { sample, gvcf, tbi, interval_hash, interval_list -> [ interval_hash, gvcf, tbi ] }
+        .groupTuple ( by: 0 )
+        // join to get back interval_file
+        .join ( ch_interval_list, by: 0 )
+        .map { interval_hash, gvcf, tbi, interval_list -> [ interval_hash, interval_list, gvcf, tbi ] }
+        .set { ch_gvcf_interval }
 
-    // combine GVCFs into one file
+    // combine GVCFs into one file per interval
     COMBINE_GVCFS (
-        ch_gvcfs,
+        ch_gvcf_interval,
         ch_genome_indexed
     )
 
     // calculate genotype posteriors over each genomic interval
     GENOTYPE_POSTERIORS (
-        COMBINE_GVCFS.out.gvcf,
-        ch_interval_list
+        COMBINE_GVCFS.out.gvcf_intervals
     )
 
     // call genotypes at variant sites
@@ -96,7 +107,7 @@ workflow GATK_GENOTYPING {
 
     // get just posterior .g.vcfs from channel
     GENOTYPE_POSTERIORS.out.gvcf_intervals
-        .map { gvcf, gvcf_tbi, interval_list -> [ gvcf, gvcf_tbi ] }
+        .map { interval_hash, interval_list, gvcf, gvcf_tbi -> [ gvcf, gvcf_tbi ] }
         .set { ch_posteriors }
 
     // create beagle file from .g.vcf files with posteriors
