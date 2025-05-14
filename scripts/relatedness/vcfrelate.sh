@@ -140,7 +140,7 @@ if [ -n "$sitelist" ]; then
 	if [[ "${sitelist}" == *.gz ]]; then
 		zcat ${sitelist} | tr ':' '\t' > sites_to_keep
 	else
-		cat "${file}" | tr ':' '\t' > sites_to_keep
+		cat ${sitelist} | tr ':' '\t' > sites_to_keep
 	fi
 else 
 	echo "no sitelist provided, using all sites"

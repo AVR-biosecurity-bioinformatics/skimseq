@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=100GB 
 #SBATCH --time=72:00:00
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -216,12 +216,12 @@ fi
 #--------------------------------------------------------------------------------
 #-                            Run NGSadmix until convergence                    -
 #--------------------------------------------------------------------------------
-#Load Modules
 module purge
-module load HTSlib/1.15-GCC-11.2.0
-module load evalAdmix/20221126-GCCcore-11.2.0 
-module load Python/3.9.6-GCCcore-11.2.0
-module load R/4.2.0-foss-2021b
+#module load angsd/20250306-GCC-13.3.0
+module load HTSlib/1.21-GCC-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load BCFtools/1.21-GCC-13.3.0
+module load evalAdmix/20240422-GCCcore-13.3.0
 
 pigz ${Sample}.beagle -p ${SLURM_CPUS_PER_TASK}
 
@@ -241,7 +241,7 @@ for k in $(echo $clusters | tr ',' ' '); do
         iter_seed=$((${seed}+${f}-1))
         
         # Run ngsadmix
-        /home/ap0y/angsd/angsd/misc/NGSadmix -likes ${Sample}.beagle.gz -K ${k} -o k${k}/${outname}_k${k}_s${seed} -P ${SLURM_CPUS_PER_TASK} -misTol 0.05 -minMaf 0 -minLrt 0 -minInd 0 -seed ${iter_seed} -printInfo 1
+        ~/angsd/angsd/misc/NGSadmix -likes ${Sample}.beagle.gz -K ${k} -o k${k}/${outname}_k${k}_s${seed} -P ${SLURM_CPUS_PER_TASK} -misTol 0.05 -minMaf 0 -minLrt 0 -minInd 0 -seed ${iter_seed} -printInfo 1
         
         # Get likelihoods
         grep "like=" k${k}/${outname}_k${k}_s${seed}.log | cut -f2 -d " " | cut -f2 -d "=" >> k${k}/${outname}_k${k}.likes
