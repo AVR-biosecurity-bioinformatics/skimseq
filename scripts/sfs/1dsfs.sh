@@ -253,7 +253,7 @@ if [[ $sitelist ]]; then
 	else
 		echo "Unknown format"
 	fi
-	echo Sites file contains $(cat sites.bed | wc -l) sites
+	echo Sites file contains $(bedtools makewindows -b sites.bed -w 1 | wc -l) sites
 	
 	# Run samtools view in parallel to subset and copy across, then index
 	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
@@ -406,8 +406,8 @@ if [[ $sitelist ]]; then
     #    pigz -cd ${sitelist} -p ${SLURM_CPUS_PER_TASK} | sort -V -k1,1 -k2,2n > sites.txt
     #fi
 	
-	# Create angsd format sites file 
-	cat sites.bed | awk -v OFS="\t" -v FS="\t" '{print $1, $3}' | sort -V -k1,1 -k2,2n > sites.txt
+	# Expand bedfile all sites and transform to angsd sitelist
+	bedtools makewindows -b sites.bed -w 1 | awk -v OFS="\t" -v FS="\t" '{print $1, $3}' > sites.txt
 
     # Index sites file
     angsd sites index sites.txt
@@ -425,7 +425,7 @@ if [[ $sitelist ]]; then
 	# Removed:
 	#-SNP_pval 1.0 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
 	#-doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
-	#-domajorminor 5 -domaf 1 \
+	#-domajorminor 5 -domaf 1 -SNP_pval 1.0 \
 	#-GL 2 
 else
     echo 'Sitelist not provided, estimating sites denovo'
@@ -440,9 +440,9 @@ else
     -out results/${outname}
 	
 	#Removed
-	#-SNP_pval 1.0 -dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
-	#    -doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
-	#-domajorminor 5 -domaf 1 
+	#-dosnpstat 1 -doHWE 1 -sb_pval 1e-5 -edge_pval 1e-5 -maxHetFreq 1 -rmTriallelic 1e-6  \
+	#-doCounts 1 -setMinDepth 1 -setMaxDepth 1000 \
+	#-domajorminor 5 -domaf 1 -SNP_pval 1.0 \
 	# 
 fi
 

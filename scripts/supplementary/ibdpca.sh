@@ -217,7 +217,7 @@ if [[ $sitelist ]]; then
 	else
 		echo "Unknown format"
 	fi
-	echo Sites file contains $(cat sites.bed | wc -l) sites
+	echo Sites file contains $(bedtools makewindows -b sites.bed -w 1 | wc -l) sites
 	
 	# Run samtools view in parallel to subset and copy across, then index
 	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
@@ -254,8 +254,9 @@ samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
 if [[ $sitelist ]]; then
     echo "only analysing sites from ${sitelist}"
 	
-	# Setup sitelist
-	zcat ${sitelist} | tr ':' '\t' | sort -V -k1,1 -k2,2n > sites.txt
+	# Expand bedfile all sites and transform to angsd sitelist
+	bedtools makewindows -b sites.bed -w 1 | awk -v OFS="\t" -v FS="\t" '{print $1, $3}' > sites.txt
+
 	# Index sites file
 	~/angsd/angsd/angsd sites index sites.txt
 
