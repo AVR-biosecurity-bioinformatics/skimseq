@@ -215,8 +215,8 @@ if [[ $subsample ]]; then
             # Calculate coverage for sites in BED file
             cov=$(samtools depth -a -b sites.bed "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
         else
-            # Calculate coverage for all sites
-            cov=$(samtools depth -a "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
+            # Calculate coverage for all sites with the current interval
+            cov=$(samtools depth -a -b intervals.bed "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
         fi
 
         echo "Coverage for $bam: $cov"

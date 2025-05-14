@@ -6,7 +6,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
-#SBATCH --account=pathogens
+#SBATCH --account=fruitfly
 #SBATCH --export=none
 #SBATCH --output=%x.%j.out
 #SBATCH --error=%x.%j.out
@@ -58,7 +58,7 @@ exit_abnormal() {
 # Get input options
 OPTIND=1
 # Do i need to add manifest
-while getopts "C:S:H:O:" options; do
+while getopts "C:H:O:" options; do
   # use silent error checking;
   case "${options}" in
     C)                             
@@ -71,16 +71,16 @@ while getopts "C:S:H:O:" options; do
       fi
 	  echo coord=${coord}	  
       ;;
-    S)
-	  sitelist=${OPTARG}
-	  # test if exists
-	  if [ ! -f "$sitelist" ] ; then  
-		echo "Error: -S ${sitelist} doesnt exist"
-		exit_abnormal
-		exit 1
-	  fi
-      echo sitelist=${sitelist}
-    ;;
+    #S)
+	#  sitelist=${OPTARG}
+	#  # test if exists
+	#  if [ ! -f "$sitelist" ] ; then  
+	#	echo "Error: -S ${sitelist} doesnt exist"
+	#	exit_abnormal
+	#	exit 1
+	#  fi
+    #  echo sitelist=${sitelist}
+    #;;
     H)                             
       habitat=${OPTARG}
 	  # Test if exists
@@ -116,6 +116,9 @@ shift $((OPTIND -1))
 Sample=$(basename ${coord} | sed 's/.tsv//g' | sed 's/.txt//g')
 echo Sample=${Sample}
 
+# sitelist
+sitelist=$(echo $distmat | sed 's/.ibsMat.*$/.sitecounts.txt/g')
+
 #set output file name
 outname=$(echo $Sample $(echo  $(basename ${distmat} | sed 's/.ibsMat.*$//g' )) | sed 's/ /-/g' )
 
@@ -133,7 +136,7 @@ pwd
 
 #Load Modules
 module purge
-module load eems/20210808-GCC-11.2.0
+module load eems/20231029-GCC-13.3.0
 module load R/4.4.2-gfbf-2024a
 
 #--------------------------------------------------------------------------------
@@ -194,7 +197,7 @@ cp ${habitat} eems_input.outer
 
 # Create parameters file for eems
 nind=$(cat eems_input.diffs | wc -l)
-nsites=$(zcat ${sitelist} | wc -l)
+nsites=$(cat ${sitelist} | wc -l)
 echo $nind individuals and $nsites sites
 
 # Check dimensions of distance matrix

@@ -2,7 +2,7 @@
 #SBATCH --job-name=merge_angsd         
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=80GB 
+#SBATCH --mem=200GB 
 #SBATCH --time=48:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
@@ -698,9 +698,8 @@ pigz tmp.beagle -p ${SLURM_CPUS_PER_TASK} --fast
 # Use PCAngsd to estimate the best number of principal components and calculate genotype posteriors
 module purge
 module load Python/3.12.3-GCCcore-13.3.0
-
-/home/ap0y/.local/bin/pcangsd -b tmp.beagle.gz -o ${Sample}.pcangsd --threads ${SLURM_CPUS_PER_TASK} \
- --maf 0 \
+/home/ap0y/.local/bin/pcangsd  -b tmp.beagle.gz -o ${Sample}.pcangsd --threads ${SLURM_CPUS_PER_TASK} \
+ --maf 0.0 \
  --inbreed-sites \
  --inbreed-samples \
  --post \
@@ -764,18 +763,21 @@ cp ${Sample}.pcangsd* ${output}/.
 #cp combined.pcangsd.geno.npy tempF.npy
 #python convert.py
 
+module purge
+module load PCAone/0.5.0-GCCcore-13.3.0
+
 # Calculate ancestry adjusted LD using PCAone - pruning by higher maf
 cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4, $5, $7}'  \
 | grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3, $4}' > ${Sample}.post.beagle.gz.bim
 
 # PCAone LD adjusted residuals (--ld-stats 0)
-/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 0 --ld -o ${Sample} --svd 1
+PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 0 --ld -o ${Sample} --svd 1
 
 # Report LD
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
 
 # Prune based on adjusted LD - Keeping higher maf sites first
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
 
 echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
 cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.adjmafld.sites.gz
@@ -787,13 +789,13 @@ cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4,
 | grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3}' > ${Sample}.post.beagle.gz.bim
 
 # PCAone LD adjusted residuals (--ld-stats 0)
-/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 0 --ld -o ${Sample} --svd 1
+PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 0 --ld -o ${Sample} --svd 1
 
 # Report LD
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
 
 # Prune based on adjusted LD - Keeping higher maf sites first
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 0 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
 
 echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
 cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.adjld.sites.gz
@@ -805,13 +807,13 @@ cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4,
 | grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3, $4}' > ${Sample}.post.beagle.gz.bim
 
 # PCAone LD adjusted residuals (--ld-stats 0)
-/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 1 --ld -o ${Sample} --svd 1
+PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 1 --ld -o ${Sample} --svd 1
 
 # Report LD
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
 
 # Prune based on adjusted LD - Keeping higher maf sites first
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
 
 echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
 cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.stdmafld.sites.gz
@@ -823,13 +825,13 @@ cat tmp2.snpstats | tail -n+2 | awk -v 'OFS=\t' -v 'FS=\t' '{print $1"_"$2,  $4,
 | grep -Fwf to_keep  | sed 's/_/\t/g' | awk -v 'OFS=\t' -v 'FS=\t'  '{print $1, "SNP"NR, 0, $2, $3}' > ${Sample}.post.beagle.gz.bim
 
 # PCAone LD adjusted residuals (--ld-stats 0)
-/home/ap0y/test/PCAone/PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 1 --ld -o ${Sample} --svd 1
+PCAone -G ${Sample}.post.beagle.gz -k ${k} --ld-stats 1 --ld -o ${Sample} --svd 1
 
 # Report LD
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-bp 50000 --print-r2 -o ${Sample} --svd 1
 
 # Prune based on adjusted LD - Keeping higher maf sites first
-/home/ap0y/test/PCAone/PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
+PCAone -B ${Sample}.residuals --match-bim ${Sample}.mbim --ld-stats 1 --ld-r2 0.2 --ld-bp 50000 -o ${Sample} --svd 1
 
 echo $(cat ${Sample}.ld.prune.in | wc -l) sites retained after LD pruning
 cat ${Sample}.ld.prune.in | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $4}' | pigz -c -p ${SLURM_CPUS_PER_TASK} > ${output}/${Sample}.stdld.sites.gz
@@ -845,6 +847,7 @@ current_window=0
 selected_sites=()
 
 # Read the input file line by line
+cat ${Sample}.filtered.sites | awk -v 'OFS=:' -v 'FS=\t' '{print $1, $2}' > tmp.sites
 while IFS=: read -r chrom site; do
     # Check if we are still on the same chromosome
     if [[ "$chrom" != "$current_chrom" ]]; then
@@ -862,7 +865,7 @@ while IFS=: read -r chrom site; do
             current_window=$window
         fi
     fi
-done < ${Sample}.filtered.sites
+done < tmp.sites
 
 # Write the selected sites to the output file
 for site in "${selected_sites[@]}"; do
