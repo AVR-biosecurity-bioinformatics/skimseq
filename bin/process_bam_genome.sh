@@ -5,6 +5,11 @@ set -u
 # $1 = cpus 
 # $2 = sample name
 # $3 = list of temp_bam files
+# $4 = whether duplicates should be removed
+
+# parse filtering options as flags
+if [[ ${4} == "true" ]];    then RMDUP="-r ";                       else RMDUP=""; fi
+
 
 ## merge bams if list of input files is greater than 1
 if [[ $(wc -w <<< "$3") > 1 ]]; then
@@ -15,12 +20,12 @@ if [[ $(wc -w <<< "$3") > 1 ]]; then
 		| samtools sort -@ $1 -n -O BAM \
 		| samtools fixmate -@ $1 -m - - \
 		| samtools sort -@ $1 -O BAM \
-		| samtools markdup -@ $1 -r - sorted.bam
+		| samtools markdup -@ $1 $RMDUP - sorted.bam
 else 
     samtools sort -@ $1 -n $3 -O BAM \
 		| samtools fixmate -@ $1 -m - - \
 		| samtools sort -@ $1 -O BAM \
-		| samtools markdup -@ $1 -r - sorted.bam
+		| samtools markdup -@ $1 $RMDUP - sorted.bam
 fi
 
 # index bam
