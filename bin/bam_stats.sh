@@ -13,3 +13,5 @@ set -u
 # Output sample coverage statistics
 samtools coverage $3 > ${2}.stats.txt
 
+# Output flag statistics
+samtools flagstats $3 > ${2}.flagstats.txt

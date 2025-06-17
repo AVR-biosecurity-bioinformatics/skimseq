@@ -5,7 +5,7 @@ process BAM_STATS {
     time '30.m'
     memory '8.GB'
     cpus 1
-    // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
 
@@ -15,6 +15,7 @@ process BAM_STATS {
     output: 
     tuple val(sample), path(bam), path(bam_index),        emit: bam
     tuple val(sample), path("*.stats.txt"),               emit: stats
+    tuple val(sample), path("*.flagstats.txt"),           emit: flagstats
     
     script:
     def process_script = "${process_name}.sh"
