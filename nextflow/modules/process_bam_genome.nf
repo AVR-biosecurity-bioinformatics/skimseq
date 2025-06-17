@@ -11,7 +11,7 @@ process PROCESS_BAM_GENOME {
 
     input:
     tuple val(sample), path(temp_bam, name: 'temp*.bam')
-    tuple val(bam_rmdup)
+    val(bam_rmdup)
 
     output: 
     tuple val(sample), path("sorted.bam"), path("sorted.bam.bai"),        emit: bam
