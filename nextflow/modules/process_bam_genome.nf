@@ -11,6 +11,7 @@ process PROCESS_BAM_GENOME {
 
     input:
     tuple val(sample), path(temp_bam, name: 'temp*.bam')
+    tuple val(bam_rmdup)
 
     output: 
     tuple val(sample), path("sorted.bam"), path("sorted.bam.bai"),        emit: bam
@@ -24,7 +25,8 @@ process PROCESS_BAM_GENOME {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        "${temp_bam}"
+        "${temp_bam}" \
+        ${bam_rmdup}
 
     """
 }
