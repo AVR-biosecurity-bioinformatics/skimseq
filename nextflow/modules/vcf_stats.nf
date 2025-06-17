@@ -11,7 +11,7 @@ process VCF_STATS {
 
     input:
     tuple path(vcf), path(vcf_tbi)
-    path(ref_genome)
+    tuple path(ref_genome), path(genome_index_files)    
     
     output: 
     tuple val(sample), path("*.vcfstats.txt"),            emit: vcfstats
