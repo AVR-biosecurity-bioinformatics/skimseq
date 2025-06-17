@@ -6,6 +6,7 @@
 include { FILTER_INDELS                                                 } from '../modules/filter_indels'
 include { FILTER_SNPS                                                 } from '../modules/filter_snps'
 include { MERGE_FILTERED                                                 } from '../modules/merge_filtered'
+include { VCF_STATS                                                } from '../modules/vcf_stats'
 
 
 
@@ -13,6 +14,7 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcf
+    ch_genome_indexed
 
     main: 
 
@@ -69,7 +71,11 @@ workflow FILTER_VARIANTS {
         FILTER_INDELS.out.vcf
     )
 
-
+    // Calculate VCF statistics
+    VCF_STATS (
+         MERGE_FILTERED.out.vcf,
+         ch_genome_indexed
+    )
 
     emit: 
     MERGE_FILTERED.out.vcf
