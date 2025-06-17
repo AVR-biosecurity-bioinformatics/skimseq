@@ -14,7 +14,7 @@ process VCF_STATS {
     tuple path(ref_genome), path(genome_index_files)    
     
     output: 
-    tuple val(sample), path("*.vcfstats.txt"),            emit: vcfstats
+    path("*.vcfstats.txt"),            emit: vcfstats
 
     script:
     def process_script = "${process_name}.sh"
