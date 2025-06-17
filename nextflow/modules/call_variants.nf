@@ -2,7 +2,7 @@ process CALL_VARIANTS {
     def process_name = "call_variants"    
     // tag "-"
     // label "small"
-    time '8.h'
+    time '6.h'
     memory '8.GB'
     cpus 8
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'

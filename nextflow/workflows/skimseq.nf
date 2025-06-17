@@ -102,7 +102,8 @@ workflow SKIMSEQ {
     */
 
     FILTER_VARIANTS (
-        GATK_GENOTYPING.out.vcf
+        GATK_GENOTYPING.out.vcf,
+        ch_genome_indexed
     )
 
 }

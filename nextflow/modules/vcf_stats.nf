@@ -1,5 +1,5 @@
-process BAM_STATS {
-    def process_name = "bam_stats"    
+process VCF_STATS {
+    def process_name = "vcf_stats"    
     // tag "-"
     // label "small"
     time '30.m'
@@ -7,15 +7,15 @@ process BAM_STATS {
     cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "SAMtools/1.21-GCC-13.3.0"
+    module "BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(bam), path(bam_index)
-
-    output: 
-    tuple val(sample), path("*.stats.txt"),               emit: stats
-    tuple val(sample), path("*.flagstats.txt"),           emit: flagstats
+    tuple path(vcf), path(vcf_tbi)
+    tuple path(ref_genome), path(genome_index_files)    
     
+    output: 
+    path("*.vcfstats.txt"),            emit: vcfstats
+
     script:
     def process_script = "${process_name}.sh"
     """
@@ -24,9 +24,9 @@ process BAM_STATS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${sample} \
-        ${bam} \
-        ${bam_index}
+        ${vcf} \
+        ${vcf_tbi} \
+        ${ref_genome}
 
     """
 }

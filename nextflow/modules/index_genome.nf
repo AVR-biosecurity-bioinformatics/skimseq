@@ -3,7 +3,7 @@ process INDEX_GENOME {
     // tag "-"
     // label "small"
     time '30.m'
-    memory '8.GB'
+    memory '32.GB'
     cpus 1
     // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -13,7 +13,7 @@ process INDEX_GENOME {
     path(ref_genome)
 
     output: 
-    tuple path(ref_genome), path("*.{fa.*,dict}"),             emit: fasta_indexed
+    tuple path(ref_genome), path("*.{fa.*,fna.*,dict}"),             emit: fasta_indexed
     
     script:
     def process_script = "${process_name}.sh"
