@@ -13,7 +13,6 @@ process BAM_STATS {
     tuple val(sample), path(bam), path(bam_index)
 
     output: 
-    tuple val(sample), path(bam), path(bam_index),        emit: bam
     tuple val(sample), path("*.stats.txt"),               emit: stats
     tuple val(sample), path("*.flagstats.txt"),           emit: flagstats
     
