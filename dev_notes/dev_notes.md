@@ -70,8 +70,9 @@ samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/ki
 bedtools bamtofastq -i subset.bam -fq test_data/qfly/F2xM12-F1_subset_R1.fastq -fq2 test_data/qfly/F2xM12-F1_subset_R2.fastq
 gzip -f test_data/qfly/F2xM12-F1_subset_R1.fastq test_data/qfly/F2xM12-F1_subset_R2.fastq
 
-# Subset reference genome to that portion
-samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-100000" > test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
+# Subset reference genome to that portion - Fix header with sed to avoid error with gatk
+samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-100000" | sed 's/:50000-100000//g' > test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
+
 
 # copy mitochondrial genome across
 cp /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa test_data/qfly/.
