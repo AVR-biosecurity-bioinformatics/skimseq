@@ -96,5 +96,4 @@ module load Java/17
 
 # Test
 nextflow run . -profile basc_modules,debug,test
-
 ```
