@@ -23,10 +23,11 @@ workflow GATK_GENOTYPING {
     main: 
 
     // check that params.interval_size is not less than 100k bases
-    if ( params.interval_size.toFloat() < 1E5 ){
-        println ("\n*** ERROR: 'params.interval_size' must be >= 1E5 (100,000 bases) ***\n")
-        error()
-    }
+    // Disabled - this could be covered in documentation
+    //if ( params.interval_size.toFloat() < 1E5 ){
+    //    println ("\n*** ERROR: 'params.interval_size' must be >= 1E5 (100,000 bases) ***\n")
+    //    error()
+    //}
 
     /* 
         Genotype samples individually and jointly
