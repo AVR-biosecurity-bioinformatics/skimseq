@@ -42,6 +42,11 @@ assembly_lengths <-
     ) %>%
     dplyr::select(name, n_bases)
 
+# Check that interval size is not larger than n_bases
+if (interval_size > sum(assembly_lengths$n_bases)){
+  interval_size <- max(assembly_lengths$n_bases)
+}
+
 ## split chromosomes/scaffolds/contigs into 5Mb chunks (or a threshold)
 
 seqlengths <- assembly_lengths$n_bases
