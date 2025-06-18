@@ -48,15 +48,27 @@ nextflow run . -profile basc_modules,debug \
 ### Extract a small portion of the reference data
 ```
 module load SAMtools/1.21-GCC-13.3.0
+module load BEDTools/2.31.1-GCC-13.3.0
 
-# Extract reads aligning to the first 50kb of chromosome 1 of the reference genome
-samtools view -b -f 2 /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM3.bam "CM028320.1:50000-100000" | samtools fastq -1 test_data/qfly/EM3_subset_R1.fastq.gz -2 test_data/qfly/EM3_subset_R2.fastq.gz
+# Sample 1 EM6.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM6.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+bedtools bamtofastq -i subset.bam -fq test_data/qfly/EM6_subset_R1.fastq -fq2 test_data/qfly/EM6_subset_R2.fastq
+gzip -f test_data/qfly/EM6_subset_R1.fastq test_data/qfly/EM6_subset_R2.fastq
 
-samtools view -b -f 2 /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/M12B.bam "CM028320.1:50000-100000" | samtools fastq -1 test_data/qfly/M12B_subset_R1.fastq.gz -2 test_data/qfly/M12B_subset_R2.fastq.gz
+# Sample 2 EM3.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM3.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+bedtools bamtofastq -i subset.bam -fq test_data/qfly/EM3_subset_R1.fastq -fq2 test_data/qfly/EM3_subset_R2.fastq
+gzip -f test_data/qfly/EM3_subset_R1.fastq test_data/qfly/EM3_subset_R2.fastq
 
-samtools view -b -f 2 /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM6.bam "CM028320.1:50000-100000" | samtools fastq -1 test_data/qfly/EM6_subset_R1.fastq.gz -2 test_data/qfly/EM6_subset_R2.fastq.gz
+# Sample 3 F3.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F3.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+bedtools bamtofastq -i subset.bam -fq test_data/qfly/F3_subset_R1.fastq -fq2 test_data/qfly/F3_subset_R2.fastq
+gzip -f test_data/qfly/F3_subset_R1.fastq test_data/qfly/F3_subset_R2.fastq
 
-samtools view -b -f 2 /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F3.bam "CM028320.1:50000-100000" | samtools fastq -1 test_data/qfly/F3_subset_R1.fastq.gz -2 test_data/qfly/F3_subset_R2.fastq.gz
+# Sample 4 F2xM12-F1.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F2xM12-F1.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+bedtools bamtofastq -i subset.bam -fq test_data/qfly/F2xM12-F1_subset_R1.fastq -fq2 test_data/qfly/F2xM12-F1_subset_R2.fastq
+gzip -f test_data/qfly/F2xM12-F1_subset_R1.fastq test_data/qfly/F2xM12-F1_subset_R2.fastq
 
 # Subset reference genome to that portion
 samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-100000" > test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
@@ -71,22 +83,17 @@ sample_id=$(echo "$fwd" | sed 's/_S.*$//g' | sed 's/^.*\///g')
 
 # format sample,fastq_1,fastq_2,
 paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") > test_data/qfly/test_samplesheet.csv
-
 ```
 
 ### Run test datasets
 
 ```
+module purge
 export NXF_VER=23.05.0-edge
 
 module load Java/17
 
-
-# downsampled files 
-nextflow run . -profile basc_modules,debug,test \
-    --mito_genome /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa \
-    --ref_genome /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna  \
-    --samplesheet test/samplesheet.csv -resume
-
+# Test
+nextflow run . -profile basc_modules,debug,test
 
 ```
