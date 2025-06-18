@@ -1,0 +1,4 @@
+EM3_subset_R1.fastq.gz,test_data/qfly/EM3_subset_R1.fastq.gz,test_data/qfly/EM3_subset_R2.fastq.gz
+EM6_subset_R1.fastq.gz,test_data/qfly/EM6_subset_R1.fastq.gz,test_data/qfly/EM6_subset_R2.fastq.gz
+F3_subset_R1.fastq.gz,test_data/qfly/F3_subset_R1.fastq.gz,test_data/qfly/F3_subset_R2.fastq.gz
+M12B_subset_R1.fastq.gz,test_data/qfly/M12B_subset_R1.fastq.gz,test_data/qfly/M12B_subset_R2.fastq.gz
