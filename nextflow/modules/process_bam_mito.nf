@@ -13,7 +13,7 @@ process PROCESS_BAM_MITO {
     tuple val(sample), path(temp_bam, name: 'temp*.bam')
 
     output: 
-    tuple val(sample), path("sorted.bam"), path("sorted.bam.bai"),        emit: bam
+    tuple val(sample), path("*.sorted.bam"), path("*.sorted.bam.bai"),        emit: bam
     
     script:
     def process_script = "${process_name}.sh"
