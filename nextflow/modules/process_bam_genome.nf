@@ -5,7 +5,7 @@ process PROCESS_BAM_GENOME {
     time '2.h'
     memory '16.GB'
     cpus 8
-    publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
 
