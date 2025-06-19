@@ -113,10 +113,12 @@ workflow GATK_GENOTYPING {
 
     // create beagle file from .g.vcf files with posteriors
     /// NOTE: Could move this to an ANGSD-specific workflow
-    CREATE_BEAGLE (
-        ch_posteriors,
-        ch_genome_indexed
-    )
+    
+    //Disabled for now - will be handled by supplementary scripts that need a beagle file
+    //CREATE_BEAGLE (
+    //    ch_posteriors,
+    //    ch_genome_indexed
+    //)
 
     emit: 
     vcf = MERGE_VCFS.out.vcf
