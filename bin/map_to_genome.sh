@@ -23,5 +23,4 @@ bwa-mem2 mem -t ${1} \
     $3 \
     $4 \
     | \
-    samtools view -bS - \
-    > ${2}.tempgenome.bam 
+    samtools view -o ${2}.tempgenome.bam 
