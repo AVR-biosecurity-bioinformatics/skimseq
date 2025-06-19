@@ -47,8 +47,8 @@ if [[ ${18} == "none" ]]; then
         --overlap_diff_limit ${16} \
         --overlap_diff_percent_limit ${17} \
         --thread ${1} \
-        -o ${2}.trimmed.R1.fastq \
-        -O ${2}.trimmed.R2.fastq \
+        -o ${2}.trimmed.R1.fastq.gz \
+        -O ${2}.trimmed.R2.fastq.gz \
         -h ${2}.fastp.html \
         -j ${2}.fastp.json \
         -R ${2}
@@ -59,8 +59,8 @@ else
         -I ${4} \
         ${18} \
         --thread ${1} \
-        -o ${2}.trimmed.R1.fastq \
-        -O ${2}.trimmed.R2.fastq \
+        -o ${2}.trimmed.R1.fastq.gz \
+        -O ${2}.trimmed.R2.fastq.gz \
         -h ${2}.fastp.html \
         -j ${2}.fastp.json \
         -R ${2}

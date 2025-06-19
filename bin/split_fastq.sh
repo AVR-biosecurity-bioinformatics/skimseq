@@ -40,7 +40,8 @@ else
 	cp $4 R2.1.fa
 fi
 
-# rename extensions to `.fastq`
+# rename extensions to `.fastq` and zip
 for file in *.fa; do
     mv "$file" "${file%.fa}.fastq" 
+    gzip "${file%.fa}.fastq" 
 done
