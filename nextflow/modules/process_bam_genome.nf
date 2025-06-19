@@ -14,7 +14,7 @@ process PROCESS_BAM_GENOME {
     val(bam_rmdup)
 
     output: 
-    tuple val(sample), path("sorted.bam"), path("sorted.bam.bai"),        emit: bam
+    tuple val(sample), path("*.sorted.bam"), path("*.sorted.bam.bai"),        emit: bam
     
     script:
     def process_script = "${process_name}.sh"
