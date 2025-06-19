@@ -80,7 +80,7 @@ cp /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ13
 # create sample data sheet
 fwd=$( find test_data/qfly/ -maxdepth 1 -name '*.fastq.gz' -type f | grep '_R1' | sort | uniq )
 rev=$(echo "$fwd" | sed 's/_R1/_R2/g' )
-sample_id=$(echo "$fwd" | sed 's/_S.*$//g' | sed 's/^.*\///g')
+sample_id=$(echo "$fwd" | sed 's/_subset.*$//g' | sed 's/^.*\///g')
 
 # format sample,fastq_1,fastq_2,
 paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") > test_data/qfly/test_samplesheet.csv
