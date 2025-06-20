@@ -75,23 +75,23 @@ workflow PROCESS_READS {
     // combine matching chunks from paired files
     SPLIT_FASTQ.out.fastq
         .transpose()
-        .multiMap { sample, file1, file2, json ->
-            first: [ sample, json, file1 ]
-            second:  [ sample, json, file2 ]
+        .multiMap { sample, file1, file2 ->
+            first: [ sample, file1 ]
+            second:  [ sample, file2 ]
         }
         .set { ch_split_multi }
 
     ch_split_multi.first
-        .map { sample, json, reads_file ->
+        .map { sample, reads_file ->
             def filename_list = reads_file.getFileName().toString().split("\\.")
-            [ sample, json, filename_list[1], reads_file ]
+            [ sample, filename_list[1], reads_file ]
         }
         .set { ch_split_read1 }
     
     ch_split_multi.second
-        .map { sample, json, reads_file ->
+        .map { sample, reads_file ->
             def filename_list = reads_file.getFileName().toString().split("\\.")
-            [ sample, json, filename_list[1], reads_file ]
+            [ sample, filename_list[1], reads_file ]
         }
         .set { ch_split_read2 }
 
@@ -102,8 +102,8 @@ workflow PROCESS_READS {
             failOnDuplicate: true,
             failOnMismatch: true
         )
-        .map { sample, json, chunk, file1, file2 ->
-            [ sample, file1, file2, json ]
+        .map { sample, chunk, file1, file2 ->
+            [ sample, file1, file2 ]
         }
         .set { ch_fastq_split }
 
