@@ -60,16 +60,18 @@ if [[ ${18} == "none" ]]; then
         --stdout \
         -h ${2}.fastp.html \
         -j ${2}.fastp.json \
-        -R ${2} | \
-        bwa-mem2 mem -p $19 - \
+        -R ${2} || >&2 echo "fastp exit=$?" | \
+        bwa-mem2 mem -p $19 \
         -t ${1} \
         -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         -K 100000000 \
         -Y \
-    		| samtools sort -@ $1 -n -O BAM \
-    		| samtools fixmate -@ $1 -m - - \
-    		| samtools sort -@ $1 -O BAM \
-    		| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
+        - \
+        | samtools view -o ${2}.sorted.bam 
+    		#| samtools sort -@ $1 -n -O BAM  \
+    		#| samtools fixmate -@ $1 -m - - \
+    		#| samtools sort -@ $1 -O BAM \
+    		#| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
 else 
     # use custom string of flags
     fastp \
