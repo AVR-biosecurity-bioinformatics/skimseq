@@ -61,7 +61,7 @@ if [[ ${18} == "none" ]]; then
         -h ${2}.fastp.html \
         -j ${2}.fastp.json \
         -R ${2} | \
-        bwa-mem2 mem $19 - \
+        bwa-mem2 mem -p $19 - \
         -t ${1} \
         -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         -K 100000000 \
