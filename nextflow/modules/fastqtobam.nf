@@ -17,7 +17,9 @@ process FASTQTOBAM {
 
     output: 
     tuple val(sample), path("*.sorted.bam"), path("*.sorted.bam.bai"),        emit: bam
-
+    tuple val(sample), path("*.json")                                         emit: json
+    tuple val(sample), path("*.html")                                         emit: html
+    
     script:
     def process_script = "${process_name}.sh"
     """
