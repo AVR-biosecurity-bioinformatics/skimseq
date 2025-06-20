@@ -68,7 +68,7 @@ workflow PROCESS_READS {
 
     // split paired fastq into chunks using seqtk
     SPLIT_FASTQ (
-        FASTP.out.fastq,
+        ch_reads,
         params.fastq_chunk_size
     )
 
