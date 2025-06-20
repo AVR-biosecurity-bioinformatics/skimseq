@@ -13,7 +13,7 @@ include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
 include { FASTQTOBAM                            } from '../modules/fastqtobam'
 //include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
 //include { PROCESS_BAM_GENOME                    } from '../modules/process_bam_genome'
-//include { PROCESS_BAM_MITO                      } from '../modules/process_bam_mito'
+include { PROCESS_BAM_MITO                      } from '../modules/process_bam_mito'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 
 workflow PROCESS_READS {

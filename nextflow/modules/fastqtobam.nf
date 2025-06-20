@@ -12,7 +12,7 @@ process FASTQTOBAM {
     input:
     tuple val(sample), path(fastq1), path(fastq2)
     tuple val(rf_quality), val(rf_length), val(rf_n_bases), val(rf_trim_polyg), val(rf_cut_right), val(rf_cut_window_size), val(rf_cut_mean_quality), val(rf_lc_filter), val(rf_lc_threshold), val(rf_correction), val(rf_overlap_length), val(rf_overlap_diff), val(rf_overlap_diff_pc), val(rf_custom_flags)
-    path(ref_genome), path(genome_index_files)
+    tuple path(ref_genome), path(genome_index_files)
     val(bam_rmdup)
 
     output: 
