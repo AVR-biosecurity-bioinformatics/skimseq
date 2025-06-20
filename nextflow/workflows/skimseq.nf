@@ -92,10 +92,10 @@ workflow SKIMSEQ {
     Call variants per sample, then combine and joint-genotype across genomic intervals
     */
 
-    //GATK_GENOTYPING (
-    //    PROCESS_READS.out.bam,
-    //    ch_genome_indexed
-    //)
+    GATK_GENOTYPING (
+        PROCESS_READS.out.bam,
+        ch_genome_indexed
+    )
 
     /*
     Filter SNP and INDEL variants

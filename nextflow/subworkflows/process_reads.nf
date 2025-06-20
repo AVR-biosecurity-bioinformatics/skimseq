@@ -188,7 +188,7 @@ workflow PROCESS_READS {
 
     emit: 
     mito_fasta = CONSENSUS_MITO.out.fasta
-    bam = FASTQTOBAM.out.bam
+    bam = ch_grouped_genome_bam
     bam_stats = BAM_STATS.out.stats
 
 
