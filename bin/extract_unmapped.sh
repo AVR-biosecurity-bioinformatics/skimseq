@@ -14,24 +14,24 @@ if [[ $(wc -w <<< "$3") > 1 ]]; then
   # merge and extract unmapped reads (SAM flag of 12 -- read unmapped and mate unmapped)
 
     samtools merge -@ $1 -O BAM -b bam.list -o - \
+    samtools sort -@ $1 -n -O BAM \
     | samtools bam2fq \
   	-@ $1 \
   	-1 ${2}.unmapped.R1.fastq.gz \
   	-2 ${2}.unmapped.R2.fastq.gz \
   	-0 /dev/null \
   	-s /dev/null \
-  	-f12 \
-  	$3
+  	-f12
   	
 else 
+    samtools sort -@ $1 -n $3 -O BAM \
     samtools bam2fq \
   	-@ $1 \
   	-1 ${2}.unmapped.R1.fastq.gz \
   	-2 ${2}.unmapped.R2.fastq.gz \
   	-0 /dev/null \
   	-s /dev/null \
-  	-f12 \
-  	$3
+  	-f12
 fi
 
 # # Reindex bam file
