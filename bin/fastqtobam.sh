@@ -60,14 +60,14 @@ if [[ ${18} == "none" ]]; then
         --stdout \
         -h ${2}.fastp.html \
         -j ${2}.fastp.json \
-        -R ${2} |\
+        -R ${2} | \
         bwa-mem2 mem -t ${1} \
         -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         $19 \
         $3 \
         $4 \
         -K 100000000 \
-        -Y | \
+        -Y \
     		| samtools sort -@ $1 -n -O BAM \
     		| samtools fixmate -@ $1 -m - - \
     		| samtools sort -@ $1 -O BAM \

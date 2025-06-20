@@ -141,7 +141,7 @@ workflow PROCESS_READS {
     FASTQTOBAM (
         ch_fastq_split,
         ch_fastp_filters,
-        //ch_genome_indexed,
+        ch_genome_indexed,
         ch_bam_filters
     )
 
