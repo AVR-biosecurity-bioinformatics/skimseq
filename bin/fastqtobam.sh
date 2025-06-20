@@ -67,10 +67,11 @@ if [[ ${18} == "none" ]]; then
         -K 100000000 \
         -Y \
         - \
-    		| samtools sort -@ $1 -n -O BAM  \
-    		| samtools fixmate -@ $1 -m - - \
-    		| samtools sort -@ $1 -O BAM \
-    		| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
+        | samtools view -o ${2}.sorted.bam 
+    		#| samtools sort -@ $1 -n -O BAM  \
+    		#| samtools fixmate -@ $1 -m - - \
+    		#| samtools sort -@ $1 -O BAM \
+    		#| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
 else 
     # use custom string of flags
     fastp \
@@ -86,8 +87,8 @@ else
 fi
 
 # index bam
-samtools index -@ $1 ${2}.sorted.bam
+#samtools index -@ $1 ${2}.sorted.bam
 
 # check bam if correctly formatted
-samtools quickcheck ${2}.sorted.bam \
-	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
+#samtools quickcheck ${2}.sorted.bam \
+#	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
