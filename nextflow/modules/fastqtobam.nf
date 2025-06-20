@@ -7,7 +7,7 @@ process FASTQTOBAM {
     cpus 4
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "fastp/0.23.4-GCC-13.3.0"
+    module "fastp/0.23.4-GCC-13.3.0:bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0"
 
     input:
     tuple val(sample), path(fastq1), path(fastq2), path(json)
