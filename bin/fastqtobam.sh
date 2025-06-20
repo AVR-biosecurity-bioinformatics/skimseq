@@ -33,9 +33,10 @@ if [[ ${20} == "true" ]];    then RMDUP="-r ";                                  
 # Setup read group headers for BAM, these are necessary for merging of replicates
 RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')
 RG_LB=$(echo ${2} | awk -F _ '{print $2}')
+# RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
-# Disabled peak in read group
-# RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') 
+# create hash of read 1 name for output
+HASH=$( printf '%s' "${2}" | md5sum | awk '{print $1}' ) 
 
 # run filtering
 if [[ ${18} == "none" ]]; then
@@ -67,10 +68,10 @@ if [[ ${18} == "none" ]]; then
         -K 100000000 \
         -Y \
         - \
-    		| samtools sort -@ $1 -n -O BAM  \
-    		| samtools fixmate -@ $1 -m - - \
-    		| samtools sort -@ $1 -O BAM \
-    		| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
+    		| samtools sort -@ ${1} -n -O BAM  \
+    		| samtools fixmate -@ ${1} -m - - \
+    		| samtools sort -@ ${1} -O BAM \
+    		| samtools markdup -@ ${1} $RMDUP - ${2}.$HASH.sorted.bam
 else 
     # use custom string of flags
     fastp \
@@ -88,14 +89,14 @@ else
         -K 100000000 \
         -Y \
         - \
-    		| samtools sort -@ $1 -n -O BAM  \
-    		| samtools fixmate -@ $1 -m - - \
-    		| samtools sort -@ $1 -O BAM \
-    		| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
+    		| samtools sort -@ ${1} -n -O BAM  \
+    		| samtools fixmate -@ ${1} -m - - \
+    		| samtools sort -@ ${1} -O BAM \
+    		| samtools markdup -@ ${1} $RMDUP - ${2}.$HASH.sorted.bam
 fi
 
 # index bam
-samtools index -@ $1 ${2}.sorted.bam
+samtools index -@ ${1} ${2}.sorted.bam
 
 # check bam if correctly formatted
 samtools quickcheck ${2}.sorted.bam \
