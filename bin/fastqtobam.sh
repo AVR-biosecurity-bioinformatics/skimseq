@@ -96,8 +96,8 @@ else
 fi
 
 # index bam
-samtools index -@ ${1} ${2}.sorted.bam
+samtools index -@ ${1} ${2}.$HASH.sorted.bam
 
 # check bam if correctly formatted
-samtools quickcheck ${2}.sorted.bam \
+samtools quickcheck ${2}.$HASH.sorted.bam \
 	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
