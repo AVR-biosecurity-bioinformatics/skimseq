@@ -9,10 +9,13 @@ set -u
 # $5 = interval hash
 # $6 = interval_list
 
+# Create list of bams to be processed
+ls * grep '*.bam$' > all_bams.list
+
 # call variants per sample
 gatk --java-options "-Xmx8G" HaplotypeCaller \
     -R $4 \
-    -I $3 \
+    -I all_bams.list \
     -L $6 \
     -O ${2}.${5}.g.vcf.gz \
     --native-pair-hmm-threads $1 \

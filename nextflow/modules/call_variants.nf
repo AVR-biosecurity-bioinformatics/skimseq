@@ -10,7 +10,7 @@ process CALL_VARIANTS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(sample), path(bam), path(bam_index), val(interval_hash), path(interval_list)
+    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai'), val(interval_hash), path(interval_list)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
@@ -25,7 +25,7 @@ process CALL_VARIANTS {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        ${bam} \
+        "${bam}" \
         ${ref_genome} \
         ${interval_hash} \
         ${interval_list}
