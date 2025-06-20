@@ -101,9 +101,9 @@ workflow SKIMSEQ {
     Filter SNP and INDEL variants
     */
 
-    //FILTER_VARIANTS (
-    //    GATK_GENOTYPING.out.vcf,
-    //    ch_genome_indexed
-    //)
+    FILTER_VARIANTS (
+        GATK_GENOTYPING.out.vcf,
+        ch_genome_indexed
+    )
 
 }

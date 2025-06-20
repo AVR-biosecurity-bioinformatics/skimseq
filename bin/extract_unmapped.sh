@@ -7,6 +7,7 @@ set -u
 # $3 = list of sorted_bam files
 
 # merge bams if list of input files is greater than 1
+# TODO: Rather than merge bams just loop through them and concatenate output fasta together
 if [[ $(wc -w <<< "$3") > 1 ]]; then
 	# get list of .bam files in directory
 	ls *.bam > bam.list	
