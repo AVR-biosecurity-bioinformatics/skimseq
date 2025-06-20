@@ -145,6 +145,10 @@ workflow PROCESS_READS {
         ch_bam_filters
     )
 
+    
+        //.groupTuple ( by: 0 )
+        //.set { ch_grouped_genome_bam }
+
     // channel for post-trim fastqc
     // TODO: could potentially convert output bam back to fastq for this?
     //FASTP.out.fastq
@@ -163,9 +167,14 @@ workflow PROCESS_READS {
     //    ch_bam_filters
     //)
 
+   // group nuclear .bam files by sample
+    FASTQTOBAM.out.bam
+        .groupTuple ( by: 0 )
+        .set { ch_grouped_genome_bam }
+        
     // extract unmapped reads
     EXTRACT_UNMAPPED (
-        FASTQTOBAM.out.bam
+        ch_grouped_genome_bam
     )
 
     // base quality score recalibration (if a list of known variants are provided)
