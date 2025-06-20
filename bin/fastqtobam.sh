@@ -58,8 +58,8 @@ if [[ ${18} == "none" ]]; then
         --overlap_diff_limit ${16} \
         --overlap_diff_percent_limit ${17} \
         --thread ${1} \
-        -h ${2}.fastp.html \
-        -j ${2}.fastp.json \
+        -h ${2}.$HASH.fastp.html \
+        -j ${2}.$HASH.fastp.json \
         -R ${2} \
         --stdout | \
         bwa-mem2 mem -p ${19} \
@@ -79,8 +79,8 @@ else
         -I ${4} \
         ${18} \
         --thread ${1} \
-        -h ${2}.fastp.html \
-        -j ${2}.fastp.json \
+        -h ${2}.$HASH.fastp.html \
+        -j ${2}.$HASH.fastp.json \
         -R ${2} \
         --stdout | \
         bwa-mem2 mem -p ${19} \
