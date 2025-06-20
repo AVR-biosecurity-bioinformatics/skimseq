@@ -10,7 +10,7 @@ include { CONSENSUS_MITO                        } from '../modules/consensus_mit
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { FASTP                                 } from '../modules/fastp'
 include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
-include { FASTQTOBAM                            } from '../modules/map_to_genome'
+include { FASTQTOBAM                            } from '../modules/fastqtobam'
 //include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
 //include { PROCESS_BAM_GENOME                    } from '../modules/process_bam_genome'
 //include { PROCESS_BAM_MITO                      } from '../modules/process_bam_mito'
