@@ -14,7 +14,7 @@ process SPLIT_FASTQ {
     val(chunk_size)
 
     output: 
-    tuple val(sample), path("*R1.*.fastq.gz"), path("*R2.*.fastq.gz"),     emit: fastq
+    tuple val(sample), path("*R1.*.fastq.gz"), path("*R2.*.fastq.gz"), path(json),     emit: fastq
     
     script:
     def process_script = "${process_name}.sh"

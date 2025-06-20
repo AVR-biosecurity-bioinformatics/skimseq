@@ -45,3 +45,5 @@ for file in *.fa; do
     mv "$file" "${file%.fa}.fastq" 
     gzip "${file%.fa}.fastq" 
 done
+
+touch ${2}.json
