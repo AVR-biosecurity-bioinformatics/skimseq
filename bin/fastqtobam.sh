@@ -57,11 +57,11 @@ if [[ ${18} == "none" ]]; then
         --overlap_diff_limit ${16} \
         --overlap_diff_percent_limit ${17} \
         --thread ${1} \
-        --stdout \
         -h ${2}.fastp.html \
         -j ${2}.fastp.json \
-        -R ${2} || >&2 echo "fastp exit=$?" | \
-        bwa-mem2 mem -p $19 \
+        -R ${2} \
+        --stdout | \
+        bwa-mem2 mem -p ${19} \
         -t ${1} \
         -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         -K 100000000 \
@@ -85,3 +85,10 @@ else
         -j ${2}.fastp.json \
         -R ${2}
 fi
+
+# index bam
+samtools index -@ $1 ${2}.sorted.bam
+
+# check bam if correctly formatted
+samtools quickcheck ${2}.sorted.bam \
+	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
