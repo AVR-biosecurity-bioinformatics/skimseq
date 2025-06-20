@@ -58,9 +58,11 @@ workflow GATK_GENOTYPING {
             def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_list ] }
         .set { ch_interval_list }
-
+        
     // combine sample-level bams with each interval_list file and interval hash
     ch_sample_bam
+        .groupTuple ( by: 0 )
+        .set { ch_grouped_genome_bam }
         .combine ( ch_interval_list )
         .set { ch_sample_intervals }
 
