@@ -29,18 +29,19 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     fi
 
     # split file1
-    seqtk split -n $N_CHUNKS -l 0 R1 $3
+    seqtk split -n $N_CHUNKS -l 0 ${2}_R1 $3
 
     # split file2
-    seqtk split -n $N_CHUNKS -l 0 R2 $4
+    seqtk split -n $N_CHUNKS -l 0 ${2}_R2 $4
 
 else 
     # copy input file with new name as output
-	cp $3 R1.1.fa
-	cp $4 R2.1.fa
+	cp $3 ${2}_R1.1.fa
+	cp $4 ${2}_R2.1.fa
 fi
 
-# rename extensions to `.fastq`
+# rename extensions to `.fastq` and zip
 for file in *.fa; do
     mv "$file" "${file%.fa}.fastq" 
+    gzip "${file%.fa}.fastq" 
 done

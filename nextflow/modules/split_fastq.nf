@@ -5,7 +5,7 @@ process SPLIT_FASTQ {
     time '10.m'
     memory '4.GB'
     cpus 1
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "seqtk/1.4-GCC-13.3.0"
 
@@ -14,7 +14,7 @@ process SPLIT_FASTQ {
     val(chunk_size)
 
     output: 
-    tuple val(sample), path("R1.*.fastq"), path("R2.*.fastq"), path(json),     emit: fastq
+    tuple val(sample), path("*R1.*.fastq.gz"), path("*R2.*.fastq.gz"), path(json),     emit: fastq
     
     script:
     def process_script = "${process_name}.sh"

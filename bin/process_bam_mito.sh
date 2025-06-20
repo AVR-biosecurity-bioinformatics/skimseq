@@ -15,17 +15,17 @@ if [[ $(wc -w <<< "$3") > 1 ]]; then
 		| samtools sort -@ $1 -n -O BAM \
 		| samtools fixmate -@ $1 -m - - \
 		| samtools sort -@ $1 -O BAM \
-		| samtools markdup -@ $1 -r - sorted.bam
+		| samtools markdup -@ $1 -r - ${2}.mito.bam
 else 
     samtools sort -@ $1 -n $3 -O BAM \
 		| samtools fixmate -@ $1 -m - - \
 		| samtools sort -@ $1 -O BAM \
-		| samtools markdup -@ $1 -r - sorted.bam
+		| samtools markdup -@ $1 -r - ${2}.mito.bam
 fi
 
 # index bam
-samtools index -@ $1 sorted.bam
+samtools index -@ $1 ${2}.mito.bam
 
 # check bam if correctly formatted
-samtools quickcheck sorted.bam \
+samtools quickcheck ${2}.mito.bam \
 	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )

@@ -5,7 +5,7 @@ process GENOTYPE_POSTERIORS {
     time '2.h'
     memory '8.GB'
     cpus 1
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 

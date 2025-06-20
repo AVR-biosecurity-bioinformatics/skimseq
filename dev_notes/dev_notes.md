@@ -45,7 +45,6 @@ nextflow run . -profile basc_modules,debug \
 
 
 ## Create Qfly test datasets
-
 This test data set uses a small segment of Qfly chromosome 1: CM028320.1:50000-100000
 
 Only read pairs where at least 1 of the reads aligns to this region are included. 
@@ -83,7 +82,8 @@ cp /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ13
 # create sample data sheet
 fwd=$( find test_data/qfly/ -maxdepth 1 -name '*.fastq.gz' -type f | grep '_R1' | sort | uniq )
 rev=$(echo "$fwd" | sed 's/_R1/_R2/g' )
-sample_id=$(echo "$fwd" | sed 's/_S.*$//g' | sed 's/^.*\///g')
+sample_id=$(echo "$fwd" | sed 's/_subset.*$//g' | sed 's/^.*\///g')
+
 
 # format sample,fastq_1,fastq_2,
 paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") > test_data/qfly/test_samplesheet.csv

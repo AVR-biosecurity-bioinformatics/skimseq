@@ -22,6 +22,7 @@ bwa-mem2 mem -t ${1} \
     $6 \
     $3 \
     $4 \
+    -K 100000000 \
+    -Y \
     | \
-    samtools view -bS - \
-    > ${2}.tempmito.bam 
+    samtools view -o ${2}.tempmito.bam 

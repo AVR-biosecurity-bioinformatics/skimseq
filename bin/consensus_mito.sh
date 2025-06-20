@@ -16,5 +16,6 @@ bcftools mpileup -Ou -f $4 $3 -C 50 -E -q30 -Q20 -a FORMAT/AD,FORMAT/DP \
 tabix vcf.gz 
 
 # generate consensus sequence FASTA file
-bcftools consensus -f $4 vcf.gz --absent N --missing N \
-	> ${2}.mito.fa
+bcftools consensus -f $4 vcf.gz --absent N --missing N | \
+  gzip \
+  > ${2}.mito.fa.gz

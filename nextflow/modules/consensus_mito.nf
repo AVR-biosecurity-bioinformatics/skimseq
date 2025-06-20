@@ -14,7 +14,7 @@ process CONSENSUS_MITO {
     tuple path(mito_genome), path(mito_index_files)
 
     output: 
-    tuple val(sample), path("*.mito.fa"),        emit: fasta
+    tuple val(sample), path("*.mito.fa.gz"),        emit: fasta
     
     script:
     def process_script = "${process_name}.sh"

@@ -5,7 +5,7 @@ process PROCESS_BAM_GENOME {
     time '2.h'
     memory '16.GB'
     cpus 8
-    // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
 
@@ -14,7 +14,7 @@ process PROCESS_BAM_GENOME {
     val(bam_rmdup)
 
     output: 
-    tuple val(sample), path("sorted.bam"), path("sorted.bam.bai"),        emit: bam
+    tuple val(sample), path("*.sorted.bam"), path("*.sorted.bam.bai"),        emit: bam
     
     script:
     def process_script = "${process_name}.sh"
