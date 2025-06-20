@@ -67,11 +67,10 @@ if [[ ${18} == "none" ]]; then
         -K 100000000 \
         -Y \
         - \
-        | samtools view -o ${2}.sorted.bam 
-    		#| samtools sort -@ $1 -n -O BAM  \
-    		#| samtools fixmate -@ $1 -m - - \
-    		#| samtools sort -@ $1 -O BAM \
-    		#| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
+    		| samtools sort -@ $1 -n -O BAM  \
+    		| samtools fixmate -@ $1 -m - - \
+    		| samtools sort -@ $1 -O BAM \
+    		| samtools markdup -@ $1 $RMDUP - ${2}.sorted.bam
 else 
     # use custom string of flags
     fastp \
