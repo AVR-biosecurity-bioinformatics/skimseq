@@ -4,17 +4,14 @@
 
 //// import modules
 include { BAM_STATS                             } from '../modules/bam_stats'
-//include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
-include { MAP_TO_MITO                           } from '../modules/map_to_mito'
-include { CONSENSUS_MITO                        } from '../modules/consensus_mito'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { FASTP                                 } from '../modules/fastp'
 include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
 include { FASTQTOBAM                            } from '../modules/fastqtobam'
+include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 //include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
 //include { PROCESS_BAM_GENOME                    } from '../modules/process_bam_genome'
-include { PROCESS_BAM_MITO                      } from '../modules/process_bam_mito'
-include { SPLIT_FASTQ                           } from '../modules/split_fastq'
+//include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 
 workflow PROCESS_READS {
 
@@ -84,7 +81,7 @@ workflow PROCESS_READS {
         .set { ch_fastq_split } 
 
     /* 
-        Nuclear variant calling
+        Read alignments
     */
 
     FASTQTOBAM (
@@ -104,44 +101,14 @@ workflow PROCESS_READS {
         ch_grouped_genome_bam
     )
 
-    // base quality score recalibration (if a list of known variants are provided)
-
+    // TODO: base quality score recalibration (if a list of known variants are provided)
 
     // generate statistics about the genome .bam files
     BAM_STATS (
         FASTQTOBAM.out.bam
     )
 
-
-    /*
-        Mitochondrial variant calling
-    */
-
-    // align reads to mitochondrial genome
-    MAP_TO_MITO (
-        ch_fastq_split,
-        ch_mito_indexed
-    )
-
-    // group mito .bam files by sample
-    MAP_TO_MITO.out.bam
-        .groupTuple ( by: 0 )
-        .set { ch_grouped_mito_bam }
-
-    // process mito bam (merge, sort, index)
-    PROCESS_BAM_MITO (
-        ch_grouped_mito_bam
-    )
-
-    // call consensus fasta file from mito bam
-    CONSENSUS_MITO (
-        PROCESS_BAM_MITO.out.bam,
-        ch_mito_indexed
-    )
-
-
     emit: 
-    mito_fasta = CONSENSUS_MITO.out.fasta
     bam = ch_grouped_genome_bam
     bam_stats = BAM_STATS.out.stats
 }

@@ -18,7 +18,7 @@ workflow GATK_GENOTYPING {
 
     take:
     ch_sample_bam
-    ch_genome_indexed
+    ch_interval_list
 
     main: 
 
@@ -33,32 +33,6 @@ workflow GATK_GENOTYPING {
         Genotype samples individually and jointly
     */
 
-    // create genome intervals for genotyping
-    CREATE_INTERVALS (
-        ch_genome_indexed,
-        params.interval_size
-    )
-
-    // split intervals file into chunks of 50 lines for conversion
-    CREATE_INTERVALS.out.intervals
-        .splitText ( by: 50, file: true )
-        .set { ch_intervals }
-
-    // turn intervals into GATK format via .bed
-    CONVERT_INTERVALS (
-        ch_intervals,
-        ch_genome_indexed
-    )
-
-    // create intervals channel, with one interval_list file per element
-    CONVERT_INTERVALS.out.interval_list
-        .flatten()
-        // get hash from interval_list name as element to identify intervals
-        .map { interval_list ->
-            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
-            [ interval_hash, interval_list ] }
-        .set { ch_interval_list }
-        
     // combine sample-level bams with each interval_list file and interval hash
     ch_sample_bam
         .combine ( ch_interval_list )

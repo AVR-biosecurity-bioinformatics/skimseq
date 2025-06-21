@@ -59,24 +59,58 @@ workflow SKIMSEQ {
 
 
     /*
-    Process nuclear and mitochondrial genome files
+    Process nuclear genome and create intervals
     */
-
-    INDEX_MITO (
-        ch_mito
-    )
 
     INDEX_GENOME (
         ch_genome
     )
 
-    // PROCESS_GENOME (
-    //     "dummy"
-    // )
+    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
+    
+    // create genome intervals for genotyping
+    CREATE_INTERVALS (
+        ch_genome_indexed,
+        params.interval_size
+    )
+
+    // split intervals file into chunks of 50 lines for conversion
+    CREATE_INTERVALS.out.intervals
+        .splitText ( by: 50, file: true )
+        .set { ch_intervals }
+
+    // turn intervals into GATK format via .bed
+    CONVERT_INTERVALS (
+        ch_intervals,
+        ch_genome_indexed
+    )
+
+    // create intervals channel, with one interval_list file per element
+    CONVERT_INTERVALS.out.interval_list
+        .flatten()
+        // get hash from interval_list name as element to identify intervals
+        .map { interval_list ->
+            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
+            [ interval_hash, interval_list ] }
+        .set { ch_interval_list }
+        
+    /*
+    Process mitochondrial genome and create intervals
+    */
+        
+    //EXTRACT_MITO (
+    //    ch_genome
+    //)
+
+    INDEX_MITO (
+        ch_mito
+    )
 
     ch_mito_indexed = INDEX_MITO.out.fasta_indexed.first()
 
-    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
+    // PROCESS_GENOME (
+    //     "dummy"
+    // )
 
     /*
     Process reads per sample, aligning to the genome, and merging
@@ -103,7 +137,8 @@ workflow SKIMSEQ {
 
     FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_interval_list
     )
 
 }
