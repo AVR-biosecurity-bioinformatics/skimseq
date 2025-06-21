@@ -61,11 +61,6 @@ workflow PROCESS_READS {
         "pretrim"
     )
 
-    //FASTQC_POSTTRIM (
-    //    ch_fastqc_posttrim_input,
-    //    "posttrim"
-    //)
-
     // split paired fastq into chunks using seqtk
     SPLIT_FASTQ (
         ch_reads,
@@ -98,45 +93,6 @@ workflow PROCESS_READS {
         ch_genome_indexed,
         ch_bam_filters
     )
-
-        
-    // combine matching chunks from paired files
-    //SPLIT_FASTQ.out.fastq_interval
-    //    .transpose()
-    //    .multiMap { sample, start, end ->
-    //        first: [ sample, start ]
-    //        second:  [ sample, end ]
-    //    }
-    //    .set { ch_fastq_split }
-
-    
-    
-    //ch_split_multi.first
-    //    .map { sample, json, reads_file ->
-    //        def filename_list = reads_file.getFileName().toString().split("\\.")
-    //        [ sample, json, filename_list[1], reads_file ]
-    //    }
-    //    .set { ch_split_read1 }
-    
-    //ch_split_multi.second
-    //    .map { sample, json, reads_file ->
-    //        def filename_list = reads_file.getFileName().toString().split("\\.")
-    //        [ sample, json, filename_list[1], reads_file ]
-    //    }
-    //    .set { ch_split_read2 }
-
-    //ch_split_read1
-    //    .join ( 
-    //        ch_split_read2, 
-    //        by: [0,1,2],
-    //        failOnDuplicate: true,
-    //        failOnMismatch: true
-    //    )
-    //    .map { sample, json, chunk, file1, file2 ->
-    //        [ sample, file1, file2, json ]
-    //    }
-    //    .set { ch_fastq_split }
-
 
     /*
         Mitochondrial variant calling

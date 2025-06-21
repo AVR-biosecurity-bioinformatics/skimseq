@@ -49,11 +49,10 @@ seqkit range -r ${21}:${22} ${4} > tmpR.fq
 
 # run filtering
 if [[ ${18} == "none" ]]; then
-    # use individual parameters
+    # use individual filtering parameters for fastp
     fastp \
         -i tmpF.fq \
         -I tmpR.fq \
-        --interleaved_in \
         -q ${5} \
         --length_required ${6} \
         --n_base_limit ${7} \
@@ -83,7 +82,7 @@ if [[ ${18} == "none" ]]; then
     		| samtools sort -@ ${1} -O BAM \
     		| samtools markdup -@ ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam
 else 
-    # use custom string of flags
+    # use custom string of flags for fastp
     fastp \
         -i tmpF.fq \
         -I tmpR.fq \
