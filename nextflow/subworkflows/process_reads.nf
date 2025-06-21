@@ -75,7 +75,7 @@ workflow PROCESS_READS {
     // combine matching chunks from paired files
     SPLIT_FASTQ.out.fastq_interval
         .transpose()
-        .multiMap { sample, start, end, ->
+        .multiMap { sample, start, end ->
             first: [ sample, start ]
             second:  [ sample, end ]
         }
@@ -87,6 +87,7 @@ workflow PROCESS_READS {
     */
 
     FASTQTOBAM (
+        ch_reads,
         ch_fastq_split,
         ch_fastp_filters,
         ch_genome_indexed,
@@ -148,8 +149,8 @@ workflow PROCESS_READS {
 
 
     
-        //.groupTuple ( by: 0 )
-        //.set { ch_grouped_genome_bam }
+    //.groupTuple ( by: 0 )
+    //.set { ch_grouped_genome_bam }
 
     // channel for post-trim fastqc
     // TODO: could potentially convert output bam back to fastq for this?
@@ -192,6 +193,4 @@ workflow PROCESS_READS {
     mito_fasta = CONSENSUS_MITO.out.fasta
     bam = ch_grouped_genome_bam
     bam_stats = BAM_STATS.out.stats
-
-
 }
