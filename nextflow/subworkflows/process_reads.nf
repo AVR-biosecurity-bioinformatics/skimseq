@@ -74,20 +74,25 @@ workflow PROCESS_READS {
 
     // Post-process the output from SPLIT_FASTQ
     SPLIT_FASTQ.out.fastq_interval
-  	.splitText().map { line ->
-            // Split each line by space and capture sample, start, and end
-            def parts = line.split(" ")
-            def sample = parts[0]
-            def fastq1 = parts[1]
-            def fastq2 = parts[2]
-            def start = parts[3].toInteger()
-            def end = parts[4].toInteger()
-
-            // Return as a tuple
-            return tuple(sample, fastq1, fastq2, start, end)
+        .map { sample, fastq1, fastq2, intervals_file ->
+            // Process the intervals file (intervals_file is the path to intervals_${sample}.txt)
+            def intervals = intervals_file.text.split("\n").collect { line ->
+                def parts = line.split(" ")
+                def start = parts[0].toInteger()  // Capture start
+                def end = parts[1].toInteger()    // Capture end
+                return tuple(start, end)  // Return a tuple with only start and end
+            }
+            
+            // Flatten the output to match the required format (sample, fastq1, fastq2, start, end)
+            return intervals.collect { interval -> 
+                // Create a new tuple for each interval: (sample, fastq1, fastq2, start, end)
+                return tuple(sample, fastq1, fastq2, interval[0], interval[1])  
+            }
         }
-        .view { sample, start, end, fastq1, fastq2 ->
-            println "Sample: $sample, Start: $start, End: $end, fastq1: $fastq1, fastq2: $fastq2"
+        .flatten()  // Flatten the result to ensure it's a flat list of tuples
+        .view { sample, fastq1, fastq2, start, end ->
+            // Print the processed data
+            println "Sample: $sample, FASTQ1: $fastq1, FASTQ2: $fastq2, Start: $start, End: $end"
         }
         .set { ch_fastq_split } 
 

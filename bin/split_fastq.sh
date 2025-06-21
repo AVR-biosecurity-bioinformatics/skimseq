@@ -50,9 +50,9 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
         fi
     
         # Write the interval to the file (in format: sample start end)
-        echo "${2} ${3} ${4} ${start} ${end}" >> $INTERVALS_FILE
+        echo "${start} ${end}" >> $INTERVALS_FILE
     done
 else
     # If only one chunk (all reads), print a single line to the file
-    echo "${2}  ${3} ${4} 1 ${N_READS}" > $INTERVALS_FILE
+    echo "1 ${N_READS}" > $INTERVALS_FILE
 fi
