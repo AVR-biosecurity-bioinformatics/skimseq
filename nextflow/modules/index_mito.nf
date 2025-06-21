@@ -14,8 +14,8 @@ process INDEX_MITO {
     val(mito_contig)
 
     output: 
-    tuple path(mito_genome), path("*.fa.*"),        emit: fasta_indexed
-    tuple path(mito_bed), path("*.bed"),            emit: mito_bed
+    path("*.fa.*"),        emit: fasta_indexed
+    path("*.bed"),            emit: mito_bed
     
     script:
     def process_script = "${process_name}.sh"
