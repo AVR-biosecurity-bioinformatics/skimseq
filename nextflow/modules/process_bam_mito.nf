@@ -11,7 +11,6 @@ process PROCESS_BAM_MITO {
 
     input:
     tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
-    path(mito_genome)
     path(mito_bed_files)
 
     output: 
