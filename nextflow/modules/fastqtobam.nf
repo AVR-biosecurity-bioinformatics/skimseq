@@ -31,6 +31,9 @@ process FASTQTOBAM {
         ${sample} \
         ${fastq1} \
         ${fastq2} \
+        ${start} \
+        ${end} \
+        ${ref_genome} \
         ${rf_quality} \
         ${rf_length} \
         ${rf_n_bases} \
@@ -45,10 +48,7 @@ process FASTQTOBAM {
         ${rf_overlap_diff} \
         ${rf_overlap_diff_pc} \
         "${rf_custom_flags}" \
-        ${ref_genome} \
-        ${bam_rmdup} \
-        ${start} \
-        ${end}
+        ${bam_rmdup}
 
     """
 }

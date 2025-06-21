@@ -6,34 +6,35 @@ set -u
 # $2 = sample name
 # $3 = fastq file 1
 # $4 = fastq file 2
-# $5 = params.rf_quality,
-# $6 = params.rf_length,
-# $7 = params.rf_n_bases,
-# $8 = params.rf_trim_polyg,
-# $9 = params.rf_cut_right,
-# $10 = params.rf_cut_window_size,
-# $11 = params.rf_cut_mean_quality,
-# $12 = params.rf_lc_filter,
-# $13 = params.rf_lc_threshold,
-# $14 = params.rf_correction,
-# $15 = params.rf_overlap_length,
-# $16 = params.rf_overlap_diff,
-# $17 = params.rf_overlap_diff_pc,
-# $18 = params.rf_custom_flags
-# $19 = ref_genome fasta
-# $20 = whether duplicates should be removed
-# $21 = start coord
-# $22 = end coord
+# $5 = start coord
+# $6 = end coord
+# $7 = ref_genome fasta
+# $8 = params.rf_quality,
+# $9 = params.rf_length,
+# $10 = params.rf_n_bases,
+# $11 = params.rf_trim_polyg,
+# $12 = params.rf_cut_right,
+# $13 = params.rf_cut_window_size,
+# $14 = params.rf_cut_mean_quality,
+# 15 = params.rf_lc_filter,
+# $16 = params.rf_lc_threshold,
+# $17 = params.rf_correction,
+# $18 = params.rf_overlap_length,
+# $19 = params.rf_overlap_diff,
+# $20 = params.rf_overlap_diff_pc,
+# $21 = params.rf_custom_flags
+# $22 = whether duplicates should be removed
+
 
 echo ${21}
 echo ${22}
 
 # parse filtering options as flags
-if [[ ${8} == "true" ]];    then TRIM_POLY_G="--trim_poly_g";                       else TRIM_POLY_G=""; fi
-if [[ ${9} == "true" ]];    then CUT_RIGHT="--cut_right";                           else CUT_RIGHT=""; fi
-if [[ ${12} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter";   else LOW_COMPLEXITY_FILTER=""; fi
-if [[ ${14} == "true" ]];   then CORRECTION="--correction";                         else CORRECTION=""; fi
-if [[ ${20} == "true" ]];    then RMDUP="-r ";                                      else RMDUP=""; fi
+if [[ ${11} == "true" ]];    then TRIM_POLY_G="--trim_poly_g";                       else TRIM_POLY_G=""; fi
+if [[ ${12} == "true" ]];    then CUT_RIGHT="--cut_right";                           else CUT_RIGHT=""; fi
+if [[ ${15} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter";   else LOW_COMPLEXITY_FILTER=""; fi
+if [[ ${17} == "true" ]];   then CORRECTION="--correction";                         else CORRECTION=""; fi
+if [[ ${22} == "true" ]];    then RMDUP="-r ";                                      else RMDUP=""; fi
 
 # Setup read group headers for BAM, these are necessary for merging of replicates
 RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')
@@ -48,30 +49,30 @@ seqkit range -r ${21}:${22} ${3} > tmpF.fq
 seqkit range -r ${21}:${22} ${4} > tmpR.fq
 
 # run filtering
-if [[ ${18} == "none" ]]; then
+if [[ ${21} == "none" ]]; then
     # use individual filtering parameters for fastp
     fastp \
         -i tmpF.fq \
         -I tmpR.fq \
-        -q ${5} \
-        --length_required ${6} \
-        --n_base_limit ${7} \
+        -q ${8} \
+        --length_required ${9} \
+        --n_base_limit ${10} \
         $TRIM_POLY_G \
         $CUT_RIGHT \
-        --cut_right_window_size ${10} \
-        --cut_right_mean_quality ${11} \
+        --cut_right_window_size ${13} \
+        --cut_right_mean_quality ${14} \
         $LOW_COMPLEXITY_FILTER \
-        --complexity_threshold ${13} \
+        --complexity_threshold ${16} \
         $CORRECTION \
-        --overlap_len_require ${15} \
-        --overlap_diff_limit ${16} \
-        --overlap_diff_percent_limit ${17} \
+        --overlap_len_require ${18} \
+        --overlap_diff_limit ${19} \
+        --overlap_diff_percent_limit ${20} \
         --thread ${1} \
         -h ${2}.$CHUNK_NAME.fastp.html \
         -j ${2}.$CHUNK_NAME.fastp.json \
         -R ${2} \
         --stdout | \
-        bwa-mem2 mem -p ${19} \
+        bwa-mem2 mem -p ${7} \
         -t ${1} \
         -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         -K 100000000 \
