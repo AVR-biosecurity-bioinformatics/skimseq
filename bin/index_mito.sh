@@ -10,4 +10,10 @@ set -u
 echo ${3} > name.lst
 seqtk subseq ${2} name.lst > ${3}.fa
 
+# Index mitochondrial genome for bwa
 bwa-mem2 index ${3}.fa
+
+# Index with samtools 
+samtools faidx ${3}.fa
+
+# Create mitochondrial bed
