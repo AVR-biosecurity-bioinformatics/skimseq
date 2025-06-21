@@ -17,4 +17,4 @@ bwa-mem2 index ${3}.fa
 samtools faidx ${3}.fa
 
 # Create mitochondrial bed
-awk '{print $1"\t0\t"$2}' ${3}.fa > ${3}.bed
+awk '{print $1"\t0\t"$2}' ${3}.fa.fai > ${3}.bed
