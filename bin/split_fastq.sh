@@ -9,12 +9,9 @@ set -u
 # $5 = chunk size
 
 CHUNK_SIZE=${5}
-echo $CHUNK_SIZE
 
 # calculate number of splits based on chunk size
 N_READS=$( seqtk size $3 | cut -f1 )
-
-echo $N_READS
 
 
 # if N_READS is less than CHUNK_SIZE, don't split file
@@ -46,10 +43,10 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
         fi
     
         # Print the interval for each chunk
-        echo "${start} ${end}"  # This outputs a tuple with chunk_id, start, and end
+        echo "${2} ${start} ${end}"  # This outputs a tuple with chunk_id, start, and end
     done
 else 
   
-  echo "1 ${N_READS}"  # This outputs a tuple with chunk_id, start, and end
+  echo "${2} 1 ${N_READS}"  # This outputs a tuple with chunk_id, start, and end
 fi
 

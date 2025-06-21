@@ -72,14 +72,29 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-    // combine matching chunks from paired files
-    SPLIT_FASTQ.out.fastq_interval
-        .transpose()
-        .multiMap { sample, start, end ->
-            first: [ sample, start ]
-            second:  [ sample, end ]
+    // Post-process the output from SPLIT_FASTQ
+    SPLIT_FASTQ.out.interval_string
+        .map { line ->
+            // Split the line by whitespace and capture sample, start, and end
+            def parts = line.split(" ")
+            def sample = parts[0]
+            def start = parts[1].toInteger()
+            def end = parts[2].toInteger()
+            return [sample, start, end]  // Return as a tuple
+        }
+        .view { sample, start, end ->
+            println "Sample: $sample, Start: $start, End: $end"
         }
         .set { ch_fastq_split }
+        
+    // combine matching chunks from paired files
+    //SPLIT_FASTQ.out.fastq_interval
+    //    .transpose()
+    //    .multiMap { sample, start, end ->
+    //        first: [ sample, start ]
+    //        second:  [ sample, end ]
+    //    }
+    //    .set { ch_fastq_split }
 
     
     /* 
@@ -190,7 +205,7 @@ workflow PROCESS_READS {
 
 
     emit: 
-    mito_fasta = CONSENSUS_MITO.out.fasta
+    //mito_fasta = CONSENSUS_MITO.out.fasta
     bam = ch_grouped_genome_bam
     bam_stats = BAM_STATS.out.stats
 }

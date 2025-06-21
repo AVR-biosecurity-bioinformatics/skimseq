@@ -14,7 +14,7 @@ process SPLIT_FASTQ {
     val(chunk_size)
 
     output: 
-    tuple val(sample), val(start), val(end),     emit: fastq_interval
+    val(interval_string)     emit: interval_string
     
     script:
     def process_script = "${process_name}.sh"
