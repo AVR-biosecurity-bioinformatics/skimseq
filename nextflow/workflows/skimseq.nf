@@ -69,6 +69,9 @@ workflow SKIMSEQ {
 
     ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
     
+    // TODO: Replace interval creation with bedtools
+    // TODO: If bedfile is provided, use that
+    
     // create genome intervals for genotyping
     CREATE_INTERVALS (
         ch_genome_indexed,
@@ -99,6 +102,7 @@ workflow SKIMSEQ {
     Process mitochondrial genome and create intervals
     */
         
+    // TODO: Extract mitochondrial genome contig from reference contig
     //EXTRACT_MITO (
     //    ch_genome
     //)

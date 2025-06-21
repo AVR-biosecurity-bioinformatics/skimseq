@@ -16,6 +16,7 @@ workflow GATK_GENOTYPING {
 
     take:
     ch_sample_bam
+    ch_genome_indexed
     ch_interval_list
 
     main: 
