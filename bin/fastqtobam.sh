@@ -41,14 +41,19 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 # RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
 # create hash of read 1 name for output
-HASH=$( printf '%s' "${2}" | md5sum | awk '{print $1}' ) 
+CHUNK_NAME=$(echo "${21}-${22}")
+
+# create temporary fastq of just the reads in the interval
+seqkit range -r ${21}:${22} ${3} > tmpF.fq
+seqkit range -r ${21}:${22} ${4} > tmpR.fq
 
 # run filtering
 if [[ ${18} == "none" ]]; then
     # use individual parameters
     fastp \
-        -i ${3} \
-        -I ${4} \
+        -i tmpF.fq \
+        -I tmpR.fq \
+        --interleaved_in \
         -q ${5} \
         --length_required ${6} \
         --n_base_limit ${7} \
@@ -63,8 +68,8 @@ if [[ ${18} == "none" ]]; then
         --overlap_diff_limit ${16} \
         --overlap_diff_percent_limit ${17} \
         --thread ${1} \
-        -h ${2}.$HASH.fastp.html \
-        -j ${2}.$HASH.fastp.json \
+        -h ${2}.$CHUNK_NAME.fastp.html \
+        -j ${2}.$CHUNK_NAME.fastp.json \
         -R ${2} \
         --stdout | \
         bwa-mem2 mem -p ${19} \
@@ -76,16 +81,16 @@ if [[ ${18} == "none" ]]; then
     		| samtools sort -@ ${1} -n -O BAM  \
     		| samtools fixmate -@ ${1} -m - - \
     		| samtools sort -@ ${1} -O BAM \
-    		| samtools markdup -@ ${1} $RMDUP - ${2}.$HASH.sorted.bam
+    		| samtools markdup -@ ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam
 else 
     # use custom string of flags
     fastp \
-        -i ${3} \
-        -I ${4} \
+        -i tmpF.fq \
+        -I tmpR.fq \
         ${18} \
         --thread ${1} \
-        -h ${2}.$HASH.fastp.html \
-        -j ${2}.$HASH.fastp.json \
+        -h ${2}.$CHUNK_NAME.fastp.html \
+        -j ${2}.$CHUNK_NAME.fastp.json \
         -R ${2} \
         --stdout | \
         bwa-mem2 mem -p ${19} \
@@ -97,12 +102,16 @@ else
     		| samtools sort -@ ${1} -n -O BAM  \
     		| samtools fixmate -@ ${1} -m - - \
     		| samtools sort -@ ${1} -O BAM \
-    		| samtools markdup -@ ${1} $RMDUP - ${2}.$HASH.sorted.bam
+    		| samtools markdup -@ ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam
 fi
 
 # index bam
-samtools index -@ ${1} ${2}.$HASH.sorted.bam
+samtools index -@ ${1} ${2}.$CHUNK_NAME.sorted.bam
 
 # check bam if correctly formatted
-samtools quickcheck ${2}.$HASH.sorted.bam \
+samtools quickcheck ${2}.$CHUNK_NAME.sorted.bam \
 	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
+
+# Remove temporary fastqs
+rm tmpF.fq
+rm tmpR.fq
