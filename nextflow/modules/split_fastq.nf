@@ -14,7 +14,7 @@ process SPLIT_FASTQ {
     val(chunk_size)
 
     output: 
-    tuple val(sample), val(start), val(end), path("*.json"),     emit: fastq
+    tuple val(sample), val(start), val(end),     emit: fastq_interval
     
     script:
     def process_script = "${process_name}.sh"

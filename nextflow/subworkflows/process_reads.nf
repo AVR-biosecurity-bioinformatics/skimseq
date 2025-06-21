@@ -73,13 +73,25 @@ workflow PROCESS_READS {
     )
 
     // combine matching chunks from paired files
-    SPLIT_FASTQ.out.fastq
+    SPLIT_FASTQ.out.fastq_interval
         .transpose()
-        .multiMap { sample, start, end, json ->
-            first: [ sample, json, start ]
-            second:  [ sample, json, end ]
+        .multiMap { sample, start, end, ->
+            first: [ sample, start ]
+            second:  [ sample, end ]
         }
-        .set { ch_split_multi }
+        .set { ch_fastq_split }
+        
+    
+    /* 
+        Nuclear variant calling
+    */
+
+    FASTQTOBAM (
+        ch_fastq_split,
+        ch_fastp_filters,
+        ch_genome_indexed,
+        ch_bam_filters
+    )
 
     //ch_split_multi.first
     //    .map { sample, json, reads_file ->
@@ -134,16 +146,6 @@ workflow PROCESS_READS {
     //    ch_mito_indexed
     //)
 
-    /* 
-        Nuclear variant calling
-    */
-
-    FASTQTOBAM (
-        ch_fastq_split,
-        ch_fastp_filters,
-        ch_genome_indexed,
-        ch_bam_filters
-    )
 
     
         //.groupTuple ( by: 0 )
