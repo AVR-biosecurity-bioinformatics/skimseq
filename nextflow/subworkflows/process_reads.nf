@@ -75,37 +75,37 @@ workflow PROCESS_READS {
     // combine matching chunks from paired files
     SPLIT_FASTQ.out.fastq
         .transpose()
-        .multiMap { sample, file1, file2, json ->
-            first: [ sample, json, file1 ]
-            second:  [ sample, json, file2 ]
+        .multiMap { sample, start, end, json ->
+            first: [ sample, json, start ]
+            second:  [ sample, json, end ]
         }
         .set { ch_split_multi }
 
-    ch_split_multi.first
-        .map { sample, json, reads_file ->
-            def filename_list = reads_file.getFileName().toString().split("\\.")
-            [ sample, json, filename_list[1], reads_file ]
-        }
-        .set { ch_split_read1 }
+    //ch_split_multi.first
+    //    .map { sample, json, reads_file ->
+    //        def filename_list = reads_file.getFileName().toString().split("\\.")
+    //        [ sample, json, filename_list[1], reads_file ]
+    //    }
+    //    .set { ch_split_read1 }
     
-    ch_split_multi.second
-        .map { sample, json, reads_file ->
-            def filename_list = reads_file.getFileName().toString().split("\\.")
-            [ sample, json, filename_list[1], reads_file ]
-        }
-        .set { ch_split_read2 }
+    //ch_split_multi.second
+    //    .map { sample, json, reads_file ->
+    //        def filename_list = reads_file.getFileName().toString().split("\\.")
+    //        [ sample, json, filename_list[1], reads_file ]
+    //    }
+    //    .set { ch_split_read2 }
 
-    ch_split_read1
-        .join ( 
-            ch_split_read2, 
-            by: [0,1,2],
-            failOnDuplicate: true,
-            failOnMismatch: true
-        )
-        .map { sample, json, chunk, file1, file2 ->
-            [ sample, file1, file2, json ]
-        }
-        .set { ch_fastq_split }
+    //ch_split_read1
+    //    .join ( 
+    //        ch_split_read2, 
+    //        by: [0,1,2],
+    //        failOnDuplicate: true,
+    //        failOnMismatch: true
+    //    )
+    //    .map { sample, json, chunk, file1, file2 ->
+    //        [ sample, file1, file2, json ]
+    //    }
+    //    .set { ch_fastq_split }
 
 
     /*
@@ -113,26 +113,26 @@ workflow PROCESS_READS {
     */
 
     // align reads to mitochondrial genome
-    MAP_TO_MITO (
-        ch_fastq_split,
-        ch_mito_indexed
-    )
+    //MAP_TO_MITO (
+    //    ch_fastq_split,
+    //    ch_mito_indexed
+    //)
 
     // group mito .bam files by sample
-    MAP_TO_MITO.out.bam
-        .groupTuple ( by: 0 )
-        .set { ch_grouped_mito_bam }
+    //MAP_TO_MITO.out.bam
+    //    .groupTuple ( by: 0 )
+    //    .set { ch_grouped_mito_bam }
 
     // process mito bam (merge, sort, index)
-    PROCESS_BAM_MITO (
-        ch_grouped_mito_bam
-    )
+    //PROCESS_BAM_MITO (
+    //    ch_grouped_mito_bam
+    //)
 
     // call consensus fasta file from mito bam
-    CONSENSUS_MITO (
-        PROCESS_BAM_MITO.out.bam,
-        ch_mito_indexed
-    )
+    //CONSENSUS_MITO (
+    //    PROCESS_BAM_MITO.out.bam,
+    //    ch_mito_indexed
+    //)
 
     /* 
         Nuclear variant calling
