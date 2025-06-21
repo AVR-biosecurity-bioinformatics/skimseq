@@ -130,7 +130,7 @@ workflow SKIMSEQ {
     MITO_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_mito_indexed,
-        mito_contig.out.bed
+        INDEX_MITO.out.bed
     )
     
     /*

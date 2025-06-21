@@ -42,7 +42,7 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 # RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
 # create hash of read 1 name for output
-CHUNK_NAME=$(echo "${21}-${22}")
+CHUNK_NAME=$(echo "${5}-${6}")
 
 # create temporary fastq of just the reads in the interval
 seqkit range -r ${5}:${6} ${3} > tmpF.fq

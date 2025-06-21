@@ -15,7 +15,7 @@ process INDEX_MITO {
 
     output: 
     path("*.fa.*"),           emit: fasta_indexed
-    path("*.bed"),            emit: mito_bed
+    path("*.bed"),            emit: bed
     
     script:
     def process_script = "${process_name}.sh"
