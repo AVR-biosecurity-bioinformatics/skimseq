@@ -14,7 +14,7 @@ process SPLIT_FASTQ {
     val(chunk_size)
 
     output: 
-    val(interval_string)     emit: interval_string
+    path("intervals_${sample}.txt"), emit: fastq_interval 
     
     script:
     def process_script = "${process_name}.sh"

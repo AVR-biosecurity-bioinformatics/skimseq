@@ -73,19 +73,22 @@ workflow PROCESS_READS {
     )
 
     // Post-process the output from SPLIT_FASTQ
-    SPLIT_FASTQ.out.interval_string
-        .map { line ->
-            // Split the line by whitespace and capture sample, start, and end
+    SPLIT_FASTQ.out.fastq_interval
+  	.splitText().map { line ->
+            // Split each line by space and capture sample, start, and end
             def parts = line.split(" ")
             def sample = parts[0]
             def start = parts[1].toInteger()
             def end = parts[2].toInteger()
-            return [sample, start, end]  // Return as a tuple
+
+            // Return as a tuple
+            return tuple(sample, start, end)
         }
         .view { sample, start, end ->
             println "Sample: $sample, Start: $start, End: $end"
-        }
+        }        
         .set { ch_fastq_split }
+
         
     // combine matching chunks from paired files
     //SPLIT_FASTQ.out.fastq_interval

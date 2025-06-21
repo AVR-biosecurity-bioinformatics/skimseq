@@ -9,9 +9,12 @@ set -u
 # $5 = chunk size
 
 CHUNK_SIZE=${5}
+#echo $CHUNK_SIZE
 
 # calculate number of splits based on chunk size
 N_READS=$( seqtk size $3 | cut -f1 )
+
+#echo $N_READS
 
 
 # if N_READS is less than CHUNK_SIZE, don't split file
@@ -31,8 +34,12 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     # Calculate the remainder (number of reads left to distribute)
     REMAINING_READS=$((N_READS % N_CHUNKS))
 
+    # Create a file to store intervals
+    INTERVALS_FILE="intervals_${2}.txt"
+    touch $INTERVALS_FILE  # Create an empty file for intervals
+
     # Return intervals of reads
-     # Loop through each chunk and assign intervals
+    # Loop through each chunk and assign intervals
     for (( i=1; i<=N_CHUNKS; i++ )); do
         start=$(( (i - 1) * READS_PER_CHUNK + 1 ))
         end=$(( i * READS_PER_CHUNK ))
@@ -42,11 +49,10 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
             end=$(( end + REMAINING_READS ))
         fi
     
-        # Print the interval for each chunk
-        echo "${2} ${start} ${end}"  # This outputs a tuple with chunk_id, start, and end
+        # Write the interval to the file (in format: sample start end)
+        echo "${2} ${start} ${end}" >> $INTERVALS_FILE
     done
-else 
-  
-  echo "${2} 1 ${N_READS}"  # This outputs a tuple with chunk_id, start, and end
+else
+    # If only one chunk (all reads), print a single line to the file
+    echo "${2} 1 ${N_READS}" > $INTERVALS_FILE
 fi
-
