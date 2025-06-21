@@ -84,10 +84,27 @@ workflow PROCESS_READS {
             // Return as a tuple
             return tuple(sample, start, end)
         }
-        .view { sample, start, end ->
-            println "Sample: $sample, Start: $start, End: $end"
-        }        
-        .set { ch_fastq_split }
+        .join(
+            ch_reads, // This is the channel with sample and FASTQ files
+            by: [0],  // Join by 'sample', which is the first element of each tuple
+            failOnDuplicate: true,
+            failOnMismatch: true
+        )
+        .view { sample, start, end, fastq1, fastq2 ->
+            println "Sample: $sample, Start: $start, End: $end, FASTQ1: $fastq1, FASTQ2: $fastq2"
+        }
+        .set { ch_fastq_split }  // This will be the joined channel with (sample, start, end, fastq1, fastq2)
+
+    /* 
+        Nuclear variant calling
+    */
+
+    FASTQTOBAM (
+        ch_fastq_split,
+        ch_fastp_filters,
+        ch_genome_indexed,
+        ch_bam_filters
+    )
 
         
     // combine matching chunks from paired files
@@ -100,18 +117,7 @@ workflow PROCESS_READS {
     //    .set { ch_fastq_split }
 
     
-    /* 
-        Nuclear variant calling
-    */
-
-    FASTQTOBAM (
-        ch_reads,
-        ch_fastq_split,
-        ch_fastp_filters,
-        ch_genome_indexed,
-        ch_bam_filters
-    )
-
+    
     //ch_split_multi.first
     //    .map { sample, json, reads_file ->
     //        def filename_list = reads_file.getFileName().toString().split("\\.")
