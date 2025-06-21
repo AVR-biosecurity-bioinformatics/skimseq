@@ -11,6 +11,8 @@ process PROCESS_BAM_MITO {
 
     input:
     tuple val(sample), path(temp_bam, name: 'temp*.bam')
+    path(mito_genome)
+    path(mito_bed_files)
 
     output: 
     tuple val(sample), path("*.mito.bam"), path("*.mito.bam.bai"),        emit: bam
@@ -24,7 +26,8 @@ process PROCESS_BAM_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        "${temp_bam}"
+        "${temp_bam}" \
+        ${mito_bed_files}
 
     """
 }

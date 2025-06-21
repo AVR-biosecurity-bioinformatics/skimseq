@@ -5,7 +5,7 @@
 include { FILTER_VARIANTS                                             } from '../subworkflows/filter_variants'
 include { GATK_GENOTYPING                                             } from '../subworkflows/gatk_genotyping'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
-
+include { MITO_GENOTYPING                                             } from '../subworkflows/mito_genotyping'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
@@ -120,10 +120,19 @@ workflow SKIMSEQ {
 
     PROCESS_READS (
         ch_reads,
-        ch_mito_indexed,
         ch_genome_indexed
     )
 
+    /*
+    Call mitochondrial variants and make consensus fasta
+    */
+
+    MITO_GENOTYPING (
+        PROCESS_READS.out.bam,
+        ch_mito_indexed,
+        mito_contig.out.bed
+    )
+    
     /*
     Call variants per sample, then combine and joint-genotype across genomic intervals
     */

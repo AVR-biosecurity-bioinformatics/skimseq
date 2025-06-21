@@ -17,7 +17,6 @@ workflow PROCESS_READS {
 
     take:
     ch_reads
-    ch_mito_indexed
     ch_genome_indexed
 
     main: 
