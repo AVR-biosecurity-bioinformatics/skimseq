@@ -133,7 +133,8 @@ workflow SKIMSEQ {
 
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_interval_list
     )
 
     /*
