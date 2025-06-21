@@ -5,26 +5,27 @@ set -u
 # $1 = cpus 
 # $2 = sample name
 # $3 = list of temp_bam files
+# $4 = Mitochondrial contig bed
 
 ## merge bams if list of input files is greater than 1
 if [[ $(wc -w <<< "$3") > 1 ]]; then
-	# get list of .bam files in directory
-	ls *.bam > bam.list	
+    # Create list of bams to be processed
+    echo $3 | tr ' ' '\n' > bam.list
 
-    samtools merge -@ $1 -O BAM -b bam.list -o - \
-		| samtools sort -@ $1 -n -O BAM \
-		| samtools fixmate -@ $1 -m - - \
-		| samtools sort -@ $1 -O BAM \
-		| samtools markdup -@ $1 -r - ${2}.mito.bam
+    samtools merge -@ ${1} -O BAM -b bam.list -L ${4} -o - \
+		| samtools sort -@ ${1} -n -O BAM \
+		| samtools fixmate -@ ${1} -m - - \
+		| samtools sort -@ ${1} -O BAM \
+		| samtools markdup -@ ${1} -r - ${2}.mito.bam
 else 
-    samtools sort -@ $1 -n $3 -O BAM \
-		| samtools fixmate -@ $1 -m - - \
-		| samtools sort -@ $1 -O BAM \
-		| samtools markdup -@ $1 -r - ${2}.mito.bam
+    samtools sort -@ ${1} -n ${3}-O BAM -L ${4} \
+		| samtools fixmate -@ ${1} -m - - \
+		| samtools sort -@ ${1} -O BAM \
+		| samtools markdup -@ ${1} -r - ${2}.mito.bam
 fi
 
 # index bam
-samtools index -@ $1 ${2}.mito.bam
+samtools index -@ ${1} ${2}.mito.bam
 
 # check bam if correctly formatted
 samtools quickcheck ${2}.mito.bam \

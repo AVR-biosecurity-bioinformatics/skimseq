@@ -5,9 +5,7 @@
 //// import modules
 include { CALL_VARIANTS                                                 } from '../modules/call_variants'
 include { COMBINE_GVCFS                                              } from '../modules/combine_gvcfs' 
-include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 include { CREATE_BEAGLE                                              } from '../modules/create_beagle' 
-include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 include { GENOTYPE_POSTERIORS                                              } from '../modules/genotype_posteriors' 
 include { JOINT_GENOTYPE                                              } from '../modules/joint_genotype' 
 include { MERGE_VCFS                                              } from '../modules/merge_vcfs' 

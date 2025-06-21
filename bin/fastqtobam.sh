@@ -30,11 +30,11 @@ echo ${21}
 echo ${22}
 
 # parse filtering options as flags
-if [[ ${11} == "true" ]];    then TRIM_POLY_G="--trim_poly_g";                       else TRIM_POLY_G=""; fi
-if [[ ${12} == "true" ]];    then CUT_RIGHT="--cut_right";                           else CUT_RIGHT=""; fi
-if [[ ${15} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter";   else LOW_COMPLEXITY_FILTER=""; fi
-if [[ ${17} == "true" ]];   then CORRECTION="--correction";                         else CORRECTION=""; fi
-if [[ ${22} == "true" ]];    then RMDUP="-r ";                                      else RMDUP=""; fi
+if [[ ${11} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
+if [[ ${12} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
+if [[ ${15} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
+if [[ ${17} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
+if [[ ${22} == "true" ]];   then RMDUP="-r ";                                     else RMDUP=""; fi
 
 # Setup read group headers for BAM, these are necessary for merging of replicates
 RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')

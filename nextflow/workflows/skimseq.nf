@@ -10,7 +10,8 @@ include { PROCESS_READS                                             } from '../s
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-
+include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
+include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 
 workflow SKIMSEQ {
 
