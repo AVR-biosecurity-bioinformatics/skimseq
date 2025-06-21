@@ -10,10 +10,12 @@ process INDEX_MITO {
     module "bwa-mem2/2.2.1-GCC-13.3.0"
 
     input:
-    path(mito_genome)
+    path(ref_genome)
+    val(mito_contig)
 
     output: 
-    tuple path(mito_genome), path("*.fa.*"),             emit: fasta_indexed
+    tuple path(mito_genome), path("*.fa.*"),        emit: fasta_indexed
+    tuple path(mito_bed), path("*.bed"),            emit: mito_bed
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,7 +25,8 @@ process INDEX_MITO {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${mito_genome}
+        ${ref_genome} \
+        ${mito_contig}
 
     """
 }

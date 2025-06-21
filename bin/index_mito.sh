@@ -3,8 +3,11 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = mito_genome fasta
+# $2 = ref_genome fasta
+# $3 = mito_contig
 
-## trivial to index mitochondrial genome, so this doesn't check for existing index files in the supplied file's directory
+## Extract mitochondrial genome contig
+echo ${3} > name.lst
+seqtk subseq ${2} name.lst > ${3}.fa
 
-bwa-mem2 index $2
+bwa-mem2 index ${3}.fa

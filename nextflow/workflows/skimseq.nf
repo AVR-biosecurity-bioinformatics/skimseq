@@ -103,12 +103,9 @@ workflow SKIMSEQ {
     */
         
     // TODO: Extract mitochondrial genome contig from reference contig
-    //EXTRACT_MITO (
-    //    ch_genome
-    //)
-
     INDEX_MITO (
-        ch_mito
+        ch_mito,
+        params.mito_contig
     )
 
     ch_mito_indexed = INDEX_MITO.out.fasta_indexed.first()
@@ -143,8 +140,7 @@ workflow SKIMSEQ {
 
     FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
-        ch_genome_indexed,
-        ch_interval_list
+        ch_genome_indexed
     )
 
 }
