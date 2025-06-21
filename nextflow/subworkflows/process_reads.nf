@@ -78,22 +78,18 @@ workflow PROCESS_READS {
             // Split each line by space and capture sample, start, and end
             def parts = line.split(" ")
             def sample = parts[0]
-            def start = parts[1].toInteger()
-            def end = parts[2].toInteger()
+            def fastq1 = parts[1]
+            def fastq2 = parts[2]
+            def start = parts[3].toInteger()
+            def end = parts[4].toInteger()
 
             // Return as a tuple
-            return tuple(sample, start, end)
+            return tuple(sample, fastq1, fastq2, start, end)
         }
-        .join(
-            ch_reads, // This is the channel with sample and FASTQ files
-            by: [0],  // Join by 'sample', which is the first element of each tuple
-            failOnDuplicate: true,
-            failOnMismatch: true
-        )
         .view { sample, start, end, fastq1, fastq2 ->
-            println "Sample: $sample, Start: $start, End: $end, FASTQ1: $fastq1, FASTQ2: $fastq2"
+            println "Sample: $sample, Start: $start, End: $end, fastq1: $fastq1, fastq2: $fastq2"
         }
-        .set { ch_fastq_split }  // This will be the joined channel with (sample, start, end, fastq1, fastq2)
+        .set { ch_fastq_split } 
 
     /* 
         Nuclear variant calling
