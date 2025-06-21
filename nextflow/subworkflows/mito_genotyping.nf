@@ -33,8 +33,7 @@ workflow MITO_GENOTYPING {
 
     // process mito bam (merge, sort, index)
     PROCESS_BAM_MITO (
-        ch_sample_bam,
-        ch_mito_indexed,
+        ch_grouped_mito_bam,
         ch_mito_bed
     )
 
