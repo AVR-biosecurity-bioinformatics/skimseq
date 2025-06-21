@@ -104,7 +104,7 @@ workflow SKIMSEQ {
         
     // TODO: Extract mitochondrial genome contig from reference contig
     INDEX_MITO (
-        ch_mito,
+        ch_genome,
         params.mito_contig
     )
 
