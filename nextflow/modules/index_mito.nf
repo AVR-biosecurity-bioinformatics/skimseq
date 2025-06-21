@@ -14,7 +14,7 @@ process INDEX_MITO {
     val(mito_contig)
 
     output: 
-    path("*.fa.*"),           emit: fasta_indexed
+    tuple path("*.fa"), path("*.{fa.*,fna.*,dict}"),             emit: fasta_indexed
     path("*.bed"),            emit: bed
     
     script:

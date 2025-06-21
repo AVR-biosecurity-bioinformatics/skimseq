@@ -10,7 +10,7 @@ process PROCESS_BAM_MITO {
     module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(temp_bam, name: 'temp*.bam')
+    tuple val(sample), path(bam, name: '*.bam'), path(bam_index, name: '*.bai')
     path(mito_genome)
     path(mito_bed_files)
 
@@ -26,7 +26,7 @@ process PROCESS_BAM_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        "${temp_bam}" \
+        "${bam}" \
         ${mito_bed_files}
 
     """
