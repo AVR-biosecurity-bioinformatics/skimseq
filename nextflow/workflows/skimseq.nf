@@ -38,15 +38,15 @@ workflow SKIMSEQ {
             ] }
         .set { ch_reads }
 
-    if ( params.mito_genome ){
-        ch_mito = Channel
-            .fromPath (
-                params.mito_genome, 
-                checkIfExists: true
-            )
-    } else {
-        ch_mito = Channel.empty()
-    } 
+    //if ( params.mito_genome ){
+    //    ch_mito = Channel
+    //        .fromPath (
+    //            params.mito_genome, 
+    //            checkIfExists: true
+    //        )
+    //} else {
+    //    ch_mito = Channel.empty()
+    //} 
 
     if ( params.ref_genome ){
         ch_genome = Channel

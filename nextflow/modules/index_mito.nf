@@ -7,7 +7,7 @@ process INDEX_MITO {
     cpus 1
     // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "bwa-mem2/2.2.1-GCC-13.3.0"
+    module "bwa-mem2/2.2.1-GCC-13.3.0:seqtk/1.4-GCC-13.3.0"
 
     input:
     path(ref_genome)
