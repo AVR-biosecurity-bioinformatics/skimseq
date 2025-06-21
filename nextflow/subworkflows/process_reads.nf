@@ -80,7 +80,7 @@ workflow PROCESS_READS {
             second:  [ sample, end ]
         }
         .set { ch_fastq_split }
-        
+
     
     /* 
         Nuclear variant calling

@@ -22,6 +22,11 @@ set -u
 # $18 = params.rf_custom_flags
 # $19 = ref_genome fasta
 # $20 = whether duplicates should be removed
+# $21 = start coord
+# $22 = end coord
+
+echo ${21}
+echo ${22}
 
 # parse filtering options as flags
 if [[ ${8} == "true" ]];    then TRIM_POLY_G="--trim_poly_g";                       else TRIM_POLY_G=""; fi
