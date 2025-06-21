@@ -18,7 +18,8 @@ if [[ $(wc -w <<< "$3") > 1 ]]; then
 		| samtools sort -@ ${1} -O BAM \
 		| samtools markdup -@ ${1} -r - ${2}.mito.bam
 else 
-    samtools sort -@ ${1} -n ${3}-O BAM -L ${4} \
+    samtools view -@ ${1} ${3} -O BAM -L ${4} \
+    | samtools sort -@ ${1} -n $ -O BAM - \
 		| samtools fixmate -@ ${1} -m - - \
 		| samtools sort -@ ${1} -O BAM \
 		| samtools markdup -@ ${1} -r - ${2}.mito.bam

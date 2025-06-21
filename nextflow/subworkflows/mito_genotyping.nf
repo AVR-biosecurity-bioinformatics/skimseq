@@ -20,17 +20,16 @@ workflow MITO_GENOTYPING {
     /*
         Mitochondrial variant calling
     */
-
-    // align reads to mitochondrial genome
-    //MAP_TO_MITO (
-    //    ch_sample_bam,
-    //    ch_mito_indexed
-    //)
-
     // group mito .bam files by sample
-    //MAP_TO_MITO.out.bam
-    //    .groupTuple ( by: 0 )
-    //    .set { ch_grouped_mito_bam }
+    ch_sample_bam
+            .flatMap { sample, bam_files, bam_index_files ->
+                // For each sample, return individual BAM files with their corresponding BAM index
+                bam_files.collect { bam ->
+                    def bam_index = "${bam}.bai"  // Assuming the index file has the same name as the BAM file with a .bai extension
+                    return tuple(sample, bam, bam_index)  // Return a tuple with sample, BAM file, and BAM index
+                }
+            }
+     .set { ch_grouped_mito_bam }
 
     // process mito bam (merge, sort, index)
     PROCESS_BAM_MITO (
