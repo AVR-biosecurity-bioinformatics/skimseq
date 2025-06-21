@@ -45,8 +45,8 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 CHUNK_NAME=$(echo "${21}-${22}")
 
 # create temporary fastq of just the reads in the interval
-seqkit range -r ${21}:${22} ${3} > tmpF.fq
-seqkit range -r ${21}:${22} ${4} > tmpR.fq
+seqkit range -r ${5}:${6} ${3} > tmpF.fq
+seqkit range -r ${5}:${6} ${4} > tmpR.fq
 
 # run filtering
 if [[ ${21} == "none" ]]; then

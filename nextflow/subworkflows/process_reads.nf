@@ -134,7 +134,7 @@ workflow PROCESS_READS {
     )
 
     // call consensus fasta file from mito bam
-    //CONSENSUS_MITO (
+    CONSENSUS_MITO (
         PROCESS_BAM_MITO.out.bam,
         ch_mito_indexed
     )
