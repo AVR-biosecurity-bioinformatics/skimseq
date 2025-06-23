@@ -10,11 +10,12 @@ process SPLIT_FASTQ {
     module "seqtk/1.4-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2), path(json)
+    tuple val(sample), path(fastq1), path(fastq2)
     val(chunk_size)
 
     output: 
-    tuple val(sample), path("*R1.*.fastq.gz"), path("*R2.*.fastq.gz"), path(json),     emit: fastq
+    tuple val(sample), path(fastq1), path(fastq2), path("intervals_${sample}.csv"), emit: fastq_interval 
+
     
     script:
     def process_script = "${process_name}.sh"

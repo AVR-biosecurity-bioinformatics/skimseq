@@ -5,15 +5,17 @@ process INDEX_MITO {
     time '10.m'
     memory '1.GB'
     cpus 1
-    // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "bwa-mem2/2.2.1-GCC-13.3.0"
+    module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0:seqtk/1.4-GCC-13.3.0"
 
     input:
-    path(mito_genome)
+    path(ref_genome)
+    val(mito_contig)
 
     output: 
-    tuple path(mito_genome), path("*.fa.*"),             emit: fasta_indexed
+    tuple path("*.fa"), path("*.{fa.*,fna.*,dict}"),    emit: fasta_indexed
+    path("*.bed"),                                      emit: bed
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,7 +25,8 @@ process INDEX_MITO {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${mito_genome}
+        ${ref_genome} \
+        ${mito_contig}
 
     """
 }

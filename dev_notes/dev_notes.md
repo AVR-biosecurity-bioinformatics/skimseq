@@ -75,21 +75,20 @@ gzip -f test_data/qfly/F2xM12-F1_subset_R1.fastq test_data/qfly/F2xM12-F1_subset
 # Subset reference genome to that portion - Fix header with sed to avoid error with gatk
 samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-100000" | sed 's/:50000-100000//g' > test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
 
-
-# copy mitochondrial genome across
-cp /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa test_data/qfly/.
+# add mitochondrial genome to reference genome
+cat /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa >> test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
 
 # create sample data sheet
 fwd=$( find test_data/qfly/ -maxdepth 1 -name '*.fastq.gz' -type f | grep '_R1' | sort | uniq )
 rev=$(echo "$fwd" | sed 's/_R1/_R2/g' )
 sample_id=$(echo "$fwd" | sed 's/_subset.*$//g' | sed 's/^.*\///g')
 
-
 # format sample,fastq_1,fastq_2,
 paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") > test_data/qfly/test_samplesheet.csv
 ```
 
 ### Run test datasets
+
 
 Run the Qfly test dataset using the test profile
 ```

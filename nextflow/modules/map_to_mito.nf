@@ -7,10 +7,10 @@ process MAP_TO_MITO {
     cpus 4
     // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0"
+    module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2), path(json)
+    tuple val(sample), path(fastq1), path(fastq2), val(start), val(end)
     tuple path(mito_genome), path(mito_index_files)
 
     output: 
@@ -27,8 +27,10 @@ process MAP_TO_MITO {
         ${sample} \
         ${fastq1} \
         ${fastq2} \
-        ${json} \
+        ${start} \
+        ${end} \
         ${mito_genome}
+
 
     """
 }
