@@ -27,7 +27,7 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
         echo "Too many file chunks (${N_CHUNKS}) -- please lower 'params.fastq_chunk_size'"
         exit 1
     fi
-    
+   
     # Calculate the number of reads per chunk (integer division)
     READS_PER_CHUNK=$((N_READS / N_CHUNKS))
     
@@ -56,3 +56,4 @@ else
     # If only one chunk (all reads), print a single line to the file
     echo "1,${N_READS}" > $INTERVALS_FILE
 fi
+

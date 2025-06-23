@@ -15,6 +15,7 @@ process SPLIT_FASTQ {
 
     output: 
     tuple val(sample), path(fastq1), path(fastq2), path("intervals_${sample}.csv"), emit: fastq_interval 
+
     
     script:
     def process_script = "${process_name}.sh"

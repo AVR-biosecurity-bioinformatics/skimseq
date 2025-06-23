@@ -84,7 +84,7 @@ SPLIT_FASTQ.out.fastq_interval
     FASTQTOBAM.out.bam
         .groupTuple ( by: 0 )
         .set { ch_grouped_genome_bam }
-        
+
     // extract unmapped reads
     EXTRACT_UNMAPPED (
         ch_grouped_genome_bam

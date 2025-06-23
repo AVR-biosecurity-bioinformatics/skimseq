@@ -45,7 +45,9 @@ nextflow run . -profile basc_modules,debug \
 
 
 ## Create Qfly test datasets
-### Extract a small portion of the reference data
+This test data set uses a small segment of Qfly chromosome 1: CM028320.1:50000-100000
+
+Only read pairs where at least 1 of the reads aligns to this region are included. 
 ```
 module load SAMtools/1.21-GCC-13.3.0
 module load BEDTools/2.31.1-GCC-13.3.0
@@ -87,6 +89,8 @@ paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") > test_data/qfly
 
 ### Run test datasets
 
+
+Run the Qfly test dataset using the test profile
 ```
 module purge
 export NXF_VER=23.05.0-edge
@@ -95,5 +99,4 @@ module load Java/17
 
 # Test
 nextflow run . -profile basc_modules,debug,test
-
 ```
