@@ -10,7 +10,7 @@ process PROCESS_BAM_MITO {
     module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
+    tuple val(sample), path(bam), path(bam_index)
     path(mito_bed_files)
 
     output: 

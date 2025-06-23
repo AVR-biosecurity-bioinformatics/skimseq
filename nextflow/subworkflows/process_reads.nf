@@ -71,10 +71,10 @@ workflow PROCESS_READS {
                 def parts = line.split(" ")
                 def start = parts[0].toInteger()  // Capture start
                 def end = parts[1].toInteger()    // Capture end
-                // Return a tuple with (sample, fastq1, fastq2, start, end)
+                // Return a tuple
                 return tuple(sample, fastq1, fastq2, start, end)
             }            
-            // Return the list of tuples (sample, fastq1, fastq2, start, end) for each interval
+            // Return the list of tuples
             return intervals
         }
         .set { ch_fastq_split } 

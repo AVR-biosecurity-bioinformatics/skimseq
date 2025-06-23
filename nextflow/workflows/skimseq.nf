@@ -109,7 +109,8 @@ workflow SKIMSEQ {
     )
 
     ch_mito_indexed = INDEX_MITO.out.fasta_indexed.first()
-
+    ch_mito_bed = INDEX_MITO.out.bed.first()
+    
     // PROCESS_GENOME (
     //     "dummy"
     // )
@@ -130,7 +131,7 @@ workflow SKIMSEQ {
     MITO_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_mito_indexed,
-        INDEX_MITO.out.bed
+        ch_mito_bed
     )
     
     /*

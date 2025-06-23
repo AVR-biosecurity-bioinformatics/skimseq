@@ -29,6 +29,8 @@ workflow MITO_GENOTYPING {
                     return tuple(sample, bam, bam_index)  // Return a tuple with sample, BAM file, and BAM index
                 }
             }
+     .view()
+     .groupTuple ( by: 0 )
      .set { ch_grouped_mito_bam }
 
     // process mito bam (merge, sort, index)
