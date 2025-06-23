@@ -63,21 +63,11 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-    // Post-process the output from SPLIT_FASTQ
-    SPLIT_FASTQ.out.fastq_interval
-        .flatMap { sample, fastq1, fastq2, intervals_file ->
-            // Process the intervals file (intervals_file is the path to intervals_${sample}.txt)
-            def intervals = intervals_file.text.split("\n").collect { line ->
-                def parts = line.split(" ")
-                def start = parts[0].toInteger()  // Capture start
-                def end = parts[1].toInteger()    // Capture end
-                // Return a tuple
-                return tuple(sample, fastq1, fastq2, start, end)
-            }            
-            // Return the list of tuples
-            return intervals
-        }
-        .set { ch_fastq_split } 
+SPLIT_FASTQ.out.fastq_interval
+    .splitCsv ( by: 1, elem: 3, sep: "," )
+	.map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
+	.set { ch_fastq_split }
+
 
     /* 
         Read alignments

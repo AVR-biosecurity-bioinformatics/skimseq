@@ -16,7 +16,7 @@ set -u
 # $12 = params.rf_cut_right,
 # $13 = params.rf_cut_window_size,
 # $14 = params.rf_cut_mean_quality,
-# 15 = params.rf_lc_filter,
+# $15 = params.rf_lc_filter,
 # $16 = params.rf_lc_threshold,
 # $17 = params.rf_correction,
 # $18 = params.rf_overlap_length,
@@ -25,9 +25,6 @@ set -u
 # $21 = params.rf_custom_flags
 # $22 = whether duplicates should be removed
 
-
-echo ${21}
-echo ${22}
 
 # parse filtering options as flags
 if [[ ${11} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi

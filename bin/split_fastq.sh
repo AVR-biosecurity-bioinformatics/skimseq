@@ -35,7 +35,7 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     REMAINING_READS=$((N_READS % N_CHUNKS))
 
     # Create a file to store intervals
-    INTERVALS_FILE="intervals_${2}.txt"
+    INTERVALS_FILE="intervals_${2}.csv"
     touch $INTERVALS_FILE  # Create an empty file for intervals
 
     # Return intervals of reads
@@ -50,9 +50,9 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
         fi
     
         # Write the interval to the file (in format: sample start end)
-        echo "${start} ${end}" >> $INTERVALS_FILE
+        echo "${start},${end}" >> $INTERVALS_FILE
     done
 else
     # If only one chunk (all reads), print a single line to the file
-    echo "1 ${N_READS}" > $INTERVALS_FILE
+    echo "1,${N_READS}" > $INTERVALS_FILE
 fi
