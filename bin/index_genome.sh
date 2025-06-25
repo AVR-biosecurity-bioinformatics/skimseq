@@ -46,3 +46,9 @@ else
     echo "Indexing reference genome using GATK!"
     gatk CreateSequenceDictionary -R $2
 fi
+
+# Create genomic bed file
+awk '{print $1"\t0\t"$2}' $2.fai > genome.bed
+
+
+

@@ -14,6 +14,9 @@ include { CREATE_BED_INTERVALS                                              } fr
 //include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
 //include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 
+// Import dummny file
+ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
+
 workflow SKIMSEQ {
 
     /*
@@ -30,6 +33,7 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
+
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
         .map { row -> [ 
@@ -59,15 +63,26 @@ workflow SKIMSEQ {
         ch_genome = Channel.empty()
     } 
 
+    /*
+    Process nuclear genome and create intervals
+    */
+
+    INDEX_GENOME (
+        ch_genome
+    )
+
+    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
+    ch_genome_bed = INDEX_GENOME.out.bed.first()
+
     // Handle empty intervals for interval bed
     if ( params.interval_bed ){
         ch_interval_bed = Channel
             .fromPath (
-                params.interval_bed, 
-                checkIfExists: true
-            )
+                 params.interval_bed, 
+                 checkIfExists: true
+             )
     } else {
-        ch_interval_bed = Channel.empty()
+        ch_interval_bed = ch_genome_bed
     } 
 
     // Handle empty intervals for exclude bed
@@ -78,21 +93,8 @@ workflow SKIMSEQ {
                 checkIfExists: true
             )
     } else {
-        ch_exclude_bed = Channel.empty()
+        ch_exclude_bed = ch_dummy_file
     }
-    
-    /*
-    Process nuclear genome and create intervals
-    */
-
-    INDEX_GENOME (
-        ch_genome
-    )
-
-    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
-    
-    // TODO: Replace interval creation with bedtools
-    // TODO: If bedfile is provided, use that
     
     // create genome intervals for genotyping
     CREATE_BED_INTERVALS (

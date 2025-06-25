@@ -10,7 +10,8 @@ process INDEX_GENOME {
 
     output: 
     tuple path(ref_genome), path("*.{fa.*,fna.*,dict}"),             emit: fasta_indexed
-    
+    path("*.bed"),                                                   emit: bed
+
     script:
     def process_script = "${process_name}.sh"
     """

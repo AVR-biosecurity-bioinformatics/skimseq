@@ -11,12 +11,7 @@ set -u
 # $7 = excluded_padding
 # $8 = mitochondrial contig
 
-# Use whole genome as the included intervals, unless interval list is provided
-if [ ${4} ] ; then  
-  cat ${4} > included_intervals.bed
-else 
-  awk '{print $1"\t0\t"$2}' ${2} > included_intervals.bed
-fi
+cat ${4} > included_intervals.bed
 
 # Create excluded intervals list if provided
 if [ ${6} ] ; then  
