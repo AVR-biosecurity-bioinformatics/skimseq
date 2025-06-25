@@ -7,7 +7,7 @@ process CREATE_BED_INTERVALS {
 
     input:
     tuple path(ref_fasta), path(indexes)
-    val(interval_size)
+    val(interval_n)
     path(interval_bed)
     val(interval_padding)
     path(exclude_bed)
@@ -30,8 +30,8 @@ process CREATE_BED_INTERVALS {
         ${interval_padding} \
         ${exclude_bed} \
         ${exclude_padding} \
-        ${mito_contig}
-
+        ${mito_contig} \
+        ${ref_fasta}
     """
   
 }
