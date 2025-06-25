@@ -76,11 +76,11 @@ workflow SKIMSEQ {
     // create genome intervals for genotyping
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
-        params.interval_size
-        params.included_intervals
-        params.interval_padding
-        params.exclude_intervals
-        params.exclude_padding
+        params.interval_size,
+        params.included_intervals,
+        params.interval_padding,
+        params.exclude_intervals,
+        params.exclude_padding,
         params.mito_contig
     )
 
