@@ -48,7 +48,7 @@ seqkit range -r ${5}:${6} ${4} > tmpR.fq
 # run filtering
 if [[ ${21} == "none" ]]; then
     # use individual filtering parameters for fastp
-    fastp \
+    ( fastp \
         -i tmpF.fq \
         -I tmpR.fq \
         -q ${8} \
@@ -68,38 +68,43 @@ if [[ ${21} == "none" ]]; then
         -h ${2}.$CHUNK_NAME.fastp.html \
         -j ${2}.$CHUNK_NAME.fastp.json \
         -R ${2} \
-        --stdout | \
-        bwa-mem2 mem -p ${7} \
-        -t ${1} \
-        -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
-        -K 100000000 \
-        -Y \
-        - \
-    		| samtools sort -@ ${1} -n -O BAM  \
-    		| samtools fixmate -@ ${1} -m - - \
-    		| samtools sort -@ ${1} -O BAM \
-    		| samtools markdup -@ ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam
+        --stdout \
+	|| >&2 echo "fastp exit=$?"   ) | \
+     ( bwa-mem2 mem -p ${7} \
+        	-t ${1} \
+        	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
+        	-K 100000000 \
+       		-Y \
+		- \
+	|| >&2 echo "bwa-mem2 exit=$?"   ) | \
+     ( samtools sort --threads ${1} -n -O BAM  || >&2 echo "samtools sort 1 exit=$?"   ) | \
+     ( samtools fixmate --threads ${1} -m - -  || >&2 echo "samtools fixmate exit=$?"   ) | \
+     ( samtools sort --threads ${1} -O BAM || >&2 echo "samtools sort 2 exit=$?"   ) | \
+     ( samtools markdup --threads ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam || >&2 echo "samtools markdup exit=$?"  )
+
 else 
     # use custom string of flags for fastp
-    fastp \
+    ( fastp \
         -i tmpF.fq \
         -I tmpR.fq \
         ${18} \
-        --thread ${1} \
+	--thread ${1} \
         -h ${2}.$CHUNK_NAME.fastp.html \
         -j ${2}.$CHUNK_NAME.fastp.json \
         -R ${2} \
-        --stdout | \
-        bwa-mem2 mem -p ${19} \
-        -t ${1} \
-        -R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
-        -K 100000000 \
-        -Y \
-        - \
-    		| samtools sort -@ ${1} -n -O BAM  \
-    		| samtools fixmate -@ ${1} -m - - \
-    		| samtools sort -@ ${1} -O BAM \
-    		| samtools markdup -@ ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam
+        --stdout \
+	|| >&2 echo "fastp exit=$?"   ) | \
+     ( bwa-mem2 mem -p ${7} \
+        	-t ${1} \
+        	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
+        	-K 100000000 \
+       		-Y \
+		- \
+	|| >&2 echo "bwa-mem2 exit=$?"   ) | \
+     ( samtools collate --threads ${1} -Ou  || >&2 echo "samtools sort 1 exit=$?"   ) | \
+     ( samtools fixmate --threads ${1} -m - - -u || >&2 echo "samtools fixmate exit=$?"   ) | \
+     ( samtools sort --threads ${1} -u || >&2 echo "samtools sort 2 exit=$?"   ) | \
+     ( samtools markdup --threads ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam || >&2 echo "samtools markdup exit=$?"   )
 fi
 
 # index bam

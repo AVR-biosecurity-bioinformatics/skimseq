@@ -2,8 +2,8 @@ process FASTQTOBAM {
     def process_name = "fastqtobam"    
     // tag "-"
     // label "small"
-    time '30.m'
-    memory '4.GB'
+    time '2.h'
+    memory '32.GB'
     cpus 4
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
