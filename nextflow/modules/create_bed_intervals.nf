@@ -1,10 +1,6 @@
 process CREATE_BED_INTERVALS {
     def process_name = "create_bed_intervals"    
     // tag "-"
-    // label "small"
-    time '5.m'
-    memory '2.GB'
-    cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "shifter/22.02.1"
@@ -12,9 +8,9 @@ process CREATE_BED_INTERVALS {
     input:
     tuple path(ref_fasta), path(indexes)
     val(interval_size)
-    path(included_intervals)
+    path(interval_bed)
     val(interval_padding)
-    path(exclude_intervals)
+    path(exclude_bed)
     val(exclude_padding)
     val(mito_contig)
 

@@ -59,7 +59,28 @@ workflow SKIMSEQ {
         ch_genome = Channel.empty()
     } 
 
+    // Handle empty intervals for interval bed
+    if ( params.interval_bed ){
+        ch_interval_bed = Channel
+            .fromPath (
+                params.interval_bed, 
+                checkIfExists: true
+            )
+    } else {
+        ch_interval_bed = Channel.empty()
+    } 
 
+    // Handle empty intervals for exclude bed
+    if ( params.exclude_bed ){
+        ch_exclude_bed = Channel
+            .fromPath (
+                params.exclude_bed, 
+                checkIfExists: true
+            )
+    } else {
+        ch_exclude_bed = Channel.empty()
+    }
+    
     /*
     Process nuclear genome and create intervals
     */
@@ -76,10 +97,10 @@ workflow SKIMSEQ {
     // create genome intervals for genotyping
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
-        params.interval_bed,
-        params.included_intervals,
+        params.interval_size,
+        ch_interval_bed,
         params.interval_padding,
-        params.exclude_bed,
+        ch_exclude_bed,
         params.exclude_padding,
         params.mito_contig
     )

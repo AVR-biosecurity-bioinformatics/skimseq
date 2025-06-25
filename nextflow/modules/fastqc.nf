@@ -1,10 +1,6 @@
 process FASTQC {
     def process_name = "fastqc"    
     // tag "-"
-    // label "small"
-    time '30.m'
-    memory '8.GB'
-    cpus 2
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "FastQC/0.12.1-Java-11"

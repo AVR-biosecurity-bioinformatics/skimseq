@@ -1,10 +1,6 @@
 process PROCESS_BAM_MITO {
     def process_name = "process_bam_mito"    
     // tag "-"
-    // label "small"
-    time '2.h'
-    memory '16.GB'
-    cpus 8
     publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
