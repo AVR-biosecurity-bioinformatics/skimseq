@@ -3,7 +3,7 @@ process CREATE_BED_INTERVALS {
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "shifter/22.02.1"
+    module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     tuple path(ref_fasta), path(indexes)
@@ -26,9 +26,9 @@ process CREATE_BED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${interval_size} \
-        ${included_intervals} \
+        ${interval_bed} \
         ${interval_padding} \
-        ${exclude_intervals} \
+        ${exclude_bed} \
         ${exclude_padding} \
         ${mito_contig}
 
