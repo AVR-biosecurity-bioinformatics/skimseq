@@ -10,8 +10,9 @@ include { MITO_GENOTYPING                                             } from '..
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
-include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
+include { CREATE_BED_INTERVALS                                              } from '../modules/create_bed_intervals' 
+//include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
+//include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
 
 workflow SKIMSEQ {
 
@@ -73,24 +74,29 @@ workflow SKIMSEQ {
     // TODO: If bedfile is provided, use that
     
     // create genome intervals for genotyping
-    CREATE_INTERVALS (
+    CREATE_BED_INTERVALS (
         ch_genome_indexed,
         params.interval_size
+        params.included_intervals
+        params.interval_padding
+        params.exclude_intervals
+        params.exclude_padding
+        params.mito_contig
     )
 
     // split intervals file into chunks of 50 lines for conversion
-    CREATE_INTERVALS.out.intervals
-        .splitText ( by: 50, file: true )
-        .set { ch_intervals }
+    //CREATE_INTERVALS.out.intervals
+    //    .splitText ( by: 50, file: true )
+    //    .set { ch_intervals }
 
     // turn intervals into GATK format via .bed
-    CONVERT_INTERVALS (
-        ch_intervals,
-        ch_genome_indexed
-    )
+    //CONVERT_INTERVALS (
+    //    ch_intervals,
+    //    ch_genome_indexed
+    //)
 
     // create intervals channel, with one interval_list file per element
-    CONVERT_INTERVALS.out.interval_list
+    CREATE_BED_INTERVALS.out.interval_list
         .flatten()
         // get hash from interval_list name as element to identify intervals
         .map { interval_list ->
