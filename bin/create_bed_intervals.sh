@@ -14,7 +14,7 @@ set -u
 
 cat ${4} > included_intervals.bed
 
-# Convert any scientific notation to real numbers for interval_size
+# Convert any scientific notation to integers
 interval_size=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
 interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
@@ -34,40 +34,34 @@ fi
 bedtools subtract -a included_intervals.bed -b excluded_intervals.bed > intervals_filtered.bed
  
 # Create interval groups
-
-if [ -n "$interval_size" ] && [ -z "$interval_n" ]; then
-    # If only interval_size is provided, split large chromosomes into intervals of size $interval_size
+if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
+    # Only interval_size provided
     # and then split into approximately $interval_size sized windows
     bedtools makewindows -b intervals_filtered.bed -w $interval_size > intervals_filtered_windows.bed
 
-    # Calculate the total length of the genome after splitting
+    # Calculate the total length and number of splits based on interval_size
     total_length=$(awk -F'\t' 'BEGIN{SUM=0}{ SUM+=$3-$2 }END{print SUM}' intervals_filtered_windows.bed)
-
-    # Calculate the number of splits based on the total length and the interval size
     n_splits=$(awk -v total_length=$total_length -v interval_size=$interval_size 'BEGIN { print ( total_length / interval_size ) }')
 
     # Split the BED file into the calculated number of splits
     bedtools split -i intervals_filtered_windows.bed -n $n_splits -p _split
 
-elif [ -z "$interval_size" ] && [ -n "$interval_n" ]; then
-    # If only interval_n is provided, calculate the optimal number of splits
+elif [ "$interval_size" -eq -1 ] && [ "$interval_n" -ge 0 ]; then
+    # Only interval_n provided
     total_length=$(awk '{sum+=$3-$2} END {print sum}' intervals_filtered.bed)
 
-    # Calculate the average window size based on the total length and the number of intervals
+    # Calculate the average window size and split accordingly
     average_window_size=$((total_length / interval_n))
-
-    # Split the genome into windows of the calculated average window size
     bedtools makewindows -b intervals_filtered.bed -w $average_window_size > intervals_filtered_windows.bed
-
-    # Split the BED file into the specified number of splits
     bedtools split -i intervals_filtered_windows.bed -n $interval_n -p _split
 
-else
-    # If both interval_size and interval_n are provided, first split by interval_size, then split by interval_n
+elif [ "$interval_size"  -ge 0 ] && [ "$interval_n" -ge 0 ]; then
+    # Both interval_size and interval_n provided
     bedtools makewindows -b intervals_filtered.bed -w $interval_size > intervals_filtered_windows.bed
-
-    # Split the resulting intervals into the specified number of splits
     bedtools split -i intervals_filtered_windows.bed -n $interval_n -p _split
+else
+    # If neither are provided, use the whole inerval
+    cat intervals_filtered.bed > _split.0001.bed
 fi
 
 # Pad and rename each group of output intervals 
@@ -83,5 +77,5 @@ for i in _split.*bed;do
 done
 
 # Remove temporary files
-rm included_intervals.bed excluded_intervals.bed intervals_filtered.bed intervals_filtered_windows.bed
+rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed intervals_filtered_windows.bed
 
