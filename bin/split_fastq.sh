@@ -8,8 +8,8 @@ set -u
 # $4 = file2
 # $5 = chunk size
 
-CHUNK_SIZE=${5}
-#echo $CHUNK_SIZE
+# Convert any scientific notation to integers
+CHUNK_SIZE=$(awk -v x="${5}" 'BEGIN {printf("%d\n",x)}')
 
 # calculate number of splits based on chunk size
 N_READS=$( seqtk size $3 | cut -f1 )
