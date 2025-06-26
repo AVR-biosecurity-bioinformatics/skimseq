@@ -1,11 +1,7 @@
 process CREATE_INTERVALS {
     def process_name = "create_intervals"    
     // tag "-"
-    // label "small"
-    time '5.m'
-    memory '2.GB'
-    cpus 1
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "shifter/22.02.1"
 

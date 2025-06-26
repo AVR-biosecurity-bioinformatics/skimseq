@@ -1,10 +1,6 @@
 process SPLIT_FASTQ {
     def process_name = "split_fastq"    
     // tag "-"
-    // label "small"
-    time '10.m'
-    memory '4.GB'
-    cpus 1
     publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "seqtk/1.4-GCC-13.3.0"

@@ -1,10 +1,6 @@
 process FASTP {
     def process_name = "fastp"    
     // tag "-"
-    // label "small"
-    time '30.m'
-    memory '4.GB'
-    cpus 4
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "fastp/0.23.4-GCC-13.3.0"

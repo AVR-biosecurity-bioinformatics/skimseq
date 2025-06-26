@@ -45,7 +45,7 @@ nextflow run . -profile basc_modules,debug \
 
 
 ## Create Qfly test datasets
-This test data set uses a small segment of Qfly chromosome 1: CM028320.1:50000-100000
+This test data set uses a small segment of Qfly chromosome 1: CM028320.1:50000-99999
 
 Only read pairs where at least 1 of the reads aligns to this region are included. 
 ```
@@ -53,30 +53,30 @@ module load SAMtools/1.21-GCC-13.3.0
 module load BEDTools/2.31.1-GCC-13.3.0
 
 # Sample 1 EM6.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM6.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM6.bam "CM028320.1:50000-99999" | samtools sort -n > subset.bam
 bedtools bamtofastq -i subset.bam -fq test_data/qfly/EM6_subset_R1.fastq -fq2 test_data/qfly/EM6_subset_R2.fastq
 gzip -f test_data/qfly/EM6_subset_R1.fastq test_data/qfly/EM6_subset_R2.fastq
 
 # Sample 2 EM3.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM3.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/EM3.bam "CM028320.1:50000-99999" | samtools sort -n > subset.bam
 bedtools bamtofastq -i subset.bam -fq test_data/qfly/EM3_subset_R1.fastq -fq2 test_data/qfly/EM3_subset_R2.fastq
 gzip -f test_data/qfly/EM3_subset_R1.fastq test_data/qfly/EM3_subset_R2.fastq
 
 # Sample 3 F3.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F3.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F3.bam "CM028320.1:50000-99999" | samtools sort -n > subset.bam
 bedtools bamtofastq -i subset.bam -fq test_data/qfly/F3_subset_R1.fastq -fq2 test_data/qfly/F3_subset_R2.fastq
 gzip -f test_data/qfly/F3_subset_R1.fastq test_data/qfly/F3_subset_R2.fastq
 
 # Sample 4 F2xM12-F1.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F2xM12-F1.bam "CM028320.1:50000-100000" | samtools sort -n > subset.bam
+samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/FASTA/kinship_validation/bams/bams/F2xM12-F1.bam "CM028320.1:50000-99999" | samtools sort -n > subset.bam
 bedtools bamtofastq -i subset.bam -fq test_data/qfly/F2xM12-F1_subset_R1.fastq -fq2 test_data/qfly/F2xM12-F1_subset_R2.fastq
 gzip -f test_data/qfly/F2xM12-F1_subset_R1.fastq test_data/qfly/F2xM12-F1_subset_R2.fastq
 
 # Subset reference genome to that portion - Fix header with sed to avoid error with gatk
-samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-100000" | sed 's/:50000-100000//g' > test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
+samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-99999" | sed 's/:50000-99999//g' > test_data/qfly/GCA_016617805.2_CM028320.1_50000-99999.fa
 
 # add mitochondrial genome to reference genome
-cat /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa >> test_data/qfly/GCA_016617805.2_CM028320.1_50000-100000.fa
+cat /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa >> test_data/qfly/GCA_016617805.2_CM028320.1_50000-99999.fa
 
 # create sample data sheet
 fwd=$( find test_data/qfly/ -maxdepth 1 -name '*.fastq.gz' -type f | grep '_R1' | sort | uniq )

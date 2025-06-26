@@ -1,10 +1,6 @@
 process CREATE_BEAGLE {
     def process_name = "create_beagle"    
     // tag "-"
-    // label "small"
-    time '30.m'
-    memory '8.GB'
-    cpus 1
     // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "BCFtools/1.21-GCC-13.3.0"

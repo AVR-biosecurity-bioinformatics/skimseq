@@ -1,10 +1,6 @@
 process EXTRACT_UNMAPPED {
     def process_name = "extract_unmapped"    
     // tag "-"
-    // label "small"
-    time '30.m'
-    memory '8.GB'
-    cpus 1
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
