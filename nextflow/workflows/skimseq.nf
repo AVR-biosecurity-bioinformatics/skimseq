@@ -82,6 +82,7 @@ workflow SKIMSEQ {
                  checkIfExists: true
              )
     } else {
+        // Set to whole genome
         ch_interval_bed = ch_genome_bed
     } 
 
@@ -96,7 +97,7 @@ workflow SKIMSEQ {
         ch_exclude_bed = ch_dummy_file
     }
     
-    // create genome intervals for genotyping
+    // create groups of genomic intervals for parallel genotyping
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
         params.interval_size,
@@ -107,17 +108,6 @@ workflow SKIMSEQ {
         params.exclude_padding,
         params.mito_contig
     )
-
-    // split intervals file into chunks of 50 lines for conversion
-    //CREATE_INTERVALS.out.intervals
-    //    .splitText ( by: 50, file: true )
-    //    .set { ch_intervals }
-
-    // turn intervals into GATK format via .bed
-    //CONVERT_INTERVALS (
-    //    ch_intervals,
-    //    ch_genome_indexed
-    //)
 
     // create intervals channel, with one interval_list file per element
     CREATE_BED_INTERVALS.out.interval_list
@@ -141,10 +131,6 @@ workflow SKIMSEQ {
     ch_mito_indexed = INDEX_MITO.out.fasta_indexed.first()
     ch_mito_bed = INDEX_MITO.out.bed.first()
     
-    // PROCESS_GENOME (
-    //     "dummy"
-    // )
-
     /*
     Process reads per sample, aligning to the genome, and merging
     */
