@@ -21,5 +21,4 @@ gatk --java-options "-Xmx8G" HaplotypeCaller \
     --native-pair-hmm-threads $1 \
     --min-base-quality-score 15 \
     --min-pruning 0 \
-    --interval-padding 1000 \
     -ERC GVCF
