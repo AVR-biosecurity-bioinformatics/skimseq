@@ -7,6 +7,7 @@ process CREATE_BED_INTERVALS {
 
     input:
     tuple path(ref_fasta), path(indexes)
+    val(interval_size)
     val(interval_n)
     path(interval_bed)
     val(interval_padding)
@@ -26,6 +27,7 @@ process CREATE_BED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${interval_size} \
+        ${interval_n} \
         ${interval_bed} \
         ${interval_padding} \
         ${exclude_bed} \
