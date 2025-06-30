@@ -11,7 +11,7 @@ set -u
 
 # joint genotype variant sites only
 gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
-    -R ${43} \
+    -R ${4} \
     -V ${3} \
     -L ${6} \
     -O ${5}.vcf.gz \
