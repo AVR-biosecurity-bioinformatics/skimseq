@@ -3,13 +3,14 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = gvcf
-# $3 = interval hash
-# $4 = interval_list
+# $2 = memory 
+# $3 = gvcf
+# $4 = interval hash
+# $5 = interval_list
 
 # calculate genotype posteriors over genomic intervals
-gatk --java-options "-Xmx8G" CalculateGenotypePosteriors \
-    -V $2 \
-    -L $4 \
-    -O ${3}.g.vcf.gz \
+gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
+    -V ${3} \
+    -L ${5} \
+    -O ${4}.g.vcf.gz \
     --tmp-dir /tmp

@@ -20,6 +20,7 @@ process CALL_VARIANTS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${task.memory} \
         ${sample} \
         "${bam}" \
         ${ref_genome} \
