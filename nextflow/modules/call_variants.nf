@@ -16,10 +16,11 @@ process CALL_VARIANTS {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
-    
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${task.memory.giga} \
         ${sample} \
         "${bam}" \
         ${ref_genome} \

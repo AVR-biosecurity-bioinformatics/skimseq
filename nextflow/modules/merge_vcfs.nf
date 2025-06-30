@@ -18,7 +18,8 @@ process MERGE_VCFS {
      
     ### run process script
     bash ${process_script} \
-        ${task.cpus} 
+        ${task.cpus} \
+        ${task.memory.giga} 
 
     """
 }

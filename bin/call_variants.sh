@@ -3,22 +3,23 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = sample name
-# $3 = bam file
-# $4 = ref genome
-# $5 = interval hash
-# $6 = interval_list
+# $2 = memory
+# $3 = sample name
+# $4 = bam file
+# $5 = ref genome
+# $6 = interval hash
+# $7 = interval_list
 
 # Create list of bams to be processed
-echo $3 | tr ' ' '\n' > bam.list
+echo ${4} | tr ' ' '\n' > bam.list
 
 # call variants per sample across all the bam chunks
-gatk --java-options "-Xmx8G" HaplotypeCaller \
-    -R $4 \
+gatk --java-options "-Xmx${2}G" HaplotypeCaller \
+    -R $5 \
     -I bam.list \
-    -L $6 \
-    -O ${2}.${5}.g.vcf.gz \
-    --native-pair-hmm-threads $1 \
+    -L $7 \
+    -O ${3}.${6}.g.vcf.gz \
+    --native-pair-hmm-threads ${1} \
     --min-base-quality-score 15 \
     --min-pruning 0 \
     -ERC GVCF

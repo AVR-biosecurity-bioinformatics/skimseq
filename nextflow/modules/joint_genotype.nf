@@ -19,6 +19,7 @@ process JOINT_GENOTYPE {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${task.memory.giga} \
         ${gvcf} \
         ${ref_genome} \
         ${interval_hash} \

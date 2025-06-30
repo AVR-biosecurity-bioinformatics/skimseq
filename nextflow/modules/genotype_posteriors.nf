@@ -20,6 +20,7 @@ process GENOTYPE_POSTERIORS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${task.memory.giga} \
         ${gvcf} \
         ${interval_hash} \
         ${interval_list}
