@@ -11,11 +11,11 @@ set -u
 # $7 = interval_list
 
 # Create list of bams to be processed
-echo $4 | tr ' ' '\n' > bam.list
+echo ${4} | tr ' ' '\n' > bam.list
 
 # call variants per sample across all the bam chunks
 gatk --java-options "-Xmx${2}G" HaplotypeCaller \
-    -R $54 \
+    -R $5 \
     -I bam.list \
     -L $7 \
     -O ${3}.${6}.g.vcf.gz \

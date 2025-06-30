@@ -20,7 +20,7 @@ process COMBINE_GVCFS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${task.memory} \
+        ${task.memory.giga} \
         ${ref_genome} \
         ${interval_hash} \
         ${interval_list}
