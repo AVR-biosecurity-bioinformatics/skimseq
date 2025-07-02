@@ -3,7 +3,7 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = interval_size
+# $2 = interval_splitn
 # $3 = interval_n
 # $4 = included_bed
 # $5 = included_padding
@@ -12,70 +12,78 @@ set -u
 # $8 = mitochondrial_contig
 # $9 = Reference_genome
 
+# Included intervals is just the reference genome bed if specific intervals were not provided
 cat ${4} > included_intervals.bed
 
 # Convert any scientific notation to integers
-interval_size=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
+interval_splitlength=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}') #TODO REMOVE INTERVAL SIZE
 interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
+# Annotate any exluded intervals on the output bed
 # Create excluded intervals list if provided, or just an empty dummy file
 if [ -s ${6} ] ; then  
   bedtools slop -i ${6} -g ${9}.fai -b ${7} > excluded_intervals.bed
+  # TODO: ADD EXTRA ANNOTATIONS COLUMN
 else 
   touch excluded_intervals.bed
 fi
 
-# exclude mitochondrial contig if its in the input
+# Annotate the mitochondrial contig on the output bed if present
 if [ ${8} ] ; then  
   grep -i ${8} included_intervals.bed >> excluded_intervals.bed
+  # TODO: ADD EXTRA ANNOTATIONS COLUMN
+else 
+  touch mito_contig.bed
 fi
 
-# Subtract any excluded intervals from included list
-bedtools subtract -a included_intervals.bed -b excluded_intervals.bed > intervals_filtered.bed
- 
-# Create interval groups
-if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
-    # Only interval_size provided
-    # and then split into approximately $interval_size sized windows
-    bedtools makewindows -b intervals_filtered.bed -w $interval_size > intervals_filtered_windows.bed
+# TODO: Handle any extra filters (coverage, masks, etc)
 
-    # Calculate the total length and number of splits based on interval_size
-    total_length=$(awk -F'\t' 'BEGIN{SUM=0}{ SUM+=$3-$2 }END{print SUM}' intervals_filtered_windows.bed)
-    n_splits=$(awk -v total_length=$total_length -v interval_size=$interval_size 'BEGIN { print ( total_length / interval_size ) }')
+# Detect any strings of N bases in the reference genome
+java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
+      REFERENCE=${9}\
+      OUTPUT_TYPE=BOTH \
+      OUTPUT=output.interval_list \
+	    MAX_TO_MERGE=${interval_splitlength}
 
-    # Split the BED file into the calculated number of splits
-    bedtools split -i intervals_filtered_windows.bed -n $n_splits -p _split
+# Convert resulting interval list to bed format
+java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
+	INPUT=output.interval_list \
+	OUTPUT=intervals.bed
 
-elif [ "$interval_size" -eq -1 ] && [ "$interval_n" -ge 0 ]; then
-    # Only interval_n provided
-    total_length=$(awk '{sum+=$3-$2} END {print sum}' intervals_filtered.bed)
+# Subtract any excluded intervals from the original list
+bedtools subtract -a intervals.bed -b excluded_intervals.bed > intervals_excluded.bed
 
-    # Calculate the average window size and split accordingly
-    average_window_size=$((total_length / interval_n))
-    bedtools makewindows -b intervals_filtered.bed -w $average_window_size > intervals_filtered_windows.bed
-    bedtools split -i intervals_filtered_windows.bed -n $interval_n -p _split
+# Then add the excluded intervals to the end of it
+cat excluded_intervals.bed >> intervals_excluded.bed
+bedtools sort -i intervals_excluded.bed > interval_summary.bed
 
-elif [ "$interval_size"  -ge 0 ] && [ "$interval_n" -ge 0 ]; then
-    # Both interval_size and interval_n provided
-    bedtools makewindows -b intervals_filtered.bed -w $interval_size > intervals_filtered_windows.bed
-    bedtools split -i intervals_filtered_windows.bed -n $interval_n -p _split
-else
-    # If neither are provided, use the whole inerval
-    cat intervals_filtered.bed > _split.0001.bed
-fi
+# Filter intervals bedfile to just good intervals (ACGT bases) for creating windows
+awk '/ACGTmer/' interval_summary.bed > intervals_filtered.bed
 
-# Pad and rename each group of output intervals 
-for i in _split.*bed;do
+# SPLIT INTERVALS into even groups
+gatk SplitIntervals \
+   -R ${9} \
+   -L intervals_filtered.bed \
+   --scatter-count ${interval_n} \
+   -O $(pwd)
+   
+# Rename and convert each split output into a bed, and add padding
+for i in *scattered.interval_list;do
   # Hashed output name
   HASH=$( printf '%s' "$i" | md5sum | awk '{print $1}' ) 
 
+  # Convert resulting interval list to bed format
+  java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
+  	INPUT=$i \
+  	OUTPUT=tmp.bed
+	
   # Add padding to output
-  bedtools slop -i $i -g ${9}.fai -b ${5} > ${HASH}.bed
+  bedtools slop -i tmp.bed -g ${9}.fai -b ${5} > ${HASH}.bed
   
-  # remove intermediate interval
-  rm $i
+  # remove intermediate files
+  rm $i tmp.bed
 done
 
 # Remove temporary files
-rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed intervals_filtered_windows.bed
+rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed intervals_excluded.bed
 
