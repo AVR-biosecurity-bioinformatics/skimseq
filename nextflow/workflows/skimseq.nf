@@ -87,10 +87,10 @@ workflow SKIMSEQ {
     } 
 
     // Handle empty intervals for exclude bed
-    if ( params.exclude_bed ){
+    if ( params.interval_exclude_bed ){
         ch_exclude_bed = Channel
             .fromPath (
-                params.exclude_bed, 
+                params.interval_exclude_bed, 
                 checkIfExists: true
             )
     } else {
@@ -101,11 +101,12 @@ workflow SKIMSEQ {
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
         params.interval_n,
-        params.interval_nbreaks,
-        params.subdivide_intervals,
+        params.interval_break_n,
+        params.interval_break_n_length,
+        params.interval_subdivide,
         ch_interval_bed,
         ch_exclude_bed,
-        params.exclude_padding,
+        params.interval_exclude_padding,
         params.mito_contig
     )
 

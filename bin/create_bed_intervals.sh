@@ -4,13 +4,14 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = interval_n
-# $3 = interval_nbreaks
+# $3 = interval_break_n_length
 # $4 = subdivide_intervals
 # $5 = included_bed
 # $6 = excluded_bed
 # $7 = excluded_padding
 # $8 = mitochondrial_contig
 # $9 = Reference_genome
+# $9 = interval_break_n
 
 # parse subdivide_intervals options
 if [[ ${4} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
@@ -35,7 +36,7 @@ fi
 # TODO: Add any extra filters (coverage, masks, etc) to the exclusion list here
 
 # Locate appropriate breakpoints in the genome using strings of Ns
-if [ "${3}" -ge 1 ] ; then
+if [ ${4} == "true" ] ; then
   # Detect any strings of N bases in the reference genome to define breakpoints
   java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
       --REFERENCE ${9}\
@@ -53,11 +54,10 @@ if [ "${3}" -ge 1 ] ; then
   
   # Subtract any of the excluded intervals - and subset  to just genotypable intervals (ACGTmers ) 
   bedtools subtract -a breakpoints.bed -b excluded_intervals.bed | awk '/ACGTmer/' > intervals_filtered.bed
-  
 else
   # Subtract any of the excluded intervals - and make summary file
   bedtools subtract -a included_intervals.bed -b excluded_intervals.bed > intervals_filtered.bed
-done
+fi
 
 
 # SPLIT INTERVALS into even groups

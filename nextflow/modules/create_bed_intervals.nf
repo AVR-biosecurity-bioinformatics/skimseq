@@ -8,11 +8,12 @@ process CREATE_BED_INTERVALS {
     input:
     tuple path(ref_fasta), path(indexes)
     val(interval_n)
-    val(interval_nbreaks)
-    val(subdivide_intervals)
+    val(interval_break_n)
+    val(interval_break_n_length)
+    val(interval_subdivide)
     path(interval_bed)
-    path(exclude_bed)
-    val(exclude_padding)
+    path(interval_exclude_bed)
+    val(interval_exclude_padding)
     val(mito_contig)
 
     output: 
@@ -27,13 +28,15 @@ process CREATE_BED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${interval_n} \
-        ${interval_nbreaks} \
-        ${subdivide_intervals} \
+        ${interval_break_n} \
+        ${interval_break_n_length} \
         ${interval_bed} \
-        ${exclude_bed} \
-        ${exclude_padding} \
+        ${interval_exclude_bed} \
+        ${interval_exclude_padding} \
         ${mito_contig} \
-        ${ref_fasta}
+        ${ref_fasta} \
+        ${interval_subdivide} 
+        
     """
   
 }
