@@ -55,12 +55,11 @@ if [ ${9} == "true" ] ; then
   # Subtract any of the excluded intervals - and subset  to just genotypable intervals (ACGTmers ) 
   bedtools subtract -a breakpoints.bed -b excluded_intervals.bed | awk '/ACGTmer/' > intervals_filtered.bed
 else
-  # Subtract any of the excluded intervals - and make summary file
+  # Subtract any of the excluded intervals
   bedtools subtract -a included_intervals.bed -b excluded_intervals.bed > intervals_filtered.bed
 fi
 
-
-# SPLIT INTERVALS into even groups
+# Group current intervals into even groups of approximately even base content
 gatk SplitIntervals \
    -R ${9} \
    -L intervals_filtered.bed \

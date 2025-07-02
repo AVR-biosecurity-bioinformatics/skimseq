@@ -17,7 +17,7 @@ process CREATE_BED_INTERVALS {
     val(mito_contig)
 
     output: 
-    path("interval_*.bed"),              emit: interval_list
+    path("*.bed"),              emit: interval_list
     
     script:
     def process_script = "${process_name}.sh"
