@@ -8,6 +8,7 @@ process CALL_VARIANTS {
     input:
     tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai'), val(interval_hash), path(interval_list)
     tuple path(ref_genome), path(genome_index_files)
+    val(interval_padding)
 
     output: 
     tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_list),     emit: gvcf_intervals
@@ -25,7 +26,8 @@ process CALL_VARIANTS {
         "${bam}" \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_list}
+        ${interval_list}\
+        ${interval_padding}
 
     """
 }

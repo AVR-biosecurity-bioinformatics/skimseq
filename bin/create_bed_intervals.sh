@@ -19,10 +19,6 @@ else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISIO
 # Included intervals is just the reference genome bed if specific intervals were not provided
 cat ${5} > included_intervals.bed
 
-# Convert any scientific notation to integers
-interval_n=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
-interval_nbreaks=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
-
 # Annotate any exluded intervals on the output bed
 # Create excluded intervals list if provided, or just an empty dummy file
 if [ -s ${6} ] ; then  
@@ -33,7 +29,7 @@ fi
 
 # Add mitochondrial contig to the exclusion list
 if [ ${8} ] ; then  
-  grep -i ${8} included_intervals.bed| sed 's/\s*$/\tMitochondria/' >> excluded_intervals.bed
+  grep -i ${8} included_intervals.bed | sed 's/\s*$/\tMitochondria/' >> excluded_intervals.bed
 fi
 
 # TODO: Add any extra filters (coverage, masks, etc) to the exclusion list here
@@ -43,31 +39,30 @@ java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
       --REFERENCE ${9}\
       --OUTPUT_TYPE BOTH \
       --OUTPUT breakpoints.interval_list \
-	    --MAX_TO_MERGE ${interval_nbreaks}
+	    --MAX_TO_MERGE ${3}
 
 # Convert resulting interval list to bed format
 java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
 	--INPUT breakpoints.interval_list \
 	--OUTPUT tmp.bed
 	
-# Remove unnecessary columns from bed (score, direction)
-cat tmp.bed | cut -f1-4 > breakpoints.bed
+# Subset the breakpoints bed to just the inlcuded intervals
+bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 > breakpoints.bed
 
-# Subtract any excluded intervals from the original list
-bedtools subtract -a breakpoints.bed -b excluded_intervals.bed > breakpoints_excluded.bed
+# Subtract any excluded intervals - and make summary file
+bedtools subtract -a breakpoints.bed -b excluded_intervals.bed > interval_summary.bed
 
 # Then add the excluded intervals to the end of it to create a summary
-cat excluded_intervals.bed >> breakpoints_excluded.bed
-bedtools sort -i breakpoints_excluded.bed > interval_summary.bed
+cat excluded_intervals.bed >> interval_summary.bed
 
-# Filter intervals bedfile to just good intervals (ACGT bases) for creating windows
+# Filter intervals bedfile to just genotypable intervals (ACGT bases)
 awk '/ACGTmer/' interval_summary.bed > intervals_filtered.bed
 
 # SPLIT INTERVALS into even groups
 gatk SplitIntervals \
    -R ${9} \
    -L intervals_filtered.bed \
-   --scatter-count ${interval_n} \
+   --scatter-count ${2} \
    -O $(pwd) \
    $SUBDIVISION_MODE
    
@@ -81,15 +76,12 @@ for i in *scattered.interval_list;do
   	--INPUT $i \
   	--OUTPUT tmp.bed
 	
-	cat tmp.bed | cut -f1-4 > ${HASH}.bed
+	cat tmp.bed | cut -f1-4 > interval_${HASH}.bed
 	
-  # Add padding to output - DO THIS IN GATK
-  #bedtools slop -i tmp.bed -g ${9}.fai -b ${5} > ${HASH}.bed
-  
   # remove intermediate files
   rm $i tmp.bed
 done
 
 # Remove temporary files
-#rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed intervals_excluded.bed
+rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed breakpoints.bed breakpoints.interval_list
 
