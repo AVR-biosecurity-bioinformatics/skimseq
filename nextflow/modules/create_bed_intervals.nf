@@ -14,10 +14,6 @@ process CREATE_BED_INTERVALS {
     path(exclude_bed)
     val(exclude_padding)
     val(mito_contig)
-    
-            params.interval_n,
-        params.interval_nbreaks,
-        params.subdivide_intervals,
 
     output: 
     path("*.bed"),              emit: interval_list
@@ -31,7 +27,7 @@ process CREATE_BED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${interval_n} \
-        ${interval_splitn} \
+        ${interval_nbreaks} \
         ${subdivide_intervals} \
         ${interval_bed} \
         ${exclude_bed} \

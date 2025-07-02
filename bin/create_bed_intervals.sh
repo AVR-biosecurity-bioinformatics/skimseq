@@ -4,7 +4,7 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = interval_n
-# $3 = interval_splitn
+# $3 = interval_nbreaks
 # $4 = subdivide_intervals
 # $5 = included_bed
 # $6 = excluded_bed
@@ -20,39 +20,38 @@ else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISIO
 cat ${5} > included_intervals.bed
 
 # Convert any scientific notation to integers
-interval_splitn=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}') #TODO REMOVE INTERVAL SIZE
-interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+interval_n=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
+interval_nbreaks=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
 # Annotate any exluded intervals on the output bed
 # Create excluded intervals list if provided, or just an empty dummy file
 if [ -s ${6} ] ; then  
-  bedtools slop -i ${6} -g ${9}.fai -b ${7} > excluded_intervals.bed
-  # TODO: ADD EXTRA ANNOTATIONS COLUMN
+  bedtools slop -i ${6} -g ${9}.fai -b ${7} | sed 's/\s*$/\tExcluded/' > excluded_intervals.bed
 else 
   touch excluded_intervals.bed
 fi
 
-# Annotate the mitochondrial contig on the output bed if present
+# Add mitochondrial contig to the exclusion list
 if [ ${8} ] ; then  
-  grep -i ${8} included_intervals.bed >> excluded_intervals.bed
-  # TODO: ADD EXTRA ANNOTATIONS COLUMN
-else 
-  touch mito_contig.bed
+  grep -i ${8} included_intervals.bed| sed 's/\s*$/\tMitochondria/' >> excluded_intervals.bed
 fi
 
-# TODO: Handle any extra filters (coverage, masks, etc)
+# TODO: Add any extra filters (coverage, masks, etc) to the exclusion list here
 
 # Detect any strings of N bases in the reference genome to define breakpoints
 java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
-      REFERENCE=${9}\
-      OUTPUT_TYPE=BOTH \
-      OUTPUT=breakpoints.interval_list \
-	    MAX_TO_MERGE=${interval_splitn}
+      --REFERENCE ${9}\
+      --OUTPUT_TYPE BOTH \
+      --OUTPUT breakpoints.interval_list \
+	    --MAX_TO_MERGE ${interval_nbreaks}
 
 # Convert resulting interval list to bed format
 java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
-	INPUT=breakpoints.interval_list \
-	OUTPUT=breakpoints.bed
+	--INPUT breakpoints.interval_list \
+	--OUTPUT tmp.bed
+	
+# Remove unnecessary columns from bed (score, direction)
+cat tmp.bed | cut -f1-4 > breakpoints.bed
 
 # Subtract any excluded intervals from the original list
 bedtools subtract -a breakpoints.bed -b excluded_intervals.bed > breakpoints_excluded.bed
@@ -79,8 +78,10 @@ for i in *scattered.interval_list;do
 
   # Convert resulting interval list to bed format
   java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
-  	INPUT=$i \
-  	OUTPUT=tmp.bed
+  	--INPUT $i \
+  	--OUTPUT tmp.bed
+	
+	cat tmp.bed | cut -f1-4 > ${HASH}.bed
 	
   # Add padding to output - DO THIS IN GATK
   #bedtools slop -i tmp.bed -g ${9}.fai -b ${5} > ${HASH}.bed

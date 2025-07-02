@@ -104,7 +104,6 @@ workflow SKIMSEQ {
         params.interval_nbreaks,
         params.subdivide_intervals,
         ch_interval_bed,
-        params.interval_padding,
         ch_exclude_bed,
         params.exclude_padding,
         params.mito_contig
