@@ -100,8 +100,9 @@ workflow SKIMSEQ {
     // create groups of genomic intervals for parallel genotyping
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
-        params.interval_splitn,
         params.interval_n,
+        params.interval_nbreaks,
+        params.subdivide_intervals,
         ch_interval_bed,
         params.interval_padding,
         ch_exclude_bed,

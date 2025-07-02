@@ -7,13 +7,17 @@ process CREATE_BED_INTERVALS {
 
     input:
     tuple path(ref_fasta), path(indexes)
-    val(interval_splitn)
     val(interval_n)
+    val(interval_nbreaks)
+    val(subdivide_intervals)
     path(interval_bed)
-    val(interval_padding)
     path(exclude_bed)
     val(exclude_padding)
     val(mito_contig)
+    
+            params.interval_n,
+        params.interval_nbreaks,
+        params.subdivide_intervals,
 
     output: 
     path("*.bed"),              emit: interval_list
@@ -26,10 +30,10 @@ process CREATE_BED_INTERVALS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${interval_splitn} \
         ${interval_n} \
+        ${interval_splitn} \
+        ${subdivide_intervals} \
         ${interval_bed} \
-        ${interval_padding} \
         ${exclude_bed} \
         ${exclude_padding} \
         ${mito_contig} \
