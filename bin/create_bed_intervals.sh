@@ -12,7 +12,7 @@ set -u
 # $8 = mitochondrial_contig
 # $9 = Reference_genome
 
-# parse filtering options as flags
+# parse subdivide_intervals options
 if [[ ${4} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
 else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW"; fi
 
@@ -46,17 +46,14 @@ java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
 	--INPUT breakpoints.interval_list \
 	--OUTPUT tmp.bed
 	
-# Subset the breakpoints bed to just the inlcuded intervals
+# Subset the breakpoints bed to just the included intervals (this is just the genome bed if not provided)
 bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 > breakpoints.bed
 
-# Subtract any excluded intervals - and make summary file
-bedtools subtract -a breakpoints.bed -b excluded_intervals.bed > interval_summary.bed
-
-# Then add the excluded intervals to the end of it to create a summary
-cat excluded_intervals.bed >> interval_summary.bed
+# Subtract any of the excluded intervals - and make summary file
+bedtools subtract -a breakpoints.bed -b excluded_intervals.bed > breakpoints_excluded.bed
 
 # Filter intervals bedfile to just genotypable intervals (ACGT bases)
-awk '/ACGTmer/' interval_summary.bed > intervals_filtered.bed
+awk '/ACGTmer/' breakpoints_excluded.bed > intervals_filtered.bed
 
 # SPLIT INTERVALS into even groups
 gatk SplitIntervals \
@@ -82,6 +79,6 @@ for i in *scattered.interval_list;do
   rm $i tmp.bed
 done
 
-# Remove temporary files
-rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed breakpoints.bed breakpoints.interval_list
+# Remove temporary bed files
+rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed breakpoints.bed breakpoints_excluded.bed breakpoints.interval_list
 
