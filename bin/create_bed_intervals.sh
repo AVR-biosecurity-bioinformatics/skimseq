@@ -36,7 +36,7 @@ fi
 # TODO: Add any extra filters (coverage, masks, etc) to the exclusion list here
 
 # Locate appropriate breakpoints in the genome using strings of Ns
-if [ ${4} == "true" ] ; then
+if [ ${9} == "true" ] ; then
   # Detect any strings of N bases in the reference genome to define breakpoints
   java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
       --REFERENCE ${9}\
@@ -78,7 +78,7 @@ for i in *scattered.interval_list;do
   	--INPUT $i \
   	--OUTPUT tmp.bed
 	
-	cat tmp.bed | cut -f1-4 > interval_${HASH}.bed
+	cat tmp.bed | cut -f1-4 > ${HASH}.bed
 	
   # remove intermediate files
   rm $i tmp.bed

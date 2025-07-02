@@ -28,14 +28,15 @@ process CREATE_BED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${interval_n} \
-        ${interval_break_n} \
         ${interval_break_n_length} \
+        ${interval_subdivide} \
         ${interval_bed} \
         ${interval_exclude_bed} \
         ${interval_exclude_padding} \
         ${mito_contig} \
         ${ref_fasta} \
-        ${interval_subdivide} 
+        ${interval_break_n} 
+        
         
     """
   
