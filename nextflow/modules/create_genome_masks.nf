@@ -8,12 +8,12 @@ process CREATE_GENOME_MASKS {
     input:
     tuple path(ref_fasta), path(indexes)
     path(include_bed)
-    path(excluded_bed)
-    val(excluded_padding)
-    val(mitochondrial_contig)
+    path(exclude_bed)
+    val(exclude_padding)
+    val(mito_contig)
     val(exclude_reference_hardmasks)
     val(exclude_reference_softmasks)
-    
+
     output: 
     path("hard_masked.bed"),              emit: hard_mask
     path("soft_masked.bed"),              emit: soft_mask
@@ -27,9 +27,9 @@ process CREATE_GENOME_MASKS {
     bash ${process_script} \
         ${task.cpus} \
         ${include_bed} \
-        ${excluded_bed} \
-        ${excluded_padding} \
-        ${mitochondrial_contig} \
+        ${exclude_bed} \
+        ${exclude_padding} \
+        ${mito_contig} \
         ${ref_fasta} \
         ${exclude_reference_hardmasks} \
         ${exclude_reference_softmasks}
