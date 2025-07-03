@@ -11,13 +11,14 @@ process CREATE_GENOME_MASKS {
     path(exclude_bed)
     val(exclude_padding)
     val(mito_contig)
-    val(exclude_reference_hardmasks)
-    val(exclude_reference_softmasks)
+    val(use_reference_hardmasks)
+    val(use_reference_softmasks)
 
     output: 
     path("hard_masked.bed"),              emit: hard_mask
     path("soft_masked.bed"),              emit: soft_mask
-    
+    path("mask_summary.bed"),             emit: mask_summary
+
     script:
     def process_script = "${process_name}.sh"
     """
@@ -31,8 +32,8 @@ process CREATE_GENOME_MASKS {
         ${exclude_padding} \
         ${mito_contig} \
         ${ref_fasta} \
-        ${exclude_reference_hardmasks} \
-        ${exclude_reference_softmasks}
+        ${use_reference_hardmasks} \
+        ${use_reference_softmasks}
         
     """
   

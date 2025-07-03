@@ -31,12 +31,12 @@ if [ ${7} == "true" ] ; then
   java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
     	--INPUT N_bases.interval_list \
     	--OUTPUT N_bases.bed
-  cat N_bases.bed >> hard_masked.bed
+  cat N_bases.bed | sed 's/Nmer/NRef/g' >> hard_masked.bed
 fi
 
 # Add any excluded intervals + padding to hard masked bed
 if [ -s ${3} ] ; then  
-  bedtools slop -i ${3} -g ${6}.fai -b ${4} | sed 's/\s*$/\tExcluded/' >> hard_masked.bed
+  bedtools slop -i ${3} -g ${6}.fai -b ${4} | sed 's/\s*$/\tExcludedInterval/' >> hard_masked.bed
 fi
 
 # If exclude_reference_genome_softmasks is true, add any lowercase reference genome bases to soft mask bed
@@ -62,15 +62,23 @@ if [ ${8} == "true" ] ; then
   	--OUTPUT all_masked_bases.bed
   	
   # Subtrackt any intervals that were originally N's and add to soft masked bed
-  bedtools subtract -a all_masked_bases.bed -b N_bases.bed | sed 's/Nmer/SoftMask/g' >> soft_masked.bed
+  bedtools subtract -a all_masked_bases.bed -b N_bases.bed | sed 's/Nmer/SoftMaskRef/g' >> soft_masked.bed
 fi
 
 # Add mitochondrial contig to the soft masked bed
 if [ ${8} ] ; then  
-  grep -i ${8} included_intervals.bed | sed 's/\s*$/\tMitochondria/' >> soft_masked.bed
+  grep -i ${8} included_intervals.bed | sed 's/\s*$/\tMitoContig/' >> soft_masked.bed
 fi
 
 # TODO: Add any additional masks (coverage, paralogs, mapabillity etc) to the soft masked bed here
 
 
+# Create summary of proportion of genome contained within different masks:
+cat soft_masked.bed > merged_masks.bed
+cat hard_masked.bed >> merged_masks.bed
+
+bedtools sort -i merged_masks.bed > merged_masks_sorted.bed
+
+bedtools complement -i merged_masks_sorted.bed -g ${6}.fai | sed 's/\s*$/\tIncluded/' >> merged_masks.bed
+bedtools sort -i merged_masks.bed > mask_summary.bed
 

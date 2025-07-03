@@ -106,8 +106,8 @@ workflow SKIMSEQ {
         ch_exclude_bed,
         params.exclude_padding,
         params.mito_contig,
-        params.exclude_reference_hardmasks,
-        params.exclude_reference_softmasks
+        params.use_reference_hardmasks,
+        params.use_reference_softmasks
     )
 
     // create groups of genomic intervals for parallel genotyping
