@@ -5,38 +5,24 @@ set -u
 # $1 = cpus 
 # $2 = interval_n
 # $3 = interval_size
-# $4 = interval_bed     
-# $5 = hard_masks_bed
-# $6 = soft_masks_bed
-# $7 = interval_include_hard_masks
-# $8 = interval_include_soft_masks
-# $9 = subdivide_intervals
-# $10 = Reference_genome
+# $4 = include_bed     
+# $5 = exclude_bed
+# $6 = interval_subdivide
+# $7 = Reference_genome
 
-# parse subdivide_intervals options
-if [[ ${9} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
+# parse interval_subdivide options
+if [[ ${6} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
 else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW"; fi
 
 # Convert any scientific notation to integers
-interval_size=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 interval_n=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
+interval_size=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
 # included_intervals is just reference genome bed if specific intervals were not provided
 cat ${4} > included_intervals.bed
 
-# Apply hard masks if interval_include_hard_masks is false (default)
-if [ ${7} == "false" ] ; then
-   # Subtract any of the excluded intervals
-  bedtools subtract -a ${4} -b ${5} > intervals_filtered.bed
-  mv intervals_filtered.bed included_intervals.bed
-fi
-
-# Apply soft masks if interval_include_soft_masks is false (default)
-if [ ${8} == "false" ] ; then
-   # Subtract any of the excluded intervals
-  bedtools subtract -a ${4} -b ${6} > intervals_filtered.bed
-  mv intervals_filtered.bed included_intervals.bed
-fi
+# Apply any masks
+bedtools subtract -a ${4} -b ${5} > intervals_filtered.bed
 
 # Calculate number of groups
 if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
@@ -62,7 +48,7 @@ fi
 # Group current intervals into even groups of approximately even base content
 # Optionally subdivide furthr
 gatk SplitIntervals \
-   -R ${10} \
+   -R ${7} \
    -L included_intervals.bed \
    --scatter-count ${n_splits} \
    -O $(pwd) \

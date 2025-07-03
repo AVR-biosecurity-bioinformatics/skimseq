@@ -8,14 +8,11 @@ process CREATE_BED_INTERVALS {
     input:
     tuple path(ref_fasta), path(indexes)
     path(include_bed)
-    path(hard_masks_bed)
-    path(soft_masks_bed)
+    path(exclude_bed)
     val(interval_n)
     val(interval_size)
     val(interval_subdivide)
-    val(interval_include_hard_masks)
-    val(interval_include_soft_masks)
-    
+
     output: 
     path("_*.bed"),              emit: interval_bed
     
@@ -30,14 +27,10 @@ process CREATE_BED_INTERVALS {
         ${interval_n} \
         ${interval_size} \
         ${include_bed} \
-        ${hard_masks_bed} \
-        ${soft_masks_bed} \
-        ${interval_include_hard_masks} \
-        ${interval_include_soft_masks} \
+        ${exclude_bed} \
         ${interval_subdivide} \
         ${ref_fasta}
 
-        
     """
   
 }

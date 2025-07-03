@@ -47,8 +47,6 @@ else
     gatk CreateSequenceDictionary -R $2
 fi
 
-# Create genomic bed file
+# Create genomic bed file containing all bases
 awk '{print $1"\t0\t"$2}' $2.fai > genome.bed
-
-
 
