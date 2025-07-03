@@ -22,14 +22,14 @@ touch soft_masked.bed
 if [ ${7} == "true" ] ; then
   # Find any existing N bases in reference genome and create hard masked bed
   java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
-        --REFERENCE ${9} \
+        --REFERENCE ${6} \
         --OUTPUT_TYPE N \
         --OUTPUT N_bases.interval_list \
   	    --MAX_TO_MERGE 1
   	    
   # Convert resulting interval list to bed format and add to hard masked bed
   java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
-    	--INPUT breakpoints.interval_list \
+    	--INPUT N_bases.interval_list \
     	--OUTPUT N_bases.bed
   cat N_bases.bed >> hard_masked.bed
 fi
@@ -43,11 +43,12 @@ fi
 if [ ${8} == "true" ] ; then
   
   # Create temporary reference genome where soft-masked regions are converted to N
-  seqkit seq $ref | sed '/^[^>]/s/[^ATGC]/N/g' > tmp.fa
+  cat ${6} | sed '/^[^>]/s/[^ATGC]/N/g' > tmp.fa
   
-  # Index temporary reference genome
+  # Index temporary reference genome and create GATK dictionary
   samtools faidx tmp.fa
-  
+  gatk CreateSequenceDictionary -R tmp.fa
+
   # Find all N bases in refernce genome (soft and hard masks now)
   java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
       --REFERENCE tmp.fa \

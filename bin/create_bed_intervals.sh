@@ -32,7 +32,7 @@ if [ ${7} == "false" ] ; then
 fi
 
 # Apply soft masks if interval_include_soft_masks is false (default)
-if [ ${11} == "false" ] ; then
+if [ ${8} == "false" ] ; then
    # Subtract any of the excluded intervals
   bedtools subtract -a ${4} -b ${6} > intervals_filtered.bed
   mv intervals_filtered.bed included_intervals.bed
@@ -63,7 +63,7 @@ fi
 # Optionally subdivide furthr
 gatk SplitIntervals \
    -R ${10} \
-   -L intervals_filtered.bed \
+   -L included_intervals.bed \
    --scatter-count ${n_splits} \
    -O $(pwd) \
    $SUBDIVISION_MODE

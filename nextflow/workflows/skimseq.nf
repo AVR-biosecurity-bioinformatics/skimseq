@@ -76,7 +76,7 @@ workflow SKIMSEQ {
     ch_genome_bed = INDEX_GENOME.out.bed.first()
 
     // Handle empty intervals for interval bed
-    if ( params.interval_bed ){
+    if ( params.include_bed ){
         ch_include_bed = Channel
             .fromPath (
                  params.include_bed, 
