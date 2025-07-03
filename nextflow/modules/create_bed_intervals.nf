@@ -7,15 +7,15 @@ process CREATE_BED_INTERVALS {
 
     input:
     tuple path(ref_fasta), path(indexes)
+    path(include_bed)
+    path(hard_masks_bed)
+    path(soft_masks_bed)
     val(interval_n)
-    val(interval_break_n)
-    val(interval_break_n_length)
+    val(interval_size)
     val(interval_subdivide)
-    path(interval_bed)
-    path(interval_exclude_bed)
-    val(interval_exclude_padding)
-    val(mito_contig)
-
+    val(interval_include_hard_masks)
+    val(interval_include_soft_masks)
+    
     output: 
     path("*.bed"),              emit: interval_list
     
@@ -28,15 +28,15 @@ process CREATE_BED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${interval_n} \
-        ${interval_break_n_length} \
+        ${interval_size} \
+        ${include_bed} \
+        ${hard_masks_bed} \
+        ${soft_masks_bed} \
+        ${interval_include_hard_masks} \
+        ${interval_include_soft_masks} \
         ${interval_subdivide} \
-        ${interval_bed} \
-        ${interval_exclude_bed} \
-        ${interval_exclude_padding} \
-        ${mito_contig} \
-        ${ref_fasta} \
-        ${interval_break_n} 
-        
+        ${ref_fasta}
+
         
     """
   

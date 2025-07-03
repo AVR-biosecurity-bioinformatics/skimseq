@@ -4,66 +4,67 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = interval_n
-# $3 = interval_break_n_length
-# $4 = subdivide_intervals
-# $5 = included_bed
-# $6 = excluded_bed
-# $7 = excluded_padding
-# $8 = mitochondrial_contig
-# $9 = Reference_genome
-# $9 = interval_break_n
+# $3 = interval_size
+# $4 = interval_bed     
+# $5 = hard_masks_bed
+# $6 = soft_masks_bed
+# $7 = interval_include_hard_masks
+# $8 = interval_include_soft_masks
+# $9 = subdivide_intervals
+# $10 = Reference_genome
 
 # parse subdivide_intervals options
-if [[ ${4} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
+if [[ ${9} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
 else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW"; fi
 
-# Included intervals is just the reference genome bed if specific intervals were not provided
-cat ${5} > included_intervals.bed
+# Convert any scientific notation to integers
+interval_size=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+interval_n=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
 
-# Annotate any exluded intervals on the output bed
-# Create excluded intervals list if provided, or just an empty dummy file
-if [ -s ${6} ] ; then  
-  bedtools slop -i ${6} -g ${9}.fai -b ${7} | sed 's/\s*$/\tExcluded/' > excluded_intervals.bed
-else 
-  touch excluded_intervals.bed
+# included_intervals is just reference genome bed if specific intervals were not provided
+cat ${4} > included_intervals.bed
+
+# Apply hard masks if interval_include_hard_masks is false (default)
+if [ ${7} == "false" ] ; then
+   # Subtract any of the excluded intervals
+  bedtools subtract -a ${4} -b ${5} > intervals_filtered.bed
+  mv intervals_filtered.bed included_intervals.bed
 fi
 
-# Add mitochondrial contig to the exclusion list
-if [ ${8} ] ; then  
-  grep -i ${8} included_intervals.bed | sed 's/\s*$/\tMitochondria/' >> excluded_intervals.bed
+# Apply soft masks if interval_include_soft_masks is false (default)
+if [ ${11} == "false" ] ; then
+   # Subtract any of the excluded intervals
+  bedtools subtract -a ${4} -b ${6} > intervals_filtered.bed
+  mv intervals_filtered.bed included_intervals.bed
 fi
 
-# TODO: Add any extra filters (coverage, masks, etc) to the exclusion list here
-
-# Locate appropriate breakpoints in the genome using strings of Ns
-if [ ${9} == "true" ] ; then
-  # Detect any strings of N bases in the reference genome to define breakpoints
-  java -jar $EBROOTPICARD/picard.jar ScatterIntervalsByNs \
-      --REFERENCE ${9}\
-      --OUTPUT_TYPE BOTH \
-      --OUTPUT breakpoints.interval_list \
-	    --MAX_TO_MERGE ${3}
-	    
-  # Convert resulting interval list to bed format
-  java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
-  	--INPUT breakpoints.interval_list \
-  	--OUTPUT tmp.bed
-  	
-  # Subset the breakpoints bed to just the included intervals (this is just the genome bed if not provided)
-  bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 > breakpoints.bed
-  
-  # Subtract any of the excluded intervals - and subset  to just genotypable intervals (ACGTmers ) 
-  bedtools subtract -a breakpoints.bed -b excluded_intervals.bed | awk '/ACGTmer/' > intervals_filtered.bed
+# Calculate number of groups
+if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
+    # Only interval_size provided
+    
+    # Calculate the total length and number of splits based on interval_size
+    total_length=$(awk -F'\t' 'BEGIN{SUM=0}{ SUM+=$3-$2 }END{print SUM}' included_intervals.bed)
+    n_splits=$(awk -v total_length=$total_length -v interval_size=$interval_size 'BEGIN { print ( total_length / interval_size ) }')
+    
+elif [ "$interval_size" -eq -1 ] && [ "$interval_n" -ge 0 ]; then
+    # Only interval_n provided
+    n_splits=$interval_n
+    
+elif [ "$interval_size"  -ge 0 ] && [ "$interval_n" -ge 0 ]; then
+    # Both interval_size and interval_n provided, prefer interval_n
+    n_splits=$interval_n
+    
 else
-  # Subtract any of the excluded intervals
-  bedtools subtract -a included_intervals.bed -b excluded_intervals.bed > intervals_filtered.bed
+    # If neither are provided, dont do any splitting
+    n_splits=1
 fi
 
 # Group current intervals into even groups of approximately even base content
+# Optionally subdivide furthr
 gatk SplitIntervals \
-   -R ${9} \
+   -R ${10} \
    -L intervals_filtered.bed \
-   --scatter-count ${2} \
+   --scatter-count ${n_splits} \
    -O $(pwd) \
    $SUBDIVISION_MODE
    
@@ -84,5 +85,5 @@ for i in *scattered.interval_list;do
 done
 
 # Remove temporary bed files
-rm -f included_intervals.bed excluded_intervals.bed intervals_filtered.bed breakpoints.bed breakpoints_excluded.bed breakpoints.interval_list
+rm -f intervals_filtered.bed b
 

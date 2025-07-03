@@ -1,18 +1,19 @@
 
 
 //// import subworkflows
-// include { PROCESS_GENOME                                             } from '../subworkflows/process_genome'
-include { FILTER_VARIANTS                                             } from '../subworkflows/filter_variants'
-include { GATK_GENOTYPING                                             } from '../subworkflows/gatk_genotyping'
+// include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
+include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
+include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
-include { MITO_GENOTYPING                                             } from '../subworkflows/mito_genotyping'
+include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-include { CREATE_BED_INTERVALS                                              } from '../modules/create_bed_intervals' 
-//include { CREATE_INTERVALS                                              } from '../modules/create_intervals' 
-//include { CONVERT_INTERVALS                                             } from '../modules/convert_intervals' 
+include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
+include { CREATE_BED_INTERVALS                                      } from '../modules/create_bed_intervals' 
+//include { CREATE_INTERVALS                                        } from '../modules/create_intervals' 
+//include { CONVERT_INTERVALS                                       } from '../modules/convert_intervals' 
 
 // Import dummny file
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -76,38 +77,50 @@ workflow SKIMSEQ {
 
     // Handle empty intervals for interval bed
     if ( params.interval_bed ){
-        ch_interval_bed = Channel
+        ch_include_bed = Channel
             .fromPath (
-                 params.interval_bed, 
+                 params.include_bed, 
                  checkIfExists: true
              )
     } else {
         // Set to whole genome
-        ch_interval_bed = ch_genome_bed
+        ch_include_bed = ch_genome_bed
     } 
 
     // Handle empty intervals for exclude bed
-    if ( params.interval_exclude_bed ){
+    if ( params.exclude_bed ){
         ch_exclude_bed = Channel
             .fromPath (
-                params.interval_exclude_bed, 
+                params.exclude_bed, 
                 checkIfExists: true
             )
     } else {
         ch_exclude_bed = ch_dummy_file
     }
     
+
+    // Create hard and soft masks for genome
+    CREATE_GENOME_MASKS (
+        ch_genome_indexed,
+        ch_include_bed,
+        ch_exclude_bed,
+        params.exclude_padding,
+        params.mito_contig,
+        params.exclude_reference_hardmasks,
+        params.exclude_reference_softmasks
+    )
+
     // create groups of genomic intervals for parallel genotyping
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
+        ch_include_bed,
+        CREATE_GENOME_MASKS.out.hard_mask,
+        CREATE_GENOME_MASKS.out.soft_mask,
         params.interval_n,
-        params.interval_break_n,
-        params.interval_break_n_length,
+        params.interval_size,
         params.interval_subdivide,
-        ch_interval_bed,
-        ch_exclude_bed,
-        params.interval_exclude_padding,
-        params.mito_contig
+        params.interval_include_hard_masks,
+        params.interval_include_soft_masks
     )
 
     // create intervals channel, with one interval_list file per element
