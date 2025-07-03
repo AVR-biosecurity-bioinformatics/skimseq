@@ -113,7 +113,7 @@ workflow SKIMSEQ {
     // If we are breaking intervals on masks, use the mask bed
     // Otherwise masks will be used later in VCF filtering
     if ( params.interval_break_on_masks ){
-          ch_breakpoints_bed = CREATE_GENOME_MASKS.out.mask_bed,
+          ch_breakpoints_bed = CREATE_GENOME_MASKS.out.mask_bed
         } else {
           ch_breakpoints_bed = ch_dummy_file
         }
