@@ -78,12 +78,13 @@ for i in *scattered.interval_list;do
   	--INPUT $i \
   	--OUTPUT tmp.bed
 	
-	cat tmp.bed | cut -f1-4 > ${HASH}.bed
+	#adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
+	cat tmp.bed | cut -f1-4 > _${HASH}.bed
 	
   # remove intermediate files
   rm $i tmp.bed
 done
 
 # Remove temporary bed files
-rm -f intervals_filtered.bed b
+rm -f intervals_filtered.bed included_intervals.bed
 

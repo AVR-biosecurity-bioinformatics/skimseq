@@ -17,7 +17,7 @@ workflow GATK_GENOTYPING {
     take:
     ch_sample_bam
     ch_genome_indexed
-    ch_interval_list
+    ch_interval_bed
 
     main: 
 
@@ -27,7 +27,7 @@ workflow GATK_GENOTYPING {
 
     // combine sample-level bams with each interval_list file and interval hash
     ch_sample_bam
-        .combine ( ch_interval_list )
+        .combine ( ch_interval_bed )
         .set { ch_sample_intervals }
 
     // call variants for single samples across intervals
@@ -42,7 +42,7 @@ workflow GATK_GENOTYPING {
         .map { sample, gvcf, tbi, interval_hash, interval_list -> [ interval_hash, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
-        .join ( ch_interval_list, by: 0 )
+        .join ( ch_interval_bed, by: 0 )
         .map { interval_hash, gvcf, tbi, interval_list -> [ interval_hash, interval_list, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 

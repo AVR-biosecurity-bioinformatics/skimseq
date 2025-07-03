@@ -17,7 +17,7 @@ process CREATE_BED_INTERVALS {
     val(interval_include_soft_masks)
     
     output: 
-    path("*.bed"),              emit: interval_list
+    path("_*.bed"),              emit: interval_bed
     
     script:
     def process_script = "${process_name}.sh"

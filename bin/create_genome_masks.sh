@@ -62,7 +62,7 @@ if [ ${8} == "true" ] ; then
   	--OUTPUT all_masked_bases.bed
   	
   # Subtrackt any intervals that were originally N's and add to soft masked bed
-  bedtools subtract -a all_masked_bases.bed -b N_bases.bed >> soft_masked.bed
+  bedtools subtract -a all_masked_bases.bed -b N_bases.bed | sed 's/Nmer/SoftMask/g' >> soft_masked.bed
 fi
 
 # Add mitochondrial contig to the soft masked bed

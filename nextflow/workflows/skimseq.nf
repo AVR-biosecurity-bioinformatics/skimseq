@@ -124,13 +124,13 @@ workflow SKIMSEQ {
     )
 
     // create intervals channel, with one interval_list file per element
-    CREATE_BED_INTERVALS.out.interval_list
+    CREATE_BED_INTERVALS.out.interval_bed
         .flatten()
         // get hash from interval_list name as element to identify intervals
         .map { interval_list ->
             def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_list ] }
-        .set { ch_interval_list }
+        .set { ch_interval_bed }
         
     /*
     Process mitochondrial genome and create intervals
@@ -171,7 +171,7 @@ workflow SKIMSEQ {
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_genome_indexed,
-        ch_interval_list
+        ch_interval_bed
     )
 
     /*
