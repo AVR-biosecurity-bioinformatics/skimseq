@@ -12,7 +12,8 @@ set -u
 # $8 = exclude_reference_softmasks
 
 # Included intervals is just the reference genome bed if specific intervals were not provided
-cat ${2} > included_intervals.bed
+# Just keep the important columns
+cat ${2} | cut -f1-3 > included_intervals.bed
 
 # Create empty output files
 touch hard_masked.bed
@@ -27,16 +28,20 @@ if [ ${7} == "true" ] ; then
         --OUTPUT N_bases.interval_list \
   	    --MAX_TO_MERGE 1
   	    
-  # Convert resulting interval list to bed format and add to hard masked bed
+  # Convert resulting interval list to bed format 
   java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
     	--INPUT N_bases.interval_list \
     	--OUTPUT N_bases.bed
-  cat N_bases.bed | sed 's/Nmer/NRef/g' >> hard_masked.bed
+    	
+  # Subset to just those inside the included intervals and add to hard masked bed
+  bedtools intersect -wa -a N_bases.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/NRef/g' >> hard_masked.bed
 fi
 
 # Add any excluded intervals + padding to hard masked bed
 if [ -s ${3} ] ; then  
-  bedtools slop -i ${3} -g ${6}.fai -b ${4} | sed 's/\s*$/\tExcludedInterval/' >> hard_masked.bed
+  # Keep just the important columns
+  cat ${3} | cut -f1-3 > tmp.bed 
+  bedtools slop -i tmp.bed -g ${6}.fai -b ${4} | sed 's/\s*$/\tExcluded/' >> hard_masked.bed
 fi
 
 # If exclude_reference_genome_softmasks is true, add any lowercase reference genome bases to soft mask bed
@@ -61,19 +66,23 @@ if [ ${8} == "true" ] ; then
   	--INPUT all_masked_bases.interval_list \
   	--OUTPUT all_masked_bases.bed
   	
-  # Subtrackt any intervals that were originally N's and add to soft masked bed
-  bedtools subtract -a all_masked_bases.bed -b N_bases.bed | sed 's/Nmer/SoftMaskRef/g' >> soft_masked.bed
+  # Subtract any intervals that are already in the hard masked bases
+  bedtools subtract -a all_masked_bases.bed -b hard_masked.bed > soft_masked_bases_only.bed
+  
+  # Subset to just those inside the included intervals and add to soft masked bed
+  bedtools intersect -wa -a soft_masked_bases_only.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/SoftMaskRef/g' >> soft_masked.bed
 fi
 
 # Add mitochondrial contig to the soft masked bed
-if [ ${8} ] ; then  
-  grep -i ${8} included_intervals.bed | sed 's/\s*$/\tMitoContig/' >> soft_masked.bed
+if [ ${5} ] ; then  
+  grep -i ${5} ${6}.fai |  awk '{print $1"\t0\t"$2"\tMitoContig"}' >> soft_masked.bed
 fi
 
 # TODO: Add any additional masks (coverage, paralogs, mapabillity etc) to the soft masked bed here
+#
+#
 
-
-# Create summary of proportion of genome contained within different masks:
+# Create a summary bed listing the of proportion of genome contained within different masks:
 cat soft_masked.bed > merged_masks.bed
 cat hard_masked.bed >> merged_masks.bed
 
