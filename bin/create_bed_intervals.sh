@@ -51,6 +51,7 @@ gatk SplitIntervals \
    -R ${7} \
    -L included_intervals.bed \
    --scatter-count ${n_splits} \
+   --interval-merging-rule OVERLAPPING_ONLY \
    -O $(pwd) \
    $SUBDIVISION_MODE
    
