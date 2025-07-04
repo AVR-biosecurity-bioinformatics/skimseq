@@ -11,7 +11,7 @@ process CREATE_BED_INTERVALS {
     path(exclude_bed)
     val(interval_n)
     val(interval_size)
-    val(interval_subdivide)
+    val(interval_subdivide_balanced)
 
     output: 
     path("_*.bed"),              emit: interval_bed
@@ -28,7 +28,7 @@ process CREATE_BED_INTERVALS {
         ${interval_size} \
         ${include_bed} \
         ${exclude_bed} \
-        ${interval_subdivide} \
+        ${interval_subdivide_balanced} \
         ${ref_fasta}
 
     """

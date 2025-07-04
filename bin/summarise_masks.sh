@@ -9,7 +9,7 @@ set -u
 
 # Included intervals is just the reference genome bed if specific intervals were not provided
 # Just keep the important columns
-cat ${2} | cut -f1-3 | sed 's/\s*$/\tIncluded/' > included_intervals.bed
+cat ${2} | cut -f1-3 | sed 's/\s*$/\tPASS/' > included_intervals.bed
 
 # Merge all masks
 touch merged_masks.bed

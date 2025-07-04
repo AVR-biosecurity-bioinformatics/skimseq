@@ -112,7 +112,7 @@ workflow SKIMSEQ {
 
     // If we are breaking intervals on masks, use the mask bed
     // Otherwise masks will be used later in VCF filtering
-    if ( params.interval_break_on_masks ){
+    if ( params.interval_subdivide_at_masks ){
           ch_breakpoints_bed = CREATE_GENOME_MASKS.out.mask_bed
         } else {
           ch_breakpoints_bed = ch_dummy_file
@@ -125,7 +125,7 @@ workflow SKIMSEQ {
         ch_breakpoints_bed,
         params.interval_n,
         params.interval_size,
-        params.interval_subdivide
+        params.interval_subdivide_balanced
     )
 
     // create intervals channel, with one interval_list file per element
@@ -207,6 +207,7 @@ workflow SKIMSEQ {
     Filter SNP and INDEL variants
     */
 
+    // TODO Add masks for filtering
     FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
         ch_genome_indexed

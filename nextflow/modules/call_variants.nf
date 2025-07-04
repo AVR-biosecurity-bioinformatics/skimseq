@@ -30,7 +30,7 @@ process CALL_VARIANTS {
         ${interval_hash} \
         ${interval_bed} \
         ${interval_padding} \
-        ${exclude_bed} \
+        "${exclude_bed}" \
         ${exclude_padding}
         
     """

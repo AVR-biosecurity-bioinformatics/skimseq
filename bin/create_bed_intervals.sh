@@ -7,7 +7,7 @@ set -u
 # $3 = interval_size
 # $4 = include_bed     
 # $5 = exclude_bed
-# $6 = interval_subdivide
+# $6 = interval_subdivide_balanced
 # $7 = Reference_genome
 
 # parse interval_subdivide options
