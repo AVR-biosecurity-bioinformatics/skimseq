@@ -68,30 +68,11 @@ if [ ${6} == "true" ] ; then
 
 fi
 
-# Add any excluded intervals + padding to hard masked bed
+# Add any excluded intervals to hard masked bed if file is not empty
 if [ -s ${3} ] ; then  
   # Keep just the important columns
-  cat ${3} | cut -f1-3 > tmp.bed 
-  bedtools slop -i tmp.bed -g ${6}.fai -b ${4} | sed 's/\s*$/\tExcluded/' >> masks.bed
+  cat ${3} | cut -f1-3 | sed 's/\s*$/\tExcluded/' >> masks.bed
+  
+  # Exclusion interval padding is now handled by haplotypecaller
+  #bedtools slop -i tmp.bed -g ${6}.fai -b ${4} | sed 's/\s*$/\tExcluded/' >> masks.bed
 fi
-
-
-# Add mitochondrial contig to the soft masked bed
-# TODO: This needs to be done in nextflow logic
-#if [ ${5} ] ; then  
-#  grep -i ${5} ${6}.fai |  awk '{print $1"\t0\t"$2"\tMitoContig"}' >> soft_masked.bed
-#fi
-
-# Create a summary bed listing the of proportion of genome contained within different masks:
-# TODO: This is done in a new summarise_mask process
-#cat soft_masked.bed > merged_masks.bed
-#cat hard_masked.bed >> merged_masks.bed
-
-#bedtools sort -i merged_masks.bed > merged_masks_sorted.bed
-
-#bedtools complement -i merged_masks_sorted.bed -g ${6}.fai | sed 's/\s*$/\tIncluded/' >> merged_masks.bed
-#bedtools sort -i merged_masks.bed > mask_summary.bed
-
-# Tabulate by annotation type
-# awk '{len=$3-$2; sum[$4]=sum[$4]+len} END {for (anno in sum) print anno, sum[anno]}' mask_summary.bed
-

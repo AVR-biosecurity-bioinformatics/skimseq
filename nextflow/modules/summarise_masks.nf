@@ -23,7 +23,7 @@ process SUMMARISE_MASKS {
     bash ${process_script} \
         ${task.cpus} \
         ${include_bed} \
-        ${exclude_bed} \
+        "${exclude_bed}" \
         ${ref_fasta}
 
     """
