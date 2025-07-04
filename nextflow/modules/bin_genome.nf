@@ -11,7 +11,7 @@ process BIN_GENOME {
     val(bin_size)
 
     output: 
-    path("*.bed"),              emit: binned_bed
+    path("binned_intervals.bed"),              emit: binned_bed
     
     script:
     def process_script = "${process_name}.sh"
