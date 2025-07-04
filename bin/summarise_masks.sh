@@ -12,12 +12,13 @@ set -u
 cat ${2} | cut -f1-3 | sed 's/\s*$/\tIncluded/' > included_intervals.bed
 
 # Merge all masks
+touch merged_masks.bed
 while read mask; do
   cat $mask | cut -f1-4 >> merged_masks.bed
 done < <(echo ${3} | tr ' ' '\n')
 
 # Add the included intervals that arent in the mask
-bedtools intersect -wa -a included_intervals.bed -b merged_masks.bed | cut -f1-4 >> merged_masks.bed
+bedtools subtract -a included_intervals.bed -b merged_masks.bed | cut -f1-4 >> merged_masks.bed
 
 bedtools sort -i merged_masks.bed > mask_summary.bed
 

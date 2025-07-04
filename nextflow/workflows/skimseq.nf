@@ -169,7 +169,6 @@ workflow SKIMSEQ {
     ch_mask_bed = CREATE_GENOME_MASKS.out.mask_bed
       .concat(ch_mito_bed)
     
-    
     // Summarise masks
     SUMMARISE_MASKS (
         ch_genome_indexed,

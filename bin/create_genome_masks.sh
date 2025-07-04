@@ -39,7 +39,7 @@ fi
 if [ ${6} == "true" ] ; then
   
   # Create temporary reference genome where soft-masked regions are converted to N
-  cat ${2} | sed '/^[^>]/s/[^ATGC]/N/g' > tmp.fa
+  cat ${7} | sed '/^[^>]/s/[^ATGC]/N/g' > tmp.fa
   
   # Index temporary reference genome and create GATK dictionary
   samtools faidx tmp.fa

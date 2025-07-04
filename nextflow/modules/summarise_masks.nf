@@ -11,8 +11,8 @@ process SUMMARISE_MASKS {
     path(exclude_bed)
 
     output: 
-    path("*.bed"),              emit: interval_bed
-    path("*.txt"),              emit: summary_file
+    path("mask_summary.bed"),              emit: interval_bed
+    path("mask_summary.txt"),              emit: summary_file
     
     script:
     def process_script = "${process_name}.sh"
