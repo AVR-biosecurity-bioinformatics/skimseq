@@ -15,6 +15,7 @@ include { CREATE_BED_INTERVALS                                      } from '../m
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 include { BIN_GENOME                                                } from '../modules/bin_genome'
 include { COUNT_READS                                               } from '../modules/count_reads'
+include { FILTER_BINS                                               } from '../modules/filter_bins'
 
 //include { CREATE_INTERVALS                                        } from '../modules/create_intervals' 
 //include { CONVERT_INTERVALS                                       } from '../modules/convert_intervals' 
@@ -172,6 +173,21 @@ workflow SKIMSEQ {
           ch_interval_bed,
           ch_genome_indexed
     ) 
+
+
+    // collect counts.tsvs into a single element
+    COUNT_READS.out.counts
+        .collect()
+        .set { ch_bin_counts }
+
+    // Run filter counts module
+    FILTER_BINS (
+          ch_bin_counts,
+          BIN_GENOME.out.binned_bed,
+          BIN_GENOME.out.annotated_bins,
+          ch_genome_indexed
+    )   
+  
 
     /*
     Create mask file and summarise

@@ -21,3 +21,10 @@ java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
   	--OUTPUT tmp.bed
   	
 cat tmp.bed | cut -f1-3 > binned_intervals.bed
+
+# Annotate intervals
+gatk AnnotateIntervals \
+    -R ${4} \
+    -L ${3} \
+    --interval-merging-rule OVERLAPPING_ONLY \
+    -O annotated_intervals.tsv

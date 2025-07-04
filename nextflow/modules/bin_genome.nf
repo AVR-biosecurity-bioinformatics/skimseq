@@ -12,7 +12,8 @@ process BIN_GENOME {
 
     output: 
     path("binned_intervals.bed"),              emit: binned_bed
-    
+    path("binned_intervals.bed"),              emit: annotated_bins
+
     script:
     def process_script = "${process_name}.sh"
     """
