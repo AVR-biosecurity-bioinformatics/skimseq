@@ -9,7 +9,7 @@ process CALL_VARIANTS {
     tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai'), val(interval_hash), path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
     val(interval_padding)
-    ch_mask_bed_gatk
+    path(exclude_bed)
     val(exclude_padding)
 
     output: 
@@ -28,9 +28,8 @@ process CALL_VARIANTS {
         "${bam}" \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_list} \
-        ${interval_padding} \
         ${interval_bed} \
+        ${interval_padding} \
         ${exclude_bed} \
         ${exclude_padding}
         

@@ -77,6 +77,6 @@ if [ ${6} == "true" ] ; then
   bedtools subtract -a soft_masked_bases_only.bed -b masks.bed > tmp.bed
   
   # Subset to just those inside the included intervals and add to soft masked bed
-  bedtools intersect -wa -tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/SoftMaskRef/g' >> masks.bed
+  bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/SoftMaskRef/g' >> masks.bed
 
 fi
