@@ -11,7 +11,6 @@ include { MITO_GENOTYPING                                           } from '../s
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
-include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_GATK         } from '../modules/create_bed_intervals'
 include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_COV          } from '../modules/create_bed_intervals' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 include { BIN_GENOME                                                } from '../modules/bin_genome'
@@ -112,33 +111,6 @@ workflow SKIMSEQ {
         params.use_reference_softmasks
     )
 
-    // If we are breaking intervals on masks, use the mask bed
-    // Otherwise masks will be used later in VCF filtering
-    if ( params.interval_subdivide_at_masks ){
-          ch_breakpoints_bed = CREATE_GENOME_MASKS.out.mask_bed
-        } else {
-          ch_breakpoints_bed = ch_dummy_file
-        }
-        
-    // create groups of genomic intervals for parallel genotyping
-    CREATE_BED_INTERVALS_GATK (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_breakpoints_bed,
-        params.interval_n,
-        params.interval_size,
-        params.interval_subdivide_balanced
-    )
-
-    // create intervals channel, with one interval_list file per element
-    CREATE_BED_INTERVALS_GATK.out.interval_bed
-        .flatten()
-        // get hash from interval_list name as element to identify intervals
-        .map { interval_list ->
-            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
-            [ interval_hash, interval_list ] }
-        .set { ch_gatk_interval_bed }
-        
     /*
     Process mitochondrial genome and create intervals
     */
@@ -232,7 +204,7 @@ workflow SKIMSEQ {
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_genome_indexed,
-        ch_gatk_interval_bed,
+        ch_include_bed,
         ch_mask_bed_gatk
     )
 
