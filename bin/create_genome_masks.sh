@@ -15,7 +15,7 @@ set -u
 cat ${2} | cut -f1-3 > included_intervals.bed
 
 # Create mask bed file
-touch mask.bed
+touch masks.bed
 
 # Add any excluded intervals to hard masked bed if file is not empty
 if [ -s ${3} ] ; then  

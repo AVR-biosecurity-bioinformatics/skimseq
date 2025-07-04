@@ -190,10 +190,11 @@ workflow SKIMSEQ {
     Call variants per sample, then combine and joint-genotype across genomic intervals
     */
 
+    // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
     if ( params.mask_before_genotyping ){
           ch_mask_bed_gatk = ch_mask_bed
         } else {
-          ch_mask_bed_gatk = ch_dummy_file
+          ch_mask_bed_gatk = ch_mito_bed
     }
     
     GATK_GENOTYPING (
