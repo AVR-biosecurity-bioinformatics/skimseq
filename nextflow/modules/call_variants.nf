@@ -6,12 +6,14 @@ process CALL_VARIANTS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai'), val(interval_hash), path(interval_list)
+    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai'), val(interval_hash), path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
     val(interval_padding)
+    ch_mask_bed_gatk
+    val(exclude_padding)
 
     output: 
-    tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_list),     emit: gvcf_intervals
+    tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_bed),     emit: gvcf_intervals
     
     script:
     def process_script = "${process_name}.sh"
@@ -26,8 +28,11 @@ process CALL_VARIANTS {
         "${bam}" \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_list}\
-        ${interval_padding}
-
+        ${interval_list} \
+        ${interval_padding} \
+        ${interval_bed} \
+        ${exclude_bed} \
+        ${exclude_padding}
+        
     """
 }

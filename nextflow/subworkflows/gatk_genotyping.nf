@@ -18,6 +18,7 @@ workflow GATK_GENOTYPING {
     ch_sample_bam
     ch_genome_indexed
     ch_interval_bed
+    ch_mask_bed_gatk
 
     main: 
 
@@ -34,7 +35,9 @@ workflow GATK_GENOTYPING {
     CALL_VARIANTS (
         ch_sample_intervals,
         ch_genome_indexed,
-        params.interval_padding
+        params.interval_padding,
+        ch_mask_bed_gatk, 
+        params.exclude_padding
     )
 
     // group GVCFs by interval 

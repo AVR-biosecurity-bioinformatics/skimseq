@@ -190,11 +190,17 @@ workflow SKIMSEQ {
     Call variants per sample, then combine and joint-genotype across genomic intervals
     */
 
-
+    if ( params.mask_before_genotyping ){
+          ch_mask_bed_gatk = ch_mask_bed
+        } else {
+          ch_mask_bed_gatk = ch_dummy_file
+    }
+    
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_genome_indexed,
-        ch_interval_bed
+        ch_interval_bed,
+        ch_mask_bed_gatk
     )
 
     /*
