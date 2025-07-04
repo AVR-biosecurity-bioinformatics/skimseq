@@ -11,9 +11,11 @@ include { MITO_GENOTYPING                                           } from '../s
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
-include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_COV          } from '../modules/create_bed_intervals' 
+include { CREATE_BED_INTERVALS                                      } from '../modules/create_bed_intervals' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 include { BIN_GENOME                                                } from '../modules/bin_genome'
+include { COUNT_READS                                               } from '../modules/count_reads'
+
 //include { CREATE_INTERVALS                                        } from '../modules/create_intervals' 
 //include { CONVERT_INTERVALS                                       } from '../modules/convert_intervals' 
 
@@ -135,6 +137,7 @@ workflow SKIMSEQ {
 
     /*
     Calculate coverages
+    TODO: Move to its own subworkflow
     */
     
     // First divide the genome into bins for calculating coverage
@@ -153,7 +156,7 @@ workflow SKIMSEQ {
         params.interval_size,
         params.interval_subdivide_balanced
     )
-
+    
     // create intervals channel, with one interval_list file per element
     CREATE_BED_INTERVALS_COV.out.interval_bed
         .flatten()
@@ -163,16 +166,21 @@ workflow SKIMSEQ {
             [ interval_hash, interval_list ] }
         .set { ch_interval_bed }
     
+    // Count reads in each group of binned intervals
+    COUNT_READS (
+          PROCESS_READS.out.bam,
+          ch_interval_bed,
+          ch_genome_indexed
+    ) 
+
     /*
-    Create additional masks that require mapped reads
-    Then create updated set of genomic intervals
+    Create mask file and summarise
     */
 
-    // Merge masks using nextflow logic
-    // Genome mask, mito mask, coverage mask, paralog mask
+    //Does this need a collect call?
     ch_mask_bed = CREATE_GENOME_MASKS.out.mask_bed
       .concat(ch_mito_bed)
-    
+      
     // Summarise masks
     SUMMARISE_MASKS (
         ch_genome_indexed,
