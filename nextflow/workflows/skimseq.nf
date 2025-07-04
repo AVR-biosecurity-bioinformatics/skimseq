@@ -11,8 +11,10 @@ include { MITO_GENOTYPING                                           } from '../s
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
-include { CREATE_BED_INTERVALS                                      } from '../modules/create_bed_intervals' 
+include { CREATE_BED_INTERVALS_GATK                                 } from '../modules/create_bed_intervals'
+include { CREATE_BED_INTERVALS_COV                                  } from '../modules/create_bed_intervals' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
+include { BIN_GENOME                                                } from '../modules/bin_genome'
 //include { CREATE_INTERVALS                                        } from '../modules/create_intervals' 
 //include { CONVERT_INTERVALS                                       } from '../modules/convert_intervals' 
 
@@ -119,7 +121,7 @@ workflow SKIMSEQ {
         }
         
     // create groups of genomic intervals for parallel genotyping
-    CREATE_BED_INTERVALS (
+    CREATE_BED_INTERVALS_GATK (
         ch_genome_indexed,
         ch_include_bed,
         ch_breakpoints_bed,
@@ -129,13 +131,13 @@ workflow SKIMSEQ {
     )
 
     // create intervals channel, with one interval_list file per element
-    CREATE_BED_INTERVALS.out.interval_bed
+    CREATE_BED_INTERVALS_GATK.out.interval_bed
         .flatten()
         // get hash from interval_list name as element to identify intervals
         .map { interval_list ->
             def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_list ] }
-        .set { ch_interval_bed }
+        .set { ch_gatk_interval_bed }
         
     /*
     Process mitochondrial genome and create intervals
@@ -159,6 +161,36 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
 
+    /*
+    Calculate coverages
+    */
+    
+    // First divide the genome into bins for calculating coverage
+    BIN_GENOME (
+        ch_genome_indexed,
+        ch_include_bed,
+        params.coverage_bin_size
+    )
+    
+    // create groups of genomic intervals for parallel genotyping
+    CREATE_BED_INTERVALS_COV (
+        ch_genome_indexed,
+        BIN_GENOME.out.binned_bed,
+        ch_dummy_file,
+        params.interval_n,
+        params.interval_size,
+        params.interval_subdivide_balanced
+    )
+
+    // create intervals channel, with one interval_list file per element
+    CREATE_BED_INTERVALS_COV.out.interval_bed
+        .flatten()
+        // get hash from interval_list name as element to identify intervals
+        .map { interval_list ->
+            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
+            [ interval_hash, interval_list ] }
+        .set { ch_interval_bed }
+    
     /*
     Create additional masks that require mapped reads
     Then create updated set of genomic intervals
@@ -200,7 +232,7 @@ workflow SKIMSEQ {
     GATK_GENOTYPING (
         PROCESS_READS.out.bam,
         ch_genome_indexed,
-        ch_interval_bed,
+        ch_gatk_interval_bed,
         ch_mask_bed_gatk
     )
 
