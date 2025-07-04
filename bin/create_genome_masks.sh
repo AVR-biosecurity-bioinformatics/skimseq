@@ -41,7 +41,7 @@ if [ ${5} == "true" ] ; then
   # Subtract any intervals that are already in masked bed
   bedtools subtract -a N_bases.bed -b masks.bed > tmp.bed
 
-  # Subset to just those inside the included intervals and add to hard masked bed
+  # Subset to just those inside the included intervals and add to masks bed
   bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/NRef/g' >> masks.bed
 fi
 
@@ -70,13 +70,13 @@ if [ ${6} == "true" ] ; then
   # Remove temporary fasta
   rm -f tmp.fa*
   	
-  # Subtract any intervals that were originally N bases to just get soft mask bases
+  # Subtract any intervals that were originally N bases to just get masks bases
   bedtools subtract -a all_masked_bases.bed -b N_bases.bed > soft_masked_bases_only.bed
   
-  # Subtract any intervals that are already contained in masked bed to avoid duplicates
+  # Subtract any intervals that are already contained in masks bed to avoid duplicates
   bedtools subtract -a soft_masked_bases_only.bed -b masks.bed > tmp.bed
   
-  # Subset to just those inside the included intervals and add to soft masked bed
+  # Subset to just those inside the included intervals and add to masks bed
   bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/SoftMaskRef/g' >> masks.bed
 
 fi

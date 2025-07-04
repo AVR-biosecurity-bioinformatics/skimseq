@@ -148,7 +148,7 @@ workflow SKIMSEQ {
         params.coverage_bin_size
     )
     
-    // create groups of genomic intervals for parallel genotyping
+    // create groups bins for parallel calulations
     CREATE_BED_INTERVALS (
         ch_genome_indexed,
         BIN_GENOME.out.binned_bed,
@@ -195,7 +195,7 @@ workflow SKIMSEQ {
 
     //Does this need a collect call?
     ch_mask_bed = CREATE_GENOME_MASKS.out.mask_bed
-      .concat(ch_mito_bed)
+      .concat(ch_mito_bed, FILTER_BINS.out.bin_masked)
       
     // Summarise masks
     SUMMARISE_MASKS (
