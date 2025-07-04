@@ -179,7 +179,7 @@ workflow SKIMSEQ {
     COUNT_READS.out.counts
         .collect()
         .set { ch_bin_counts }
-
+        
     // Run filter counts module
     FILTER_BINS (
           ch_bin_counts,

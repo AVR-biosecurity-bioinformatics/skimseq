@@ -12,7 +12,7 @@ process FILTER_BINS {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    path("*.tsv"),                 emit: counts
+    path("bin_filtered.bed"),                 emit: bin_filtered
     
     script:
     def process_script = "${process_name}.sh"

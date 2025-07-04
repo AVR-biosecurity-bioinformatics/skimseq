@@ -20,9 +20,22 @@ gatk --java-options "-Xmx${2}G" FilterIntervals \
     --annotated-intervals ${7} \
     --interval-merging-rule OVERLAPPING_ONLY \
     --format TSV \
-    --output bin_filtered.interval_list 
+    --output bin_filtered.interval_list \
+    --extreme-count-filter-maximum-percentile 99.0 \
+    --extreme-count-filter-minimum-percentile 1.0 \
+    --extreme-count-filter-percentage-of-samples 90.0 \
+    --low-count-filter-count-threshold 5 \
+    --low-count-filter-percentage-of-samples 90.0 \
+    --maximum-gc-content 0.9 \
+    --minimum-gc-content 0.1 
+    
+# Filters to add in future:
+# --maximum-mappability
+# --minimum-mappability    
     
 # Convert resulting interval list to bed format
 java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
     --INPUT bin_filtered.interval_list \
   	--OUTPUT bin_filtered.bed 
+  	
+# TODO: need to get the inverse of these 
