@@ -148,17 +148,17 @@ workflow SKIMSEQ {
     )
     
     // create groups of genomic intervals for parallel genotyping
-    CREATE_BED_INTERVALS_COV (
+    CREATE_BED_INTERVALS (
         ch_genome_indexed,
         BIN_GENOME.out.binned_bed,
         ch_dummy_file,
         params.interval_n,
         params.interval_size,
-        params.interval_subdivide_balanced
+        false
     )
     
     // create intervals channel, with one interval_list file per element
-    CREATE_BED_INTERVALS_COV.out.interval_bed
+    CREATE_BED_INTERVALS.out.interval_bed
         .flatten()
         // get hash from interval_list name as element to identify intervals
         .map { interval_list ->

@@ -57,7 +57,7 @@ gatk SplitIntervals \
 # Rename and convert each split output into a bed, and add padding
 for i in *scattered.interval_list;do
   # Hashed output name
-  HASH=$( printf '%s' "$i" | md5sum | awk '{print $1}' ) 
+  HASH=$( md5sum "$i" | awk '{print $1}' ) 
 
   # Convert resulting interval list to bed format
   java -jar $EBROOTPICARD/picard.jar IntervalListToBed \

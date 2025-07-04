@@ -17,5 +17,6 @@ gatk --java-options "-Xmx${2}G" CollectReadCounts \
     -R $4 \
     -I bam.list \
     -L $6 \
+    --interval-merging-rule OVERLAPPING_ONLY \
     --format TSV \
     -O ${5}.counts.tsv 

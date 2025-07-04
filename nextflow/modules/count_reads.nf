@@ -7,11 +7,11 @@ process COUNT_READS {
 
     input:
     tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
-    val(interval_hash), path(interval_bed)
+    tuple val(interval_hash), path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    path("*.tsv")     emit: counts
+    path("*.tsv"),                 emit: counts
     
     script:
     def process_script = "${process_name}.sh"
