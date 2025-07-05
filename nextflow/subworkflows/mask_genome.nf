@@ -68,9 +68,8 @@ workflow MASK_GENOME {
           params.bin_min_reads,
           params.bin_lower_read_perc,
           params.bin_upper_read_perc,
-          parms.bin_filter_perc_samples
+          params.bin_filter_perc_samples
     )   
-
 
     /*
     Create mask file and summarise

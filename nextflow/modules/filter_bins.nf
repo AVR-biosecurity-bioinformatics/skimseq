@@ -10,6 +10,12 @@ process FILTER_BINS {
     path(binned_bed)
     path(annotated_bins)
     tuple path(ref_genome), path(genome_index_files)
+    val(bin_gc_lower)
+    val(bin_gc_upper)
+    val(bin_min_reads)
+    val(bin_lower_read_perc)
+    val(bin_upper_read_perc)
+    val(bin_filter_perc_samples)
 
     output: 
     path("bin_filtered.bed"),                 emit: bin_filtered
@@ -28,7 +34,13 @@ process FILTER_BINS {
         "${bin_counts}" \
         ${ref_genome}  \
         ${binned_bed} \
-        ${annotated_bins} 
-        
+        ${annotated_bins} \
+        ${bin_gc_lower} \
+        ${bin_gc_upper} \
+        ${bin_min_reads} \
+        ${bin_lower_read_perc} \
+        ${bin_upper_read_perc} \
+        ${bin_filter_perc_samples} \
+
     """
 }
