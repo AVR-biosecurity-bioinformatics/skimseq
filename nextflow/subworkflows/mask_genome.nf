@@ -4,9 +4,9 @@
 
 //// import modules
 include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
-include { BIN_GENOME                                                } from '../modules/bin_genome'
-include { COUNT_READS                                               } from '../modules/count_reads'
-include { FILTER_BINS                                               } from '../modules/filter_bins'
+include { CREATE_GENOME_BINS                                        } from '../modules/create_genome_bins'
+include { COUNT_READS_BINS                                          } from '../modules/count_reads_bins'
+include { CREATE_MASKS_BINS                                         } from '../modules/create_masks_bins'
 include { MERGE_MASKS                                               } from '../modules/merge_masks' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 
@@ -36,29 +36,29 @@ workflow MASK_GENOME {
     */
     
     // First divide the genome into bins for calculating coverage
-    BIN_GENOME (
+    CREATE_GENOME_BINS (
         ch_genome_indexed,
         ch_include_bed,
         params.bin_size
     )
 
-    ch_binned_bed = BIN_GENOME.out.binned_bed.first()
-    ch_annot_bins = BIN_GENOME.out.annotated_bins.first()
+    ch_binned_bed = CREATE_GENOME_BINS.out.binned_bed.first()
+    ch_annot_bins = CREATE_GENOME_BINS.out.annotated_bins.first()
 
     // Count reads in each group of binned intervals
-    COUNT_READS (
+    COUNT_READS_BINS (
           ch_sample_bam,
           ch_binned_bed,
           ch_genome_indexed
     ) 
 
     // collect counts.tsvs into a single element
-    COUNT_READS.out.counts
+    COUNT_READS_BINS.out.counts
         .collect()
         .set { ch_bin_counts }
         
     // Run filter counts module
-    FILTER_BINS (
+    CREATE_MASKS_BINS (
           ch_bin_counts,
           ch_binned_bed,
           ch_annot_bins,
@@ -77,7 +77,7 @@ workflow MASK_GENOME {
 
     //Concatenate multiple masks together intp a list
     CREATE_GENOME_MASKS.out.mask_bed
-      .concat(ch_mito_bed, FILTER_BINS.out.bin_masked)
+      .concat(ch_mito_bed, CREATE_MASKS_BINS.out.bin_masked)
       .collect()
       .set{ ch_mask_bed }
 

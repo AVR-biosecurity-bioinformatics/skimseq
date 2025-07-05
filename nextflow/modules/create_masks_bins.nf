@@ -1,5 +1,5 @@
-process FILTER_BINS {
-    def process_name = "filter_bins"    
+process CREATE_MASKS_BINS {
+    def process_name = "create_masks_bins"    
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"

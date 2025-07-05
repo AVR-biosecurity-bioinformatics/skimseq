@@ -1,5 +1,5 @@
-process BIN_GENOME {
-    def process_name = "bin_genome"    
+process CREATE_GENOME_BINS {
+    def process_name = "create_genome_bins"    
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
