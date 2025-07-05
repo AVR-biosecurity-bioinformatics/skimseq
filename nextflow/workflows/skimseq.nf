@@ -163,10 +163,17 @@ workflow SKIMSEQ {
     Filter SNP and INDEL variants
     */
 
-    // TODO Add masks for filtering
+    // If mask_before_filtering is set, use all masks, otherwise provide empty dummy file
+    if ( params.mask_before_filtering ){
+          ch_mask_bed_vcf = MASK_GENOME.out.mask_bed
+        } else {
+          ch_mask_bed_vcf = ch_dummy_file
+    }
+    
     FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_mask_bed_vcf
     )
 
 }

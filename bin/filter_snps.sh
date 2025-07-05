@@ -17,6 +17,7 @@ set -u
 # $13 = snp_dp_max
 # $14 = snp_custom_flags
 # $15 = max_missing
+# $16 = mask_bed
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -63,6 +64,7 @@ if [[ ${14} == "none" ]]; then
 		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \
+		--mask ${16} --mask-name Mask \
 		-O snps_tmp.vcf.gz
 else
 	# use custom filters
@@ -70,6 +72,7 @@ else
 		--verbosity ERROR \
 		-V snps.vcf.gz \
 		${14} \
+		--mask ${16} --mask-name Mask \
 		-O snps_tmp.vcf.gz
 fi
 

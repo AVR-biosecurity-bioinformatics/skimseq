@@ -15,6 +15,7 @@ workflow FILTER_VARIANTS {
     take:
     ch_vcf
     ch_genome_indexed
+    ch_mask_bed_vcf
 
     main: 
 
@@ -40,7 +41,8 @@ workflow FILTER_VARIANTS {
     FILTER_SNPS (
         ch_vcf,
         ch_snp_filters,
-        params.max_missing
+        params.max_missing,
+        ch_mask_bed_vcf
     )
     
     // collect indel filtering parameters into a single list
@@ -62,7 +64,8 @@ workflow FILTER_VARIANTS {
     FILTER_INDELS (
         ch_vcf,
         ch_indel_filters,
-        params.max_missing
+        params.max_missing,
+        ch_mask_bed_vcf
     )
 
     // merge filtered SNPs and indels together into one file
