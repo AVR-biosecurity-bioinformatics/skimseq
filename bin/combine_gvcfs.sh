@@ -19,4 +19,5 @@ gatk --java-options "-Xmx${2}G" CombineGVCFs  \
     -V sample.list \
     -L ${5} \
     --tmp-dir /tmp \
+    --interval-merging-rule ALL \
     -O ${4}.combined.g.vcf.gz
