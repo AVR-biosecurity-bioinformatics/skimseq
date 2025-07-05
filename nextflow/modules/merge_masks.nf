@@ -1,19 +1,16 @@
-process SUMMARISE_MASKS {
-    def process_name = "summarise_masks"    
+process MERGE_MASKS {
+    def process_name = "merge_masks"    
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple path(ref_fasta), path(indexes)
-    path(include_bed)
     path(exclude_bed)
 
     output: 
-    path("mask_summary.bed"),              emit: interval_bed
-    path("mask_summary.txt"),              emit: summary_file
-    
+    path("merged_masks.bed"),              emit: merged_masks
+
     script:
     def process_script = "${process_name}.sh"
     """
@@ -22,10 +19,7 @@ process SUMMARISE_MASKS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${include_bed} \
-        ${exclude_bed} \
-        ${ref_fasta}
-
+        "${exclude_bed}" 
     """
   
 }

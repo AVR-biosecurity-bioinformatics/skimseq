@@ -16,12 +16,6 @@ set -u
 # Create list of bams to be processed
 echo ${4} | tr ' ' '\n' > bam.list
 
-# Merge all masks
-touch merged_masks.bed
-while read mask; do
-  cat $mask | cut -f1-4 >> merged_masks.bed
-done < <(echo ${9} | tr ' ' '\n')
-
 # call variants per sample across all the bam chunks
 gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     -R $5 \
@@ -32,7 +26,7 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --min-base-quality-score 15 \
     --min-pruning 0 \
     --interval-padding ${8} \
-    --exclude-intervals merged_masks_distinct.bed \
+    --exclude-intervals ${9} \
     --interval-exclusion-padding ${10} \
     --interval-merging-rule ALL \
     -ERC GVCF

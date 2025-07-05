@@ -6,19 +6,11 @@ include { FILTER_VARIANTS                                           } from '../s
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
+include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
-include { CREATE_BED_INTERVALS                                      } from '../modules/create_bed_intervals' 
-include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
-include { BIN_GENOME                                                } from '../modules/bin_genome'
-include { COUNT_READS                                               } from '../modules/count_reads'
-include { FILTER_BINS                                               } from '../modules/filter_bins'
-
-//include { CREATE_INTERVALS                                        } from '../modules/create_intervals' 
-//include { CONVERT_INTERVALS                                       } from '../modules/convert_intervals' 
 
 // Import dummny file
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -39,7 +31,6 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
-
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
         .map { row -> [ 
@@ -48,16 +39,6 @@ workflow SKIMSEQ {
             file( row[2], checkIfExists: true )     // read2
             ] }
         .set { ch_reads }
-
-    //if ( params.mito_genome ){
-    //    ch_mito = Channel
-    //        .fromPath (
-    //            params.mito_genome, 
-    //            checkIfExists: true
-    //        )
-    //} else {
-    //    ch_mito = Channel.empty()
-    //} 
 
     if ( params.ref_genome ){
         ch_genome = Channel
@@ -68,19 +49,18 @@ workflow SKIMSEQ {
     } else {
         ch_genome = Channel.empty()
     } 
-
-    /*
-    Process nuclear genome and create intervals & initial masks
-    */
-
-    INDEX_GENOME (
-        ch_genome
-    )
-
-    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
-    ch_genome_bed = INDEX_GENOME.out.genome_bed.first()
-
-    // Handle empty intervals for interval bed
+    
+    //if ( params.mito_genome ){
+    //    ch_mito = Channel
+    //        .fromPath (
+    //            params.mito_genome, 
+    //            checkIfExists: true
+    //        )
+    //} else {
+    //    ch_mito = Channel.empty()
+    //} 
+    
+    // Handle optional include_bed
     if ( params.include_bed ){
         ch_include_bed = Channel
             .fromPath (
@@ -92,7 +72,7 @@ workflow SKIMSEQ {
         ch_include_bed = ch_genome_bed
     } 
 
-    // Handle empty intervals for exclude bed
+    // Handle optional exclude_bed
     if ( params.exclude_bed ){
         ch_exclude_bed = Channel
             .fromPath (
@@ -104,21 +84,21 @@ workflow SKIMSEQ {
     }
     
 
-    // Create masks from exclude intervals and existing genome masks
-    CREATE_GENOME_MASKS (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_exclude_bed,
-        params.exclude_padding,
-        params.use_reference_hardmasks,
-        params.use_reference_softmasks
+    /*
+    Process nuclear genome
+    */
+
+    INDEX_GENOME (
+        ch_genome
     )
+
+    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
+    ch_genome_bed = INDEX_GENOME.out.genome_bed.first()
 
     /*
     Process mitochondrial genome and create intervals
     */
         
-    // TODO: Extract mitochondrial genome contig from reference contig
     INDEX_MITO (
         ch_genome,
         params.mito_contig
@@ -140,56 +120,14 @@ workflow SKIMSEQ {
       .set{ ch_sample_bam }
 
     /*
-    Calculate coverages
-    TODO: Move to its own subworkflow
-    */
-    
-    // First divide the genome into bins for calculating coverage
-    BIN_GENOME (
-        ch_genome_indexed,
-        ch_include_bed,
-        params.coverage_bin_size
-    )
-    
-    ch_binned_bed = BIN_GENOME.out.binned_bed.first()
-    ch_annot_bins = BIN_GENOME.out.annotated_bins.first()
-
-    // Count reads in each group of binned intervals
-    COUNT_READS (
-          ch_sample_bam,
-          ch_binned_bed,
-          ch_genome_indexed
-    ) 
-
-    // collect counts.tsvs into a single element
-    COUNT_READS.out.counts
-        .collect()
-        .set { ch_bin_counts }
-        
-    // Run filter counts module
-    FILTER_BINS (
-          ch_bin_counts,
-          ch_binned_bed,
-          ch_annot_bins,
-          ch_genome_indexed
-    )   
-  
-
-    /*
-    Create mask file and summarise
+    Create genomic masks
     */
 
-    //Concatenate multiple masks together intp a list
-    CREATE_GENOME_MASKS.out.mask_bed
-      .concat(ch_mito_bed, FILTER_BINS.out.bin_masked)
-      .collect()
-      .set{ ch_mask_bed }
-    
-    // Summarise masks
-    SUMMARISE_MASKS (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_mask_bed
+    MASK_GENOME(
+      ch_genome_indexed
+      ch_include_bed
+      ch_exclude_bed
+      ch_sample_bam
     )
     
     /*
@@ -203,12 +141,12 @@ workflow SKIMSEQ {
     )
     
     /*
-    Call variants per sample, then combine and joint-genotype across genomic intervals
+    Call muclear variants per sample, then combine and joint-genotype across genomic intervals
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
     if ( params.mask_before_genotyping ){
-          ch_mask_bed_gatk = ch_mask_bed
+          ch_mask_bed_gatk = MASK_GENOME.out.mask_bed
         } else {
           ch_mask_bed_gatk = ch_mito_bed
     }
