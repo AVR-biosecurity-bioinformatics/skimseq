@@ -11,8 +11,10 @@ set -u
 # Just keep the important columns
 cat ${2} | cut -f1-3 | sed 's/\s*$/\tPASS/' > included_intervals.bed
 
+cat ${3} > all_intervals.bed
+
 # Add any included intervals that arent in the mask to the summary file
-bedtools subtract -a included_intervals.bed -b ${3} | cut -f1-4 >> all_intervals.bed
+bedtools subtract -a included_intervals.bed -b  all_intervals.bed | cut -f1-4 >> all_intervals.bed
 bedtools sort -i all_intervals.bed > all_intervals_sorted.bed
 
 # Add any remaining intervals of the genome that werent in the exclude or include masks to summary file

@@ -31,9 +31,10 @@ gatk --java-options "-Xmx${2}G" FilterIntervals \
 # Convert resulting interval list to bed format
 java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
     --INPUT gc_filtered.interval_list \
-  	--OUTPUT tmp.bed 
+  	--OUTPUT gc_passing.bed 
   	
-cat tmp.bed | cut -f1-3 | sed 's/\s*$/\tGCFilt/' > GC_filtered.bed
+# Get the ones that failed the GC filter
+bedtools subtract -a ${5} -b gc_passing.bed | cut -f1-3 | sed 's/\s*$/\tGCFilt/' > gc_failed.bed
 
 # Then apply coverage filters to bins
 gatk --java-options "-Xmx${2}G" FilterIntervals \
@@ -51,17 +52,18 @@ gatk --java-options "-Xmx${2}G" FilterIntervals \
 # Convert resulting interval list to bed format
 java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
     --INPUT cov_filtered.interval_list \
-  	--OUTPUT tmp.bed 
+  	--OUTPUT cov_passing.bed 
   	
-cat tmp.bed | cut -f1-3 | sed 's/\s*$/\tCovFilt/' > cov_filtered.bed
+# Get the ones that failed the coverage filter
+bedtools subtract -a ${5} -b cov_passing.bed | cut -f1-3 | sed 's/\s*$/\tCovFilt/' > cov_failed.bed
     
-# Combine the two filters
-cat GC_filtered.bed > tmp2.bed
-cat cov_filtered.bed >> tmp2.bed
-bedtools sort -i tmp2.bed > bin_filtered.bed
+# Output masks for those which failed both filters
+cat gc_failed.bed > failed.bed
+cat cov_failed.bed >> failed.bed
+bedtools sort -i failed.bed > bin_masked.bed
 
-# Get those that were filtered out
-bedtools subtract -a ${5} -b bin_filtered.bed | cut -f1-4 > bin_masked.bed
+# Output filter file for those which passed both filters
+bedtools subtract -a ${5} -b bin_masked.bed | cut -f1-4 > bin_filtered.bed
 
 # Filters to add in future:
 # --maximum-mappability
