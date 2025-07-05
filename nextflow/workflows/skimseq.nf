@@ -135,6 +135,9 @@ workflow SKIMSEQ {
         ch_reads,
         ch_genome_indexed
     )
+    
+    PROCESS_READS.out.bam
+    .set{ ch_sample_bam }
 
     /*
     Calculate coverages
@@ -149,28 +152,30 @@ workflow SKIMSEQ {
     )
     
     // create groups bins for parallel calulations
-    CREATE_BED_INTERVALS (
-        ch_genome_indexed,
-        BIN_GENOME.out.binned_bed,
-        ch_dummy_file,
-        params.interval_n,
-        params.interval_size,
-        false
-    )
+    // NOTE: this needs to be parralelised by sample NOT by interval
+    //CREATE_BED_INTERVALS (
+    //    ch_genome_indexed,
+    //    BIN_GENOME.out.binned_bed,
+    //    ch_dummy_file,
+    //    params.interval_n,
+    //    params.interval_size,
+    //    false
+    //)
     
     // create intervals channel, with one interval_list file per element
-    CREATE_BED_INTERVALS.out.interval_bed
-        .flatten()
-        // get hash from interval_list name as element to identify intervals
-        .map { interval_list ->
-            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
-            [ interval_hash, interval_list ] }
-        .set { ch_interval_bed }
+    //CREATE_BED_INTERVALS.out.interval_bed
+    //    .flatten()
+    //    // get hash from interval_list name as element to identify intervals
+    //    .map { interval_list ->
+    //        def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
+    //        [ interval_hash, interval_list ] }
+    //    .set { ch_interval_bed }
     
+        
     // Count reads in each group of binned intervals
     COUNT_READS (
-          PROCESS_READS.out.bam,
-          ch_interval_bed,
+          ch_sample_bam,
+          BIN_GENOME.out.binned_bed,
           ch_genome_indexed
     ) 
 
@@ -209,7 +214,7 @@ workflow SKIMSEQ {
     */
 
     MITO_GENOTYPING (
-        PROCESS_READS.out.bam,
+        ch_sample_bam,
         ch_mito_indexed,
         ch_mito_bed
     )
@@ -226,7 +231,7 @@ workflow SKIMSEQ {
     }
     
     GATK_GENOTYPING (
-        PROCESS_READS.out.bam,
+        ch_sample_bam,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk

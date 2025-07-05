@@ -7,7 +7,7 @@ process COUNT_READS {
 
     input:
     tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
-    tuple val(interval_hash), path(interval_bed)
+    path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
@@ -24,8 +24,8 @@ process COUNT_READS {
         ${task.memory.giga} \
         "${bam}" \
         ${ref_genome} \
-        ${interval_hash} \
-        ${interval_bed} 
+        ${interval_bed} \
+        ${sample}
         
     """
 }

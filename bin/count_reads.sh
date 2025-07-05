@@ -6,8 +6,8 @@ set -u
 # $2 = memory
 # $3 = bam file
 # $4 = ref genome
-# $5 = interval hash
-# $6 = interval_bed
+# $5 = interval_bed
+# $6 = sample
 
 # Create list of bams to be processed
 echo ${3} | tr ' ' '\n' > bam.list
@@ -16,7 +16,7 @@ echo ${3} | tr ' ' '\n' > bam.list
 gatk --java-options "-Xmx${2}G" CollectReadCounts \
     -R $4 \
     -I bam.list \
-    -L $6 \
+    -L $5 \
     --interval-merging-rule OVERLAPPING_ONLY \
     --format TSV \
-    -O ${5}.counts.tsv 
+    -O ${6}.counts.tsv 
