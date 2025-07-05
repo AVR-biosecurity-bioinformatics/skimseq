@@ -16,6 +16,7 @@ workflow MASK_GENOME {
     ch_genome_indexed
     ch_include_bed
     ch_exclude_bed
+    ch_mito_bed
     ch_sample_bam
 
     main: 
@@ -38,9 +39,9 @@ workflow MASK_GENOME {
     BIN_GENOME (
         ch_genome_indexed,
         ch_include_bed,
-        params.coverage_bin_size
+        params.bin_size
     )
-    
+
     ch_binned_bed = BIN_GENOME.out.binned_bed.first()
     ch_annot_bins = BIN_GENOME.out.annotated_bins.first()
 
@@ -61,9 +62,15 @@ workflow MASK_GENOME {
           ch_bin_counts,
           ch_binned_bed,
           ch_annot_bins,
-          ch_genome_indexed
+          ch_genome_indexed,
+          params.bin_gc_lower,
+          params.bin_gc_upper,
+          params.bin_min_reads,
+          params.bin_lower_read_perc,
+          params.bin_upper_read_perc,
+          parms.bin_filter_perc_samples
     )   
-  
+
 
     /*
     Create mask file and summarise
