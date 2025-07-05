@@ -22,6 +22,11 @@ while read mask; do
   cat $mask | cut -f1-4 >> merged_masks.bed
 done < <(echo ${9} | tr ' ' '\n')
 
+# Merge any overlapping masks
+bedtools sort -i merged_masks.bed > merged_masks_sorted.bed
+bedtools merge -i merged_masks_sorted.bed -c 4 -o distinct > merged_masks_distinct.bed
+
+
 # call variants per sample across all the bam chunks
 gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     -R $5 \
@@ -32,6 +37,6 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --min-base-quality-score 15 \
     --min-pruning 0 \
     --interval-padding ${8} \
-    --exclude-intervals merged_masks.bed \
+    --exclude-intervals merged_masks_distinct.bed \
     --interval-exclusion-padding ${10} \
     -ERC GVCF

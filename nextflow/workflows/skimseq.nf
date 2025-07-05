@@ -137,7 +137,7 @@ workflow SKIMSEQ {
     )
     
     PROCESS_READS.out.bam
-    .set{ ch_sample_bam }
+      .set{ ch_sample_bam }
 
     /*
     Calculate coverages
