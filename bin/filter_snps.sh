@@ -28,7 +28,10 @@ set -u
 # MQRankSum = MappingQualityRankSumTest (compares the mapping qualities of the reads supporting the reference allele and the alternate allele.)
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
-
+# Index mask bed for use in filtering
+gatk IndexFeatureFile \
+     -F ${$16}
+     
 # Subset to biallelic SNPS-only
 gatk SelectVariants \
 	--verbosity ERROR \

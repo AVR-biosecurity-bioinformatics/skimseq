@@ -146,7 +146,7 @@ workflow SKIMSEQ {
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
-    if ( params.mask_before_genotyping ){
+    if ( params.genotype_masked_bases ){
           ch_mask_bed_gatk = MASK_GENOME.out.mask_bed
         } else {
           ch_mask_bed_gatk = ch_mito_bed
@@ -164,7 +164,7 @@ workflow SKIMSEQ {
     */
 
     // If mask_before_filtering is set, use all masks, otherwise provide empty dummy file
-    if ( params.mask_before_filtering ){
+    if ( params.filter_masked_variants ){
           ch_mask_bed_vcf = MASK_GENOME.out.mask_bed
         } else {
           ch_mask_bed_vcf = ch_dummy_file

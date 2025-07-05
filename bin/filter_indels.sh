@@ -25,7 +25,10 @@ set -u
 # MQRankSum = MappingQualityRankSumTest (compares the mapping qualities of the reads supporting the reference allele and the alternate allele.)
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
-
+# Index mask bed for use in filtering
+gatk IndexFeatureFile \
+     -F ${13}
+ 
 # Subset to biallelic INDELS 
 #NOTE: MIXED events (INDEL + SNP) will be lost
 gatk SelectVariants \
