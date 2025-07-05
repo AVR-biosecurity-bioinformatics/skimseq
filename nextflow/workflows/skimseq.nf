@@ -123,13 +123,13 @@ workflow SKIMSEQ {
     Create genomic masks
     */
 
-    MASK_GENOME(
-      ch_genome_indexed,
-      ch_include_bed,
-      ch_exclude_bed,
-      ch_mito_bed,
-      ch_sample_bam
-    )
+      MASK_GENOME(
+        ch_genome_indexed,
+        ch_include_bed,
+        ch_exclude_bed,
+        ch_mito_bed,
+        ch_sample_bam
+      )
     
     /*
     Call mitochondrial variants and make consensus fasta

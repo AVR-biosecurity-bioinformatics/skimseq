@@ -27,7 +27,7 @@ set -u
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
-     -F ${13}
+     -I ${13}
  
 # Subset to biallelic INDELS 
 #NOTE: MIXED events (INDEL + SNP) will be lost

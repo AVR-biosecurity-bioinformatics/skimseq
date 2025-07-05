@@ -30,7 +30,7 @@ set -u
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
-     -F ${$16}
+     -I ${16}
      
 # Subset to biallelic SNPS-only
 gatk SelectVariants \
