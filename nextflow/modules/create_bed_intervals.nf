@@ -27,7 +27,7 @@ process CREATE_BED_INTERVALS {
         ${interval_n} \
         ${interval_size} \
         ${include_bed} \
-        ${exclude_bed} \
+        "${exclude_bed}" \
         ${interval_subdivide_balanced} \
         ${ref_fasta}
 

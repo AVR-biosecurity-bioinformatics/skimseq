@@ -22,7 +22,7 @@ gatk --java-options "-Xmx${2}G" FilterIntervals \
     --extreme-count-filter-maximum-percentile 99.0 \
     --extreme-count-filter-minimum-percentile 1.0 \
     --extreme-count-filter-percentage-of-samples 90.0 \
-    --low-count-filter-count-threshold 5 \
+    --low-count-filter-count-threshold 100 \
     --low-count-filter-percentage-of-samples 90.0 \
     --maximum-gc-content 0.9 \
     --minimum-gc-content 0.1 
@@ -34,8 +34,11 @@ gatk --java-options "-Xmx${2}G" FilterIntervals \
 # Convert resulting interval list to bed format
 java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
     --INPUT bin_filtered.interval_list \
-  	--OUTPUT bin_filtered.bed 
+  	--OUTPUT tmp.bed 
   	
-# TODO: need to get the inverse of these 
-  # Subset to just those inside the included intervals and add to masks bed
-  bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/SoftMaskRef/g' >> masks.bed
+cat tmp.bed | cut -f1-3 > bin_filtered.bed
+
+# Get those that were filtered out
+bedtools subtract -a ${5} -b bin_filtered.bed | cut -f1-4 | sed 's/\s*$/\tLowCoverage/' > bin_masked.bed
+
+# TODO need to do a seperate mask for GC content

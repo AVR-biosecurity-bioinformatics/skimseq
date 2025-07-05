@@ -151,34 +151,15 @@ workflow SKIMSEQ {
         params.coverage_bin_size
     )
     
-    // create groups bins for parallel calulations
-    // NOTE: this needs to be parralelised by sample NOT by interval
-    //CREATE_BED_INTERVALS (
-    //    ch_genome_indexed,
-    //    BIN_GENOME.out.binned_bed,
-    //    ch_dummy_file,
-    //    params.interval_n,
-    //    params.interval_size,
-    //    false
-    //)
-    
-    // create intervals channel, with one interval_list file per element
-    //CREATE_BED_INTERVALS.out.interval_bed
-    //    .flatten()
-    //    // get hash from interval_list name as element to identify intervals
-    //    .map { interval_list ->
-    //        def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
-    //        [ interval_hash, interval_list ] }
-    //    .set { ch_interval_bed }
-    
-        
+    ch_binned_bed = BIN_GENOME.out.binned_bed.first()
+    ch_annot_bins = BIN_GENOME.out.annotated_bins.first()
+
     // Count reads in each group of binned intervals
     COUNT_READS (
           ch_sample_bam,
-          BIN_GENOME.out.binned_bed,
+          ch_binned_bed,
           ch_genome_indexed
     ) 
-
 
     // collect counts.tsvs into a single element
     COUNT_READS.out.counts
@@ -188,8 +169,8 @@ workflow SKIMSEQ {
     // Run filter counts module
     FILTER_BINS (
           ch_bin_counts,
-          BIN_GENOME.out.binned_bed,
-          BIN_GENOME.out.annotated_bins,
+          ch_binned_bed,
+          ch_annot_bins,
           ch_genome_indexed
     )   
   
@@ -198,10 +179,12 @@ workflow SKIMSEQ {
     Create mask file and summarise
     */
 
-    //Does this need a collect call?
-    ch_mask_bed = CREATE_GENOME_MASKS.out.mask_bed
+    //Concatenate multiple masks together intp a list
+    CREATE_GENOME_MASKS.out.mask_bed
       .concat(ch_mito_bed, FILTER_BINS.out.bin_masked)
-      
+      .collect()
+      .set{ ch_mask_bed }
+    
     // Summarise masks
     SUMMARISE_MASKS (
         ch_genome_indexed,

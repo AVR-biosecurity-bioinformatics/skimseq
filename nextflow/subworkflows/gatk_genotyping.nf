@@ -27,7 +27,7 @@ workflow GATK_GENOTYPING {
         Genotype samples individually and jointly
     */
     
-    // If we are breaking intervals on masks, use the mask bed
+    // If intervals are being subdivided on the mask, use the mask bed
     if ( params.interval_subdivide_at_masks ){
           ch_breakpoints_bed = ch_mask_bed_gatk
         } else {

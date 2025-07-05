@@ -21,8 +21,14 @@ interval_size=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 # included_intervals is just reference genome bed if specific intervals were not provided
 cat ${4} > included_intervals.bed
 
+# Merge any exclusion masks
+touch merged_masks.bed
+while read mask; do
+  cat $mask | cut -f1-4 >> merged_masks.bed
+done < <(echo ${5} | tr ' ' '\n')
+
 # Apply any masks
-bedtools subtract -a ${4} -b ${5} > intervals_filtered.bed
+bedtools subtract -a ${4} -b merged_masks.bed > intervals_filtered.bed
 
 # Calculate number of groups
 if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
