@@ -14,7 +14,7 @@ process CREATE_GENOME_MASKS {
     val(use_reference_softmasks)
 
     output: 
-    path("masks.bed"),                    emit: mask_bed
+    path("genome_masks.bed"),                    emit: mask_bed
 
     script:
     def process_script = "${process_name}.sh"

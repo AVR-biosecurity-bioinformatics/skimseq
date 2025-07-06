@@ -15,13 +15,14 @@ set -u
 cat ${2} | cut -f1-3 > included_intervals.bed
 
 # Create mask bed file
-touch masks.bed
+touch genome_masks.bed
 
 # Add any excluded intervals to hard masked bed if file is not empty
 if [ -s ${3} ] ; then  
   # Keep just the important columns
-  cat ${3} | cut -f1-3 | sed 's/\s*$/\tExcluded/' >> masks.bed
-  
+  cat ${3} \
+    | cut -f1-3 \
+    | sed 's/\s*$/\tExcluded/' >> genome_masks.bed
 fi
 
 # Find any N bases in reference genome
@@ -38,18 +39,19 @@ java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
 
 # If use_reference_hardmasks is true, add N base coordinates to the mask file
 if [ ${5} == "true" ] ; then
-  # Subtract any intervals that are already in masked bed
-  bedtools subtract -a N_bases.bed -b masks.bed > tmp.bed
-
   # Subset to just those inside the included intervals and add to masks bed
-  bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/NRef/g' >> masks.bed
+  bedtools subtract -a N_bases.bed -b genome_masks.bed \
+    | bedtools intersect -wa -a stdin -b included_intervals.bed \
+    | cut -f1-4 \
+    | sed 's/Nmer/NRef/g' >> genome_masks.bed
 fi
 
 # If exclude_reference_genome_softmasks is true, add any lowercase reference genome bases to soft mask bed
 if [ ${6} == "true" ] ; then
   
   # Create temporary reference genome where soft-masked regions are converted to N
-  cat ${7} | sed '/^[^>]/s/[^ATGC]/N/g' > tmp.fa
+  cat ${7} \
+    | sed '/^[^>]/s/[^ATGC]/N/g' > tmp.fa
   
   # Index temporary reference genome and create GATK dictionary
   samtools faidx tmp.fa
@@ -70,13 +72,10 @@ if [ ${6} == "true" ] ; then
   # Remove temporary fasta
   rm -f tmp.fa*
   	
-  # Subtract any intervals that were originally N bases to just get masks bases
-  bedtools subtract -a all_masked_bases.bed -b N_bases.bed > soft_masked_bases_only.bed
-  
-  # Subtract any intervals that are already contained in masks bed to avoid duplicates
-  bedtools subtract -a soft_masked_bases_only.bed -b masks.bed > tmp.bed
-  
-  # Subset to just those inside the included intervals and add to masks bed
-  bedtools intersect -wa -a tmp.bed -b included_intervals.bed | cut -f1-4 | sed 's/Nmer/SoftMaskRef/g' >> masks.bed
-
+  # Subtract any intervals that were originally N bases or already contained in masks bed
+  bedtools subtract -a all_masked_bases.bed -b N_bases.bed \
+    | bedtools subtract -a stdin -b genome_masks.bed \
+    | bedtools intersect -wa -a stdin -b included_intervals.bed \
+    | cut -f1-4 \
+    | sed 's/Nmer/SoftMaskRef/g' >> genome_masks.bed
 fi

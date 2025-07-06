@@ -12,5 +12,7 @@ while read mask; do
 done < <(echo ${2} | tr ' ' '\n')
 
 # Merge any overlapping intervals
-bedtools sort -i concat_mask.bed > concat_mask_sorted.bed
-bedtools merge -i concat_mask_sorted.bed -c 4 -o distinct > merged_masks.bed
+bedtools sort -i concat_mask.bed \
+  | bedtools merge -i stdin -c 4 -o distinct \
+  | uniq \
+  | bedtools sort -i > merged_masks.bed

@@ -25,12 +25,10 @@ while read mask; do
   cat $mask | cut -f1-4 >> merged_masks.bed
 done < <(echo ${5} | tr ' ' '\n')
   
-# Merge any overlapping masks
-bedtools sort -i merged_masks.bed > merged_masks_sorted.bed
-bedtools merge -i merged_masks_sorted.bed -c 4 -o distinct > merged_masks_distinct.bed
-  
-# Apply any masks
-bedtools subtract -a ${4} -b merged_masks_distinct.bed > included_intervals.bed
+# Merge any overlapping masks and apply
+bedtools sort -i merged_masks.bed \
+  | bedtools merge -i stdin -c 4 -o distinct \
+  | bedtools subtract -a ${4} -b stdin > included_intervals.bed
 
 # Calculate number of groups
 if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then

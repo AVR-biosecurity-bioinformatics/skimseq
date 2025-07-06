@@ -34,7 +34,9 @@ java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
   	--OUTPUT gc_passing.bed 
   	
 # Get the ones that failed the GC filter
-bedtools subtract -a ${5} -b gc_passing.bed | cut -f1-3 | sed 's/\s*$/\tGCFilt/' > gc_failed.bed
+bedtools subtract -a ${5} -b gc_passing.bed \
+  | cut -f1-3 \
+  | sed 's/\s*$/\tGCFilt/' > gc_failed.bed
 
 # Then apply coverage filters to bins
 gatk --java-options "-Xmx${2}G" FilterIntervals \
@@ -55,7 +57,9 @@ java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
   	--OUTPUT cov_passing.bed 
   	
 # Get the ones that failed the coverage filter
-bedtools subtract -a ${5} -b cov_passing.bed | cut -f1-3 | sed 's/\s*$/\tCovFilt/' > cov_failed.bed
+bedtools subtract -a ${5} -b cov_passing.bed \
+  | cut -f1-3 \
+  | sed 's/\s*$/\tCovFilt/' > cov_failed.bed
     
 # Output masks for those which failed both filters
 cat gc_failed.bed > failed.bed
