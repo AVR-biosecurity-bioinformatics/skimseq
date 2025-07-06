@@ -25,9 +25,13 @@ set -u
 # MQRankSum = MappingQualityRankSumTest (compares the mapping qualities of the reads supporting the reference allele and the alternate allele.)
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
+# Make sure mask file is sorted and unique
+# TODO: Work out why the input mask is duplicated in the first place
+bedtools sort -i ${13} | uniq > vcf_masks.bed
+
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
-     -I ${13}
+     -I vcf_masks.bed
  
 # Subset to biallelic INDELS 
 #NOTE: MIXED events (INDEL + SNP) will be lost
@@ -62,7 +66,7 @@ if [[ ${11} == "none" ]]; then
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
-		--mask ${13} --mask-name Mask \
+		--mask vcf_masks.bed --mask-name Mask \
 		-O indels_tmp.vcf.gz
 else
 	# use custom filters
@@ -70,7 +74,7 @@ else
 		--verbosity ERROR \
 		-V indels.vcf.gz \
 		${11} \
-		--mask ${13} --mask-name Mask \
+		--mask vcf_masks.bed --mask-name Mask \
 		-O indels_tmp.vcf.gz
 fi
 
