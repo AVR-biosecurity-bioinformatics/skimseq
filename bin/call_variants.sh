@@ -8,7 +8,10 @@ set -u
 # $4 = bam file
 # $5 = ref genome
 # $6 = interval hash
-# $7 = interval_list
+# $7 = interval_bed
+# $8 = interval_padding
+# $9 = exclude_bed
+# $10 = exclude_padding
 
 # Create list of bams to be processed
 echo ${4} | tr ' ' '\n' > bam.list
@@ -22,4 +25,8 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --native-pair-hmm-threads ${1} \
     --min-base-quality-score 15 \
     --min-pruning 0 \
+    --interval-padding ${8} \
+    --exclude-intervals ${9} \
+    --interval-exclusion-padding ${10} \
+    --interval-merging-rule ALL \
     -ERC GVCF

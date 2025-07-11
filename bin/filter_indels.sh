@@ -14,6 +14,7 @@ set -u
 # $10 = indel_dp_max
 # $11 = indel_custom_flags
 # $12 = max_missing
+# $13 = mask_bed
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -24,7 +25,14 @@ set -u
 # MQRankSum = MappingQualityRankSumTest (compares the mapping qualities of the reads supporting the reference allele and the alternate allele.)
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
+# Make sure mask file is sorted and unique
+# TODO: Work out why the input mask is duplicated in the first place
+bedtools sort -i ${13} | uniq > vcf_masks.bed
 
+# Index mask bed for use in filtering
+gatk IndexFeatureFile \
+     -I vcf_masks.bed
+ 
 # Subset to biallelic INDELS 
 #NOTE: MIXED events (INDEL + SNP) will be lost
 gatk SelectVariants \
@@ -58,6 +66,7 @@ if [[ ${11} == "none" ]]; then
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
+		--mask vcf_masks.bed --mask-name Mask \
 		-O indels_tmp.vcf.gz
 else
 	# use custom filters
@@ -65,6 +74,7 @@ else
 		--verbosity ERROR \
 		-V indels.vcf.gz \
 		${11} \
+		--mask vcf_masks.bed --mask-name Mask \
 		-O indels_tmp.vcf.gz
 fi
 
