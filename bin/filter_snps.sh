@@ -17,6 +17,7 @@ set -u
 # $13 = snp_dp_max
 # $14 = snp_custom_flags
 # $15 = max_missing
+# $16 = mask_bed
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -27,7 +28,14 @@ set -u
 # MQRankSum = MappingQualityRankSumTest (compares the mapping qualities of the reads supporting the reference allele and the alternate allele.)
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
+# Make sure mask file is sorted and unique
+# TODO: Work out why the input mask is duplicated in the first place
+bedtools sort -i ${13} | uniq > vcf_masks.bed
 
+# Index mask bed for use in filtering
+gatk IndexFeatureFile \
+     -I vcf_masks.bed
+     
 # Subset to biallelic SNPS-only
 gatk SelectVariants \
 	--verbosity ERROR \
@@ -63,6 +71,7 @@ if [[ ${14} == "none" ]]; then
 		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \
+		--mask vcf_masks.bed --mask-name Mask \
 		-O snps_tmp.vcf.gz
 else
 	# use custom filters
@@ -70,6 +79,7 @@ else
 		--verbosity ERROR \
 		-V snps.vcf.gz \
 		${14} \
+		--mask vcf_masks.bed --mask-name Mask \
 		-O snps_tmp.vcf.gz
 fi
 
