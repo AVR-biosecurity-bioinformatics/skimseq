@@ -60,6 +60,18 @@ workflow SKIMSEQ {
     //    ch_mito = Channel.empty()
     //} 
     
+    /*
+    Process nuclear genome
+    */
+
+    INDEX_GENOME (
+        ch_genome
+    )
+
+    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
+    ch_genome_bed = INDEX_GENOME.out.genome_bed.first()
+
+
     // Handle optional include_bed
     if ( params.include_bed ){
         ch_include_bed = Channel
@@ -83,17 +95,6 @@ workflow SKIMSEQ {
         ch_exclude_bed = ch_dummy_file
     }
     
-
-    /*
-    Process nuclear genome
-    */
-
-    INDEX_GENOME (
-        ch_genome
-    )
-
-    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
-    ch_genome_bed = INDEX_GENOME.out.genome_bed.first()
 
     /*
     Process mitochondrial genome and create intervals
