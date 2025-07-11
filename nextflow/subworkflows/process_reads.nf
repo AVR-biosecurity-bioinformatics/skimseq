@@ -4,6 +4,7 @@
 
 //// import modules
 include { BAM_STATS                             } from '../modules/bam_stats'
+include { DOWNSAMPLE_READS                      } from '../modules/downsample_reads'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { FASTP                                 } from '../modules/fastp'
 include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
@@ -48,26 +49,58 @@ workflow PROCESS_READS {
     .collect( sort: false )
     .set { ch_bam_filters }
 
+    /*
+        Downsampling and replication of input reads
+    */
+
+    Channel.of(params.downsample_reads)
+        .map { val -> val.tokenize(',') }
+        .flatten()
+        .set { ch_downsample_reads }
+
+    if ( !params.downsample_reps.toString().isInteger() ){
+        error ("*** PARAMETER ERROR: '--downsample_reps' must be an integer ***")
+    }
+
+    Channel.of(1..params.downsample_reps)
+        .set { ch_downsample_reps }
+
+    ch_reads
+        .combine(ch_downsample_reads)
+        .combine(ch_downsample_reps)
+        .set { ch_downsample_input }
+
+    if ( ch_downsample_reps ){
+        DOWNSAMPLE_READS (
+            ch_downsample_input,
+            ch_genome_indexed
+        )
+
+        ch_reads_ds = DOWNSAMPLE_READS.out.reads
+
+    } else {
+        ch_reads_ds = ch_reads
+    }
+
     /* 
         Read QC
     */
 
     FASTQC_PRETRIM (
-        ch_reads,
+        ch_reads_ds,
         "pretrim"
     )
 
     // split paired fastq into chunks using seqtk
     SPLIT_FASTQ (
-        ch_reads,
+        ch_reads_ds,
         params.fastq_chunk_size
     )
 
-SPLIT_FASTQ.out.fastq_interval
-    .splitCsv ( by: 1, elem: 3, sep: "," )
-	.map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
-	.set { ch_fastq_split }
-
+    SPLIT_FASTQ.out.fastq_interval
+        .splitCsv ( by: 1, elem: 3, sep: "," )
+        .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
+        .set { ch_fastq_split }
 
     /* 
         Read alignments
