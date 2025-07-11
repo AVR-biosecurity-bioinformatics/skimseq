@@ -16,6 +16,9 @@ N_READS=$( seqtk size $3 | cut -f1 )
 
 #echo $N_READS
 
+# Create a file to store intervals
+INTERVALS_FILE="intervals_${2}.csv"
+touch $INTERVALS_FILE  # Create an empty file for intervals
 
 # if N_READS is less than CHUNK_SIZE, don't split file
 if [[ $N_READS -gt $CHUNK_SIZE ]]; then
@@ -34,10 +37,6 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     # Calculate the remainder (number of reads left to distribute)
     REMAINING_READS=$((N_READS % N_CHUNKS))
 
-    # Create a file to store intervals
-    INTERVALS_FILE="intervals_${2}.csv"
-    touch $INTERVALS_FILE  # Create an empty file for intervals
-
     # Return intervals of reads
     # Loop through each chunk and assign intervals
     for (( i=1; i<=N_CHUNKS; i++ )); do
@@ -54,6 +53,6 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     done
 else
     # If only one chunk (all reads), print a single line to the file
-    echo "1,${N_READS}" > $INTERVALS_FILE
+    echo "1,${N_READS}" >> $INTERVALS_FILE
 fi
 
