@@ -9,7 +9,10 @@ set -u
 # $5 = interval_list
 
 # Mem for genomicsdb must be a few GB less than assigned mem
-genomicsdb_mem="$((${2}-2))"
+genomicsdb_mem=$(( ${2} - 2 ))        # leave 2 GB head-room
+if (( genomicsdb_mem < 1 )); then    # clamp to ≥1 GB
+    genomicsdb_mem=1
+fi
 
 ## NOTE: .g.vcf files and their .tbi indexes are staged 
 

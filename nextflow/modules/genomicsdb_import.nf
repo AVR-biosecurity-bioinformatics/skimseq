@@ -10,7 +10,7 @@ process GENOMICSDB_IMPORT {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(interval_hash), path(interval_list), path("*.combined.g.vcf.gz"), path("*.combined.g.vcf.gz.tbi"),      emit: gvcf_intervals
+    tuple val(interval_hash), path(interval_list), path("$interval_hash"),      emit: genomicsdb
     
     script:
     def process_script = "${process_name}.sh"
