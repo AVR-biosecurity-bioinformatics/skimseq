@@ -79,10 +79,10 @@ workflow GATK_GENOTYPING {
         .set { ch_gvcf_interval }
 
     // combine GVCFs into one file per interval
-    COMBINE_GVCFS (
-        ch_gvcf_interval,
-        ch_genome_indexed
-    )
+    //COMBINE_GVCFS (
+    //    ch_gvcf_interval,
+    //    ch_genome_indexed
+    //)
 
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (
@@ -95,9 +95,11 @@ workflow GATK_GENOTYPING {
     //    COMBINE_GVCFS.out.gvcf_intervals
     //)
 
+    // TODO: Add POPULATION_CALLSET process here
+
     // call genotypes at variant sites
     JOINT_GENOTYPE (
-        GENOMICSDB_IMPORT.out.genomisdb,
+        GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed
     )
 
