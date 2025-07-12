@@ -97,10 +97,10 @@ workflow GATK_GENOTYPING {
     //)
 
     // Extract population callset from genomicsdb
-    POPULATION_CALLSET (
-        GENOMICSDB_IMPORT.out.genomicsdb,
-        ch_genome_indexed
-    )
+    //POPULATION_CALLSET (
+    //    GENOMICSDB_IMPORT.out.genomicsdb,
+    //    ch_genome_indexed
+    //)
 
     // call genotypes at variant sites
     JOINT_GENOTYPE (
