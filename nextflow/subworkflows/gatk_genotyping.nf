@@ -10,6 +10,8 @@ include { GENOTYPE_POSTERIORS                                    } from '../modu
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { CREATE_BED_INTERVALS                                   } from '../modules/create_bed_intervals'
+include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
+include { POPULATION_CALLSET                                     } from '../modules/population_callset' 
 
 
 
@@ -44,17 +46,17 @@ workflow GATK_GENOTYPING {
         params.interval_subdivide_balanced
     )
 
-    // create intervals channel, with one interval_list file per element
+    // create intervals channel, with one interval_bed file per element
     CREATE_BED_INTERVALS.out.interval_bed
         .flatten()
-        // get hash from interval_list name as element to identify intervals
-        .map { interval_list ->
-            def interval_hash = interval_list.getFileName().toString().split("\\.")[0]
-            [ interval_hash, interval_list ] }
+        // get hash from interval_bed name as element to identify intervals
+        .map { interval_bed ->
+            def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
+            [ interval_hash, interval_bed ] }
         .set { ch_interval_bed }
         
 
-    // combine sample-level bams with each interval_list file and interval hash
+    // combine sample-level bams with each interval_bed file and interval hash
     ch_sample_bam
         .combine ( ch_interval_bed )
         .set { ch_sample_intervals }
@@ -70,27 +72,39 @@ workflow GATK_GENOTYPING {
 
     // group GVCFs by interval 
     CALL_VARIANTS.out.gvcf_intervals
-        .map { sample, gvcf, tbi, interval_hash, interval_list -> [ interval_hash, gvcf, tbi ] }
+        .map { sample, gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed, by: 0 )
-        .map { interval_hash, gvcf, tbi, interval_list -> [ interval_hash, interval_list, gvcf, tbi ] }
+        .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
     // combine GVCFs into one file per interval
-    COMBINE_GVCFS (
+    //COMBINE_GVCFS (
+    //    ch_gvcf_interval,
+    //    ch_genome_indexed
+    //)
+
+    // Import GVCFs into a genomicsDB per Interval
+    GENOMICSDB_IMPORT (
         ch_gvcf_interval,
         ch_genome_indexed
     )
 
     // calculate genotype posteriors over each genomic interval
-    GENOTYPE_POSTERIORS (
-        COMBINE_GVCFS.out.gvcf_intervals
-    )
+    //GENOTYPE_POSTERIORS (
+    //    COMBINE_GVCFS.out.gvcf_intervals
+    //)
+
+    // Extract population callset from genomicsdb
+    //POPULATION_CALLSET (
+    //    GENOMICSDB_IMPORT.out.genomicsdb,
+    //    ch_genome_indexed
+    //)
 
     // call genotypes at variant sites
     JOINT_GENOTYPE (
-        GENOTYPE_POSTERIORS.out.gvcf_intervals,
+        GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed
     )
 
@@ -105,9 +119,9 @@ workflow GATK_GENOTYPING {
     )
 
     // get just posterior .g.vcfs from channel
-    GENOTYPE_POSTERIORS.out.gvcf_intervals
-        .map { interval_hash, interval_list, gvcf, gvcf_tbi -> [ gvcf, gvcf_tbi ] }
-        .set { ch_posteriors }
+    //GENOTYPE_POSTERIORS.out.gvcf_intervals
+    //    .map { interval_hash, interval_list, gvcf, gvcf_tbi -> [ gvcf, gvcf_tbi ] }
+    //    .set { ch_posteriors }
 
     // create beagle file from .g.vcf files with posteriors
     /// NOTE: Could move this to an ANGSD-specific workflow
@@ -120,7 +134,7 @@ workflow GATK_GENOTYPING {
 
     emit: 
     vcf = MERGE_VCFS.out.vcf
-    posteriors = ch_posteriors
+    //posteriors = ch_posteriors
 
 
 }
