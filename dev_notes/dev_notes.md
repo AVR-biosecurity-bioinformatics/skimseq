@@ -84,7 +84,8 @@ rev=$(echo "$fwd" | sed 's/_R1/_R2/g' )
 sample_id=$(echo "$fwd" | sed 's/_subset.*$//g' | sed 's/^.*\///g')
 
 # format sample,fastq_1,fastq_2,
-paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") > test_data/qfly/test_samplesheet.csv
+paste -d ',' <(echo "sample_id") <(echo "fwd") <(echo "rev") > test_data/qfly/test_samplesheet.csv
+paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") >> test_data/qfly/test_samplesheet.csv
 ```
 
 ### Run test datasets

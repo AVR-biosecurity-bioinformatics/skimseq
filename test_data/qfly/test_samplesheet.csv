@@ -1,3 +1,4 @@
+sample_id,fwd,rev
 EM3,test_data/qfly/EM3_subset_R1.fastq.gz,test_data/qfly/EM3_subset_R2.fastq.gz
 EM6,test_data/qfly/EM6_subset_R1.fastq.gz,test_data/qfly/EM6_subset_R2.fastq.gz
 F2xM12-F1,test_data/qfly/F2xM12-F1_subset_R1.fastq.gz,test_data/qfly/F2xM12-F1_subset_R2.fastq.gz
