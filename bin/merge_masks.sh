@@ -13,6 +13,4 @@ done < <(echo ${2} | tr ' ' '\n')
 
 # Merge any overlapping intervals
 bedtools sort -i concat_mask.bed \
-  | bedtools merge -i stdin -c 4 -o distinct \
-  | uniq \
-  | bedtools sort -i > merged_masks.bed
+  | bedtools merge -i stdin -c 4 -o distinct > merged_masks.bed
