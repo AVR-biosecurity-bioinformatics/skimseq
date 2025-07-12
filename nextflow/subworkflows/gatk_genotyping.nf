@@ -91,13 +91,13 @@ workflow GATK_GENOTYPING {
     )
 
     // calculate genotype posteriors over each genomic interval
-    GENOTYPE_POSTERIORS (
-        COMBINE_GVCFS.out.gvcf_intervals
-    )
+    //GENOTYPE_POSTERIORS (
+    //    COMBINE_GVCFS.out.gvcf_intervals
+    //)
 
     // call genotypes at variant sites
     JOINT_GENOTYPE (
-        GENOTYPE_POSTERIORS.out.gvcf_intervals,
+        GENOMICSDB_IMPORT.out.genomisdb,
         ch_genome_indexed
     )
 
@@ -112,9 +112,9 @@ workflow GATK_GENOTYPING {
     )
 
     // get just posterior .g.vcfs from channel
-    GENOTYPE_POSTERIORS.out.gvcf_intervals
-        .map { interval_hash, interval_list, gvcf, gvcf_tbi -> [ gvcf, gvcf_tbi ] }
-        .set { ch_posteriors }
+    //GENOTYPE_POSTERIORS.out.gvcf_intervals
+    //    .map { interval_hash, interval_list, gvcf, gvcf_tbi -> [ gvcf, gvcf_tbi ] }
+    //    .set { ch_posteriors }
 
     // create beagle file from .g.vcf files with posteriors
     /// NOTE: Could move this to an ANGSD-specific workflow
@@ -127,7 +127,7 @@ workflow GATK_GENOTYPING {
 
     emit: 
     vcf = MERGE_VCFS.out.vcf
-    posteriors = ch_posteriors
+    //posteriors = ch_posteriors
 
 
 }
