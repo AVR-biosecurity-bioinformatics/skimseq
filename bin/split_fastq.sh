@@ -14,8 +14,9 @@ CHUNK_SIZE=$(awk -v x="${5}" 'BEGIN {printf("%d\n",x)}')
 # calculate number of splits based on chunk size
 N_READS=$( seqtk size $3 | cut -f1 )
 
-#echo $N_READS
-
+# Create a file to store intervals
+INTERVALS_FILE="intervals_${2}.csv"
+touch $INTERVALS_FILE  # Create an empty file for intervals
 
 # if N_READS is less than CHUNK_SIZE, don't split file
 if [[ $N_READS -gt $CHUNK_SIZE ]]; then
@@ -33,10 +34,6 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     
     # Calculate the remainder (number of reads left to distribute)
     REMAINING_READS=$((N_READS % N_CHUNKS))
-
-    # Create a file to store intervals
-    INTERVALS_FILE="intervals_${2}.csv"
-    touch $INTERVALS_FILE  # Create an empty file for intervals
 
     # Return intervals of reads
     # Loop through each chunk and assign intervals
