@@ -11,6 +11,7 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { CREATE_BED_INTERVALS                                   } from '../modules/create_bed_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
+include { POPULATION_CALLSET                                     } from '../modules/population_callset' 
 
 
 
@@ -95,7 +96,11 @@ workflow GATK_GENOTYPING {
     //    COMBINE_GVCFS.out.gvcf_intervals
     //)
 
-    // TODO: Add POPULATION_CALLSET process here
+    // Extract population callset from genomicsdb
+    POPULATION_CALLSET (
+        GENOMICSDB_IMPORT.out.genomicsdb,
+        ch_genome_indexed
+    )
 
     // call genotypes at variant sites
     JOINT_GENOTYPE (
