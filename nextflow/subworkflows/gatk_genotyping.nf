@@ -4,15 +4,10 @@
 
 //// import modules
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
-include { COMBINE_GVCFS                                          } from '../modules/combine_gvcfs' 
-include { CREATE_BEAGLE                                          } from '../modules/create_beagle' 
-include { GENOTYPE_POSTERIORS                                    } from '../modules/genotype_posteriors' 
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { CREATE_BED_INTERVALS                                   } from '../modules/create_bed_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
-include { POPULATION_CALLSET                                     } from '../modules/population_callset' 
-
 
 
 workflow GATK_GENOTYPING {
@@ -79,28 +74,11 @@ workflow GATK_GENOTYPING {
         .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
-    // combine GVCFs into one file per interval
-    //COMBINE_GVCFS (
-    //    ch_gvcf_interval,
-    //    ch_genome_indexed
-    //)
-
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (
         ch_gvcf_interval,
         ch_genome_indexed
     )
-
-    // calculate genotype posteriors over each genomic interval
-    //GENOTYPE_POSTERIORS (
-    //    COMBINE_GVCFS.out.gvcf_intervals
-    //)
-
-    // Extract population callset from genomicsdb
-    //POPULATION_CALLSET (
-    //    GENOMICSDB_IMPORT.out.genomicsdb,
-    //    ch_genome_indexed
-    //)
 
     // call genotypes at variant sites
     JOINT_GENOTYPE (
@@ -118,20 +96,6 @@ workflow GATK_GENOTYPING {
     MERGE_VCFS (
         ch_vcfs
     )
-
-    // get just posterior .g.vcfs from channel
-    //GENOTYPE_POSTERIORS.out.gvcf_intervals
-    //    .map { interval_hash, interval_list, gvcf, gvcf_tbi -> [ gvcf, gvcf_tbi ] }
-    //    .set { ch_posteriors }
-
-    // create beagle file from .g.vcf files with posteriors
-    /// NOTE: Could move this to an ANGSD-specific workflow
-    
-    //Disabled for now - will be handled by supplementary scripts that need a beagle file
-    //CREATE_BEAGLE (
-    //    ch_posteriors,
-    //    ch_genome_indexed
-    //)
 
     emit: 
     vcf = MERGE_VCFS.out.vcf
