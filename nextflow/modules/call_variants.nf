@@ -11,6 +11,10 @@ process CALL_VARIANTS {
     val(interval_padding)
     path(exclude_bed)
     val(exclude_padding)
+    val(hc_min_pruning)
+    val(hc_min_dangling_length)
+    val(hc_max_reads_startpos)
+    val(ploidy)
 
     output: 
     tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_bed),     emit: gvcf_intervals
@@ -31,7 +35,11 @@ process CALL_VARIANTS {
         ${interval_bed} \
         ${interval_padding} \
         "${exclude_bed}" \
-        ${exclude_padding}
+        ${exclude_padding} \
+        ${hc_min_pruning} \
+        ${hc_min_dangling_length} \
+        ${hc_max_reads_startpos} \
+        ${ploidy}
         
     """
 }

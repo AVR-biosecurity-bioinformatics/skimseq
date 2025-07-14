@@ -5,6 +5,7 @@
 //// import modules
 include { FILTER_INDELS                                                 } from '../modules/filter_indels'
 include { FILTER_SNPS                                                 } from '../modules/filter_snps'
+include { FILTER_INVARIANT                                                 } from '../modules/filter_invariant'
 include { MERGE_FILTERED                                                 } from '../modules/merge_filtered'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
 
@@ -68,10 +69,28 @@ workflow FILTER_VARIANTS {
         ch_mask_bed_vcf
     )
 
+    // collect invariant filtering parameters into a single list
+    Channel.of (     
+        params.inv_dp_min,      
+        params.inv_dp_max,      
+        params.inv_custom_flags,
+    )
+    .collect ( sort: false )
+    .set { ch_inv_filters }
+
+    // filter indels
+    FILTER_INVARIANT (
+        ch_vcf,
+        ch_inv_filters,
+        params.max_missing,
+        ch_mask_bed_vcf
+    )
+
     // merge filtered SNPs and indels together into one file
     MERGE_FILTERED (
         FILTER_SNPS.out.vcf,
-        FILTER_INDELS.out.vcf
+        FILTER_INDELS.out.vcf,
+        FILTER_INVARIANT.out.vcf
     )
 
     // Calculate VCF statistics
