@@ -105,7 +105,8 @@ workflow GATK_GENOTYPING {
     // call genotypes at variant sites
     JOINT_GENOTYPE (
         GENOMICSDB_IMPORT.out.genomicsdb,
-        ch_genome_indexed
+        ch_genome_indexed,
+        params.output_invariant
     )
 
     // collect .vcfs into a single element

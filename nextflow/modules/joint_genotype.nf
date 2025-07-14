@@ -7,6 +7,7 @@ process JOINT_GENOTYPE {
     input:
     tuple val(interval_hash), path(interval_list), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
+    val(output_invariant)
 
     output: 
     tuple path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
@@ -23,7 +24,8 @@ process JOINT_GENOTYPE {
         ${genomicsdb} \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_list}
+        ${interval_list} \
+        ${output_invariant}
 
     """
 }

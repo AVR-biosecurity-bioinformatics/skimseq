@@ -68,10 +68,28 @@ workflow FILTER_VARIANTS {
         ch_mask_bed_vcf
     )
 
+    // collect invariant filtering parameters into a single list
+    Channel.of (     
+        params.inv_dp_min,      
+        params.inv_dp_max,      
+        params.inv_custom_flags,
+    )
+    .collect ( sort: false )
+    .set { ch_inv_filters }
+
+    // filter indels
+    FILTER_INVARIANT (
+        ch_vcf,
+        ch_inv_filters,
+        params.max_missing,
+        ch_mask_bed_vcf
+    )
+
     // merge filtered SNPs and indels together into one file
     MERGE_FILTERED (
         FILTER_SNPS.out.vcf,
-        FILTER_INDELS.out.vcf
+        FILTER_INDELS.out.vcf,
+        FILTER_INVARIANT.out.vcf
     )
 
     // Calculate VCF statistics
