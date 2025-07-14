@@ -8,6 +8,7 @@ process MERGE_FILTERED {
     input:
     tuple path(snp_vcf), path(snp_vcf_tbi)
     tuple path(indel_vcf), path(indel_vcf_tbi)
+    tuple path(invariant_vcf), path(invariant_vcf_tbi)
 
     output: 
     tuple path("combined_filtered.vcf.gz"), path("combined_filtered.vcf.gz.tbi"),   emit: vcf
@@ -21,7 +22,8 @@ process MERGE_FILTERED {
     bash ${process_script} \
         ${task.cpus} \
         ${snp_vcf} \
-        ${indel_vcf}
+        ${indel_vcf} \
+        ${invariant_vcf}
 
     """
 }

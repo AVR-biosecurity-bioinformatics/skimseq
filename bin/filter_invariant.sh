@@ -35,7 +35,7 @@ gatk VariantsToTable \
 pigz -p${1} inv.table
 
 # Hard-filter invariant
-if [[ ${14} == "none" ]]; then
+if [[ ${5} == "none" ]]; then
 	# use individual parameters
 	gatk VariantFiltration \
 		--verbosity ERROR \

@@ -5,6 +5,7 @@
 //// import modules
 include { FILTER_INDELS                                                 } from '../modules/filter_indels'
 include { FILTER_SNPS                                                 } from '../modules/filter_snps'
+include { FILTER_INVARIANT                                                 } from '../modules/filter_invariant'
 include { MERGE_FILTERED                                                 } from '../modules/merge_filtered'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
 

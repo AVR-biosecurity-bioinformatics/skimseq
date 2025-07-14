@@ -11,7 +11,7 @@ set -u
 # $7 = output_invariant
 
 # Whether all sites should be exported or not 
-if [[ ${171} == "true" ]];   then FORCE_OUTPUT_INTERVALS="--force-output-intervals ${6}";        else FORCE_OUTPUT_INTERVALS=""; fi
+if [[ ${7} == "true" ]];   then FORCE_OUTPUT_INTERVALS="--force-output-intervals ${6}";        else FORCE_OUTPUT_INTERVALS=""; fi
 
 
 # joint genotype variant sites only
