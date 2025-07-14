@@ -62,7 +62,11 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed,
         params.interval_padding,
         ch_mask_bed_gatk, 
-        params.exclude_padding
+        params.exclude_padding,
+        params.hc_min_pruning,
+        params.hc_min_dangling_length,
+        params.hc_max_reads_startpos,
+        params.ploidy
     )
 
     // group GVCFs by interval 

@@ -12,6 +12,10 @@ set -u
 # $8 = interval_padding
 # $9 = exclude_bed
 # $10 = exclude_padding
+# $11 = hc_min_pruning
+# $12 = hc_min_dangling_length
+# $13 = hc_max_reads_startpos
+# $14 = ploidy
 
 # Create list of bams to be processed
 echo ${4} | tr ' ' '\n' > bam.list
@@ -23,10 +27,13 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     -L $7 \
     -O ${3}.${6}.g.vcf.gz \
     --native-pair-hmm-threads ${1} \
-    --min-base-quality-score 15 \
-    --min-pruning 0 \
     --interval-padding ${8} \
     --exclude-intervals ${9} \
     --interval-exclusion-padding ${10} \
     --interval-merging-rule ALL \
+    --min-base-quality-score 15 \
+    --min-pruning ${11} \
+    --min-dangling-branch-length ${12} \
+    --max-reads-per-alignment-start ${13} \
+    -ploidy ${14} \
     -ERC GVCF
