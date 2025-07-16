@@ -73,17 +73,17 @@ tryCatch(
       "tidyr",
       "readr",
       "ggplot2",
+      "stringr",
       NULL
     )
     invisible(lapply(
-      head(process_packages, -1),
+      process_packages,
       library,
       character.only = TRUE,
       warn.conflicts = FALSE
     ))
 
     ### run code
-
     # TODO - where doe the LowQual filter come from???
 
     # List table files
@@ -119,96 +119,35 @@ tryCatch(
       )
 
     # Create filtering parameter table
+    # fmt: skip
     parameter_table <- tibble::tribble(
-      ~name,
-      ~TYPE,
-      ~lower,
-      ~upper,
-      "QD",
-      "SNP",
-      params.snp_qd,
-      NA,
-      "QUAL",
-      "SNP",
-      params.snp_qual,
-      NA,
-      "SOR",
-      "SNP",
-      params.snp_sor,
-      NA,
-      "FS",
-      "SNP",
-      params.snp_fs,
-      NA,
-      "MQ",
-      "SNP",
-      params.snp_mq,
-      NA,
-      "MQRankSum",
-      "SNP",
-      params.snp_mqrs,
-      NA,
-      "ReadPosRankSum",
-      "SNP",
-      params.snp_rprs,
-      NA,
-      "AF",
-      "SNP",
-      params.snp_maf,
-      NA,
-      "ExcessHet",
-      "SNP",
-      params.snp_eh,
-      NA,
-      "DP",
-      "SNP",
-      params.snp_dp_min,
-      params.snp_dp_max,
-      "QD",
-      "INDEL",
-      params.indel_qd,
-      NA,
-      "QUAL",
-      "INDEL",
-      params.indel_qual,
-      NA,
-      "FS",
-      "INDEL",
-      params.indel_fs,
-      NA,
-      "ReadPosRankSum",
-      "INDEL",
-      params.indel_rprs,
-      NA,
-      "AF",
-      "INDEL",
-      params.indel_maf,
-      NA,
-      "ExcessHet",
-      "INDEL",
-      params.indel_eh,
-      NA,
-      "DP",
-      "INDEL",
-      params.indel_dp_min,
-      params.indel_dp_max,
-      "DP",
-      "NO_VARIATION",
-      params.inv_dp_min,
-      params.inv_dp_max,
-      "F_MISSING",
-      "SNP",
-      params.max_missing,
-      NA,
-      "F_MISSING",
-      "INDEL",
-      params.max_missing,
-      NA,
-      "F_MISSING",
-      "NO_VARIATION",
-      params.max_missing,
-      NA,
-    )
+      ~name, ~TYPE, ~lower, ~upper,
+      "QD", "SNP", params.snp_qd, NA,
+      "QUAL", "SNP", params.snp_qual, NA,
+      "SOR", "SNP", params.snp_sor, NA,
+      "FS", "SNP", params.snp_fs, NA,
+      "MQ", "SNP", params.snp_mq, NA,
+      "MQRankSum", "SNP", params.snp_mqrs, NA,
+      "ReadPosRankSum", "SNP", params.snp_rprs, NA,
+      "AF", "SNP", params.snp_maf, NA,
+      "ExcessHet", "SNP", params.snp_eh, NA,
+      "DP", "SNP", params.snp_dp_min, params.snp_dp_max,
+      "QD", "INDEL", params.indel_qd, NA,
+      "QUAL", "INDEL", params.indel_qual, NA,
+      "FS", "INDEL", params.indel_fs, NA,
+      "ReadPosRankSum", "INDEL", params.indel_rprs, NA,
+      "AF", "INDEL", params.indel_maf, NA,
+      "ExcessHet", "INDEL", params.indel_eh, NA,
+      "DP", "INDEL", params.indel_dp_min, params.indel_dp_max,
+      "DP", "NO_VARIATION", params.inv_dp_min, params.inv_dp_max,
+      "F_MISSING", "SNP", params.max_missing, NA,
+      "F_MISSING", "INDEL", params.max_missing, NA,
+      "F_MISSING", "NO_VARIATION", params.max_missing, NA,
+    ) %>%
+      dplyr::mutate(
+        upper = as.numeric(upper),
+        lower = as.numeric(lower)
+      )
 
     # Do some reformatting to make sure SNPS arent counted twice
     snp_qc_dist <- snp_qc %>%
@@ -254,12 +193,18 @@ tryCatch(
       facet_grid(TYPE ~ name, scales = "free")
 
     # Write out plots
-    pdf("variant_filtering_qc.pdf", width = 20, height = 20)
+    pdf("variant_filtering_qc.pdf", width = 11, height = 8)
     plot(gg.snp_qc_dist)
     try(dev.off(), silent = TRUE)
 
     # TODO: create upset plot
+
     # TODO: Write out summary files
+    readr::read_tsv(table_files) %>%
+      dplyr::arrange(CHROM, POS) %>%
+      dplyr::group_by(TYPE, FILTER) %>%
+      dplyr::summarise(n = n_distinct(CHROM, POS)) %>%
+      readr::write_tsv("variant_filtering_summary.tsv")
   },
   finally = {
     ### save R environment if script throws error code

@@ -92,7 +92,7 @@ workflow FILTER_VARIANTS {
         FILTER_SNPS.out.tables,
         FILTER_INDELS.out.tables,
         FILTER_INVARIANT.out.tables,
-        ch_snp_filters
+        ch_snp_filters,
         ch_indel_filters,
         ch_inv_filters,
         params.max_missing
