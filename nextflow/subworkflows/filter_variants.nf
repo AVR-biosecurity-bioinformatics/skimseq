@@ -3,11 +3,12 @@
 */
 
 //// import modules
-include { FILTER_INDELS                                                 } from '../modules/filter_indels'
-include { FILTER_SNPS                                                 } from '../modules/filter_snps'
-include { FILTER_INVARIANT                                                 } from '../modules/filter_invariant'
-include { MERGE_FILTERED                                                 } from '../modules/merge_filtered'
+include { FILTER_INDELS                                            } from '../modules/filter_indels'
+include { FILTER_SNPS                                              } from '../modules/filter_snps'
+include { FILTER_INVARIANT                                         } from '../modules/filter_invariant'
+include { MERGE_FILTERED                                           } from '../modules/merge_filtered'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
+include { PLOT_VARIANT_QC                                          } from '../modules/plot_variant_qc'
 
 
 
@@ -84,6 +85,17 @@ workflow FILTER_VARIANTS {
         ch_inv_filters,
         params.max_missing,
         ch_mask_bed_vcf
+    )
+
+    // plot variant qc
+    PLOT_VARIANT_QC (
+        FILTER_SNPS.out.tables,
+        FILTER_INDELS.out.tables,
+        FILTER_INVARIANT.out.tables,
+        ch_snp_filters,
+        ch_indel_filters,
+        ch_inv_filters,
+        params.max_missing
     )
 
     // merge filtered SNPs and indels together into one file

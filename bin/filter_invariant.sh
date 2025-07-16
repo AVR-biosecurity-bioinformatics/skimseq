@@ -8,11 +8,11 @@ set -u
 # $4 = inv_dp_max
 # $5 = indel_custom_flags
 # $6 = max_missing
-# $7 = mask_bed
+# $8 = mask_bed
 
 # Make sure mask file is sorted and unique
 # TODO: Work out why the input mask is duplicated in the first place
-bedtools sort -i ${7} | uniq > vcf_masks.bed
+bedtools sort -i ${8} | uniq > vcf_masks.bed
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
@@ -25,15 +25,6 @@ gatk SelectVariants \
 	-select-type NO_VARIATION \
 	-O inv.vcf.gz
 
-# Extract invariant quality scores pre filtering
-gatk VariantsToTable \
-	--verbosity ERROR \
-	-V inv.vcf.gz \
-	-F CHROM -F POS -F QUAL -F DP \
-	-O inv.table
-
-pigz -p${1} inv.table
-
 # Hard-filter invariant
 if [[ ${5} == "none" ]]; then
 	# use individual parameters
@@ -42,7 +33,8 @@ if [[ ${5} == "none" ]]; then
 		-V inv.vcf.gz \
 		-filter "DP < ${3}" --filter-name "DPmin" \
 		-filter "DP > ${4}" --filter-name "DPmax" \
-		--mask vcf_masks.bed --mask-name Mask \
+		-filter "F_MISSING > ${6}" --filter-name "F_MISSING" \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O inv_tmp.vcf.gz
 else
 	# use custom filters
@@ -50,7 +42,7 @@ else
 		--verbosity ERROR \
 		-V inv.vcf.gz \
 		${5} \
-		--mask vcf_masks.bed --mask-name Mask \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O inv_tmp.vcf.gz
 fi
 
@@ -59,7 +51,6 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V inv_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
-	--max-nocall-fraction ${6} \
 	--exclude-filtered \
 	-O inv_filtered_tmp.vcf.gz 
 
@@ -68,11 +59,14 @@ gatk SortVcf \
     -I inv_filtered_tmp.vcf.gz \
     -O inv_filtered.vcf.gz 
 
-# Extract invariant quality scores post filtering
+
+# Create INDEL filters summary  table
 gatk VariantsToTable \
 	--verbosity ERROR \
-	-V inv_filtered.vcf.gz \
-	-F CHROM -F POS -F QUAL -F DP \
+	-V inv_tmp.vcf.gz \
+	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
+	-F SOR -F AF -F ExcessHet -F F_MISSING -F NS \
+	--show-filtered \
 	-O inv_filtered.table
 
 pigz -p${1} inv_filtered.table
