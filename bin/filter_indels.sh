@@ -56,7 +56,7 @@ if [[ ${11} == "none" ]]; then
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
-		-filter "F_MISSING < ${12}" --filter-name "Fmissing" \
+		-filter "F_MISSING > ${12}" --filter-name "Fmissing" \
 		--mask vcf_masks.bed --mask-name Mask \
 		-O indels_tmp.vcf.gz
 else
