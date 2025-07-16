@@ -3,7 +3,7 @@ process MERGE_VCFS {
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
+    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
 
     input:
     path(vcf_and_indexes)
