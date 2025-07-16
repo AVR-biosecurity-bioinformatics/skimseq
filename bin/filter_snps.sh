@@ -60,8 +60,8 @@ if [[ ${14} == "none" ]]; then
 		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \
-		-filter "F_MISSING > ${15}" --filter-name "Fmissing" \
-		--mask vcf_masks.bed --mask-name Mask \
+		-filter "F_MISSING > ${15}" --filter-name "F_MISSING" \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O snps_tmp.vcf.gz
 else
 	# use custom filters
@@ -69,7 +69,7 @@ else
 		--verbosity ERROR \
 		-V snps.vcf.gz \
 		${14} \
-		--mask vcf_masks.bed --mask-name Mask \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O snps_tmp.vcf.gz
 fi
 

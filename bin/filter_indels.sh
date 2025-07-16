@@ -56,8 +56,8 @@ if [[ ${11} == "none" ]]; then
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
-		-filter "F_MISSING > ${12}" --filter-name "Fmissing" \
-		--mask vcf_masks.bed --mask-name Mask \
+		-filter "F_MISSING > ${12}" --filter-name "F_MISSING" \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O indels_tmp.vcf.gz
 else
 	# use custom filters
@@ -65,7 +65,7 @@ else
 		--verbosity ERROR \
 		-V indels.vcf.gz \
 		${11} \
-		--mask vcf_masks.bed --mask-name Mask \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O indels_tmp.vcf.gz
 fi
 

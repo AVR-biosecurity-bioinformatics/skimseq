@@ -33,8 +33,8 @@ if [[ ${5} == "none" ]]; then
 		-V inv.vcf.gz \
 		-filter "DP < ${3}" --filter-name "DPmin" \
 		-filter "DP > ${4}" --filter-name "DPmax" \
-		-filter "F_MISSING > ${6}" --filter-name "Fmissing" \
-		--mask vcf_masks.bed --mask-name Mask \
+		-filter "F_MISSING > ${6}" --filter-name "F_MISSING" \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O inv_tmp.vcf.gz
 else
 	# use custom filters
@@ -42,7 +42,7 @@ else
 		--verbosity ERROR \
 		-V inv.vcf.gz \
 		${5} \
-		--mask vcf_masks.bed --mask-name Mask \
+		--mask vcf_masks.bed --mask-name "Mask" \
 		-O inv_tmp.vcf.gz
 fi
 
