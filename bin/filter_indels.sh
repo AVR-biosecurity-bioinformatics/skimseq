@@ -42,16 +42,6 @@ gatk SelectVariants \
 	--restrict-alleles-to BIALLELIC \
 	-O indels.vcf.gz 
 
-# Extract INDEL quality scores pre filtering
-gatk VariantsToTable \
-	--verbosity ERROR \
-	-V indels.vcf.gz \
-	-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
-	-F AF -F ExcessHet \
-	-O indels.table
-
-pigz -p${1} indels.table
-
 # Hard-filter INDELS
 if [[ ${11} == "none" ]]; then
 	# use individual parameters
@@ -66,6 +56,7 @@ if [[ ${11} == "none" ]]; then
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
+		-filter "F_MISSING < ${12}" --filter-name "Fmissing" \
 		--mask vcf_masks.bed --mask-name Mask \
 		-O indels_tmp.vcf.gz
 else
@@ -83,7 +74,6 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V indels_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
-	--max-nocall-fraction ${12} \
 	--exclude-filtered \
 	-O indels_filtered_tmp.vcf.gz
 
@@ -92,12 +82,13 @@ gatk SortVcf \
     -I indels_filtered_tmp.vcf.gz \
     -O indels_filtered.vcf.gz 
 
-# Extract INDEL quality scores post filtering
+# Create INDEL filters summary  table
 gatk VariantsToTable \
 	--verbosity ERROR \
-	-V indels_filtered.vcf.gz \
-	-F CHROM -F POS -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum -F SOR \
-	-F AF -F ExcessHet \
+	-V indels_tmp.vcf.gz \
+	-F CHROM -F POS -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
+	-F SOR -F AF -F ExcessHet -F F_MISSING -F NS \
+	--show-filtered \
 	-O indels_filtered.table
 
-pigz -p${1} indels_filtered.table 
+pigz -p${1} indels_filtered.table
