@@ -204,7 +204,7 @@ tryCatch(
       dplyr::arrange(CHROM, POS) %>%
       dplyr::group_by(TYPE, FILTER) %>%
       dplyr::summarise(n = n_distinct(CHROM, POS)) %>%
-      readr::write_tsv("variant_filtering_summary.tsv")
+      readr::write_tsv("variant_filtering_summary.tsv", col_names = FALSE)
   },
   finally = {
     ### save R environment if script throws error code
