@@ -33,7 +33,7 @@ if [[ ${5} == "none" ]]; then
 		-V inv.vcf.gz \
 		-filter "DP < ${3}" --filter-name "DPmin" \
 		-filter "DP > ${4}" --filter-name "DPmax" \
-		-filter "F_MISSING < ${6}" --filter-name "Fmissing" \
+		-filter "F_MISSING > ${6}" --filter-name "Fmissing" \
 		--mask vcf_masks.bed --mask-name Mask \
 		-O inv_tmp.vcf.gz
 else
@@ -64,7 +64,7 @@ gatk SortVcf \
 gatk VariantsToTable \
 	--verbosity ERROR \
 	-V inv_tmp.vcf.gz \
-	-F CHROM -F POS -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
+	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
 	-F SOR -F AF -F ExcessHet -F F_MISSING -F NS \
 	--show-filtered \
 	-O inv_filtered.table
