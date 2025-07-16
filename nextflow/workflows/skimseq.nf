@@ -11,9 +11,11 @@ include { MASK_GENOME                                               } from '../s
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
+include { MULTIQC                                                   } from '../modules/multiqc'
 
-// Import dummny file
+// Import dummy file and create empty channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
+ch_reports = Channel.empty()
 
 workflow SKIMSEQ {
 
@@ -123,7 +125,7 @@ workflow SKIMSEQ {
     Create genomic masks
     */
 
-      MASK_GENOME(
+    MASK_GENOME(
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
@@ -175,5 +177,16 @@ workflow SKIMSEQ {
         ch_genome_indexed,
         ch_mask_bed_vcf
     )
+
+    // Merge all reports for multiqc
+    ch_reports
+        .mix(PROCESS_READS.out.reports)
+        .collect()
+        .set { ch_multiqc}
+
+    // Create Multiqc reports
+    MULTIQC (
+            ch_multiqc
+        )
 
 }

@@ -97,7 +97,12 @@ SPLIT_FASTQ.out.fastq_interval
         FASTQTOBAM.out.bam
     )
 
+    FASTQTOBAM.out.json
+        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats)
+        .set { ch_reports}
+
     emit: 
     bam = ch_grouped_genome_bam
     bam_stats = BAM_STATS.out.stats
+    reports = ch_reports
 }
