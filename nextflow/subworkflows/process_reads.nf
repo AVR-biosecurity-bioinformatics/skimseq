@@ -63,10 +63,10 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-SPLIT_FASTQ.out.fastq_interval
-    .splitCsv ( by: 1, elem: 3, sep: "," )
-	.map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
-	.set { ch_fastq_split }
+    SPLIT_FASTQ.out.fastq_interval
+        .splitCsv ( by: 1, elem: 3, sep: "," )
+	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
+	    .set { ch_fastq_split }
 
 
     /* 
@@ -97,12 +97,12 @@ SPLIT_FASTQ.out.fastq_interval
         FASTQTOBAM.out.bam
     )
 
+    // Create reports channel for multiqc
     FASTQTOBAM.out.json
         .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats)
         .set { ch_reports}
 
     emit: 
     bam = ch_grouped_genome_bam
-    bam_stats = BAM_STATS.out.stats
     reports = ch_reports
 }

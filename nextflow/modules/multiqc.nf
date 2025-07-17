@@ -10,8 +10,8 @@ process MULTIQC {
 
     output: 
     path "*multiqc_report.html", emit: report
-    path "*_data"              , emit: data
-    path "*_plots"             , emit: plots
+    //path "*_data"              , emit: data
+    //path "*_plots"             , emit: plots
     
     script:
     def process_script = "${process_name}.sh"
