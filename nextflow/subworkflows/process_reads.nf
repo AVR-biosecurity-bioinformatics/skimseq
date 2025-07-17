@@ -6,7 +6,6 @@
 include { BAM_STATS                             } from '../modules/bam_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { FASTP                                 } from '../modules/fastp'
-include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
 include { FASTQTOBAM                            } from '../modules/fastqtobam'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 include { MERGE_FILTER_BAM                      } from '../modules/merge_filter_bam'
@@ -50,13 +49,8 @@ workflow PROCESS_READS {
     .set { ch_bam_filters }
 
     /* 
-        Read QC
+        Read splitting
     */
-
-    FASTQC_PRETRIM (
-        ch_reads,
-        "pretrim"
-    )
 
     // split paired fastq into chunks using seqtk
     SPLIT_FASTQ (
@@ -69,9 +63,8 @@ workflow PROCESS_READS {
 	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
 	    .set { ch_fastq_split }
 
-
     /* 
-        Read alignments
+        Read filtering and alignments
     */
 
     FASTQTOBAM (
@@ -80,12 +73,12 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
     
-    // group nuclear .bam files by sample
+    // group chunked .bam files by sample
     FASTQTOBAM.out.bam
         .groupTuple ( by: 0 )
         .set { ch_grouped_genome_bam }
 
-    // Merge and index BAM
+    // Merge chunked .bam files by sample, filter, and index
     MERGE_FILTER_BAM (
         ch_grouped_genome_bam,
         ch_bam_filters
@@ -98,7 +91,7 @@ workflow PROCESS_READS {
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // generate statistics about the genome .bam files
+    // generate statistics about the .bam files
     BAM_STATS (
         MERGE_FILTER_BAM.out.bam
     )
