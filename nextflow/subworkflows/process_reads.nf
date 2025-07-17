@@ -94,7 +94,7 @@ workflow PROCESS_READS {
 
     // generate statistics about the genome .bam files
     BAM_STATS (
-        FASTQTOBAM.out.bam
+        ch_grouped_genome_bam
     )
 
     // Create reports channel for multiqc
