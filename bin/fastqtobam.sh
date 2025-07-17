@@ -42,15 +42,15 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 CHUNK_NAME=$(echo "${5}-${6}")
 
 # create temporary fastq of just the reads in the interval
-seqkit range -r ${5}:${6} ${3} > tmpF.fq
-seqkit range -r ${5}:${6} ${4} > tmpR.fq
+seqkit range -r ${5}:${6} ${3} > ${2}.$CHUNK_NAME_F.fq
+seqkit range -r ${5}:${6} ${4} > ${2}.$CHUNK_NAME_R.fq
 
 # run filtering
 if [[ ${21} == "none" ]]; then
     # use individual filtering parameters for fastp
     ( fastp \
-        -i tmpF.fq \
-        -I tmpR.fq \
+        -i ${2}.$CHUNK_NAME_F.fq \
+        -I ${2}.$CHUNK_NAME_R.fq \
         -q ${8} \
         --length_required ${9} \
         --n_base_limit ${10} \
@@ -85,8 +85,8 @@ if [[ ${21} == "none" ]]; then
 else 
     # use custom string of flags for fastp
     ( fastp \
-        -i tmpF.fq \
-        -I tmpR.fq \
+        -i ${2}.$CHUNK_NAME_F.fq \
+        -I ${2}.$CHUNK_NAME_R.fq \
         ${18} \
 	--thread ${1} \
         -h ${2}.$CHUNK_NAME.fastp.html \
@@ -115,5 +115,5 @@ samtools quickcheck ${2}.$CHUNK_NAME.sorted.bam \
 	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
 
 # Remove temporary fastqs
-rm tmpF.fq
-rm tmpR.fq
+rm ${2}.$CHUNK_NAME_F.fq
+rm ${2}.$CHUNK_NAME_R.fq

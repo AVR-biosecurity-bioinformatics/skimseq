@@ -99,8 +99,9 @@ workflow PROCESS_READS {
 
     // Create reports channel for multiqc
     FASTQTOBAM.out.json
-        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage)
+        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats)
         .set { ch_reports}
+    //, BAM_STATS.out.coverage
 
     emit: 
     bam = ch_grouped_genome_bam
