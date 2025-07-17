@@ -111,8 +111,12 @@ workflow FILTER_VARIANTS {
          ch_genome_indexed
     )
 
+    // Create reports channel for multiqc
+    VCF_STATS.out.vcfstats
+        .set { ch_reports}
+        
     emit: 
-    MERGE_FILTERED.out.vcf
-
+    filtered_vcf = MERGE_FILTERED.out.vcf
+    reports = ch_reports
 
 }

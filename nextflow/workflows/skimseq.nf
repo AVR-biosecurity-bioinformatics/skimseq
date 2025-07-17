@@ -182,11 +182,12 @@ workflow SKIMSEQ {
     ch_reports
         .mix(PROCESS_READS.out.reports)
         .map { sample,path -> [ path ] }
-	.collect()
+        .mix(FILTER_VARIANTS.out.reports)
+	    .collect()
         .ifEmpty([])
-        .set { multiqc_files}
+        .set { multiqc_files }
 
-    // TODO to resolve clashing filenames by adding the hash
+    // View the channel
     multiqc_files.view()
 
     // Create Multiqc reports
