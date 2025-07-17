@@ -12,15 +12,15 @@ if [[ ${4} == "true" ]];    then RMDUP="-r ";                  else RMDUP=""; fi
 
 ls *.bam > bam.list	
 
-( samtools merge -@ $1 -O BAM -b bam.list -o - || >&2 echo "samtools sort 1 exit=$?" ) | \
+( samtools merge --threads ${1} -O BAM -b bam.list -o - || >&2 echo "samtools sort 1 exit=$?" ) | \
     ( samtools sort --threads ${1} -n -o - -  || >&2 echo "samtools sort 1 exit=$?"  ) | \
     ( samtools fixmate --threads ${1} -m - -  || >&2 echo "samtools fixmate exit=$?" ) | \
     ( samtools sort --threads ${1} -o - - || >&2 echo "samtools sort 2 exit=$?"      ) | \
-    ( samtools markdup --threads ${1} $RMDUP -s -f ${2}.markdup.json --json -Ob ${2}.bam \
+    ( samtools markdup --threads ${1} $RMDUP -s -f ${2}.markdup.json --json - ${2}.bam \
     || >&2 echo "samtools markdup exit=$?" )
 
 # index bam
-samtools index -@ $1 ${2}.bam
+samtools index --threads $1 ${2}.bam
 
 # check bam if correctly formatted
 samtools quickcheck ${2}.bam \

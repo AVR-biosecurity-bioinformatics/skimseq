@@ -8,10 +8,10 @@ set -u
 # $4 = Mitochondrial contig bed
 
 # Extract mitochondrial contig from merged bam
-samtools view -@ ${1} ${3} -L ${4} -b -o ${2}.mito.bam
+samtools view --threads ${1} ${3} -L ${4} -b -o ${2}.mito.bam
 
 # index bam
-samtools index -@ ${1} ${2}.mito.bam
+samtools index --threads ${1} ${2}.mito.bam
 
 # check bam if correctly formatted
 samtools quickcheck ${2}.mito.bam \
