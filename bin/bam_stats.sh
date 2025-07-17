@@ -7,7 +7,7 @@ set -u
 # $3 = bam file
 # $4 = bam index file
 
-# Output sample coverage statistics - Doesnt work for concatenated bam
+# Output sample coverage statistics
 samtools coverage ${3} > ${2}.coverage.txt
 
 # Output flag statistics

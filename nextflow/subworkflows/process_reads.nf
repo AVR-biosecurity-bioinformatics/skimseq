@@ -87,7 +87,7 @@ workflow PROCESS_READS {
 
     // Merge and index BAM
     MERGE_FILTER_BAM (
-        MERGE_FILTER_BAM.out.bam,
+        ch_grouped_genome_bam,
         ch_bam_filters
     )
 

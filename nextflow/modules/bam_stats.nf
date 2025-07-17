@@ -11,7 +11,7 @@ process BAM_STATS {
     output: 
     tuple val(sample), path("*.stats.txt"),               emit: stats
     tuple val(sample), path("*.flagstats.txt"),           emit: flagstats
-    //tuple val(sample), path("*.coverage.txt"),            emit: coverage
+    tuple val(sample), path("*.coverage.txt"),            emit: coverage
     
     script:
     def process_script = "${process_name}.sh"

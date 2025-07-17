@@ -40,15 +40,15 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 CHUNK_NAME=$(echo "${5}-${6}")
 
 # create temporary fastq of just the reads in the interval
-seqkit range -r ${5}:${6} ${3} > ${2}.$CHUNK_NAME_F.fq
-seqkit range -r ${5}:${6} ${4} > ${2}.$CHUNK_NAME_R.fq
+seqkit range -r ${5}:${6} ${3} > ${2}.${CHUNK_NAME}.F.fq
+seqkit range -r ${5}:${6} ${4} > ${2}.${CHUNK_NAME}.R.fq
 
 # run filtering
 if [[ ${21} == "none" ]]; then
     # use individual filtering parameters for fastp
     ( fastp \
-        -i ${2}.$CHUNK_NAME_F.fq \
-        -I ${2}.$CHUNK_NAME_R.fq \
+        -i ${2}.${CHUNK_NAME}.F.fq \
+        -I ${2}.${CHUNK_NAME}.R.fq \
         -q ${8} \
         --length_required ${9} \
         --n_base_limit ${10} \
@@ -63,8 +63,8 @@ if [[ ${21} == "none" ]]; then
         --overlap_diff_limit ${19} \
         --overlap_diff_percent_limit ${20} \
         --thread ${1} \
-        -h ${2}.$CHUNK_NAME.fastp.html \
-        -j ${2}.$CHUNK_NAME.fastp.json \
+        -h ${2}.${CHUNK_NAME}.fastp.html \
+        -j ${2}.${CHUNK_NAME}.fastp.json \
         -R ${2} \
         --stdout \
 	|| >&2 echo "fastp exit=$?"   ) | \
@@ -75,18 +75,18 @@ if [[ ${21} == "none" ]]; then
        	-Y \
 		- \
 	|| >&2 echo "bwa-mem2 exit=$?"  ) | \
-     ( samtools view --threads ${1} -o ${2}.$CHUNK_NAME.bam 
+     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam 
      || >&2 echo "samtools view exit=$?" )
 
 else 
     # use custom string of flags for fastp
     ( fastp \
-        -i ${2}.$CHUNK_NAME_F.fq \
-        -I ${2}.$CHUNK_NAME_R.fq \
+        -i ${2}.${CHUNK_NAME}.F.fq \
+        -I ${2}.${CHUNK_NAME}.R.fq \
         ${18} \
 	--thread ${1} \
-        -h ${2}.$CHUNK_NAME.fastp.html \
-        -j ${2}.$CHUNK_NAME.fastp.json \
+        -h ${2}.${CHUNK_NAME}.fastp.html \
+        -j ${2}.${CHUNK_NAME}.fastp.json \
         -R ${2} \
         --stdout \
 	|| >&2 echo "fastp exit=$?"   ) | \
@@ -97,17 +97,17 @@ else
        	-Y \
 		- \
 	|| >&2 echo "bwa-mem2 exit=$?"   )  | \
-     ( samtools view --threads ${1} -o ${2}.$CHUNK_NAME.bam 
+     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam 
      || >&2 echo "samtools view exit=$?" )
 fi
 
 # index bam
-samtools index -@ ${1} ${2}.$CHUNK_NAME.bam
+samtools index -@ ${1} ${2}.${CHUNK_NAME}.bam
 
 # check bam if correctly formatted
-samtools quickcheck ${2}.$CHUNK_NAME.bam \
+samtools quickcheck ${2}.${CHUNK_NAME}.bam \
 	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
 
 # Remove temporary fastqs
-rm ${2}.$CHUNK_NAME_F.fq
-rm ${2}.$CHUNK_NAME_R.fq
+rm ${2}.${CHUNK_NAME}.F.fq
+rm ${2}.${CHUNK_NAME}.R.fq
