@@ -11,9 +11,9 @@ process FASTQTOBAM {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("*.bam"), path("*.bam.bai"),        emit: bam
-    tuple val(sample), path("*.json"),                                        emit: json
-    tuple val(sample), path("*.html"),                                        emit: html
+    tuple val(sample), path("*.bam"),        emit: bam
+    tuple val(sample), path("*.json"),       emit: json
+    tuple val(sample), path("*.html"),       emit: html
     
     script:
     def process_script = "${process_name}.sh"

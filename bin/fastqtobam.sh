@@ -75,7 +75,7 @@ if [[ ${21} == "none" ]]; then
        	-Y \
 		- \
 	|| >&2 echo "bwa-mem2 exit=$?"  ) | \
-     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam 
+     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam \
      || >&2 echo "samtools view exit=$?" )
 
 else 
@@ -97,16 +97,9 @@ else
        	-Y \
 		- \
 	|| >&2 echo "bwa-mem2 exit=$?"   )  | \
-     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam 
+     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam \
      || >&2 echo "samtools view exit=$?" )
 fi
-
-# index bam
-samtools index -@ ${1} ${2}.${CHUNK_NAME}.bam
-
-# check bam if correctly formatted
-samtools quickcheck ${2}.${CHUNK_NAME}.bam \
-	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
 
 # Remove temporary fastqs
 rm ${2}.${CHUNK_NAME}.F.fq

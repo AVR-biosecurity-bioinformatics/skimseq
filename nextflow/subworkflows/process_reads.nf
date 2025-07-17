@@ -100,7 +100,7 @@ workflow PROCESS_READS {
 
     // generate statistics about the genome .bam files
     BAM_STATS (
-        ch_grouped_genome_bam
+        MERGE_FILTER_BAM.out.bam
     )
 
     // Create reports channel for multiqc
