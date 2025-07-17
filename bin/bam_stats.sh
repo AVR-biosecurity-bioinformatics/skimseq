@@ -11,7 +11,10 @@ set -u
 # samtools index -@ $1 $3 $4
 
 # Output sample coverage statistics
-samtools coverage $3 > ${2}.stats.txt
+samtools coverage $3 > ${2}.coverage.txt
 
 # Output flag statistics
 samtools flagstats $3 > ${2}.flagstats.txt
+
+# Output comprehensive statistics
+samtools stats $3 > ${2}.stats.txt
