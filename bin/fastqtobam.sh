@@ -23,7 +23,6 @@ set -u
 # $19 = params.rf_overlap_diff,
 # $20 = params.rf_overlap_diff_pc,
 # $21 = params.rf_custom_flags
-# $22 = whether duplicates should be removed
 
 
 # parse filtering options as flags
@@ -31,7 +30,6 @@ if [[ ${11} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                   
 if [[ ${12} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
 if [[ ${15} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
 if [[ ${17} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
-if [[ ${22} == "true" ]];   then RMDUP="-r ";                                     else RMDUP=""; fi
 
 # Setup read group headers for BAM, these are necessary for merging of replicates
 RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')
@@ -74,13 +72,11 @@ if [[ ${21} == "none" ]]; then
         	-t ${1} \
         	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         	-K 100000000 \
-       		-Y \
+       	-Y \
 		- \
-	|| >&2 echo "bwa-mem2 exit=$?"   ) | \
-     ( samtools sort --threads ${1} -n -O BAM  || >&2 echo "samtools sort 1 exit=$?"   ) | \
-     ( samtools fixmate --threads ${1} -m - -  || >&2 echo "samtools fixmate exit=$?"   ) | \
-     ( samtools sort --threads ${1} -O BAM || >&2 echo "samtools sort 2 exit=$?"   ) | \
-     ( samtools markdup --threads ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam || >&2 echo "samtools markdup exit=$?"  )
+	|| >&2 echo "bwa-mem2 exit=$?"  ) | \
+     ( samtools view --threads ${1} -o ${2}.$CHUNK_NAME.bam 
+     || >&2 echo "samtools view exit=$?" )
 
 else 
     # use custom string of flags for fastp
@@ -98,20 +94,18 @@ else
         	-t ${1} \
         	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         	-K 100000000 \
-       		-Y \
+       	-Y \
 		- \
-	|| >&2 echo "bwa-mem2 exit=$?"   ) | \
-     ( samtools collate --threads ${1} -Ou  || >&2 echo "samtools sort 1 exit=$?"   ) | \
-     ( samtools fixmate --threads ${1} -m - - -u || >&2 echo "samtools fixmate exit=$?"   ) | \
-     ( samtools sort --threads ${1} -u || >&2 echo "samtools sort 2 exit=$?"   ) | \
-     ( samtools markdup --threads ${1} $RMDUP - ${2}.$CHUNK_NAME.sorted.bam || >&2 echo "samtools markdup exit=$?"   )
+	|| >&2 echo "bwa-mem2 exit=$?"   )  | \
+     ( samtools view --threads ${1} -o ${2}.$CHUNK_NAME.bam 
+     || >&2 echo "samtools view exit=$?" )
 fi
 
 # index bam
-samtools index -@ ${1} ${2}.$CHUNK_NAME.sorted.bam
+samtools index -@ ${1} ${2}.$CHUNK_NAME.bam
 
 # check bam if correctly formatted
-samtools quickcheck ${2}.$CHUNK_NAME.sorted.bam \
+samtools quickcheck ${2}.$CHUNK_NAME.bam \
 	|| ( echo "BAM file for sample ${2} is not formatted correctly" && exit 1 )
 
 # Remove temporary fastqs

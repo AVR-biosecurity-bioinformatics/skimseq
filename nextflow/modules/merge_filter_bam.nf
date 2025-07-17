@@ -1,5 +1,5 @@
-process PROCESS_BAM_GENOME {
-    def process_name = "process_bam_genome"    
+process MERGE_FILTER_BAM {
+    def process_name = "merge_filter_bam"    
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -10,7 +10,7 @@ process PROCESS_BAM_GENOME {
     val(bam_rmdup)
 
     output: 
-    tuple val(sample), path("*.sorted.bam"), path("*.sorted.bam.bai"),        emit: bam
+    tuple val(sample), path("*.bam"), path("*.bam.bai"),        emit: bam
     
     script:
     def process_script = "${process_name}.sh"

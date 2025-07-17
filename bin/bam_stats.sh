@@ -7,19 +7,11 @@ set -u
 # $3 = bam file
 # $4 = bam index file
 
-# get list of .bam files in directory
-ls *.bam > bam.list	
-
-# Concatenate together
-samtools cat -b bam.list -o merged.bam
-
 # Output sample coverage statistics - Doesnt work for concatenated bam
-#samtools coverage merged.bam > ${2}.coverage.txt
+samtools coverage ${3} > ${2}.coverage.txt
 
 # Output flag statistics
-samtools flagstats merged.bam > ${2}.flagstats.txt
+samtools flagstats ${3} > ${2}.flagstats.txt
 
 # Output comprehensive statistics
-samtools stats merged.bam > ${2}.stats.txt
-
-rm -f merged.bam
+samtools stats ${3} > ${2}.stats.txt

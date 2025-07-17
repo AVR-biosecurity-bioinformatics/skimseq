@@ -9,8 +9,9 @@ include { FASTP                                 } from '../modules/fastp'
 include { FASTQC as FASTQC_PRETRIM              } from '../modules/fastqc'
 include { FASTQTOBAM                            } from '../modules/fastqtobam'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
+include { MERGE_FILTER_BAM                      } from '../modules/merge_filter_bam'
+
 //include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
-//include { PROCESS_BAM_GENOME                    } from '../modules/process_bam_genome'
 //include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 
 workflow PROCESS_READS {
@@ -76,8 +77,7 @@ workflow PROCESS_READS {
     FASTQTOBAM (
         ch_fastq_split,
         ch_fastp_filters,
-        ch_genome_indexed,
-        ch_bam_filters
+        ch_genome_indexed
     )
     
     // group nuclear .bam files by sample
@@ -85,9 +85,15 @@ workflow PROCESS_READS {
         .groupTuple ( by: 0 )
         .set { ch_grouped_genome_bam }
 
+    // Merge and index BAM
+    MERGE_FILTER_BAM (
+        MERGE_FILTER_BAM.out.bam,
+        ch_bam_filters
+    )
+
     // extract unmapped reads
     EXTRACT_UNMAPPED (
-        ch_grouped_genome_bam
+        MERGE_FILTER_BAM.out.bam
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
@@ -99,11 +105,10 @@ workflow PROCESS_READS {
 
     // Create reports channel for multiqc
     FASTQTOBAM.out.json
-        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats)
+        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage)
         .set { ch_reports}
-    //, BAM_STATS.out.coverage
 
     emit: 
-    bam = ch_grouped_genome_bam
+    bam = MERGE_FILTER_BAM.out.bam
     reports = ch_reports
 }
