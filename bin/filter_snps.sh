@@ -56,7 +56,7 @@ if [[ ${14} == "none" ]]; then
 		-filter "MQ < ${7}" --filter-name "MQ" \
 		-filter "MQRankSum < ${8}" --filter-name "MQRankSum" \
 		-filter "ReadPosRankSum < ${9}" --filter-name "ReadPosRankSum" \
-		-filter "AF < ${10}" --filter-name "MAF" \
+		-filter "AF < ${10}" --filter-name "AF" \
 		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \

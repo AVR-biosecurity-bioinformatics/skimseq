@@ -52,7 +52,7 @@ if [[ ${11} == "none" ]]; then
 		-filter "QUAL < ${4}" --filter-name "QUAL" \
 		-filter "FS > ${5}" --filter-name "FS" \
 		-filter "ReadPosRankSum < ${6}" --filter-name "ReadPosRankSum" \
-		-filter "AF < ${7}" --filter-name "MAF" \
+		-filter "AF < ${7}" --filter-name "AF" \
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
