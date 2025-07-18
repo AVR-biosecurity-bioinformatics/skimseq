@@ -90,6 +90,8 @@ tryCatch(
     table_files <- list.files(pattern = "\\.table.gz$")
 
     # read in all table files and turn into long format
+
+    # TODO: Do this in bash
     snp_qc <- readr::read_tsv(table_files) %>%
       dplyr::select(-NS) %>% # NS is the inverse of F_Missing
       tidyr::pivot_longer(-c("CHROM", "POS", "TYPE", "FILTER")) %>%
@@ -101,19 +103,7 @@ tryCatch(
       dplyr::distinct() %>%
       dplyr::mutate(
         FILTER_NEW = case_when(
-          FILTER == "PASS" ~ "PASS",
-          stringr::str_detect(FILTER, "^QD") ~ "QD",
-          stringr::str_detect(FILTER, "^QUAL") ~ "QUAL",
-          stringr::str_detect(FILTER, "^SOR") ~ "SOR",
-          stringr::str_detect(FILTER, "^FS") ~ "FS",
-          stringr::str_detect(FILTER, "^MQ") ~ "MQ",
-          stringr::str_detect(FILTER, "^MQRankSum") ~ "MQRankSum",
-          stringr::str_detect(FILTER, "^ReadPosRankSum") ~ "ReadPosRankSum",
-          stringr::str_detect(FILTER, "^MAF") ~ "AF",
-          FILTER == "ExcessHet" ~ "ExcessHet",
-          stringr::str_detect(FILTER, "^DP") ~ "DP",
-          FILTER == "F_MISSING" ~ "F_MISSING",
-          FILTER == "Mask" ~ "Mask",
+          FILTER %in% c("DPmin", "DPmax") ~ "DP",
           TRUE ~ FILTER
         )
       )
