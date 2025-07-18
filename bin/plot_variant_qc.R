@@ -121,8 +121,6 @@ tryCatch(
     for (i in 1:nrow(parameter_table)) {
       filter_to_select <- parameter_table$filter[i]
       type_to_select <- parameter_table$type[i]
-      lower <- parameter_table$lower[i]
-      upper <- parameter_table$upper[i]
 
       table_to_read <- table_files[stringr::str_detect(
         table_files,
@@ -141,22 +139,27 @@ tryCatch(
             "PASS"
           )
         )
+
       plot_list[[i]] <- df %>%
         ggplot(aes(x = !!sym(filter_to_select), fill = label)) +
         geom_histogram() +
+        #geom_density()+
         geom_vline(
+          data = parameter_table %>% dplyr::slice(i),
           aes(xintercept = lower),
           lty = "dashed"
         ) +
         geom_vline(
+          data = parameter_table %>% dplyr::slice(i),
           aes(xintercept = upper),
           lty = "dashed"
         ) +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         labs(
-          title = filter_to_select,
-          subtitle = type_to_select
+          x = paste0(type_to_select, " ", filter_to_select),
+          y = "Count"
         ) +
+        theme_classic() +
         theme(legend.position = "none")
     }
 
