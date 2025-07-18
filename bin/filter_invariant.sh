@@ -60,12 +60,12 @@ gatk SortVcf \
     -O inv_filtered.vcf.gz 
 
 
-# Create INDEL filters summary  table
+# Create invariant filters summary  table
+# Just output the ones relevent for invariants
 gatk VariantsToTable \
 	--verbosity ERROR \
 	-V inv_tmp.vcf.gz \
-	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
-	-F SOR -F AF -F ExcessHet -F F_MISSING -F NS \
+	-F CHROM -F POS -F TYPE -F FILTER -F DP -F F_MISSING -F NS \
 	--show-filtered \
 	-O inv_filtered.table
 
