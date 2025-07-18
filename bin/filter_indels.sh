@@ -48,11 +48,11 @@ if [[ ${11} == "none" ]]; then
 	gatk VariantFiltration \
 		--verbosity ERROR \
 		-V indels.vcf.gz \
-		-filter "QD < ${3}" --filter-name "QD${3}" \
-		-filter "QUAL < ${4}" --filter-name "QUAL${4}" \
-		-filter "FS > ${5}" --filter-name "FS${5}" \
-		-filter "ReadPosRankSum < ${6}" --filter-name "ReadPosRankSum${6}" \
-		-filter "AF < ${7}" --filter-name "MAF${7}" \
+		-filter "QD < ${3}" --filter-name "QD" \
+		-filter "QUAL < ${4}" --filter-name "QUAL" \
+		-filter "FS > ${5}" --filter-name "FS" \
+		-filter "ReadPosRankSum < ${6}" --filter-name "ReadPosRankSum" \
+		-filter "AF < ${7}" --filter-name "MAF" \
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
