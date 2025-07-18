@@ -75,8 +75,8 @@ if [[ ${21} == "none" ]]; then
        	-Y \
 		- \
 	|| >&2 echo "bwa-mem2 exit=$?"  ) | \
-     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam \
-     || >&2 echo "samtools view exit=$?" )
+     ( samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam || >&2 echo "samtools sort exit=$?"  ) 
+
 
 else 
     # use custom string of flags for fastp
@@ -97,8 +97,8 @@ else
        	-Y \
 		- \
 	|| >&2 echo "bwa-mem2 exit=$?"   )  | \
-     ( samtools view --threads ${1} -o ${2}.${CHUNK_NAME}.bam \
-     || >&2 echo "samtools view exit=$?" )
+     ( samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam || >&2 echo "samtools sort exit=$?"  ) 
+
 fi
 
 # Remove temporary fastqs

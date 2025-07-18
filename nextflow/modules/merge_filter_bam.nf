@@ -11,7 +11,7 @@ process MERGE_FILTER_BAM {
 
     output: 
     tuple val(sample), path("*.bam"), path("*.bam.bai"),        emit: bam
-    tuple val(sample), path(".markdup.json"),                   emit: markdup
+    tuple val(sample), path("*.markdup.json"),                  emit: markdup
 
     script:
     def process_script = "${process_name}.sh"

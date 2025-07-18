@@ -4,5 +4,9 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
+# $3 = config file
 
-multiqc .
+multiqc \
+    --force \
+    ${3} \
+    .

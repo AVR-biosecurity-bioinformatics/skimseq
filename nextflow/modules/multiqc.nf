@@ -7,6 +7,7 @@ process MULTIQC {
 
     input:
     path(multiqc_files)
+    path(multiqc_config)
 
     output: 
     path "*multiqc_report.html", emit: report
@@ -21,7 +22,8 @@ process MULTIQC {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${task.memory.giga} 
+        ${task.memory.giga} \
+        ${multiqc_config}
 
     """
 }

@@ -190,9 +190,12 @@ workflow SKIMSEQ {
     // View the channel
     multiqc_files.view()
 
+    ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+
     // Create Multiqc reports
     MULTIQC (
-        multiqc_files
+        multiqc_files,
+        ch_multiqc_config.toList()
     )
 
 }
