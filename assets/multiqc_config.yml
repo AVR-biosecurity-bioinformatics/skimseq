@@ -21,8 +21,8 @@ module_order:
   - bcftools:
       name: "Bcftools"
 
-table_sample_merge:
-  "Sample":
-    - "Sample"
+extra_fn_clean_exts:
     - type: regex
-      pattern: "^.*\."
+      pattern: "\\..*$"
+
+

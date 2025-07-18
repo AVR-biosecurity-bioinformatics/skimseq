@@ -16,7 +16,13 @@ ls *.bam > bam.list
     ( samtools collate --threads ${1} -O -u - -  || >&2 echo "samtools collate exit=$?"  ) | \
     ( samtools fixmate --threads ${1} -m - -  || >&2 echo "samtools fixmate exit=$?" ) | \
     ( samtools sort --threads ${1} -o - - || >&2 echo "samtools sort exit=$?"      ) | \
-    ( samtools markdup --threads ${1} $RMDUP -s -f ${2}.markdup.json --json - ${2}.bam \
+    ( samtools markdup --threads ${1} \
+        $RMDUP \
+        -s -f  ${2}.markdup.json --json \
+        -l 300 \
+        -d 2500 \
+        -S --include-fails \
+        - ${2}.bam \
     || >&2 echo "samtools markdup exit=$?" )
 
 # index bam

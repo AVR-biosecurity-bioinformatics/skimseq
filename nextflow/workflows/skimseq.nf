@@ -13,9 +13,10 @@ include { INDEX_GENOME                                              } from '../m
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { MULTIQC                                                   } from '../modules/multiqc'
 
-// Import dummy file and create empty channels
+// Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
 ch_reports = Channel.empty()
+ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
 workflow SKIMSEQ {
 
@@ -187,10 +188,6 @@ workflow SKIMSEQ {
         .ifEmpty([])
         .set { multiqc_files }
 
-    // View the channel
-    multiqc_files.view()
-
-    ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
     // Create Multiqc reports
     MULTIQC (
