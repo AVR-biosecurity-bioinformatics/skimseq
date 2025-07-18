@@ -8,5 +8,5 @@ set -u
 # $4 = Reference genome
 
 # Output sample coverage statistics
-bcftools stats $2 -F ${4} > merged.vcfstats.txt
+bcftools stats $2 -F ${4} -s - > merged.vcfstats.txt
 
