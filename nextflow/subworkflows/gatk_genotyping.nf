@@ -88,6 +88,8 @@ workflow GATK_GENOTYPING {
     JOINT_GENOTYPE (
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
+        ch_mask_bed_gatk, 
+        params.exclude_padding,
         params.output_invariant
     )
 

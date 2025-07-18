@@ -49,14 +49,14 @@ if [[ ${14} == "none" ]]; then
 	gatk VariantFiltration \
 		--verbosity ERROR \
 		-V snps.vcf.gz \
-		-filter "QD < ${3}" --filter-name "QD${3}" \
-		-filter "QUAL < ${4}" --filter-name "QUAL${4}" \
-		-filter "SOR > ${5}" --filter-name "SOR${5}" \
-		-filter "FS > ${6}" --filter-name "FS${6}" \
-		-filter "MQ < ${7}" --filter-name "MQ${7}" \
-		-filter "MQRankSum < ${8}" --filter-name "MQRankSum${8}" \
-		-filter "ReadPosRankSum < ${9}" --filter-name "ReadPosRankSum${9}" \
-		-filter "AF < ${10}" --filter-name "MAF${10}" \
+		-filter "QD < ${3}" --filter-name "QD" \
+		-filter "QUAL < ${4}" --filter-name "QUAL" \
+		-filter "SOR > ${5}" --filter-name "SOR" \
+		-filter "FS > ${6}" --filter-name "FS" \
+		-filter "MQ < ${7}" --filter-name "MQ" \
+		-filter "MQRankSum < ${8}" --filter-name "MQRankSum" \
+		-filter "ReadPosRankSum < ${9}" --filter-name "ReadPosRankSum" \
+		-filter "AF < ${10}" --filter-name "AF" \
 		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \
