@@ -4,30 +4,14 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = sample name
-# $3 = list of temp_bam files
+# $3 = merged sample bam file
 # $4 = Mitochondrial contig bed
 
-## merge bams if list of input files is greater than 1
-if [[ $(wc -w <<< "$3") > 1 ]]; then
-  	# get list of .bam files in directory
-  	ls *.bam > bam.list	
-
-    samtools merge -@ ${1} -O BAM -b bam.list -L ${4} -o - \
-		| samtools sort -@ ${1} -n -O BAM \
-		| samtools fixmate -@ ${1} -m - - \
-		| samtools sort -@ ${1} -O BAM \
-		| samtools markdup -@ ${1} -r - ${2}.mito.bam
-else 
-    samtools view -@ ${1} ${3} -O BAM -L ${4} \
-    | samtools sort -@ ${1} -n $ -O BAM - \
-		| samtools fixmate -@ ${1} -m - - \
-		| samtools sort -@ ${1} -O BAM \
-		| samtools markdup -@ ${1} -r - ${2}.mito.bam
-fi
+# Extract mitochondrial contig from merged bam
+samtools view --threads ${1} ${3} -L ${4} -b -o ${2}.mito.bam
 
 # index bam
-samtools index -@ ${1} ${2}.mito.bam
-
+samtools index --threads ${1} ${2}.mito.bam
 
 # check bam if correctly formatted
 samtools quickcheck ${2}.mito.bam \
