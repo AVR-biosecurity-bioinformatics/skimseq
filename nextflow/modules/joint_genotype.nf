@@ -5,8 +5,10 @@ process JOINT_GENOTYPE {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(interval_hash), path(interval_list), path(genomicsdb)
+    tuple val(interval_hash), path(interval_bed), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
+    path(exclude_bed)
+    val(exclude_padding)
     val(output_invariant)
 
     output: 
@@ -24,7 +26,9 @@ process JOINT_GENOTYPE {
         ${genomicsdb} \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_list} \
+        ${interval_bed} \
+        ${exclude_bed} \
+        ${exclude_padding} \
         ${output_invariant}
 
     """
