@@ -12,7 +12,7 @@ set -u
 # $8 = exclude_padding
 # $9 = output_invariant
 
-if [[${9} == "false" ]];
+if [[${9} == "false" ]]; then
     # joint genotype variant sites only
     gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
         -R ${4} \
@@ -97,3 +97,6 @@ else
           }' \
      | bgzip > ${5}.vcf.gz
 fi 
+
+# Remove temporary files
+rm -f source.g.vcf.gz calls.vcf.gz calls_backfilled.vcf.gz source.tsv.gz
