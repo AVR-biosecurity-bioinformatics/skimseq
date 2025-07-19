@@ -96,7 +96,7 @@ else
           print
           }' \
      | bgzip > ${5}.vcf.gz
-    bcftools index ${5}.vcf.gz
+    tabix ${5}.vcf.gz
 fi 
     
 
