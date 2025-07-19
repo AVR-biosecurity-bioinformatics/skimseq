@@ -50,15 +50,15 @@ fi
 gatk SelectVariants \
 	--verbosity ERROR \
 	-V inv_tmp.vcf.gz \
-	--set-filtered-gt-to-nocall \
 	--exclude-filtered \
 	-O inv_filtered_tmp.vcf.gz 
+
+# Removed --set-filtered-gt-to-nocall as it is dropping all variants since GQ,PL,AD fields were added
 
 # Sort invariant vcf
 gatk SortVcf \
     -I inv_filtered_tmp.vcf.gz \
     -O inv_filtered.vcf.gz 
-
 
 # Create invariant filters summary  table
 # Just output the ones relevent for invariants

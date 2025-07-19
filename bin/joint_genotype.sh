@@ -96,7 +96,9 @@ else
           print
           }' \
      | bgzip > ${5}.vcf.gz
+    bcftools index ${5}.vcf.gz
 fi 
+    
 
 # Remove temporary files
-rm -f source.g.vcf.gz calls.vcf.gz calls_backfilled.vcf.gz source.tsv.gz
+rm -f source.g.vcf.gz* calls.vcf.gz* calls_backfilled.vcf.gz* source.tsv.gz*
