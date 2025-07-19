@@ -21,7 +21,7 @@ process GENOTYPE_POSTERIORS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${gvcf} \
+        ${vcf} \
         ${interval_hash} \
         ${interval_bed}
 

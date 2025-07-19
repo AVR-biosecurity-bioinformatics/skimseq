@@ -101,6 +101,7 @@ workflow GATK_GENOTYPING {
 
     // collect .vcfs into a single element
     GENOTYPE_POSTERIORS.out.vcf
+        .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
         .collect()
         .set { ch_vcfs }
 

@@ -179,6 +179,22 @@ workflow SKIMSEQ {
         ch_mask_bed_vcf
     )
 
+    /*
+    Probablistic genotyping outputs for filtered SNPs
+    */
+    //PROB_GENOTYPING (
+    //    MERGE_FILTERED.out.vcf,
+    //    ch_genome_indexed
+    //)
+
+    /*
+    Pseudohaploid genotyping outputs for filtered snps
+    */
+    //PSEUD_GENOTYPING (
+    //    MERGE_FILTERED.out.vcf,
+    //    ch_genome_indexed
+    //)
+
     // Merge all reports for multiqc
     ch_reports
         .mix(PROCESS_READS.out.reports)
