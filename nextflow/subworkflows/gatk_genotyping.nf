@@ -8,6 +8,7 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { CREATE_BED_INTERVALS                                   } from '../modules/create_bed_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
+include { GENOTYPE_POSTERIORS                                    } from '../modules/genotype_posteriors' 
 
 
 workflow GATK_GENOTYPING {
@@ -84,7 +85,7 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed
     )
 
-    // call genotypes at variant sites
+    // joint-call genotypes
     JOINT_GENOTYPE (
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
@@ -93,8 +94,13 @@ workflow GATK_GENOTYPING {
         params.output_invariant
     )
 
+    // calculate genotype posteriors
+    GENOTYPE_POSTERIORS (
+        JOINT_GENOTYPE.out.vcf
+    )
+
     // collect .vcfs into a single element
-    JOINT_GENOTYPE.out.vcf
+    GENOTYPE_POSTERIORS.out.vcf
         .collect()
         .set { ch_vcfs }
 

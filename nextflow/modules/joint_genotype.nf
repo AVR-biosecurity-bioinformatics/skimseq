@@ -12,7 +12,7 @@ process JOINT_GENOTYPE {
     val(output_invariant)
 
     output: 
-    tuple path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
+    tuple val(interval_hash), path(interval_list), path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
