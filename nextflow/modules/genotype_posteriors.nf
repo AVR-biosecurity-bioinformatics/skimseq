@@ -6,11 +6,11 @@ process GENOTYPE_POSTERIORS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(interval_hash), path(interval_list), path(vcf), path(vcf_tbi)
+    tuple val(interval_hash), path(interval_bed), path(vcf), path(vcf_tbi)
 
 
     output: 
-    tuple val(interval_hash), path(interval_list), path("*.vcf.gz"), path("*.vcf.gz.tbi"),      emit: vcf
+    tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),      emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,7 +23,7 @@ process GENOTYPE_POSTERIORS {
         ${task.memory.giga} \
         ${gvcf} \
         ${interval_hash} \
-        ${interval_list}
+        ${interval_bed}
 
     """
 }
