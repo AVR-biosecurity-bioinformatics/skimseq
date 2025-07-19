@@ -38,7 +38,6 @@ tryCatch(
     params.max_missing <- args[24]
 
     # TESTING
-    #snp_filtering parameters
     #params.snp_qd <- 2.0
     #params.snp_qual <- 30.0
     #params.snp_sor <- 3.0
@@ -50,8 +49,6 @@ tryCatch(
     #params.snp_eh <- 54.69
     #params.snp_dp_min <- 6
     #params.snp_dp_max <- 1500
-
-    #indel_filtering parameters
     #params.indel_qd <- 2.0
     #params.indel_qual <- 30.0
     #params.indel_fs <- 200.0
@@ -60,10 +57,9 @@ tryCatch(
     #params.indel_eh <- 54.69
     #params.indel_dp_min <- 6
     #params.indel_dp_max <- 1500
-
-    #invariant_filtering parameters
     #params.inv_dp_min <- 6
     #params.inv_dp_max <- 1500
+    #params.max_missing <- 0.05
 
     sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
@@ -74,6 +70,7 @@ tryCatch(
       "readr",
       "ggplot2",
       "stringr",
+      "patchwork",
       NULL
     )
     invisible(lapply(
@@ -84,127 +81,94 @@ tryCatch(
     ))
 
     ### run code
-    # TODO - where doe the LowQual filter come from???
-
-    # List table files
-    table_files <- list.files(pattern = "\\.table.gz$")
-
-    # read in all table files and turn into long format
-    snp_qc <- readr::read_tsv(table_files) %>%
-      dplyr::select(-NS) %>% # NS is the inverse of F_Missing
-      tidyr::pivot_longer(-c("CHROM", "POS", "TYPE", "FILTER")) %>%
-      tidyr::separate_longer_delim(cols = FILTER, delim = ",")
-
-    # Update names of filters to match names of parameters
-    trans_table <- snp_qc %>%
-      dplyr::select(FILTER) %>%
-      dplyr::distinct() %>%
-      dplyr::mutate(
-        FILTER_NEW = case_when(
-          FILTER == "PASS" ~ "PASS",
-          stringr::str_detect(FILTER, "^QD") ~ "QD",
-          stringr::str_detect(FILTER, "^QUAL") ~ "QUAL",
-          stringr::str_detect(FILTER, "^SOR") ~ "SOR",
-          stringr::str_detect(FILTER, "^FS") ~ "FS",
-          stringr::str_detect(FILTER, "^MQ") ~ "MQ",
-          stringr::str_detect(FILTER, "^MQRankSum") ~ "MQRankSum",
-          stringr::str_detect(FILTER, "^ReadPosRankSum") ~ "ReadPosRankSum",
-          stringr::str_detect(FILTER, "^MAF") ~ "AF",
-          FILTER == "ExcessHet" ~ "ExcessHet",
-          stringr::str_detect(FILTER, "^DP") ~ "DP",
-          FILTER == "F_MISSING" ~ "F_MISSING",
-          FILTER == "Mask" ~ "Mask",
-          TRUE ~ FILTER
-        )
-      )
 
     # Create filtering parameter table
     # fmt: skip
     parameter_table <- tibble::tribble(
-      ~name, ~TYPE, ~lower, ~upper,
-      "QD", "SNP", params.snp_qd, NA,
-      "QUAL", "SNP", params.snp_qual, NA,
-      "SOR", "SNP", params.snp_sor, NA,
-      "FS", "SNP", params.snp_fs, NA,
-      "MQ", "SNP", params.snp_mq, NA,
-      "MQRankSum", "SNP", params.snp_mqrs, NA,
-      "ReadPosRankSum", "SNP", params.snp_rprs, NA,
-      "AF", "SNP", params.snp_maf, NA,
-      "ExcessHet", "SNP", params.snp_eh, NA,
-      "DP", "SNP", params.snp_dp_min, params.snp_dp_max,
-      "QD", "INDEL", params.indel_qd, NA,
-      "QUAL", "INDEL", params.indel_qual, NA,
-      "FS", "INDEL", params.indel_fs, NA,
-      "ReadPosRankSum", "INDEL", params.indel_rprs, NA,
-      "AF", "INDEL", params.indel_maf, NA,
-      "ExcessHet", "INDEL", params.indel_eh, NA,
-      "DP", "INDEL", params.indel_dp_min, params.indel_dp_max,
-      "DP", "NO_VARIATION", params.inv_dp_min, params.inv_dp_max,
-      "F_MISSING", "SNP", params.max_missing, NA,
-      "F_MISSING", "INDEL", params.max_missing, NA,
-      "F_MISSING", "NO_VARIATION", params.max_missing, NA,
+      ~filter, ~type, ~lower, ~upper,
+      "QD", "snps", params.snp_qd, NA,
+      "QUAL", "snps", params.snp_qual, NA,
+      "SOR", "snps", params.snp_sor, NA,
+      "FS", "snps", params.snp_fs, NA,
+      "MQ", "snps", params.snp_mq, NA,
+      "MQRankSum", "snps", params.snp_mqrs, NA,
+      "ReadPosRankSum", "snps", params.snp_rprs, NA,
+      "AF", "snps", params.snp_maf, NA,
+      "ExcessHet", "snps", params.snp_eh, NA,
+      "DP", "snps", params.snp_dp_min, params.snp_dp_max,
+      "QD", "indels", params.indel_qd, NA,
+      "QUAL", "indels", params.indel_qual, NA,
+      "FS", "indels", params.indel_fs, NA,
+      "ReadPosRankSum", "indels", params.indel_rprs, NA,
+      "AF", "indels", params.indel_maf, NA,
+      "ExcessHet", "indels", params.indel_eh, NA,
+      "DP", "indels", params.indel_dp_min, params.indel_dp_max,
+      "DP", "inv", params.inv_dp_min, params.inv_dp_max,
+      "F_MISSING", "snps", params.max_missing, NA,
+      "F_MISSING", "indels", params.max_missing, NA,
+      "F_MISSING", "inv", params.max_missing, NA,
     ) %>%
       dplyr::mutate(
         upper = as.numeric(upper),
         lower = as.numeric(lower)
       )
 
-    # Do some reformatting to make sure SNPS arent counted twice
-    snp_qc_dist <- snp_qc %>%
-      dplyr::left_join(trans_table) %>%
-      dplyr::mutate(
-        pass = case_when(
-          FILTER_NEW == name & !FILTER_NEW == "PASS" ~ 0,
-          TRUE ~ 1
-        )
-      ) %>%
-      dplyr::group_by(CHROM, POS, TYPE) %>%
-      dplyr::slice_min(pass) %>%
-      dplyr::mutate(
-        label = case_when(
-          pass == 1 ~ "PASS",
-          pass == 0 ~ "FAIL"
-        )
-      )
+    # List table files
+    table_files <- list.files(pattern = "\\.table.gz$")
 
-    gg.snp_qc_dist <- snp_qc_dist %>%
-      dplyr::mutate(
-        TYPE = factor(
-          TYPE,
-          levels = c(
-            "SNP",
-            "INDEL",
-            "NO_VARIATION"
+    # loop through parameter table
+    plot_list <- vector("list", length = nrow(parameter_table))
+    for (i in 1:nrow(parameter_table)) {
+      filter_to_select <- parameter_table$filter[i]
+      type_to_select <- parameter_table$type[i]
+
+      table_to_read <- table_files[stringr::str_detect(
+        table_files,
+        type_to_select
+      )]
+
+      df <- read_tsv(
+        table_to_read,
+        col_select = c("FILTER", filter_to_select),
+        col_types = c("cn")
+      ) %>%
+        dplyr::mutate(
+          label = ifelse(
+            stringr::str_detect(FILTER, filter_to_select),
+            "FAIL",
+            "PASS"
           )
         )
-      ) %>%
-      ggplot(aes(x = value, fill = label)) +
-      geom_histogram() +
-      geom_vline(
-        data = parameter_table,
-        aes(xintercept = lower),
-        lty = "dashed"
-      ) +
-      geom_vline(
-        data = parameter_table,
-        aes(xintercept = upper),
-        lty = "dashed"
-      ) +
-      facet_grid(TYPE ~ name, scales = "free")
+
+      plot_list[[i]] <- df %>%
+        ggplot(aes(x = !!sym(filter_to_select), fill = label)) +
+        geom_histogram() +
+        #geom_density()+
+        geom_vline(
+          data = parameter_table %>% dplyr::slice(i),
+          aes(xintercept = lower),
+          lty = "dashed"
+        ) +
+        geom_vline(
+          data = parameter_table %>% dplyr::slice(i),
+          aes(xintercept = upper),
+          lty = "dashed"
+        ) +
+        scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
+        labs(
+          x = paste0(type_to_select, " ", filter_to_select),
+          y = "Count"
+        ) +
+        theme_classic() +
+        theme(legend.position = "none")
+    }
+
+    gg.snp_qc_dist <- wrap_plots(plot_list)
 
     # Write out plots
     pdf("variant_filtering_qc.pdf", width = 11, height = 8)
     plot(gg.snp_qc_dist)
     try(dev.off(), silent = TRUE)
-
-    # TODO: create upset plot
-
-    # TODO: Write out summary files
-    readr::read_tsv(table_files) %>%
-      dplyr::arrange(CHROM, POS) %>%
-      dplyr::group_by(TYPE, FILTER) %>%
-      dplyr::summarise(n = n_distinct(CHROM, POS)) %>%
-      readr::write_tsv("variant_filtering_summary.tsv", col_names = FALSE)
   },
   finally = {
     ### save R environment if script throws error code

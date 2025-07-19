@@ -16,7 +16,6 @@ process PLOT_VARIANT_QC {
 
     output: 
     path("*.pdf"),             emit: plots
-    path("*.tsv"),             emit: summary
 
     script:
     def process_script = "${process_name}.R"
