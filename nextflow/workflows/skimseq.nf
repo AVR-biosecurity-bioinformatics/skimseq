@@ -4,7 +4,7 @@
 // include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
-include { PROB_GENOTYPING                                           } from '../subworkflows/prob_genotyping'
+include { LOWCOV_OUTPUTS                                            } from '../subworkflows/lowcov_outputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'

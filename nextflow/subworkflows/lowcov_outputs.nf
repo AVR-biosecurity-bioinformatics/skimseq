@@ -1,12 +1,12 @@
 /*
-    Probablistic genotyping and outputs
+    Low coverage outputs
 */
 
 //// import modules
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle' 
 include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modules/create_beagle' 
 
-workflow PROB_GENOTYPING {
+workflow LOWCOV_OUTPUTS {
 
     take:
     ch_filtered_vcf
@@ -31,6 +31,8 @@ workflow PROB_GENOTYPING {
         ch_genome_indexed,
         true
     )
+
+    // Create pseudohaploid vcf file
 
     emit: 
     beagle_gl = CREATE_BEAGLE_GL.out.beagle
