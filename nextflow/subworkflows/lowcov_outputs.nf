@@ -5,7 +5,7 @@
 //// import modules
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle' 
 include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modules/create_beagle' 
-include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohaploid' 
+include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
 
 workflow LOWCOV_OUTPUTS {
 

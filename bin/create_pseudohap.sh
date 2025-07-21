@@ -51,7 +51,7 @@ tabix -s1 -b2 -e2 pseudohaploid_PH.tsv.gz
 bcftools view -h ${2} | grep '^##' > hdr.txt
 echo '##FORMAT=<ID=PH,Number=1,Type=String,Description="Pseudohaploid allele index sampled proportional to AD counts (0=REF,1=ALT1,...)">' >> hdr.txt
 bcftools view -h ${2} | grep '^#CHROM' >> hdr.txt
-bcftools reheader -h hdr.txt $in -o tmp.reheader.vcf.gz
+bcftools reheader -h hdr.txt ${2} -o tmp.reheader.vcf.gz
 bcftools index -t tmp.reheader.vcf.gz
 
 # Annotate PH tag onto existing VCF
@@ -73,7 +73,7 @@ bcftools index -t pseudohaploid.vcf.gz
 # Create header
 {
   printf "chr\tpos\tmajor\tminor";
-  bcftools query -l "$vcf" | while read s; do printf '\t%s' "$s"; done
+  bcftools query -l pseudohaploid.vcf.gz | while read s; do printf '\t%s' "$s"; done
   printf '\n'
 } > pseudohaploid.tsv
 
