@@ -38,7 +38,7 @@ if [[ ${5} == "none" ]]; then
 		-filter "DP < ${3}" --filter-name "DPmin" \
 		-filter "DP > ${4}" --filter-name "DPmax" \
 		-filter "F_MISSING > ${6}" --filter-name "F_MISSING" \
-		-G-filter "GQ > ${8}" --genotype-filter-name "GQ" \
+		-G-filter "GQ < ${8}" --genotype-filter-name "GQ" \
 		-G-filter "DP < ${9}" --genotype-filter-name "gtDPmin" \
 		-G-filter "DP > ${10}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \

@@ -60,12 +60,12 @@ if [[ ${14} == "none" ]]; then
 		-filter "MQ < ${7}" --filter-name "MQ" \
 		-filter "MQRankSum < ${8}" --filter-name "MQRankSum" \
 		-filter "ReadPosRankSum < ${9}" --filter-name "ReadPosRankSum" \
-		-filter "AF < ${10}" --filter-name "AF" \
+		-filter "MAF < ${10}" --filter-name "MAF" \
 		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \
 		-filter "F_MISSING > ${15}" --filter-name "F_MISSING" \
-		-G-filter "GQ > ${17}" --genotype-filter-name "GQ" \
+		-G-filter "GQ < ${17}" --genotype-filter-name "GQ" \
 		-G-filter "DP < ${18}" --genotype-filter-name "gtDPmin" \
 		-G-filter "DP > ${19}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \

@@ -56,12 +56,12 @@ if [[ ${11} == "none" ]]; then
 		-filter "QUAL < ${4}" --filter-name "QUAL" \
 		-filter "FS > ${5}" --filter-name "FS" \
 		-filter "ReadPosRankSum < ${6}" --filter-name "ReadPosRankSum" \
-		-filter "AF < ${7}" --filter-name "AF" \
+		-filter "MAF < ${7}" --filter-name "MAF" \
 		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
 		-filter "DP < ${9}" --filter-name "DPmin" \
 		-filter "DP > ${10}" --filter-name "DPmax" \
 		-filter "F_MISSING > ${12}" --filter-name "F_MISSING" \
-		-G-filter "GQ > ${14}" --genotype-filter-name "GQ" \
+		-G-filter "GQ < ${14}" --genotype-filter-name "GQ" \
 		-G-filter "DP < ${15}" --genotype-filter-name "gtDPmin" \
 		-G-filter "DP > ${16}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \
