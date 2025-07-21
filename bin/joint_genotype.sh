@@ -101,12 +101,12 @@ gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
     --tmp-dir /tmp
 
 # Convert <NON_REF> back to missing to ensure compatibility with filtering steps
-    bcftools view joint_called_posterior.vcf.gz -Ov \
-        | awk 'BEGIN{OFS="\t"}
-            /^#/ {print; next}
-            { if($5=="<NON_REF>") $5="."; print }' \
-        | bgzip > ${5}.vcf.gz
-    tabix ${5}.vcf.gz
+bcftools view joint_called_posterior.vcf.gz -Ov \
+    | awk 'BEGIN{OFS="\t"}
+        /^#/ {print; next}
+        { if($5=="<NON_REF>") $5="."; print }' \
+    | bgzip > ${5}.vcf.gz
+tabix ${5}.vcf.gz
 
 # Remove temporary files
 rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz*
