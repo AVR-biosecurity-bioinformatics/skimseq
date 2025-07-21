@@ -28,16 +28,17 @@ if [[${9} == "false" ]]; then
         --tmp-dir /tmp
 else 
     # Joint genotype both variant and invariant
+    # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
 
     # First use gatk selectvariants to get the sites to genotype
-    # This resolves the memory leak reported in: https://github.com/broadinstitute/gatk/issues/8989
+    # This resolves the memory leak when calling invariant sites from genomicsDB reported in: https://github.com/broadinstitute/gatk/issues/8989
     gatk --java-options "-Xmx${2}G" SelectVariants \
         -R ${4} \
         -V gendb://${3} \
         -L ${6} \
         -O source.g.vcf.gz 
 
-    # Then genotype both variant and invariant sites
+    # Then genotype both variant and invariant sites using the gvcf
     gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
         -R ${4} \
         -V source.g.vcf.gz \
@@ -51,54 +52,44 @@ else
         --include-non-variant-sites true \
         --tmp-dir /tmp
 
-     # Subset to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, GQ, and PL tags
+     # Prepare annotation files for re-adding specific genotype fields to invariant sites
+
+     # Subset gVCF to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, PL tags
      # NOTE any invariant sites with multiple alleles will be missed
-     bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
-        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref GCA_016617805.2_CM028320.1_50000-99999.fa \
-        | bcftools query -f '%CHROM\t%POS\t[%GQ\t%PL\t]\n' \
+    bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
+        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref  ${4} \
+        | bcftools query -f '%CHROM\t%POS\t[%PL\t]\n' \
         | sed 's/\t$//' \
-        | bgzip > source.tsv.gz
-     tabix -s1 -b2 -e2 source.tsv.gz
+        | bgzip > source_PL.tsv.gz
+    tabix -s1 -b2 -e2 source_PL.tsv.gz
      
-     # Annotate the GQ and PLs tag for those <NON_REF> sites that lost it during variant calling
-     bcftools annotate -a source.tsv.gz -c CHROM,POS,FORMAT/GQ,FORMAT/PL calls.vcf.gz -o calls_backfilled.vcf.gz
+     # Subset gVCF to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, GQ tags
+     # NOTE any invariant sites with multiple alleles will be missed
+	bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
+        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref ${4} \
+        | bcftools query -f '%CHROM\t%POS\t[%GQ\t]\n' \
+        | sed 's/\t$//' \
+        | bgzip > source_GQ.tsv.gz
+    tabix -s1 -b2 -e2 source_GQ.tsv.gz
 
-    # Fabricate an AD column from the DP column for invariant sites
-    # this will be used for pseudohaploid code later
-    zcat calls_backfilled.vcf.gz \
-     | awk 'BEGIN{OFS="\t"}
-          /^##FORMAT=<ID=AD,/ {seenAD=1}
-          /^##/ {print; next}
-          /^#CHROM/ {
-          if(!seenAD) print "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic depths (fabricated: DP,0 for invariant hom-ref sites)\">"
-          print; next
-          }
-          {
-          # Only fabricate when ALT is "." 
-          if(($5=="." || $5=="<NON_REF>")){
-               split($9,fmt,":")
-               hasAD=0; dp_idx=0
-               for(i=1;i<=length(fmt);i++){
-               if(fmt[i]=="AD") hasAD=1
-               if(fmt[i]=="DP") dp_idx=i
-               }
-               if(!hasAD){
-               $9=$9":AD"
-               # For each sample: AD = DP,0 (if DP numeric) else .,. 
-               for(s=10;s<=NF;s++){
-                    split($s,a,":")
-                    dp = (dp_idx? a[dp_idx] : ".")
-                    if(dp ~ /^[0-9]+$/) ad=dp",0"; else ad=".,."
-                    $s = $s":"ad
-               }
-               }
-          }
-          print
-          }' \
-     | bgzip > ${5}.vcf.gz
+     # Subset called vcf to missing sites, then extract just chrom, pos, DP tags, then fabricate an AD column from the DP column 
+    bcftools view -i 'ALT="."' calls.vcf.gz \
+        | bcftools query -f '%CHROM\t%POS\t[%DP,0\t]\n' \
+        | sed 's/\t$//' \
+        | bgzip > source_AD.tsv.gz
+    tabix -s1 -b2 -e2 source_AD.tsv.gz
+
+     # Annotate the GQ, PL, AD tags for those <NON_REF> sites that lost it during variant calling
+     # Andd missing alleles with non-ref to ensure compatibility with later GATK steps i.e.e  genotype posteriors
+     bcftools annotate -a source_GQ.tsv.gz -c CHROM,POS,FORMAT/GQ calls.vcf.gz -Ou \
+        | bcftools annotate -a source_PL.tsv.gz -c CHROM,POS,FORMAT/PL -Ou \
+        | bcftools annotate -a source_AD.tsv.gz -c CHROM,POS,FORMAT/AD -Ov \
+        | awk 'BEGIN{OFS="\t"}
+            /^#/ {print; next}
+            { if($5==".") $5="<NON_REF>"; print }' \
+        | bgzip > ${5}.vcf.gz
     tabix ${5}.vcf.gz
-fi 
-    
 
-# Remove temporary files
-rm -f source.g.vcf.gz* calls.vcf.gz* calls_backfilled.vcf.gz* source.tsv.gz*
+    # Remove temporary files
+    rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz*
+fi 
