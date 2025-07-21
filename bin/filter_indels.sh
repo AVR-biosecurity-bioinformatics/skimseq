@@ -9,16 +9,18 @@ set -u
 # $5 = indel_fs
 # $6 = indel_rprs
 # $7 = indel_maf
-# $8 = indel_eh
-# $9 = indel_dp_min
-# $10 = indel_dp_max
-# $11 = indel_custom_flags
-# $12 = max_nocall
-# $13 = max_missing
-# $14 = gt_qual
-# $15 = gt_dp_min
-# $16 = gt_dp_max
-# $17 = mask_bed
+# $8 = indel_mac
+
+# $9 = indel_eh
+# $10 = indel_dp_min
+# $11 = indel_dp_max
+# $12 = indel_custom_flags
+# $13 = max_nocall
+# $14 = max_missing
+# $15 = gt_qual
+# $16 = gt_dp_min
+# $17 = gt_dp_max
+# $18 = mask_bed
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -31,7 +33,7 @@ set -u
 
 # Make sure mask file is sorted and unique
 # TODO: Work out why the input mask is duplicated in the first place
-bedtools sort -i ${17} | uniq > vcf_masks.bed
+bedtools sort -i ${18} | uniq > vcf_masks.bed
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
@@ -57,13 +59,14 @@ if [[ ${11} == "none" ]]; then
 		-filter "FS > ${5}" --filter-name "FS" \
 		-filter "ReadPosRankSum < ${6}" --filter-name "ReadPosRankSum" \
 		-filter "MAF < ${7}" --filter-name "MAF" \
-		-filter "ExcessHet > ${8}" --filter-name "ExcessHet" \
-		-filter "DP < ${9}" --filter-name "DPmin" \
-		-filter "DP > ${10}" --filter-name "DPmax" \
-		-filter "F_MISSING > ${12}" --filter-name "F_MISSING" \
-		-G-filter "GQ < ${14}" --genotype-filter-name "GQ" \
-		-G-filter "DP < ${15}" --genotype-filter-name "gtDPmin" \
-		-G-filter "DP > ${16}" --genotype-filter-name "gtDPmax" \
+		-filter "MAC < ${8}" --filter-name "MAC" \
+		-filter "ExcessHet > ${9}" --filter-name "ExcessHet" \
+		-filter "DP < ${10}" --filter-name "DPmin" \
+		-filter "DP > ${11}" --filter-name "DPmax" \
+		-filter "F_MISSING > ${13}" --filter-name "F_MISSING" \
+		-G-filter "GQ < ${15}" --genotype-filter-name "GQ" \
+		-G-filter "DP < ${16}" --genotype-filter-name "gtDPmin" \
+		-G-filter "DP > ${17}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \
 		-O indels_tmp.vcf.gz
 else
@@ -71,7 +74,7 @@ else
 	gatk VariantFiltration \
 		--verbosity ERROR \
 		-V indels.vcf.gz \
-		${11} \
+		${12} \
 		--mask vcf_masks.bed --mask-name "Mask" \
 		-O indels_tmp.vcf.gz
 fi
@@ -81,7 +84,7 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V indels_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
-	--max-nocall-fraction ${13} \
+	--max-nocall-fraction ${14} \
 	--exclude-filtered \
 	-O indels_filtered_tmp.vcf.gz
 
@@ -95,7 +98,7 @@ gatk VariantsToTable \
 	--verbosity ERROR \
 	-V indels_tmp.vcf.gz \
 	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
-	-F SOR -F AF -F ExcessHet -F F_MISSING -F NS \
+	-F SOR -F MAF -F MAC -F ExcessHet -F F_MISSING -F NS \
 	--show-filtered \
 	-O indels_filtered.table
 
