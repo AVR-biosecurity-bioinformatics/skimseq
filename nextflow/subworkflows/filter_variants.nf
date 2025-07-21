@@ -18,6 +18,7 @@ workflow FILTER_VARIANTS {
     ch_vcf
     ch_genome_indexed
     ch_mask_bed_vcf
+    ch_sample_names
 
     main: 
 
@@ -122,7 +123,8 @@ workflow FILTER_VARIANTS {
     // Calculate VCF statistics
     VCF_STATS (
          MERGE_FILTERED.out.vcf,
-         ch_genome_indexed
+         ch_genome_indexed,
+         ch_sample_names
     )
 
     // Create reports channel for multiqc

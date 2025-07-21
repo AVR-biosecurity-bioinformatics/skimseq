@@ -43,6 +43,14 @@ workflow SKIMSEQ {
             ] }
         .set { ch_reads }
 
+    ch_samplesheet 
+        .splitCsv ( by: 1, skip: 1 )
+        .map { row -> [ row[0] ] }
+        .unique()
+        .set { ch_sample_names }
+
+    ch_sample_names.view()
+
     if ( params.ref_genome ){
         ch_genome = Channel
             .fromPath (
@@ -176,7 +184,8 @@ workflow SKIMSEQ {
     FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
         ch_genome_indexed,
-        ch_mask_bed_vcf
+        ch_mask_bed_vcf,
+        ch_sample_names
     )
 
     /*
