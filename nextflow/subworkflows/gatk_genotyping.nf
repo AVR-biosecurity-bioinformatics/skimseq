@@ -95,12 +95,12 @@ workflow GATK_GENOTYPING {
     )
 
     // calculate genotype posteriors
-    GENOTYPE_POSTERIORS (
-        JOINT_GENOTYPE.out.vcf
-    )
+    //GENOTYPE_POSTERIORS (
+    //    JOINT_GENOTYPE.out.vcf
+    //)
 
     // collect .vcfs into a single element
-    GENOTYPE_POSTERIORS.out.vcf
+    JOINT_GENOTYPE.out.vcf
         .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
         .collect()
         .set { ch_vcfs }

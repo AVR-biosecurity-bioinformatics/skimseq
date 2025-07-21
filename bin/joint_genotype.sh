@@ -12,13 +12,14 @@ set -u
 # $8 = exclude_padding
 # $9 = output_invariant
 
+# First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
 if [[${9} == "false" ]]; then
     # joint genotype variant sites only
     gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
         -R ${4} \
         -V gendb://${3} \
         -L ${6} \
-        -O ${5}.vcf.gz \
+        -O joint_called.vcf.gz \
         --exclude-intervals ${7} \
         --interval-exclusion-padding ${8} \
         --interval-merging-rule ALL \
@@ -80,16 +81,33 @@ else
     tabix -s1 -b2 -e2 source_AD.tsv.gz
 
      # Annotate the GQ, PL, AD tags for those <NON_REF> sites that lost it during variant calling
-     # Andd missing alleles with non-ref to ensure compatibility with later GATK steps i.e.e  genotype posteriors
+     # Replace missing alleles with <NON_REF> to ensure compatibility with CalculateGenotypePosteriors, otherwise it fails
      bcftools annotate -a source_GQ.tsv.gz -c CHROM,POS,FORMAT/GQ calls.vcf.gz -Ou \
         | bcftools annotate -a source_PL.tsv.gz -c CHROM,POS,FORMAT/PL -Ou \
         | bcftools annotate -a source_AD.tsv.gz -c CHROM,POS,FORMAT/AD -Ov \
         | awk 'BEGIN{OFS="\t"}
             /^#/ {print; next}
             { if($5==".") $5="<NON_REF>"; print }' \
+        | bgzip > joint_called.vcf.gz
+    tabix joint_called.vcf.gz
+fi 
+
+# Calculate genotype posteriors over genomic intervals
+gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
+    -V joint_called.vcf.gz \
+    -L ${6} \
+    -O joint_called_posterior.vcf.gz \
+    --interval-merging-rule ALL \
+    --merge-input-intervals true \
+    --tmp-dir /tmp
+
+# Convert <NON_REF> back to missing to ensure compatibility with filtering steps
+    bcftools view joint_called_posterior.vcf.gz -Ov \
+        | awk 'BEGIN{OFS="\t"}
+            /^#/ {print; next}
+            { if($5=="<NON_REF>") $5="."; print }' \
         | bgzip > ${5}.vcf.gz
     tabix ${5}.vcf.gz
 
-    # Remove temporary files
-    rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz*
-fi 
+# Remove temporary files
+rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz*
