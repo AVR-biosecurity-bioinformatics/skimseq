@@ -109,7 +109,7 @@ workflow FILTER_VARIANTS {
         ch_snp_filters,
         ch_indel_filters,
         ch_inv_filters,
-        params.max_missing
+        params.max_nocall
     )
 
     // merge filtered SNPs and indels together into one file
