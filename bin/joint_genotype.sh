@@ -98,7 +98,6 @@ gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
     -L ${6} \
     -O joint_called_posterior.vcf.gz \
     --interval-merging-rule ALL \
-    --merge-input-intervals true \
     --tmp-dir /tmp
 
 # Convert <NON_REF> back to missing to ensure compatibility with filtering steps
