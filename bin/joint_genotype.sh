@@ -39,6 +39,7 @@ else
         -L ${6} \
         -O source.g.vcf.gz 
 
+
     # Then genotype both variant and invariant sites using the gvcf
     gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
         -R ${4} \
