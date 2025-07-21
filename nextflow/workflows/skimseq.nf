@@ -192,20 +192,12 @@ workflow SKIMSEQ {
     )
 
     /*
-    Probablistic genotyping outputs for filtered SNPs
+    Custom output formats specific to low coverage sequencing
     */
-    PROB_GENOTYPING (
+    LOWCOV_OUTPUTS (
         FILTER_VARIANTS.out.filtered_vcf,
         ch_genome_indexed
     )
-
-    /*
-    Pseudohaploid genotyping outputs for filtered snps
-    */
-    //PSEUD_GENOTYPING (
-    //    FILTER_VARIANTS.out.filtered_vcf,
-    //    ch_genome_indexed
-    //)
 
     // Merge all reports for multiqc
     ch_reports
