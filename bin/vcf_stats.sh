@@ -14,6 +14,5 @@ bcftools view -s ${5} $2 -U --exclude-uncalled -o ${5}.vcf.gz
 # Calculate Per-sample statistics
 bcftools stats -F ${4} ${5}.vcf.gz > ${5}.vcfstats.txt
 
-# Output sample coverage statistics
-#bcftools stats $2 -F ${4} -s - > merged.vcfstats.txt
-
+# Remove temp file
+rm -f ${5}.vcf.gz
