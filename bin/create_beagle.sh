@@ -11,16 +11,25 @@ set -u
 
 if [[ ${4} == "true" ]]; then
     # If posterior is true, replace PL tag with the PP tag for compatibility with bcftools
+
+    # keep only sites where *at least one* sample has a PL value
+    # TODO: Investigate why a few samples are missing PL values, are these the invariants with multiple alleles in VCF?
     echo FORMAT/PP PL > rename_file
-    bcftools annotate \
+    bcftools view \
+        -i 'COUNT(FMT/PL!=".") > 0' \
+        ${2} \
+        | bcftools annotate \
         -x FORMAT/PL \
         --rename-annots rename_file \
-        ${2} \
         -o tmp.vcf
     outname='pp'
 else
-    bcftools view ${2} \
-        -o tmp.vcf
+    # keep only sites where *at least one* sample has a PL value
+    # TODO: Investigate why a few samples are missing PL values, are these the invariants with multiple alleles in VCF?
+    bcftools view \
+        -i 'COUNT(FMT/PL!=".") > 0' \
+        -o tmp.vcf \
+        ${2}
     outname='gl'
 fi
 
@@ -47,4 +56,5 @@ bcftools query \
     | tr ',' '\t' \
     >> ${outname}.beagle
 
+pigz -p ${1} ${outname}.beagle
 rm -f tmp*.vcf*

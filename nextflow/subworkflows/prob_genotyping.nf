@@ -20,18 +20,20 @@ workflow PROB_GENOTYPING {
 
     // Create beagle GL file
     CREATE_BEAGLE_GL (
-        ch_posteriors,
+        ch_filtered_vcf,
         ch_genome_indexed,
         false
     )
 
     // Create beagle GP file
     CREATE_BEAGLE_GP (
-        ch_posteriors,
+        ch_filtered_vcf,
         ch_genome_indexed,
         true
     )
 
     emit: 
+    beagle_gl = CREATE_BEAGLE_GL.out.beagle
+    beagle_gp = CREATE_BEAGLE_GP.out.beagle
 
 }

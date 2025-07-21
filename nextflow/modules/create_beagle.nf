@@ -1,16 +1,17 @@
 process CREATE_BEAGLE {
     def process_name = "create_beagle"    
     // tag "-"
-    // publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "BCFtools/1.21-GCC-13.3.0"
 
     input:
     tuple path(gvcf), path(gvcf_tbi)
     tuple path(ref_genome), path(genome_index_files)
+    val(use_posteriors)
 
     output: 
-    path("*.beagle"),                           emit: beagle
+    path("*.beagle.gz"),                           emit: beagle
     
     script:
     def process_script = "${process_name}.sh"
@@ -21,7 +22,9 @@ process CREATE_BEAGLE {
     bash ${process_script} \
         ${task.cpus} \
         ${gvcf} \
-        ${ref_genome}
+        ${ref_genome} \
+        ${use_posteriors}
+
 
     """
 }

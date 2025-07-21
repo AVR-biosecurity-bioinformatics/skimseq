@@ -4,6 +4,7 @@
 // include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
+include { PROB_GENOTYPING                                           } from '../subworkflows/prob_genotyping'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
@@ -194,7 +195,7 @@ workflow SKIMSEQ {
     Probablistic genotyping outputs for filtered SNPs
     */
     PROB_GENOTYPING (
-        MERGE_FILTERED.out.vcf,
+        FILTER_VARIANTS.out.filtered_vcf,
         ch_genome_indexed
     )
 
@@ -202,7 +203,7 @@ workflow SKIMSEQ {
     Pseudohaploid genotyping outputs for filtered snps
     */
     //PSEUD_GENOTYPING (
-    //    MERGE_FILTERED.out.vcf,
+    //    FILTER_VARIANTS.out.filtered_vcf,
     //    ch_genome_indexed
     //)
 
