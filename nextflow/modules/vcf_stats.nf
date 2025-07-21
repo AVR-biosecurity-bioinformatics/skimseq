@@ -8,7 +8,8 @@ process VCF_STATS {
     input:
     tuple path(vcf), path(vcf_tbi)
     tuple path(ref_genome), path(genome_index_files)    
-    
+    val(sample)
+
     output: 
     path("*.vcfstats.txt"),            emit: vcfstats
 
@@ -22,7 +23,8 @@ process VCF_STATS {
         ${task.cpus} \
         ${vcf} \
         ${vcf_tbi} \
-        ${ref_genome}
+        ${ref_genome} \
+        ${sample}
 
     """
 }

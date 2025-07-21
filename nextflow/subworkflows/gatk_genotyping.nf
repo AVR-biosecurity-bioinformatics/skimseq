@@ -9,7 +9,6 @@ include { MERGE_VCFS                                             } from '../modu
 include { CREATE_BED_INTERVALS                                   } from '../modules/create_bed_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
-
 workflow GATK_GENOTYPING {
 
     take:
@@ -84,7 +83,7 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed
     )
 
-    // call genotypes at variant sites
+    // joint-call genotypes
     JOINT_GENOTYPE (
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
@@ -95,6 +94,7 @@ workflow GATK_GENOTYPING {
 
     // collect .vcfs into a single element
     JOINT_GENOTYPE.out.vcf
+        .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
         .collect()
         .set { ch_vcfs }
 

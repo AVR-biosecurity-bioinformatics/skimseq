@@ -12,12 +12,17 @@ set -u
 # $8 = snp_mqrs
 # $9 = snp_rprs
 # $10 = snp_maf
-# $11 = snp_eh
-# $12 = snp_dp_min
-# $13 = snp_dp_max
-# $14 = snp_custom_flags
-# $15 = max_missing
-# $16 = mask_bed
+# $11 = snp_mac
+# $12 = snp_eh
+# $13 = snp_dp_min
+# $14 = snp_dp_max
+# $15 = snp_custom_flags
+# $16 = max_nocall
+# $17 = max_missing
+# $18 = gt_qual
+# $19 = gt_dp_min
+# $20 = gt_dp_max
+# $21 = mask_bed
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -29,7 +34,7 @@ set -u
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
 # Make sure mask file is sorted and unique
-bedtools sort -i ${16} | uniq > vcf_masks.bed
+bedtools sort -i ${21} | uniq > vcf_masks.bed
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
@@ -44,7 +49,7 @@ gatk SelectVariants \
 	-O snps.vcf.gz
 
 # Hard-filter SNPs
-if [[ ${14} == "none" ]]; then
+if [[ ${15} == "none" ]]; then
 	# use individual parameters
 	gatk VariantFiltration \
 		--verbosity ERROR \
@@ -56,11 +61,15 @@ if [[ ${14} == "none" ]]; then
 		-filter "MQ < ${7}" --filter-name "MQ" \
 		-filter "MQRankSum < ${8}" --filter-name "MQRankSum" \
 		-filter "ReadPosRankSum < ${9}" --filter-name "ReadPosRankSum" \
-		-filter "AF < ${10}" --filter-name "AF" \
-		-filter "ExcessHet > ${11}" --filter-name "ExcessHet" \
-		-filter "DP < ${12}" --filter-name "DPmin" \
-		-filter "DP > ${13}" --filter-name "DPmax" \
-		-filter "F_MISSING > ${15}" --filter-name "F_MISSING" \
+		-filter "MAF < ${10}" --filter-name "MAF" \
+		-filter "MAC < ${11}" --filter-name "MAC" \
+		-filter "ExcessHet > ${12}" --filter-name "ExcessHet" \
+		-filter "DP < ${13}" --filter-name "DPmin" \
+		-filter "DP > ${14}" --filter-name "DPmax" \
+		-filter "F_MISSING > ${16}" --filter-name "F_MISSING" \
+		-G-filter "GQ < ${18}" --genotype-filter-name "GQ" \
+		-G-filter "DP < ${19}" --genotype-filter-name "gtDPmin" \
+		-G-filter "DP > ${20}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \
 		-O snps_tmp.vcf.gz
 else
@@ -68,7 +77,7 @@ else
 	gatk VariantFiltration \
 		--verbosity ERROR \
 		-V snps.vcf.gz \
-		${14} \
+		${15} \
 		--mask vcf_masks.bed --mask-name "Mask" \
 		-O snps_tmp.vcf.gz
 fi
@@ -78,6 +87,7 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V snps_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
+	--max-nocall-fraction ${17} \
 	--exclude-filtered \
 	-O snps_filtered_tmp.vcf.gz 
 
@@ -91,7 +101,7 @@ gatk VariantsToTable \
 	--verbosity ERROR \
 	-V snps_tmp.vcf.gz \
 	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
-	-F SOR -F AF -F ExcessHet -F F_MISSING -F NS \
+	-F SOR -F MAF -F MAC -F ExcessHet -F F_MISSING -F NS \
 	--show-filtered \
 	-O snps_filtered.table
 

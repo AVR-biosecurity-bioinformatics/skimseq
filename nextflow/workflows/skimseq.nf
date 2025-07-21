@@ -4,6 +4,7 @@
 // include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
+include { LOWCOV_OUTPUTS                                            } from '../subworkflows/lowcov_outputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
@@ -34,6 +35,7 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
+    // Reads channel
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
         .map { row -> [ 
@@ -43,6 +45,15 @@ workflow SKIMSEQ {
             ] }
         .set { ch_reads }
 
+
+    // Sample names channel
+    ch_samplesheet 
+        .splitCsv ( by: 1, skip: 1 )
+        .map { row -> row[0] }
+        .unique()
+        .set { ch_sample_names }
+
+    // Reference genome channel
     if ( params.ref_genome ){
         ch_genome = Channel
             .fromPath (
@@ -176,7 +187,16 @@ workflow SKIMSEQ {
     FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
         ch_genome_indexed,
-        ch_mask_bed_vcf
+        ch_mask_bed_vcf,
+        ch_sample_names
+    )
+
+    /*
+    Custom output formats specific to low coverage sequencing
+    */
+    LOWCOV_OUTPUTS (
+        FILTER_VARIANTS.out.filtered_vcf,
+        ch_genome_indexed
     )
 
     // Merge all reports for multiqc
@@ -187,7 +207,6 @@ workflow SKIMSEQ {
 	    .collect()
         .ifEmpty([])
         .set { multiqc_files }
-
 
     // Create Multiqc reports
     MULTIQC (

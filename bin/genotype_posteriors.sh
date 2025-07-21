@@ -4,7 +4,7 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = memory 
-# $3 = gvcf
+# $3 = =vcf
 # $4 = interval hash
 # $5 = interval_list
 
@@ -12,6 +12,6 @@ set -u
 gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
     -V ${3} \
     -L ${5} \
-    -O ${4}.g.vcf.gz \
+    -O ${4}.gp.vcf.gz \
     --interval-merging-rule ALL \
     --tmp-dir /tmp

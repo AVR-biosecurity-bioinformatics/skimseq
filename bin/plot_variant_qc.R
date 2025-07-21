@@ -16,26 +16,28 @@ tryCatch(
     params.snp_mqrs <- args[8]
     params.snp_rprs <- args[9]
     params.snp_maf <- args[10]
-    params.snp_eh <- args[11]
-    params.snp_dp_min <- args[12]
-    params.snp_dp_max <- args[13]
+    params.snp_mac <- args[11]
+    params.snp_eh <- args[12]
+    params.snp_dp_min <- args[13]
+    params.snp_dp_max <- args[14]
 
     #indel_filtering parameters
-    params.indel_qd <- args[14]
-    params.indel_qual <- args[15]
-    params.indel_fs <- args[16]
-    params.indel_rprs <- args[17]
-    params.indel_maf <- args[18]
-    params.indel_eh <- args[19]
-    params.indel_dp_min <- args[20]
-    params.indel_dp_max <- args[21]
+    params.indel_qd <- args[15]
+    params.indel_qual <- args[16]
+    params.indel_fs <- args[17]
+    params.indel_rprs <- args[18]
+    params.indel_maf <- args[19]
+    params.indel_mac <- args[20]
+    params.indel_eh <- args[21]
+    params.indel_dp_min <- args[22]
+    params.indel_dp_max <- args[23]
 
     #invariant_filtering parameters
-    params.inv_dp_min <- args[22]
-    params.inv_dp_max <- args[23]
+    params.inv_dp_min <- args[24]
+    params.inv_dp_max <- args[25]
 
     # Max missing
-    params.max_missing <- args[24]
+    params.max_missing <- args[26]
 
     # TESTING
     #params.snp_qd <- 2.0
@@ -93,14 +95,16 @@ tryCatch(
       "MQ", "snps", params.snp_mq, NA,
       "MQRankSum", "snps", params.snp_mqrs, NA,
       "ReadPosRankSum", "snps", params.snp_rprs, NA,
-      "AF", "snps", params.snp_maf, NA,
+      "MAF", "snps", params.snp_maf, NA,
+      "MAC", "snps", params.snp_mac, NA,
       "ExcessHet", "snps", params.snp_eh, NA,
       "DP", "snps", params.snp_dp_min, params.snp_dp_max,
       "QD", "indels", params.indel_qd, NA,
       "QUAL", "indels", params.indel_qual, NA,
       "FS", "indels", params.indel_fs, NA,
       "ReadPosRankSum", "indels", params.indel_rprs, NA,
-      "AF", "indels", params.indel_maf, NA,
+      "MAF", "indels", params.indel_maf, NA,
+      "MAC", "indels", params.indel_mac, NA,
       "ExcessHet", "indels", params.indel_eh, NA,
       "DP", "indels", params.indel_dp_min, params.indel_dp_max,
       "DP", "inv", params.inv_dp_min, params.inv_dp_max,

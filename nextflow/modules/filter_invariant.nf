@@ -8,7 +8,7 @@ process FILTER_INVARIANT {
     input:
     tuple path(vcf), path(vcf_tbi)
     tuple val(inv_dp_min), val(inv_dp_max), val(inv_custom_flags)
-    val(max_missing)
+    tuple val(max_nocall), val(max_missing), val(gt_qual), val(gt_dp_min), val(gt_dp_max)
     path(mask_bed)
 
     output: 
@@ -27,7 +27,11 @@ process FILTER_INVARIANT {
         "${inv_dp_min}" \
         "${inv_dp_max}" \
         "${inv_custom_flags}" \
+        ${max_nocall} \
         ${max_missing} \
+        ${gt_qual} \
+        ${gt_dp_min} \
+        ${gt_dp_max} \
         ${mask_bed}
 
     """

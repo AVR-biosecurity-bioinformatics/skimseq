@@ -2,7 +2,7 @@ process JOINT_GENOTYPE {
     def process_name = "joint_genotype"    
     publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
+    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(genomicsdb)
@@ -12,7 +12,7 @@ process JOINT_GENOTYPE {
     val(output_invariant)
 
     output: 
-    tuple path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
+    tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
     
     script:
     def process_script = "${process_name}.sh"

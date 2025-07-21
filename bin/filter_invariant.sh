@@ -7,12 +7,16 @@ set -u
 # $3 = inv_dp_min
 # $4 = inv_dp_max
 # $5 = indel_custom_flags
-# $6 = max_missing
-# $8 = mask_bed
+# $6 = max_nocall
+# $7 = max_missing
+# $8 = gt_qual
+# $9 = gt_dp_min
+# $10 = gt_dp_max
+# $11 = mask_bed
 
 # Make sure mask file is sorted and unique
 # TODO: Work out why the input mask is duplicated in the first place
-bedtools sort -i ${8} | uniq > vcf_masks.bed
+bedtools sort -i ${11} | uniq > vcf_masks.bed
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
@@ -34,6 +38,9 @@ if [[ ${5} == "none" ]]; then
 		-filter "DP < ${3}" --filter-name "DPmin" \
 		-filter "DP > ${4}" --filter-name "DPmax" \
 		-filter "F_MISSING > ${6}" --filter-name "F_MISSING" \
+		-G-filter "GQ < ${8}" --genotype-filter-name "GQ" \
+		-G-filter "DP < ${9}" --genotype-filter-name "gtDPmin" \
+		-G-filter "DP > ${10}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \
 		-O inv_tmp.vcf.gz
 else
@@ -51,14 +58,16 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V inv_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
+	--max-nocall-fraction ${7} \
 	--exclude-filtered \
 	-O inv_filtered_tmp.vcf.gz 
+
+# Removed --set-filtered-gt-to-nocall as it is dropping all variants since GQ,PL,AD fields were added
 
 # Sort invariant vcf
 gatk SortVcf \
     -I inv_filtered_tmp.vcf.gz \
     -O inv_filtered.vcf.gz 
-
 
 # Create invariant filters summary  table
 # Just output the ones relevent for invariants

@@ -7,8 +7,8 @@ process FILTER_INDELS {
 
     input:
     tuple path(vcf), path(vcf_tbi)
-    tuple val(indel_qd), val(indel_qual), val(indel_fs), val(indel_rprs), val(indel_maf), val(indel_eh), val(indel_dp_min), val(indel_dp_max), val(indel_custom_flags)
-    val(max_missing)
+    tuple val(indel_qd), val(indel_qual), val(indel_fs), val(indel_rprs), val(indel_maf), val(indel_mac), val(indel_eh), val(indel_dp_min), val(indel_dp_max), val(indel_custom_flags)
+    tuple val(max_nocall), val(max_missing), val(gt_qual), val(gt_dp_min), val(gt_dp_max)
     path(mask_bed)
 
     output: 
@@ -29,11 +29,16 @@ process FILTER_INDELS {
         "${indel_fs}" \
         "${indel_rprs}" \
         "${indel_maf}" \
+        "${indel_mac}" \
         "${indel_eh}" \
         "${indel_dp_min}" \
         "${indel_dp_max}" \
         "${indel_custom_flags}" \
+        ${max_nocall} \
         ${max_missing} \
+        ${gt_qual} \
+        ${gt_dp_min} \
+        ${gt_dp_max} \
         ${mask_bed}
 
     """

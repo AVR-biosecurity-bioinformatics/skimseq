@@ -1,5 +1,5 @@
-process CREATE_BEAGLE {
-    def process_name = "create_beagle"    
+process CREATE_PSEUDOHAP {
+    def process_name = "create_pseudohap"    
     // tag "-"
     publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -8,11 +8,11 @@ process CREATE_BEAGLE {
     input:
     tuple path(vcf), path(vcf_tbi)
     tuple path(ref_genome), path(genome_index_files)
-    val(use_posteriors)
 
     output: 
-    path("*.beagle.gz"),                           emit: beagle
-    
+    path("*pseudohaploid.vcf.gz"),                           emit: vcf
+    path("*pseudohaploid.tsv"),                              emit: tsv
+
     script:
     def process_script = "${process_name}.sh"
     """
@@ -22,9 +22,7 @@ process CREATE_BEAGLE {
     bash ${process_script} \
         ${task.cpus} \
         ${vcf} \
-        ${ref_genome} \
-        ${use_posteriors}
-
+        ${ref_genome}
 
     """
 }
