@@ -193,10 +193,10 @@ workflow SKIMSEQ {
     /*
     Probablistic genotyping outputs for filtered SNPs
     */
-    //PROB_GENOTYPING (
-    //    MERGE_FILTERED.out.vcf,
-    //    ch_genome_indexed
-    //)
+    PROB_GENOTYPING (
+        MERGE_FILTERED.out.vcf,
+        ch_genome_indexed
+    )
 
     /*
     Pseudohaploid genotyping outputs for filtered snps
