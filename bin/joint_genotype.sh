@@ -13,7 +13,7 @@ set -u
 # $9 = output_invariant
 
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
-if [[${9} == "false" ]]; then
+if [[ "${9}" == "false" ]]; then
     # joint genotype variant sites only
     gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
         -R ${4} \
@@ -25,9 +25,9 @@ if [[${9} == "false" ]]; then
         --interval-merging-rule ALL \
         --merge-input-intervals true \
         --only-output-calls-starting-in-intervals \
-        --include-non-variant-sites false \
         --tmp-dir /tmp
-else 
+
+elif [[ "${9}" == "true" ]]; then
     # Joint genotype both variant and invariant
     # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
 
@@ -38,7 +38,6 @@ else
         -V gendb://${3} \
         -L ${6} \
         -O source.g.vcf.gz 
-
 
     # Then genotype both variant and invariant sites using the gvcf
     gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
@@ -91,6 +90,9 @@ else
             { if($5==".") $5="<NON_REF>"; print }' \
         | bgzip > joint_called.vcf.gz
     tabix joint_called.vcf.gz
+else 
+    echo "output_invariant must be true or false"
+    exit 1
 fi 
 
 # Calculate genotype posteriors over genomic intervals

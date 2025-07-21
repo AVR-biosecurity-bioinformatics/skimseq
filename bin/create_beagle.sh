@@ -9,7 +9,7 @@ set -u
 
 # Note - beagle output only works for polymorphic sites but indels and nonvariants are supported
 
-if [[ ${4} == "true" ]]; then
+if [[ "${4}" == "true" ]]; then
     # If posterior is true, replace PL tag with the PP tag for compatibility with bcftools
 
     # keep only sites where *at least one* sample has a PL value
