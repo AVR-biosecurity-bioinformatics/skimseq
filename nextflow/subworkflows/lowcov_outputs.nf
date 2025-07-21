@@ -5,6 +5,7 @@
 //// import modules
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle' 
 include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modules/create_beagle' 
+include { CREATE_PSEUDOHAPLOID                                   } from '../modules/create_pseudohaploid' 
 
 workflow LOWCOV_OUTPUTS {
 
@@ -33,9 +34,16 @@ workflow LOWCOV_OUTPUTS {
     )
 
     // Create pseudohaploid vcf file
+    CREATE_PSEUDOHAPLOID (
+        ch_filtered_vcf,
+        ch_genome_indexed,
+        true
+    )
 
     emit: 
     beagle_gl = CREATE_BEAGLE_GL.out.beagle
     beagle_gp = CREATE_BEAGLE_GP.out.beagle
+    pseudo = CREATE_PSEUDOHAPLOID.out.tsv
+
 
 }
