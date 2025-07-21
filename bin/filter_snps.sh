@@ -49,7 +49,7 @@ gatk SelectVariants \
 	-O snps.vcf.gz
 
 # Hard-filter SNPs
-if [[ ${14} == "none" ]]; then
+if [[ ${15} == "none" ]]; then
 	# use individual parameters
 	gatk VariantFiltration \
 		--verbosity ERROR \

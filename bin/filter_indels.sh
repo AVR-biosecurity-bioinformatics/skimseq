@@ -10,7 +10,6 @@ set -u
 # $6 = indel_rprs
 # $7 = indel_maf
 # $8 = indel_mac
-
 # $9 = indel_eh
 # $10 = indel_dp_min
 # $11 = indel_dp_max
@@ -49,7 +48,7 @@ gatk SelectVariants \
 	-O indels.vcf.gz 
 
 # Hard-filter INDELS
-if [[ ${11} == "none" ]]; then
+if [[ ${12} == "none" ]]; then
 	# use individual parameters
 	gatk VariantFiltration \
 		--verbosity ERROR \
