@@ -16,8 +16,12 @@ set -u
 # $12 = snp_dp_min
 # $13 = snp_dp_max
 # $14 = snp_custom_flags
-# $15 = max_missing
-# $16 = mask_bed
+# $15 = max_nocall
+# $16 = max_missing
+# $17 = gt_qual
+# $18 = gt_dp_min
+# $19 = gt_dp_max
+# $20 = mask_bed
 
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
@@ -29,7 +33,7 @@ set -u
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
 # Make sure mask file is sorted and unique
-bedtools sort -i ${16} | uniq > vcf_masks.bed
+bedtools sort -i ${20} | uniq > vcf_masks.bed
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
@@ -61,6 +65,9 @@ if [[ ${14} == "none" ]]; then
 		-filter "DP < ${12}" --filter-name "DPmin" \
 		-filter "DP > ${13}" --filter-name "DPmax" \
 		-filter "F_MISSING > ${15}" --filter-name "F_MISSING" \
+		-G-filter "GQ > ${17}" --genotype-filter-name "GQ" \
+		-G-filter "DP < ${18}" --genotype-filter-name "gtDPmin" \
+		-G-filter "DP > ${19}" --genotype-filter-name "gtDPmax" \
 		--mask vcf_masks.bed --mask-name "Mask" \
 		-O snps_tmp.vcf.gz
 else
@@ -78,6 +85,7 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V snps_tmp.vcf.gz \
 	--set-filtered-gt-to-nocall \
+	--max-nocall-fraction ${16} \
 	--exclude-filtered \
 	-O snps_filtered_tmp.vcf.gz 
 

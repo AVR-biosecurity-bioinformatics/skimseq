@@ -8,7 +8,7 @@ process FILTER_SNPS {
     input:
     tuple path(vcf), path(vcf_tbi)
     tuple val(snp_qd), val(snp_qual), val(snp_sor), val(snp_fs), val(snp_mq), val(snp_mqrs), val(snp_rprs), val(snp_maf), val(snp_eh), val(snp_dp_min), val(snp_dp_max), val(snp_custom_flags)
-    val(max_missing)
+    tuple val(max_nocall), val(max_missing), val(gt_qual), val(gt_dp_min), val(gt_dp_max)
     path(mask_bed)
 
     output: 
@@ -36,7 +36,11 @@ process FILTER_SNPS {
         "${snp_dp_min}" \
         "${snp_dp_max}" \
         "${snp_custom_flags}" \
+        ${max_nocall} \
         ${max_missing} \
+        ${gt_qual} \
+        ${gt_dp_min} \
+        ${gt_dp_max} \
         ${mask_bed}
 
     """

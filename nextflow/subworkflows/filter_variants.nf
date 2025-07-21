@@ -21,6 +21,18 @@ workflow FILTER_VARIANTS {
 
     main: 
 
+    // collect generic genotype filtering parameters into a single list
+    // These are used for all variant types
+    Channel.of(
+        params.max_nocall,
+        params.max_missing,
+        params.gt_qual,        
+        params.gt_dp_min,         
+        params.gt_dp_max
+    )
+    .collect( sort: false )
+    .set { ch_geno_filters }
+
     // collect SNP filtering parameters into a single list
     Channel.of(
         params.snp_qd,          
@@ -43,7 +55,7 @@ workflow FILTER_VARIANTS {
     FILTER_SNPS (
         ch_vcf,
         ch_snp_filters,
-        params.max_missing,
+        ch_geno_filters,
         ch_mask_bed_vcf
     )
     
@@ -66,7 +78,7 @@ workflow FILTER_VARIANTS {
     FILTER_INDELS (
         ch_vcf,
         ch_indel_filters,
-        params.max_missing,
+        ch_geno_filters,
         ch_mask_bed_vcf
     )
 
@@ -83,7 +95,7 @@ workflow FILTER_VARIANTS {
     FILTER_INVARIANT (
         ch_vcf,
         ch_inv_filters,
-        params.max_missing,
+        ch_geno_filters,
         ch_mask_bed_vcf
     )
 
