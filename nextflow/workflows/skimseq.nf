@@ -34,6 +34,7 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
+    // Reads channel
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
         .map { row -> [ 
@@ -43,14 +44,15 @@ workflow SKIMSEQ {
             ] }
         .set { ch_reads }
 
+
+    // Sample names channel
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
-        .map { row -> [ row[0] ] }
+        .map { row -> row[0] }
         .unique()
         .set { ch_sample_names }
 
-    ch_sample_names.view()
-
+    // Reference genome channel
     if ( params.ref_genome ){
         ch_genome = Channel
             .fromPath (
@@ -212,7 +214,6 @@ workflow SKIMSEQ {
 	    .collect()
         .ifEmpty([])
         .set { multiqc_files }
-
 
     // Create Multiqc reports
     MULTIQC (
