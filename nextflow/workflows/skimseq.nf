@@ -7,7 +7,7 @@ include { MASK_GENOME                                               } from '../s
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-include { OUTPUTS                                                   } from '../subworkflows/lowcov_outputs'
+include { OUTPUTS                                                   } from '../subworkflows/outputs'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
