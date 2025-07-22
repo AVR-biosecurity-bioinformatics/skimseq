@@ -6,6 +6,7 @@
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle' 
 include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modules/create_beagle' 
 include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
+include { VCF2DIST                                               } from '../modules/vcf2dist' 
 
 workflow LOWCOV_OUTPUTS {
 
@@ -42,13 +43,22 @@ workflow LOWCOV_OUTPUTS {
     // Create distance matrices
     ch_filtered_vcf
         .mix(CREATE_PSEUDOHAP.out.vcf)
-        .set(ch_vcfs)
+        .set{ ch_vcfs }
 
     ch_vcfs.view()
 
     VCF2DIST (
         ch_vcfs
     )
+
+    // TODO - create ordination plot
+    // This should take in a distance matrix or covariant matrix
+    // Use any population labels specified in the input file for labelling and colours
+
+
+    // TODO - Create NJ tree
+    // This should take in just a distance matrix
+    // Use any population labels specified in the input file for labelling and colours
 
     emit: 
     beagle_gl = CREATE_BEAGLE_GL.out.beagle
