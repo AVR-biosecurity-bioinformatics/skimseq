@@ -7,10 +7,9 @@ process VCF2DIST {
 
     input:
     tuple path(vcf), path(vcf_tbi)
-    tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    path("*.mat"),                           emit: beagle
+    path("*.mat"),                           emit: mat
     
     script:
     def process_script = "${process_name}.sh"
@@ -20,8 +19,7 @@ process VCF2DIST {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${vcf} \
-        ${ref_genome} 
+        ${vcf}
 
     """
 }

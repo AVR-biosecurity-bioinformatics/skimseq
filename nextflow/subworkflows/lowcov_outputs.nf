@@ -39,6 +39,17 @@ workflow LOWCOV_OUTPUTS {
         ch_genome_indexed
     )
 
+    // Create distance matrices
+    ch_filtered_vcf
+        .mix(CREATE_PSEUDOHAP.out.vcf)
+        .set(ch_vcfs)
+
+    ch_vcfs.view()
+
+    VCF2DIST (
+        ch_vcfs
+    )
+
     emit: 
     beagle_gl = CREATE_BEAGLE_GL.out.beagle
     beagle_gp = CREATE_BEAGLE_GP.out.beagle
