@@ -22,7 +22,7 @@ awk '{print $2"\t"$1}' sample.map > map.back.tsv
 awk 'NR==FNR{m[$1]=$2; next}          # read map into m[]
      NR==1{print; next}               # keep header if there is one
      {$1 = (m[$1]?m[$1]:$1); print}'  \
-    OFS='\t' map.back.tsv tmp.mat > ${prefix}.mat
+    OFS='\t' map.back.tsv tmp.mat | tail -n +2 > ${prefix}.mat
 
 # Remove temporary files
-rm tmp.vcf.gz* 
+rm tmp.vcf.gz* tmp.mat

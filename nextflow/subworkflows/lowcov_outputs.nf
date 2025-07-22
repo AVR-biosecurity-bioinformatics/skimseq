@@ -45,8 +45,6 @@ workflow LOWCOV_OUTPUTS {
         .mix(CREATE_PSEUDOHAP.out.vcf)
         .set{ ch_vcfs }
 
-    ch_vcfs.view()
-
     VCF2DIST (
         ch_vcfs
     )
