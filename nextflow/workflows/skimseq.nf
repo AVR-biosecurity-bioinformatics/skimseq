@@ -2,12 +2,12 @@
 
 //// import subworkflows
 // include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
-include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
-include { LOWCOV_OUTPUTS                                            } from '../subworkflows/lowcov_outputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
-include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
+include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
+include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
+include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
+include { OUTPUTS                                                   } from '../subworkflows/lowcov_outputs'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
@@ -194,7 +194,7 @@ workflow SKIMSEQ {
     /*
     Custom output formats specific to low coverage sequencing
     */
-    LOWCOV_OUTPUTS (
+    OUTPUTS (
         FILTER_VARIANTS.out.filtered_vcf,
         ch_genome_indexed
     )

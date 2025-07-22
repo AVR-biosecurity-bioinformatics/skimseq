@@ -1,5 +1,5 @@
 /*
-    Low coverage outputs
+    Create outputs
 */
 
 //// import modules
@@ -8,7 +8,7 @@ include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modu
 include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
 include { VCF2DIST                                               } from '../modules/vcf2dist' 
 
-workflow LOWCOV_OUTPUTS {
+workflow OUTPUTS {
 
     take:
     ch_filtered_vcf
