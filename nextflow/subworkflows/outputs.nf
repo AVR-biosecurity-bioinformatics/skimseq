@@ -64,9 +64,9 @@ workflow OUTPUTS {
 
     // Create NJ tree
     // TODO: Use any population labels specified in the input file for labelling and colours
-    //PLOT_TREE (
-    //    VCF2DIST.out.mat
-    //)
+    PLOT_TREE (
+        VCF2DIST.out.mat
+    )
 
     emit: 
     beagle_gl = CREATE_BEAGLE_GL.out.beagle

@@ -39,7 +39,7 @@ tryCatch(
     distmat <- as.dist(mat)
 
     # Construct a tree using NJ method
-    tree <- nj(distmat)
+    tree <- ape::nj(distmat)
 
     # save the tree to Newick format file
     write.tree(tree, file = paste0(prefix, "_tree.nwk"))
