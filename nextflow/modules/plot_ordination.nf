@@ -19,6 +19,6 @@ process PLOT_ORDINATION {
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata} \
-        ${params.covariance}
+        ${covariance}
     """
 }

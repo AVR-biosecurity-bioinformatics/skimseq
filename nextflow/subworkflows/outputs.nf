@@ -54,7 +54,8 @@ workflow OUTPUTS {
     // This should take in a distance matrix or covariant matrix
     // Use any population labels specified in the input file for labelling and colours
     PLOT_ORDINATION (
-        VCF2DIST.out.mat
+        VCF2DIST.out.mat,
+        false
     )
 
     // TODO - Create NJ tree
