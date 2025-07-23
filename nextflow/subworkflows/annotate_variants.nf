@@ -21,6 +21,6 @@ workflow ANNOTATE_VARIANTS {
     )
            
     emit: 
-    annotated_vcf = ANNOTATE_VCF.out.vcf
+    vcf = ANNOTATE_VCF.out.vcf
 
 }
