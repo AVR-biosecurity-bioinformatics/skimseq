@@ -11,7 +11,7 @@ process CREATE_PSEUDOHAP {
 
     output: 
     tuple path("*pseudohaploid.vcf.gz"), path("*pseudohaploid.vcf.gz.tbi"),   emit: vcf
-    path("*pseudohaploid.tsv"),                                               emit: tsv
+    //path("*pseudohaploid.tsv"),                                               emit: tsv
 
     script:
     def process_script = "${process_name}.sh"

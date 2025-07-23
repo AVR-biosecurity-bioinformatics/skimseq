@@ -74,23 +74,23 @@ bcftools index -t ${prefix}_pseudohaploid.vcf.gz
 # Output genotype matrix (angsd style)
 
 # Create header
-{
-  printf "chr\tpos\tmajor\tminor";
-  bcftools query -l ${prefix}_pseudohaploid.vcf.gz | while read s; do printf '\t%s' "$s"; done
-  printf '\n'
-} > ${prefix}_pseudohaploid.tsv
-
-bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%PH]\n' ${prefix}_pseudohaploid.vcf.gz \
-    | awk -F'\t' 'BEGIN{OFS="\t"}
-    {
-    chr=$1; pos=$2; ref=$3; alt=$4;
-    printf "%s\t%s\t%s\t%s", chr, pos, ref, alt
-
-    for (i=5; i<=NF; i++) {
-        if ($i=="0")      out=0;       # REF
-        else if ($i=="1") out=1;       # ALT
-        else              out=-1;      # missing or unexpected
-        printf "\t%s", out
-    }
-    printf "\n"
-    }' >> ${prefix}_pseudohaploid.tsv
+#{
+#  printf "chr\tpos\tmajor\tminor";
+#  bcftools query -l ${prefix}_pseudohaploid.vcf.gz | while read s; do printf '\t%s' "$s"; done
+#  printf '\n'
+#} > ${prefix}_pseudohaploid.tsv
+#
+#bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%PH]\n' ${prefix}_pseudohaploid.vcf.gz \
+#    | awk -F'\t' 'BEGIN{OFS="\t"}
+#    {
+#    chr=$1; pos=$2; ref=$3; alt=$4;
+#    printf "%s\t%s\t%s\t%s", chr, pos, ref, alt
+#
+#    for (i=5; i<=NF; i++) {
+#        if ($i=="0")      out=0;       # REF
+#        else if ($i=="1") out=1;       # ALT
+#        else              out=-1;      # missing or unexpected
+#        printf "\t%s", out
+#    }
+#    printf "\n"
+#    }' >> ${prefix}_pseudohaploid.tsv
