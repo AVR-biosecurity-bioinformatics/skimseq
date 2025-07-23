@@ -46,16 +46,7 @@ tryCatch(
     )
 
     # Mat is square (samples x samples)
-    drop <- apply(
-      M,
-      1,
-      function(r, i) {
-        # remove the self-comparison (diagonal) before testing
-        all(is.na(r[-i]) | is.nan(r[-i]))
-      },
-      i = seq_len(nrow(M))
-    )
-
+    drop <- rowSums(!is.na(M)) == 1
     M_clean <- M[!drop, !drop, drop = FALSE]
 
     # Check if matrix still has dimensions
