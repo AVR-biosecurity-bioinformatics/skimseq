@@ -34,8 +34,8 @@ tryCatch(
     prefix <- mat_file %>% stringr::str_remove("\\..*$")
 
     # Read in matrix files
-    mat <- read.table(mat_file, row.names = 1)
-    colnames(mat) <- rownames(mat)
+    M <- read.table(mat_file, row.names = 1)
+    colnames(M) <- rownames(M)
 
     # Read in popmap file
     popmap <- read.table(
@@ -44,28 +44,57 @@ tryCatch(
       col.names = c("sample", "pop")
     )
 
-    # Convert matrix to dist matrix
-    distmat <- as.dist(mat)
+    # Mat is square (samples x samples)
+    drop <- apply(
+      M,
+      1,
+      function(r, i) {
+        # remove the self-comparison (diagonal) before testing
+        all(is.na(r[-i]) | is.nan(r[-i]))
+      },
+      i = seq_len(nrow(M))
+    )
 
-    # Construct a tree using NJ method
-    tree <- ape::nj(distmat)
+    M_clean <- M[!drop, !drop, drop = FALSE]
 
-    # save the tree to Newick format file
-    write.tree(tree, file = paste0(prefix, "_tree.nwk"))
+    # Check if matrix still has dimensions
+    if (!is.null(dim(M_clean)) || !any(dim(M_clean) == 0)) {
+      # Convert matrix to dist matrix
+      distmat <- as.dist(M_clean)
 
-    # Create base tree
-    p1 <- ggtree(tree, layout = "equal_angle") # see more at ggtree
+      # Construct a tree using NJ method
+      tree <- ape::nj(distmat)
 
-    # Add population colours
-    tree_df <- tibble::enframe(
-      tree$tip.label,
-      name = NULL,
-      value = "sample"
-    ) %>%
-      dplyr::left_join(popmap)
+      # save the tree to Newick format file
+      write.tree(tree, file = paste0(prefix, "_tree.nwk"))
 
-    gg.tree <- p1 %<+% (tree_df) + aes(color = pop) + geom_tiplab()
+      # Create base tree
+      p1 <- ggtree(tree, layout = "equal_angle") # see more at ggtree
 
+      # Add population colours
+      tree_df <- tibble::enframe(
+        tree$tip.label,
+        name = NULL,
+        value = "sample"
+      ) %>%
+        dplyr::left_join(popmap)
+
+      gg.tree <- p1 %<+% (tree_df) + aes(color = pop) + geom_tiplab()
+    } else {
+      # If all are dropped by NAN filter, create empty plot
+      gg.ord <- ggplot() +
+        xlim(0, 1) +
+        ylim(0, 1) + # give coords to place the text
+        annotate(
+          "text",
+          x = .5,
+          y = .5,
+          label = "All comparisons are NAN",
+          size = 6,
+          fontface = "bold"
+        ) +
+        theme_void()
+    }
     # Write out plots
     pdf(paste0(prefix, "_tree.pdf"), width = 11, height = 8)
     plot(gg.tree)
