@@ -13,11 +13,6 @@ tryCatch(
 
     ### load only required packages
     process_packages <- c(
-      "dplyr",
-      "tidyr",
-      "readr",
-      "ggplot2",
-      "stringr",
       "ape",
       "ggtree",
       NULL

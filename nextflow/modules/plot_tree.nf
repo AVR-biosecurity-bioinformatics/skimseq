@@ -14,7 +14,7 @@ process PLOT_TREE {
     script:
     def process_script = "${process_name}.R"
     """
-    shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
+    shifter --image=xushuangbin/ggtreeextraarticleenv:latest -- \
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata}
