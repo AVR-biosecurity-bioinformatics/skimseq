@@ -1,7 +1,8 @@
 process MERGE_FILTER_BAM {
     def process_name = "merge_filter_bam"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/results/bam", mode: 'copy', pattern: "*.bam*"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0"
 

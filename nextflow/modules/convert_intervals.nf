@@ -1,7 +1,7 @@
 process CONVERT_INTERVALS {
     def process_name = "convert_intervals"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 

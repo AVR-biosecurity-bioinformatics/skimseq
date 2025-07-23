@@ -1,7 +1,7 @@
 process FASTP {
     def process_name = "fastp"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "fastp/0.23.4-GCC-13.3.0"
 

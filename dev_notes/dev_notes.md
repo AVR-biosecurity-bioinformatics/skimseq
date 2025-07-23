@@ -83,9 +83,12 @@ fwd=$( find test_data/qfly/ -maxdepth 1 -name '*.fastq.gz' -type f | grep '_R1' 
 rev=$(echo "$fwd" | sed 's/_R1/_R2/g' )
 sample_id=$(echo "$fwd" | sed 's/_subset.*$//g' | sed 's/^.*\///g')
 
+# Create fake population labels
+pop=$(echo -e "Pop1\nPop1\nPop2\nPop3")
+
 # format sample,fastq_1,fastq_2,
-paste -d ',' <(echo "sample_id") <(echo "fwd") <(echo "rev") > test_data/qfly/test_samplesheet.csv
-paste -d ',' <(echo "$sample_id") <(echo "$fwd") <(echo "$rev") >> test_data/qfly/test_samplesheet.csv
+paste -d ',' <(echo "sample_id") <(echo "pop") <(echo "fwd") <(echo "rev") > test_data/qfly/test_samplesheet.csv
+paste -d ',' <(echo "$sample_id") <(echo "$pop")  <(echo "$fwd") <(echo "$rev") >> test_data/qfly/test_samplesheet.csv
 ```
 
 ### Run test datasets
@@ -98,6 +101,9 @@ export NXF_VER=23.05.0-edge
 
 module load Java/17
 
+# Make sure permissions are fixed for R scripts
+chmod +777 bin/*.R
+
 # Test
-nextflow run . -profile basc_modules,debug,test
+nextflow run . -profile basc_modules,debug,test -resume
 ```

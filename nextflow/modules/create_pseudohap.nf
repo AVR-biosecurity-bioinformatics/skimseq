@@ -1,7 +1,8 @@
 process CREATE_PSEUDOHAP {
     def process_name = "create_pseudohap"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/results/vcf/pseudohaploid", mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "BCFtools/1.21-GCC-13.3.0"
 
@@ -10,8 +11,8 @@ process CREATE_PSEUDOHAP {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    path("*pseudohaploid.vcf.gz"),                           emit: vcf
-    path("*pseudohaploid.tsv"),                              emit: tsv
+    tuple path("*pseudohaploid.vcf.gz"), path("*pseudohaploid.vcf.gz.tbi"),   emit: vcf
+    //path("*pseudohaploid.tsv"),                                               emit: tsv
 
     script:
     def process_script = "${process_name}.sh"

@@ -2,12 +2,12 @@
 
 //// import subworkflows
 // include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
-include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
-include { LOWCOV_OUTPUTS                                            } from '../subworkflows/lowcov_outputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
-include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
+include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
+include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
+include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
+include { OUTPUTS                                                   } from '../subworkflows/outputs'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
@@ -40,16 +40,24 @@ workflow SKIMSEQ {
         .splitCsv ( by: 1, skip: 1 )
         .map { row -> [ 
             row[0],                                 // sample
-            file( row[1], checkIfExists: true ),    // read1 
-            file( row[2], checkIfExists: true )     // read2
+            file( row[2], checkIfExists: true ),    // read1 
+            file( row[3], checkIfExists: true )     // read2
             ] }
         .set { ch_reads }
 
-
-    // Sample names channel
+    // Sample names and pops channel
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
-        .map { row -> row[0] }
+        .map { row -> [
+            row[0], // sample
+            row[1] // pop
+            ] }
+        .unique()
+        .set { ch_sample_pop }
+
+    // Sample names channel
+    ch_sample_pop
+        .map { sample, pop -> sample }
         .unique()
         .set { ch_sample_names }
 
@@ -194,9 +202,12 @@ workflow SKIMSEQ {
     /*
     Custom output formats specific to low coverage sequencing
     */
-    LOWCOV_OUTPUTS (
-        FILTER_VARIANTS.out.filtered_vcf,
-        ch_genome_indexed
+    OUTPUTS (
+        FILTER_VARIANTS.out.filtered_merged,
+        FILTER_VARIANTS.out.filtered_snps,
+        FILTER_VARIANTS.out.filtered_indels,
+        ch_genome_indexed,
+        ch_sample_pop
     )
 
     // Merge all reports for multiqc

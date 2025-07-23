@@ -1,16 +1,17 @@
-process MERGE_MASKS {
-    def process_name = "merge_masks"    
+process VCF2DIST {
+    def process_name = "vcf2dist"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/results/distmat", mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0"
+    module "BCFtools/1.21-GCC-13.3.0:VCF2Dis/1.53-GCC-13.3.0"
 
     input:
-    path(exclude_bed)
+    tuple path(vcf), path(vcf_tbi)
 
     output: 
-    path("merged_masks.bed"),              emit: merged_masks
-
+    path("*.mat"),                           emit: mat
+    
     script:
     def process_script = "${process_name}.sh"
     """
@@ -19,7 +20,7 @@ process MERGE_MASKS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        "${exclude_bed}" 
+        ${vcf}
+
     """
-  
 }

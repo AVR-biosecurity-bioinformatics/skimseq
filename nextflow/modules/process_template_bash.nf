@@ -1,10 +1,7 @@
 process PROCESS_TEMPLATE_BASH {
     def process_name = "process_template_bash"    
     // tag "-"
-    // label "small"
-    time '5.m'
-    memory '4.GB'
-    cpus 1
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     // module ""
 

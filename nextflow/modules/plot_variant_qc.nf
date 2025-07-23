@@ -1,7 +1,8 @@
 process PLOT_VARIANT_QC {
     def process_name = "plot_variant_qc"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/results/qc", mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "shifter/22.02.1"
 

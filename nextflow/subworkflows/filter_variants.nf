@@ -132,7 +132,9 @@ workflow FILTER_VARIANTS {
         .set { ch_reports}
         
     emit: 
-    filtered_vcf = MERGE_FILTERED.out.vcf
+    filtered_merged = MERGE_FILTERED.out.vcf
+    filtered_snps = FILTER_SNPS.out.vcf
+    filtered_indels = FILTER_INDELS.out.vcf
     reports = ch_reports
 
 }
