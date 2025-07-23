@@ -25,7 +25,7 @@ if [[ "${4}" == "true" ]]; then
         -x FORMAT/PL \
         --rename-annots rename_file \
         -o tmp.vcf
-    outname='${prefix}.pp'
+    outname=${prefix}.pp
 else
     # keep only sites where *at least one* sample has a PL value
     # TODO: Investigate why a few samples are missing PL values, are these the invariants with multiple alleles in VCF?
@@ -33,7 +33,7 @@ else
         -i 'COUNT(FMT/PL!=".") > 0' \
         -o tmp.vcf \
         ${2}
-    outname='${prefix}.gl'
+    outname=${prefix}.gl
 fi
 
 # Use BCFtools to convert phred scaled likelihoods into probabilities (similar to beagle file)
