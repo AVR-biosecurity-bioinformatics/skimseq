@@ -116,6 +116,7 @@ workflow FILTER_VARIANTS {
     // Create channel of VCFs to merge
     FILTER_SNPS.out.vcf
         .mix(FILTER_INDELS.out.vcf, FILTER_INVARIANT.out.vcf)
+        .collect()
         .set { ch_vcfs }
 
     // merge filtered SNPs and indels together into one file
