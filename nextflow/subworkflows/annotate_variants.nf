@@ -5,12 +5,15 @@
 //// import modules
 include { ANNOTATE_VCF                                            } from '../modules/annotate_vcf'
 
-workflow FILTER_VARIANTS {
+workflow ANNOTATE_VARIANTS {
 
     take:
     ch_vcf
 
     main: 
+
+    // TODO: Process to estimate AF from GL's will go here: issue #103
+
 
     // annotate VCF
     ANNOTATE_VCF (

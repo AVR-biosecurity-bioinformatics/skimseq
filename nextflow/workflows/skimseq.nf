@@ -6,6 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
+include { ANNOTATE_VARIANTS                                         } from '../subworkflows/annotate_variants'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 
@@ -209,7 +210,7 @@ workflow SKIMSEQ {
 
     /*
    Create extra outputs and visualisations
-   
+
     */
     OUTPUTS (
         FILTER_VARIANTS.out.filtered_merged,
