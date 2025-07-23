@@ -7,6 +7,7 @@ process PLOT_TREE {
 
     input:
     path(distmat)
+    tuple val(sample), val(pop)
 
     output: 
     path("*.pdf"),             emit: plots
@@ -17,6 +18,7 @@ process PLOT_TREE {
     shifter --image=gmboowa/ggtree:latest -- \
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
-        ${params.rdata}
+        ${params.rdata} \
+        
     """
 }

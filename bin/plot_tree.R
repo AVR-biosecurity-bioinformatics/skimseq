@@ -6,8 +6,7 @@ tryCatch(
 
     projectDir <- args[1]
     params.rdata <- args[2]
-    params.covariance <- args[3]
-    #popmap <- args[3]
+    popmap <- args[3]
 
     sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 

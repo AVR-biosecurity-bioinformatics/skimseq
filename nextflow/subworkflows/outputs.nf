@@ -53,7 +53,7 @@ workflow OUTPUTS {
     )
 
     // create ordination plot
-    // This should take in a distance matrix or covariant matrix
+    // TODO: handle distance vs covariance matrix
     // TODO: Use any population labels specified in the input file for labelling and colours
     PLOT_ORDINATION (
         VCF2DIST.out.mat,
@@ -65,7 +65,8 @@ workflow OUTPUTS {
     // Create NJ tree
     // TODO: Use any population labels specified in the input file for labelling and colours
     PLOT_TREE (
-        VCF2DIST.out.mat
+        VCF2DIST.out.mat,
+        ch_sample_pop
     )
 
     emit: 
