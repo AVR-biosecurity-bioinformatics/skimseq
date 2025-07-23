@@ -203,7 +203,9 @@ workflow SKIMSEQ {
     Custom output formats specific to low coverage sequencing
     */
     OUTPUTS (
-        FILTER_VARIANTS.out.filtered_vcf,
+        FILTER_VARIANTS.out.filtered_merged,
+        FILTER_VARIANTS.out.filtered_snps,
+        FILTER_VARIANTS.out.filtered_indels,
         ch_genome_indexed,
         ch_sample_pop
     )

@@ -13,43 +13,50 @@ include { PLOT_TREE                                              } from '../modu
 workflow OUTPUTS {
 
     take:
-    ch_filtered_vcf
+    ch_filtered_merged,
+    ch_filtered_snps,
+    ch_filtered_indels,
     ch_genome_indexed
     ch_sample_pop
 
     main: 
 
     /* 
-        Probablistic genotyping
+        Create outputs
     */
+
+    // Create channel containing filtered VCF along with seperate SNP and INDEL vcf
+    ch_filtered_merged
+        .mix(ch_filtered_snps, ch_filtered_indels)
+        .set{ ch_vcfs }
 
     // Create beagle GL file
     CREATE_BEAGLE_GL (
-        ch_filtered_vcf,
+        ch_vcfs,
         ch_genome_indexed,
         false
     )
 
     // Create beagle GP file
     CREATE_BEAGLE_GP (
-        ch_filtered_vcf,
+        ch_vcfs,
         ch_genome_indexed,
         true
     )
 
     // Create pseudohaploid vcf file
     CREATE_PSEUDOHAP (
-        ch_filtered_vcf,
+        ch_vcfs,
         ch_genome_indexed
     )
 
-    // Create distance matrices
-    ch_filtered_vcf
+    // Create updated channel for distance matrices
+    ch_vcfs
         .mix(CREATE_PSEUDOHAP.out.vcf)
-        .set{ ch_vcfs }
+        .set{ ch_vcfs_for_dist }
 
     VCF2DIST (
-        ch_vcfs
+        ch_vcfs_for_dist
     )
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
