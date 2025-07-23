@@ -177,7 +177,7 @@ tryCatch(
   finally = {
     ### save R environment if script throws error code
     if (params.rdata == "true") {
-      save.image(file = "CREATE_INTERVALS.rda")
+      save.image(file = "PLOT_VARIANT_QC.rda")
     }
   }
 )
