@@ -6,8 +6,9 @@ tryCatch(
 
     projectDir <- args[1]
     params.rdata <- args[2]
-    params.covariance <- args[3]
-    #popmap <- args[3]
+    mat_file <- args[3]
+    popmap_file <- args[4]
+    params.covariance <- args[5]
 
     sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
@@ -30,21 +31,24 @@ tryCatch(
 
     ### run code
 
-    # List matrix files
-    mat_files <- list.files(pattern = "\\.mat$")
-
-    prefix <- mat_files %>% stringr::str_remove("\\..*$")
+    # Get prefix for output
+    prefix <- mat_file %>% stringr::str_remove("\\..*$")
 
     # Read in matrix files
-    mat <- read.table(mat_files, row.names = 1)
+    mat <- read.table(mat_file, row.names = 1)
     colnames(mat) <- rownames(mat)
 
-    # Convert to distance matrix
+    # Read in popmap file
+    popmap <- read.table(
+      popmap_file,
+      header = FALSE,
+      col.names = c("sample", "pop")
+    )
+
+    # Convert matrix to dist matrix
     distmat <- as.dist(mat)
 
     # TODO: Check if the input is a convariance matrix, if so run eigen function
-
-    # TODO: Handle population labels - if missing colour by sample
 
     # Conduct MDS
     mds <- capscale(distmat ~ 1)
@@ -74,13 +78,14 @@ tryCatch(
 
     # Plot ordination
     gg.ord <- pcx %>%
-      dplyr::select(paste0("PC", seq(1, 2, 1))) %>%
+      dplyr::select(paste0("PC", seq(1, 2, 1))) %>% #select top 2 PCs
       tibble::rownames_to_column("sample") %>%
-      ggplot(aes(-get(target_pc[1]), get(target_pc[2]))) + #, colour = pop
+      dplyr::left_join(popmap) %>%
+      ggplot(aes(-get(target_pc[1]), get(target_pc[2]), colour = pop)) +
       geom_point(size = 2) +
       labs(x = lab_x, y = lab_y) +
       theme_classic() +
-      theme(legend.position = "none")
+      theme(legend.position = "right")
 
     # Write out plots
     pdf(paste0(prefix, "_ord.pdf"), width = 11, height = 8)

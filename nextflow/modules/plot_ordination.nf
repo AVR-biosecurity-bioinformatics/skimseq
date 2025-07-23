@@ -7,6 +7,7 @@ process PLOT_ORDINATION {
 
     input:
     path(distmat)
+    path(popmap)
     val(covariance)
 
     output: 
@@ -19,6 +20,8 @@ process PLOT_ORDINATION {
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata} \
+        ${distmat} \
+        ${popmap} \
         ${covariance}
     """
 }

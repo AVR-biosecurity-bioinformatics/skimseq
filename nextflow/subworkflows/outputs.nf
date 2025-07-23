@@ -53,22 +53,27 @@ workflow OUTPUTS {
     )
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
-    ch_popmap = ch_sample_pop
+    ch_sample_pop
         .map { s,p -> "$s\t$p" }
         .collectFile(name: 'sample_pop.tsv', newLine: true)
+        .first()
+        .set { ch_popmap }
 
-    // create ordination plot
-    // TODO: handle distance vs covariance matrix
-    // TODO: Use any population labels specified in the input file for labelling and colours
+    // create ordination plot from distance matrices
     PLOT_ORDINATION (
         VCF2DIST.out.mat,
+        ch_popmap,
         false
     )
-    // ch_sample_pop,
 
+    // create ordination plot from covariance matrices generated via PCA
+    //PLOT_ORDINATION (
+    //    VCF2DIST.out.mat,
+    //    ch_popmap,
+    //    true
+    //)
 
     // Create NJ tree
-    // TODO: Use any population labels specified in the input file for labelling and colours
     PLOT_TREE (
         VCF2DIST.out.mat,
         ch_popmap
