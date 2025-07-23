@@ -57,9 +57,10 @@ workflow OUTPUTS {
     // TODO: Use any population labels specified in the input file for labelling and colours
     PLOT_ORDINATION (
         VCF2DIST.out.mat,
-        ch_sample_pop,
         false
     )
+    // ch_sample_pop,
+
 
     // Create NJ tree
     // TODO: Use any population labels specified in the input file for labelling and colours
