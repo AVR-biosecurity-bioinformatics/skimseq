@@ -40,18 +40,24 @@ workflow SKIMSEQ {
         .splitCsv ( by: 1, skip: 1 )
         .map { row -> [ 
             row[0],                                 // sample
-            file( row[1], checkIfExists: true ),    // read1 
-            file( row[2], checkIfExists: true )     // read2
+            row[1],                                 // population
+            file( row[2], checkIfExists: true ),    // read1 
+            file( row[3], checkIfExists: true )     // read2
             ] }
         .set { ch_reads }
 
 
     // Sample names channel
-    ch_samplesheet 
-        .splitCsv ( by: 1, skip: 1 )
-        .map { row -> row[0] }
+    ch_reads
+        .map { sample, pop, r1, r2 -> sample }
         .unique()
         .set { ch_sample_names }
+
+    // Sample names and pops
+    ch_reads
+        .map { sample, pop, r1, r2 -> [ sample, pop ] }
+        .unique()
+        .set { ch_sample_pop }
 
     // Reference genome channel
     if ( params.ref_genome ){
@@ -196,7 +202,8 @@ workflow SKIMSEQ {
     */
     OUTPUTS (
         FILTER_VARIANTS.out.filtered_vcf,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_sample_pop
     )
 
     // Merge all reports for multiqc
