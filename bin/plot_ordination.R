@@ -78,6 +78,11 @@ tryCatch(
 
       # Extract data for ordination
       pcx <- as.data.frame(mds$Ybar)
+
+      # Handle missing second dimenson if there was not enough data to generate
+      if (ncol(pcx) == 1) {
+        pcx$Dim2 <- 0
+      }
       colnames(pcx) <- paste0("PC", seq(1, ncol(pcx), 1))
 
       # Plot ordination
