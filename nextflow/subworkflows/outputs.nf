@@ -52,6 +52,11 @@ workflow OUTPUTS {
         ch_vcfs
     )
 
+    // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
+    ch_popmap = ch_sample_pop
+        .map { s,p -> "$s\t$p" }
+        .collectFile(name: 'sample_pop.tsv', newLine: true)
+
     // create ordination plot
     // TODO: handle distance vs covariance matrix
     // TODO: Use any population labels specified in the input file for labelling and colours
@@ -66,7 +71,7 @@ workflow OUTPUTS {
     // TODO: Use any population labels specified in the input file for labelling and colours
     PLOT_TREE (
         VCF2DIST.out.mat,
-        ch_sample_pop
+        ch_popmap
     )
 
     emit: 

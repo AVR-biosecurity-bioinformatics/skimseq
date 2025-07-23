@@ -7,7 +7,7 @@ process PLOT_TREE {
 
     input:
     path(distmat)
-    tuple val(sample), val(pop)
+    path(popmap)
 
     output: 
     path("*.pdf"),             emit: plots
@@ -19,6 +19,7 @@ process PLOT_TREE {
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata} \
-        
+        ${distmat} \
+        ${popmap}
     """
 }
