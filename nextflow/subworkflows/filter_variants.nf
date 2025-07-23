@@ -6,7 +6,7 @@
 include { FILTER_INDELS                                            } from '../modules/filter_indels'
 include { FILTER_SNPS                                              } from '../modules/filter_snps'
 include { FILTER_INVARIANT                                         } from '../modules/filter_invariant'
-include { MERGE_FILTERED                                           } from '../modules/merge_filtered'
+include { MERGE_VCFS as MERGE_FILTERED                             } from '../modules/merge_vcfs'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
 include { PLOT_VARIANT_QC                                          } from '../modules/plot_variant_qc'
 
@@ -113,11 +113,15 @@ workflow FILTER_VARIANTS {
         params.max_nocall
     )
 
+    // Create channel of VCFs to merge
+    FILTER_SNPS.out.vcf
+        .mix(FILTER_INDELS.out.vcf, FILTER_INVARIANT.out.vcf)
+        .collect()
+        .set { ch_vcfs }
+
     // merge filtered SNPs and indels together into one file
     MERGE_FILTERED (
-        FILTER_SNPS.out.vcf,
-        FILTER_INDELS.out.vcf,
-        FILTER_INVARIANT.out.vcf
+        ch_vcfs
     )
 
     // Calculate VCF statistics
