@@ -9,9 +9,6 @@ tryCatch(
     params.covariance <- args[3]
     #popmap <- args[3]
 
-    # TESTING
-    #params.snp_qd <- 2.0
-
     sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
     ### load only required packages
@@ -42,12 +39,15 @@ tryCatch(
     mat <- read.table(mat_files, row.names = 1)
     colnames(mat) <- rownames(mat)
 
+    # Convert to distance matrix
+    distmat <- as.dist(mat)
+
     # TODO: Check if the input is a convariance matrix, if so run eigen function
 
     # TODO: Handle population labels - if missing colour by sample
 
     # Conduct MDS
-    mds <- capscale(mat ~ 1)
+    mds <- capscale(distmat ~ 1)
 
     # Get target principal components to plot
     target_pc <- c("PC1", "PC2")

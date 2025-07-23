@@ -8,6 +8,7 @@ include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modu
 include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
 include { VCF2DIST                                               } from '../modules/vcf2dist' 
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination' 
+include { PLOT_TREE                                              } from '../modules/plot_tree' 
 
 workflow OUTPUTS {
 
@@ -52,15 +53,17 @@ workflow OUTPUTS {
 
     // create ordination plot
     // This should take in a distance matrix or covariant matrix
-    // Use any population labels specified in the input file for labelling and colours
+    // TODO: Use any population labels specified in the input file for labelling and colours
     PLOT_ORDINATION (
         VCF2DIST.out.mat,
         false
     )
 
-    // TODO - Create NJ tree
-    // This should take in just a distance matrix
-    // Use any population labels specified in the input file for labelling and colours
+    // Create NJ tree
+    // TODO: Use any population labels specified in the input file for labelling and colours
+    PLOT_TREE (
+        VCF2DIST.out.mat
+    )
 
     emit: 
     beagle_gl = CREATE_BEAGLE_GL.out.beagle
