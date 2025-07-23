@@ -6,6 +6,9 @@ set -u
 # $2 = vcf
 # $3 = ref_genome
 
+# Get prefix of vcf file for output name
+prefix=$(echo ${2} | cut -d'.' -f1)
+
 # Note - beagle output only works for polymorphic sites but indels and nonvariants are supported
 
 # sample list
@@ -64,20 +67,20 @@ bcftools index -t raw.withPH.vcf.gz
 # 3 set ./., where PH is missing
 bcftools +setGT raw.withPH.vcf.gz -Ou -- -t q -n c:0/0 -i 'FMT/PH=="0"' \
     | bcftools +setGT -Ou -- -t q -n c:1/1 -i 'FMT/PH=="1"' \
-    | bcftools +setGT -Oz -o pseudohaploid.vcf.gz -- -t q -n . -i 'FMT/PH=="."' 
+    | bcftools +setGT -Oz -o ${prefix}_pseudohaploid.vcf.gz -- -t q -n . -i 'FMT/PH=="."' 
 
-bcftools index -t pseudohaploid.vcf.gz
+bcftools index -t ${prefix}_pseudohaploid.vcf.gz
 
 # Output genotype matrix (angsd style)
 
 # Create header
 {
   printf "chr\tpos\tmajor\tminor";
-  bcftools query -l pseudohaploid.vcf.gz | while read s; do printf '\t%s' "$s"; done
+  bcftools query -l ${prefix}_pseudohaploid.vcf.gz | while read s; do printf '\t%s' "$s"; done
   printf '\n'
-} > pseudohaploid.tsv
+} > ${prefix}_pseudohaploid.tsv
 
-bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%PH]\n' pseudohaploid.vcf.gz \
+bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%PH]\n' ${prefix}_pseudohaploid.vcf.gz \
     | awk -F'\t' 'BEGIN{OFS="\t"}
     {
     chr=$1; pos=$2; ref=$3; alt=$4;
@@ -90,4 +93,4 @@ bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%PH]\n' pseudohaploid.vcf.gz \
         printf "\t%s", out
     }
     printf "\n"
-    }' >> pseudohaploid.tsv
+    }' >> ${prefix}_pseudohaploid.tsv

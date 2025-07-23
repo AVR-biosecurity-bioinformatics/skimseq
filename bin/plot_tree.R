@@ -19,6 +19,7 @@ tryCatch(
       "dplyr",
       "ape",
       "ggtree",
+      "ggplot2",
       NULL
     )
     invisible(lapply(
@@ -79,10 +80,11 @@ tryCatch(
       ) %>%
         dplyr::left_join(popmap)
 
+      # Update tree with labels
       gg.tree <- p1 %<+% (tree_df) + aes(color = pop) + geom_tiplab()
     } else {
       # If all are dropped by NAN filter, create empty plot
-      gg.ord <- ggplot() +
+      gg.tree <- ggplot() +
         xlim(0, 1) +
         ylim(0, 1) + # give coords to place the text
         annotate(
