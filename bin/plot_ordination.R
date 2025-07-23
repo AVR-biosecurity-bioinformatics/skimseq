@@ -59,7 +59,7 @@ tryCatch(
     M_clean <- M[!drop, !drop, drop = FALSE]
 
     # Check if matrix still has dimensions
-    if (!is.null(dim(M_clean)) || !any(dim(M_clean) == 0)) {
+    if (!any(dim(M_clean) == 0)) {
       # Convert matrix to dist matrix
       distmat <- as.dist(M_clean)
 
