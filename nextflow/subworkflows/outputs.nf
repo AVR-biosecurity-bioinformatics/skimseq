@@ -73,7 +73,7 @@ workflow OUTPUTS {
         false
     )
 
-    // create ordination plot from covariance matrices generated via PCA
+    // TODO: create ordination plot from covariance matrices generated via PCA
     //PLOT_ORDINATION (
     //    VCF2DIST.out.mat,
     //    ch_popmap,
@@ -85,11 +85,5 @@ workflow OUTPUTS {
         VCF2DIST.out.mat,
         ch_popmap
     )
-
-    emit: 
-    beagle_gl = CREATE_BEAGLE_GL.out.beagle
-    beagle_gp = CREATE_BEAGLE_GP.out.beagle
-    pseudo = CREATE_PSEUDOHAP.out.tsv
-
 
 }

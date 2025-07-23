@@ -1,7 +1,7 @@
 process CREATE_GENOME_BINS {
     def process_name = "create_genome_bins"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:picard/3.3.0-Java-21"
 

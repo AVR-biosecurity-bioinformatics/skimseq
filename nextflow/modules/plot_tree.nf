@@ -1,7 +1,7 @@
 process PLOT_TREE {
     def process_name = "plot_tree"    
     // tag "-"
-    publishDir "${projectDir}/output/modules/${process_name}",  mode: 'copy'
+    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "shifter/22.02.1"
 
