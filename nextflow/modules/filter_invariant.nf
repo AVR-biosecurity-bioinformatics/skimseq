@@ -2,6 +2,7 @@ process FILTER_INVARIANT {
     def process_name = "filter_invariant"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/results/vcf/filtered", mode: 'copy'
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
