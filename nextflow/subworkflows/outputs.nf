@@ -13,9 +13,9 @@ include { PLOT_TREE                                              } from '../modu
 workflow OUTPUTS {
 
     take:
-    ch_filtered_merged,
-    ch_filtered_snps,
-    ch_filtered_indels,
+    ch_filtered_merged
+    ch_filtered_snps
+    ch_filtered_indels
     ch_genome_indexed
     ch_sample_pop
 
