@@ -39,10 +39,10 @@ tryCatch(
     colnames(M) <- rownames(M)
 
     # Read in popmap file
-    popmap <- read.table(
+    popmap <- readr::read_tsv(
       popmap_file,
-      header = FALSE,
-      col.names = c("sample", "pop")
+      col_names = c("sample", "pop"),
+      col_types = c("cc")
     )
 
     # Mat is square (samples x samples)
@@ -73,8 +73,8 @@ tryCatch(
       ) %>%
         dplyr::left_join(popmap)
 
-      # Update tree with labels
-      gg.tree <- p1 %<+% (tree_df) + aes(color = pop) + geom_tiplab()
+      # Update tree with colours
+      gg.tree <- p1 %<+% (tree_df) + aes(color = pop)
     } else {
       # If all are dropped by NAN filter, create empty plot
       gg.tree <- ggplot() +

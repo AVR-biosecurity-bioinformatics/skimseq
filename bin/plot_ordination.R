@@ -39,10 +39,10 @@ tryCatch(
     colnames(M) <- rownames(M)
 
     # Read in popmap file
-    popmap <- read.table(
+    popmap <- readr::read_tsv(
       popmap_file,
-      header = FALSE,
-      col.names = c("sample", "pop")
+      col_names = c("sample", "pop"),
+      col_types = c("cc")
     )
 
     # Mat is square (samples x samples)
