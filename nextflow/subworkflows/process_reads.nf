@@ -8,7 +8,7 @@ include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmap
 include { FASTP                                 } from '../modules/fastp'
 include { FASTQTOBAM                            } from '../modules/fastqtobam'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
-include { MERGE_FILTER_BAM                      } from '../modules/merge_filter_bam'
+include { MERGE_BAM                             } from '../modules/merge_bam'
 
 //include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
 //include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
