@@ -8,7 +8,6 @@ process MERGE_FILTER_BAM {
 
     input:
     tuple val(sample), path(temp_bam, name: 'temp*.bam')
-    val(bam_rmdup)
 
     output: 
     tuple val(sample), path("*.bam"), path("*.bam.bai"),        emit: bam
@@ -23,8 +22,6 @@ process MERGE_FILTER_BAM {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        "${temp_bam}" \
-        ${bam_rmdup}
-
+        "${temp_bam}"
     """
 }

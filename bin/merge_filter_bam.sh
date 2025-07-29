@@ -5,10 +5,6 @@ set -u
 # $1 = cpus 
 # $2 = sample name
 # $3 = list of temp_bam files
-# $4 = whether duplicates should be removed
-
-# parse filtering options as flags
-if [[ ${4} == "true" ]];    then RMDUP="-r ";                  else RMDUP=""; fi
 
 ls *.bam > bam.list	
 
@@ -17,7 +13,6 @@ ls *.bam > bam.list
     ( samtools fixmate --threads ${1} -m - -  || >&2 echo "samtools fixmate exit=$?" ) | \
     ( samtools sort --threads ${1} -o - - || >&2 echo "samtools sort exit=$?"      ) | \
     ( samtools markdup --threads ${1} \
-        $RMDUP \
         -s -f  ${2}.markdup.json --json \
         -l 300 \
         -d 2500 \

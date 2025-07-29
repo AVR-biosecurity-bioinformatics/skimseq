@@ -41,12 +41,6 @@ workflow PROCESS_READS {
     .collect( sort: false )
     .set { ch_fastp_filters }
     
-    // collect BAM filtering parameters into a single list
-    Channel.of(
-        params.bam_rmdup
-    )
-    .collect( sort: false )
-    .set { ch_bam_filters }
 
     /* 
         Read splitting
