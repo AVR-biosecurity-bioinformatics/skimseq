@@ -73,29 +73,28 @@ workflow PROCESS_READS {
         .set { ch_grouped_genome_bam }
 
     // Merge chunked .bam files by sample, filter, and index
-    MERGE_FILTER_BAM (
-        ch_grouped_genome_bam,
-        ch_bam_filters
+    MERGE_BAM (
+        ch_grouped_genome_bam
     )
 
     // extract unmapped reads
     EXTRACT_UNMAPPED (
-        MERGE_FILTER_BAM.out.bam
+        MERGE_BAM.out.bam
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
     // generate statistics about the .bam files
     BAM_STATS (
-        MERGE_FILTER_BAM.out.bam
+        MERGE_BAM.out.bam
     )
 
     // Create reports channel for multiqc
     FASTQTOBAM.out.json
-        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_FILTER_BAM.out.markdup)
+        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_BAM.out.markdup)
         .set { ch_reports}
 
     emit: 
-    bam = MERGE_FILTER_BAM.out.bam
+    bam = MERGE_BAM.out.bam
     reports = ch_reports
 }
