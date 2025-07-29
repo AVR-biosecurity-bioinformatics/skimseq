@@ -55,6 +55,18 @@ workflow GATK_GENOTYPING {
         .combine ( ch_interval_bed )
         .set { ch_sample_intervals }
 
+    // collect haplotypecaller parameters into a single list
+    Channel.of(
+        params.hc_min_pruning,
+        params.hc_min_dangling_length,
+        params.hc_max_reads_startpos,
+        params.hc_rmdup,
+        params.hc_minmq,
+        params.ploidy
+    )
+    .collect( sort: false )
+    .set { ch_hc_params }
+
     // call variants for single samples across intervals
     CALL_VARIANTS (
         ch_sample_intervals,
@@ -62,10 +74,7 @@ workflow GATK_GENOTYPING {
         params.interval_padding,
         ch_mask_bed_gatk, 
         params.exclude_padding,
-        params.hc_min_pruning,
-        params.hc_min_dangling_length,
-        params.hc_max_reads_startpos,
-        params.ploidy
+        ch_hc_params
     )
 
     // group GVCFs by interval 

@@ -15,7 +15,12 @@ set -u
 # $11 = hc_min_pruning
 # $12 = hc_min_dangling_length
 # $13 = hc_max_reads_startpos
-# $14 = ploidy
+# $14 = hc_rmdup
+# $15 = hc_minmq
+# $16 = ploidy
+
+# parse filtering options as flags
+if [[ ${14} == "false" ]];    then RMDUP="-DF NotDuplicateReadFilter";                  else RMDUP=""; fi
 
 # Create list of bams to be processed
 echo ${4} | tr ' ' '\n' > bam.list
@@ -35,5 +40,8 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --min-pruning ${11} \
     --min-dangling-branch-length ${12} \
     --max-reads-per-alignment-start ${13} \
-    -ploidy ${14} \
+    $RMDUP \
+    --minimum-mapping-quality ${15} \
+    --mapping-quality-threshold-for-genotyping ${15} \
+    -ploidy ${16} \
     -ERC GVCF
