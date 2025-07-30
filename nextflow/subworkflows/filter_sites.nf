@@ -11,7 +11,7 @@ include { VCF_STATS                                                } from '../mo
 include { PLOT_VARIANT_QC                                          } from '../modules/plot_variant_qc'
 
 
-workflow FILTER_VARIANTS {
+workflow FILTER_SITES {
 
     take:
     ch_vcf

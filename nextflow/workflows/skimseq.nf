@@ -186,7 +186,7 @@ workflow SKIMSEQ {
     Annotate variants with extra info for filtering
     */
 
-    ANNOTATE_VARIANTS (
+    ANNOTATE_SITES (
         GATK_GENOTYPING.out.vcf
     )
 
@@ -201,8 +201,8 @@ workflow SKIMSEQ {
           ch_mask_bed_vcf = ch_dummy_file
     }
     
-    FILTER_VARIANTS (
-        ANNOTATE_VARIANTS.out.vcf,
+    FILTER_SITES (
+        ANNOTATE_SITES.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
         ch_sample_names
@@ -213,9 +213,9 @@ workflow SKIMSEQ {
 
     */
     OUTPUTS (
-        FILTER_VARIANTS.out.filtered_merged,
-        FILTER_VARIANTS.out.filtered_snps,
-        FILTER_VARIANTS.out.filtered_indels,
+        FILTER_SITES.out.filtered_merged,
+        FILTER_SITES.out.filtered_snps,
+        FILTER_SITES.out.filtered_indels,
         ch_genome_indexed,
         ch_sample_pop
     )
@@ -224,7 +224,7 @@ workflow SKIMSEQ {
     ch_reports
         .mix(PROCESS_READS.out.reports)
         .map { sample,path -> [ path ] }
-        .mix(FILTER_VARIANTS.out.reports)
+        .mix(FILTER_SITES.out.reports)
 	    .collect()
         .ifEmpty([])
         .set { multiqc_files }
