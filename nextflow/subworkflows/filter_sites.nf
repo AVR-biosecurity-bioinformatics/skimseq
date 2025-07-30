@@ -8,7 +8,7 @@ include { FILTER_VCF_SITES as FILTER_INDELS                        } from '../mo
 include { FILTER_VCF_SITES as FILTER_INVARIANT                     } from '../modules/filter_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED                             } from '../modules/merge_vcfs'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
-include { PLOT_VARIANT_QC                                          } from '../modules/plot_variant_qc'
+include { PLOT_SITE_FILTERS                                        } from '../modules/plot_site_filters'
 
 
 workflow FILTER_SITES {
@@ -106,7 +106,7 @@ workflow FILTER_SITES {
     )
 
     // plot variant qc
-    PLOT_VARIANT_QC (
+    PLOT_SITE_FILTERS (
         FILTER_SNPS.out.tables,
         FILTER_INDELS.out.tables,
         FILTER_INVARIANT.out.tables,
