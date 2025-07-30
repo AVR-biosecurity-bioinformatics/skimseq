@@ -47,42 +47,52 @@ gatk VariantsToTable \
 	-O tmp.table
 
 # Convert to a per-stat and sample histogram for plotting
-echo -e "type\tsample\tstatistic\tvalue\tcount" > gtfiltered.table
+echo -e "TYPE\tCOUNTS\tFILTER\tGQ\tDP" > gtfiltered.table
 
-awk -F'\t' -v stats_re='^(GQ|DP)$' '
-NR==1 {
-  # find TYPE column and parse <sample>.<stat> headers
-  for (i=1;i<=NF;i++) {
-    if ($i=="TYPE") type_col=i
-    n = split($i, a, /\./)
-    if (n==2) {
-      sample[i]=a[1]; stat[i]=a[2]
-      if (stat[i] ~ stats_re) use[++nu]=i
+awk -F'\t' '
+NR==1{
+  for(i=1;i<=NF;i++){
+    if($i=="TYPE") type_col=i
+    n=split($i,a,/\./)
+    if(n==2){
+      s=a[1]; m=a[2]
+      if(m=="FT") ft_col[s]=i
+      else if(m=="GQ") gq_col[s]=i
+      else if(m=="DP") dp_col[s]=i
+      samples[s]=1
     }
   }
   next
 }
 {
-  t = (type_col? $(type_col) : "UNKNOWN")
-  for (u=1; u<=nu; u++) {
-    i = use[u]
-    v = $(i)
-    gsub(/^[ \t]+|[ \t]+$/, "", v)
-    if (v=="") v="NA"
-    key = t SUBSEP sample[i] SUBSEP stat[i] SUBSEP v
+  t = (type_col ? $(type_col) : "UNKNOWN")
+  for(s in samples){
+    ft = (s in ft_col ? $(ft_col[s]) : "NA")
+    gq = (s in gq_col ? $(gq_col[s]) : "NA")
+    dp = (s in dp_col ? $(dp_col[s]) : "NA")
+
+    # trim
+    gsub(/^[ \t]+|[ \t]+$/, "", ft)
+    gsub(/^[ \t]+|[ \t]+$/, "", gq)
+    gsub(/^[ \t]+|[ \t]+$/, "", dp)
+
+    # *** change here: map FT NA/empty -> PASS ***
+    if (ft=="" || ft=="NA") ft="PASS"
+    if (gq=="") gq="NA"
+    if (dp=="") dp="NA"
+
+    key = t SUBSEP ft SUBSEP gq SUBSEP dp
     cnt[key]++
   }
 }
-END {
-  for (k in cnt) {
-    split(k, a, SUBSEP)
-    print a[1], a[2], a[3], a[4], cnt[k]
+END{
+  for(k in cnt){
+    split(k,a,SUBSEP)
+    print a[1], cnt[k], a[2], a[3], a[4]
   }
 }
 ' OFS='\t' tmp.table |
-LC_ALL=C sort -t $'\t' -k1,1 -k2,2 -k3,3 -k4,4n >> gtfiltered.table
-
-pigz -p${1} gtfiltered.table
+LC_ALL=C sort -t $'\t' -k1,1 -k3,3 -k4,4n -k5,5n >> gtfiltered.table
 
 # Remove temporary vcf files
 rm -f tmp*

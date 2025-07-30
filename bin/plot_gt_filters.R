@@ -57,8 +57,6 @@ tryCatch(
     # List table files
     table_files <- list.files(pattern = "\\.table.gz$")
 
-    # Read in table file
-
     # loop through parameter table
     plot_list <- vector("list", length = nrow(parameter_table))
     for (i in 1:nrow(parameter_table)) {
@@ -69,8 +67,7 @@ tryCatch(
         table_files,
         col_select = c("TYPE", "FILTER", "COUNTS", filter_to_select)
       ) %>%
-        filter(TYPE == type_to_select) %>%
-        mutate(FILTER = str_replace(FILTER, "CQ", "GQ")) %>%
+        dplyr::filter(TYPE == type_to_select) %>%
         dplyr::mutate(
           label = ifelse(
             stringr::str_detect(FILTER, filter_to_select),
