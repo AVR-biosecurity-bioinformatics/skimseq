@@ -11,9 +11,6 @@ workflow FILTER_GENOTYPES {
 
     take:
     ch_vcf
-    ch_genome_indexed
-    ch_mask_bed_vcf
-    ch_sample_names
 
     main: 
 
@@ -28,7 +25,7 @@ workflow FILTER_GENOTYPES {
     .set { ch_geno_filters }
 
     // filter genotypes
-    FILTER_GENOTYPES (
+    FILTER_VCF_GT (
         ch_vcf,
         ch_geno_filters
     )
@@ -40,6 +37,6 @@ workflow FILTER_GENOTYPES {
     //)
         
     emit: 
-    vcf = FILTER_GENOTYPES.out.vcf
+    vcf = FILTER_VCF_GT.out.vcf
 
 }
