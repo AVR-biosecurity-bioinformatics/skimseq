@@ -5,7 +5,6 @@
 //// import modules
 include { BAM_STATS                             } from '../modules/bam_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
-include { FASTP                                 } from '../modules/fastp'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 include { MERGE_BAM                             } from '../modules/merge_bam'
