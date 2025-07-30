@@ -57,7 +57,7 @@ workflow FILTER_VARIANTS {
         params.snp_dp_min,      
         params.snp_dp_max,
         params.snp_max_missing,
-        params.snp_custom_flags,
+        params.snp_custom_flags
     )
     .collect( sort: false )
     .set { ch_snp_filters }
@@ -78,7 +78,7 @@ workflow FILTER_VARIANTS {
         params.snp_dp_min,      
         params.snp_dp_max,
         params.snp_max_missing,
-        params.snp_custom_flags,
+        params.snp_custom_flags
     )
     .collect( sort: false )
     .set { ch_snp_filters }
@@ -99,7 +99,7 @@ workflow FILTER_VARIANTS {
         params.indel_dp_min,      
         params.indel_dp_max,
         params.indel_max_missing,
-        params.indel_custom_flags,
+        params.indel_custom_flags
     )
     .collect ( sort: false )
     .set { ch_indel_filters }
@@ -135,14 +135,14 @@ workflow FILTER_VARIANTS {
     // filter indels
     FILTER_INDELS (
         ANNOTATE_VCF.out.vcf,
-        ch_indel_filters
+        ch_indel_filters,
         ch_mask_bed_vcf
     )
 
     // filter indels
     FILTER_INVARIANT (
         ANNOTATE_VCF.out.vcf,
-        ch_inv_filters
+        ch_inv_filters,
         ch_mask_bed_vcf
     )
 
@@ -153,8 +153,7 @@ workflow FILTER_VARIANTS {
         FILTER_INVARIANT.out.tables,
         ch_snp_filters,
         ch_indel_filters,
-        ch_inv_filters,
-        params.max_nocall
+        ch_inv_filters
     )
 
     // Create channel of VCFs to merge

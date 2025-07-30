@@ -10,10 +10,9 @@ process PLOT_VARIANT_QC {
     path(snp_filter_table)
     path(indel_filter_table)
     path(inv_filter_table)
-    tuple val(snp_qd), val(snp_qual), val(snp_sor), val(snp_fs), val(snp_mq), val(snp_mqrs), val(snp_rprs), val(snp_maf), val(snp_mac), val(snp_eh), val(snp_dp_min), val(snp_dp_max), val(snp_custom_flags)
-    tuple val(indel_qd), val(indel_qual), val(indel_fs), val(indel_rprs), val(indel_maf), val(indel_mac), val(indel_eh), val(indel_dp_min), val(indel_dp_max), val(indel_custom_flags)
-    tuple val(inv_dp_min), val(inv_dp_max), val(inv_custom_flags)
-    val(max_missing)
+    tuple val(variant_type), val(snp_qd), val(snp_qual), val(snp_sor), val(snp_fs), val(snp_mq), val(snp_mqrs), val(snp_rprs), val(snp_maf), val(snp_mac), val(snp_eh), val(snp_dp_min), val(snp_dp_max), val(snp_max_missing), val(snp_custom_flags)
+    tuple val(variant_type), val(indel_qd), val(indel_qual), val(indel_sor), val(indel_fs), val(indel_mq), val(indel_mqrs), val(indel_rprs), val(indel_maf), val(indel_mac), val(indel_eh), val(indel_dp_min), val(indel_dp_max), val(indel_max_missing), val(indel_custom_flags)
+    tuple val(variant_type), val(inv_qd), val(inv_qual), val(inv_sor), val(inv_fs), val(inv_mq), val(inv_mqrs), val(inv_rprs), val(inv_maf), val(inv_mac), val(inv_eh), val(inv_dp_min), val(inv_dp_max), val(inv_max_missing), val(inv_custom_flags)
 
     output: 
     path("*.pdf"),             emit: plots
@@ -48,6 +47,8 @@ process PLOT_VARIANT_QC {
         "${indel_dp_max}" \
         "${inv_dp_min}" \
         "${inv_dp_max}" \
-        "${max_missing}" 
+        "${snp_max_missing}" \
+        "${indel_max_missing}" \
+        "${inv_max_missing}"
     """
 }

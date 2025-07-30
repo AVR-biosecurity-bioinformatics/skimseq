@@ -37,7 +37,9 @@ tryCatch(
     params.inv_dp_max <- args[25]
 
     # Max missing
-    params.max_missing <- args[26]
+    params.snp_max_missing <- args[26]
+    params.indel_max_missing <- args[27]
+    params.inv_max_missing <- args[28]
 
     # TESTING
     #params.snp_qd <- 2.0
@@ -108,9 +110,9 @@ tryCatch(
       "ExcessHet", "indels", params.indel_eh, NA,
       "DP", "indels", params.indel_dp_min, params.indel_dp_max,
       "DP", "inv", params.inv_dp_min, params.inv_dp_max,
-      "F_MISSING", "snps", params.max_missing, NA,
-      "F_MISSING", "indels", params.max_missing, NA,
-      "F_MISSING", "inv", params.max_missing, NA,
+      "F_MISSING", "snps", params.snp_max_missing, NA,
+      "F_MISSING", "indels", params.indel_max_missing, NA,
+      "F_MISSING", "inv", params.inv_max_missing, NA,
     ) %>%
       dplyr::mutate(
         upper = as.numeric(upper),

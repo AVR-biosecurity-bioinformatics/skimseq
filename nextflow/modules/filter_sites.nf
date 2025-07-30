@@ -8,8 +8,7 @@ process FILTER_SITES {
 
     input:
     tuple path(vcf), path(vcf_tbi)
-    tuple val(variant_type) val(qd), val(qual), val(sor), val(fs), val(mq), val(mqrs), val(rprs), val(maf), val(mac), val(eh), val(dp_min), val(dp_max), val(max_missing), val(custom_flags)
-    val(max_missing), val(gt_qual), val(gt_dp_min), val(gt_dp_max)
+    tuple val(variant_type), val(qd), val(qual), val(sor), val(fs), val(mq), val(mqrs), val(rprs), val(maf), val(mac), val(eh), val(dp_min), val(dp_max), val(max_missing), val(custom_flags)
     path(mask_bed)
 
     output: 
