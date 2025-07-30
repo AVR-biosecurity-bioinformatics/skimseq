@@ -21,39 +21,6 @@ workflow FILTER_VARIANTS {
 
     main: 
 
-    // collect generic genotype filtering parameters into a single list
-    // These are used for all variant types
-    // TODO: move these to their own subworkflow
-    Channel.of(
-        params.gt_qual,        
-        params.gt_dp_min,         
-        params.gt_dp_max
-    )
-    .collect( sort: false )
-    .set { ch_geno_filters }
-
-
-    // collect SNP filtering parameters into a single list
-    Channel.of(
-        "snp",
-        params.snp_qd,          
-        params.snp_qual,        
-        params.snp_sor,         
-        params.snp_fs,          
-        params.snp_mq,          
-        params.snp_mqrs,        
-        params.snp_rprs,        
-        params.snp_maf,      
-        params.snp_mac,            
-        params.snp_eh,          
-        params.snp_dp_min,      
-        params.snp_dp_max,
-        params.snp_max_missing,
-        params.snp_custom_flags
-    )
-    .collect( sort: false )
-    .set { ch_snp_filters }
-
     // collect SNP filtering parameters into a single list
     Channel.of(
         "snp",
