@@ -3,9 +3,9 @@
 */
 
 //// import modules
-include { FILTER_SITES as FILTER_SNPS                              } from '../modules/filter_sites'
-include { FILTER_SITES as FILTER_INDELS                            } from '../modules/filter_sites'
-include { FILTER_SITES as FILTER_INVARIANT                         } from '../modules/filter_sites'
+include { FILTER_VCF_SITES as FILTER_SNPS                          } from '../modules/filter_vcf_sites'
+include { FILTER_VCF_SITES as FILTER_INDELS                        } from '../modules/filter_vcf_sites'
+include { FILTER_VCF_SITES as FILTER_INVARIANT                     } from '../modules/filter_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED                             } from '../modules/merge_vcfs'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
 include { PLOT_VARIANT_QC                                          } from '../modules/plot_variant_qc'

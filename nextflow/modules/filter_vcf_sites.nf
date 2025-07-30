@@ -1,5 +1,5 @@
-process FILTER_SITES {
-    def process_name = "filter_sites"    
+process FILTER_VCF_SITES {
+    def process_name = "filter_vcf_sites"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/vcf/filtered", mode: 'copy', pattern: "*vcf.gz*"
