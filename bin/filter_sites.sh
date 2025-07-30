@@ -41,27 +41,27 @@ gatk IndexFeatureFile \
 if [[ ${4} == "snp" ]]; then 
     TYPE="-select-type SNP"
     RESTRICT="-restrict-alleles-to BIALLELIC"
-else if [[ ${4} == "indel" ]]; then 
+elif [[ ${4} == "indel" ]]; then 
     TYPE="-select-type INDEL"
     RESTRICT="-restrict-alleles-to BIALLELIC"
-else if [[ ${4} == "invariant" ]]; then 
+elif [[ ${4} == "invariant" ]]; then 
     TYPE="-select-type NO_VARIATION"
     RESTRICT=""
-else ;
+else
     echo "variant_type needs to be snp, indel, or invariant"
     exit 1
 fi
 
 gatk SelectVariants \
 	--verbosity ERROR \
-	-V $2 \
+	-V ${3} \
 	$TYPE \
 	$RESTRICT \
 	-O variants.vcf.gz
 
 # Set up filters
 filters=()
-if [[ ${19} == "none" ]]; then
+if [[ ${18} == "none" ]]; then
 	# use individual parameters
     [[ "${5}"  != NA ]] && filters+=( -filter "QD < ${5}"                --filter-name QD )
     [[ "${6}"  != NA ]] && filters+=( -filter "QUAL < ${6}"              --filter-name QUAL )
@@ -79,7 +79,7 @@ if [[ ${19} == "none" ]]; then
 
 else
 	# use custom filters
-	filters+=(${19})
+	filters+=(${18})
 fi
 
 # Annotate filter column for sites that fail filters
@@ -95,7 +95,7 @@ gatk VariantsToTable \
 	--verbosity ERROR \
 	-V annot_filters.vcf.gz \
 	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
-	-F SOR -F MAF -F MAC -F ExcessHet -F NOCALL -F NS \
+	-F SOR -F MAF -F MAC -F ExcessHet -F F_MISSING -F NS \
 	--show-filtered \
 	-O ${4}_filtered.table
 
