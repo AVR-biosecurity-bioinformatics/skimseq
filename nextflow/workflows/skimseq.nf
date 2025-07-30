@@ -6,8 +6,8 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
-include { ANNOTATE_VARIANTS                                         } from '../subworkflows/annotate_variants'
-include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
+include { ANNOTATE_SITES                                            } from '../subworkflows/annotate_sites'
+include { FILTER_SITES                                              } from '../subworkflows/filter_sites'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 
 //// import modules
@@ -183,7 +183,15 @@ workflow SKIMSEQ {
     )
 
     /*
-    Annotate variants with extra info for filtering
+    Filter genotypes
+    */
+
+    //FILTER_GENOTYPES (
+    //    GATK_GENOTYPING.out.vcf
+    //)
+
+    /*
+    Annotate variants with extra info for site based filtering
     */
 
     ANNOTATE_SITES (
