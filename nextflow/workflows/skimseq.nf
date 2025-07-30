@@ -6,7 +6,6 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
-include { ANNOTATE_VARIANTS                                         } from '../subworkflows/annotate_variants'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 
@@ -183,14 +182,6 @@ workflow SKIMSEQ {
     )
 
     /*
-    Annotate variants with extra info for filtering
-    */
-
-    ANNOTATE_VARIANTS (
-        GATK_GENOTYPING.out.vcf
-    )
-
-    /*
     Filter SNPs, INDELs, and invariant sites
     */
 
@@ -202,7 +193,7 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        ANNOTATE_VARIANTS.out.vcf,
+        GATK_GENOTYPING.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
         ch_sample_names
