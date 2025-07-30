@@ -32,7 +32,7 @@ gatk SelectVariants \
 # Sort site filtered vcf
 gatk SortVcf \
     -I filtered_tmp.vcf.gz \
-    -O ${4}_gtfiltered.vcf.gz 
+    -O gtfiltered.vcf.gz 
 
 # Create genotype filters  summary  table
 gatk VariantsToTable \
@@ -43,34 +43,39 @@ gatk VariantsToTable \
 	-O genotype_filters.table
 
 # Convert to a per-stat and sample histogram for plotting
-awk -F'\t' -v stats_re='^(AD|GQ)$' '
+echo -e "type\tsample\tstatistic\tvalue\tcount" > gtfilters.table
+
+awk -F'\t' -v stats_re='^(GQ|DP)$' '
 NR==1 {
-  # Parse header: <sample>.<statistic>
-  for (i=1; i<=NF; i++) {
-    hdr = $i
-    n = split(hdr, a, /\./)
-    sample[i] = a[1]
-    stat[i]   = a[2]
-    if (n==2 && stat[i] ~ stats_re) use[++nu] = i
+  # find TYPE column and parse <sample>.<stat> headers
+  for (i=1;i<=NF;i++) {
+    if ($i=="TYPE") type_col=i
+    n = split($i, a, /\./)
+    if (n==2) {
+      sample[i]=a[1]; stat[i]=a[2]
+      if (stat[i] ~ stats_re) use[++nu]=i
+    }
   }
   next
 }
 {
+  t = (type_col? $(type_col) : "UNKNOWN")
   for (u=1; u<=nu; u++) {
     i = use[u]
-    v = $i
-    gsub(/^[ \t]+|[ \t]+$/, "", v)   # trim
-    if (v == "") v = "NA"
-    key = sample[i] SUBSEP stat[i] SUBSEP v
+    v = $(i)
+    gsub(/^[ \t]+|[ \t]+$/, "", v)
+    if (v=="") v="NA"
+    key = t SUBSEP sample[i] SUBSEP stat[i] SUBSEP v
     cnt[key]++
   }
 }
 END {
   for (k in cnt) {
     split(k, a, SUBSEP)
-    print a[1], a[2], a[3], cnt[k]
+    print a[1], a[2], a[3], a[4], cnt[k]
   }
 }
-' OFS='\t' genotype_filters.table  | LC_ALL=C sort -t $'\t' -k1,1 -k2,2 -k3,3 > gtfilters.table
+' OFS='\t' genotype_filters.table |
+LC_ALL=C sort -t $'\t' -k1,1 -k2,2 -k3,3 -k4,4n >> gtfilters.table
 
 pigz -p${1} gtfilters.table
