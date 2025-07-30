@@ -4,7 +4,7 @@
 
 //// import modules
 include { FILTER_VCF_GT                                } from '../modules/filter_vcf_gt'
-//include { PLOT_GT_FILTERS                              } from '../modules/plot_variant_qc'
+include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
 
 
 workflow FILTER_GENOTYPES {
@@ -31,10 +31,10 @@ workflow FILTER_GENOTYPES {
     )
 
     // plot genotype qc
-    //PLOT_VARIANT_QC (
-    //    FILTER_GENOTYPES.out.tables,
-    //    ch_geno_filters
-    //)
+    PLOT_GT_FILTERS (
+        FILTER_VCF_GT.out.tables,
+        ch_geno_filters
+    )
         
     emit: 
     vcf = FILTER_VCF_GT.out.vcf

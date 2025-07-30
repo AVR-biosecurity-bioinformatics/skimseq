@@ -169,11 +169,11 @@ tryCatch(
         theme(legend.position = "none")
     }
 
-    gg.snp_qc_dist <- wrap_plots(plot_list)
+    gg.site_qc_dist <- wrap_plots(plot_list)
 
     # Write out plots
-    pdf("variant_filtering_qc.pdf", width = 11, height = 8)
-    plot(gg.snp_qc_dist)
+    pdf("site_filtering_qc.pdf", width = 11, height = 8)
+    plot(gg.site_qc_dist)
     try(dev.off(), silent = TRUE)
   },
   finally = {

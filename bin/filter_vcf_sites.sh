@@ -104,7 +104,7 @@ pigz -p${1} ${4}_filtered.table
 # Exclude filtered sites from output vcf
 gatk SelectVariants \
 	--verbosity ERROR \
-	-V annot_filters.vcf.gz \
+	-V tmp_annot.vcf.gz \
 	--exclude-filtered \
 	-O tmp_filtered.vcf.gz 
 

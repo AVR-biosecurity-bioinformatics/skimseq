@@ -12,7 +12,7 @@ process FILTER_VCF_GT {
 
     output: 
     tuple path("*gtfiltered.vcf.gz"), path("*gtfiltered.vcf.gz.tbi"),  emit: vcf
-    path("*.table.gz"),                                                  emit: tables
+    path("*.table.gz"),                                                emit: tables
     
     script:
     def process_script = "${process_name}.sh"

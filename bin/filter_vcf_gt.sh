@@ -11,7 +11,7 @@ set -u
 
 # Set up filters
 filters=()
-[[ "${4}"  != NA ]] && filters+=( -G-filter "GQ < ${4}"             --genotype-filter-name CQ )
+[[ "${4}"  != NA ]] && filters+=( -G-filter "GQ < ${4}"             --genotype-filter-name GQ )
 [[ "${5}"  != NA ]] && filters+=( -G-filter "DP < ${5}"             --genotype-filter-name gtDPmin )
 [[ "${6}"  != NA ]] && filters+=( -G-filter "DP > ${6}"             --genotype-filter-name gtDPmax )
 
@@ -47,7 +47,7 @@ gatk VariantsToTable \
 	-O tmp.table
 
 # Convert to a per-stat and sample histogram for plotting
-echo -e "type\tsample\tstatistic\tvalue\tcount" > gtfilters.table
+echo -e "type\tsample\tstatistic\tvalue\tcount" > gtfiltered.table
 
 awk -F'\t' -v stats_re='^(GQ|DP)$' '
 NR==1 {
@@ -80,9 +80,9 @@ END {
   }
 }
 ' OFS='\t' tmp.table |
-LC_ALL=C sort -t $'\t' -k1,1 -k2,2 -k3,3 -k4,4n >> gtfilters.table
+LC_ALL=C sort -t $'\t' -k1,1 -k2,2 -k3,3 -k4,4n >> gtfiltered.table
 
-pigz -p${1} gtfilters.table
+pigz -p${1} gtfiltered.table
 
 # Remove temporary vcf files
 rm -f tmp*
