@@ -185,17 +185,15 @@ workflow SKIMSEQ {
     /*
     Filter genotypes
     */
-
-    //FILTER_GENOTYPES (
-    //    GATK_GENOTYPING.out.vcf
-    //)
+    FILTER_GENOTYPES (
+        GATK_GENOTYPING.out.vcf
+    )
 
     /*
     Annotate variants with extra info for site based filtering
     */
-
     ANNOTATE_SITES (
-        GATK_GENOTYPING.out.vcf
+        FILTER_GENOTYPES.out.vcf
     )
 
     /*

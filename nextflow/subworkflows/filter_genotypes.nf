@@ -3,8 +3,8 @@
 */
 
 //// import modules
-include { FILTER_VCF_GT                          } from '../modules/filter_vcf_gt'
-//include { PLOT_VARIANT_QC                                          } from '../modules/plot_variant_qc'
+include { FILTER_VCF_GT                                } from '../modules/filter_vcf_gt'
+//include { PLOT_GT_FILTERS                              } from '../modules/plot_variant_qc'
 
 
 workflow FILTER_GENOTYPES {
