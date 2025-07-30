@@ -57,7 +57,7 @@ gatk SelectVariants \
 	-V ${3} \
 	$TYPE \
 	$RESTRICT \
-	-O variants.vcf.gz
+	-O tmp.vcf.gz
 
 # Set up filters
 filters=()
@@ -85,15 +85,15 @@ fi
 # Annotate filter column for sites that fail filters
 gatk VariantFiltration \
 	--verbosity ERROR \
-	-V variants.vcf.gz \
+	-V tmp.vcf.gz \
 	"${filters[@]}" \
 	--mask vcf_masks.bed --mask-name "Mask" \
-	-O annot_filters.vcf.gz
+	-O tmp_annot.vcf.gz
 
 # Create summary table of filters
 gatk VariantsToTable \
 	--verbosity ERROR \
-	-V annot_filters.vcf.gz \
+	-V tmp_annot.vcf.gz \
 	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
 	-F SOR -F MAF -F MAC -F ExcessHet -F F_MISSING -F NS \
 	--show-filtered \
@@ -106,11 +106,12 @@ gatk SelectVariants \
 	--verbosity ERROR \
 	-V annot_filters.vcf.gz \
 	--exclude-filtered \
-	-O filtered_tmp.vcf.gz 
+	-O tmp_filtered.vcf.gz 
 
 # Sort site filtered vcf
 gatk SortVcf \
-    -I filtered_tmp.vcf.gz \
+    -I tmp_filtered.vcf.gz \
     -O ${4}_filtered.vcf.gz 
 
-
+# Remove temporary vcf files
+rm -f tmp*

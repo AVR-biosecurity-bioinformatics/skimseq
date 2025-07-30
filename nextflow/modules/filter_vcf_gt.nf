@@ -11,7 +11,7 @@ process FILTER_VCF_GT {
     tuple val(gt_qual), val(gt_dp_min), val(gt_dp_max)
 
     output: 
-    tuple path("*_gtfiltered.vcf.gz"), path("*_gtfiltered.vcf.gz.tbi"),  emit: vcf
+    tuple path("*gtfiltered.vcf.gz"), path("*gtfiltered.vcf.gz.tbi"),  emit: vcf
     path("*.table.gz"),                                                  emit: tables
     
     script:

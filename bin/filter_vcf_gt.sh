@@ -15,32 +15,36 @@ filters=()
 [[ "${5}"  != NA ]] && filters+=( -G-filter "DP < ${5}"             --genotype-filter-name gtDPmin )
 [[ "${6}"  != NA ]] && filters+=( -G-filter "DP > ${6}"             --genotype-filter-name gtDPmax )
 
-# Annotate filter column for sites that fail filters
+# Annotate filter column for genotypes that fail filters
 gatk VariantFiltration \
 	--verbosity ERROR \
 	-V ${3} \
 	"${filters[@]}" \
-	-O annot_filters.vcf.gz
+	-O tmp_annot.vcf.gz
 
-# Exclude filtered sites from output vcf
+# Exclude filtered genotypes from output vcf
 gatk SelectVariants \
 	--verbosity ERROR \
-	-V annot_filters.vcf.gz \
+	-V tmp_annot.vcf.gz \
     --set-filtered-gt-to-nocall \
-	-O filtered_tmp.vcf.gz 
+	-O tmp_filtered.vcf.gz 
+
+# Exclude any sites that are all missing after genotype filtering
+# NOTE: This is needed to avoid errors with annotation steps
+ bcftools view -U tmp_filtered.vcf.gz -o tmp2_filtered.vcf.gz 
 
 # Sort site filtered vcf
 gatk SortVcf \
-    -I filtered_tmp.vcf.gz \
+    -I tmp2_filtered.vcf.gz \
     -O gtfiltered.vcf.gz 
 
 # Create genotype filters  summary  table
 gatk VariantsToTable \
 	--verbosity ERROR \
-	-V annot_filters.vcf.gz \
+	-V tmp_annot.vcf.gz \
 	-F CHROM -F POS -F TYPE --GF GQ --GF DP \
 	--show-filtered \
-	-O genotype_filters.table
+	-O tmp.table
 
 # Convert to a per-stat and sample histogram for plotting
 echo -e "type\tsample\tstatistic\tvalue\tcount" > gtfilters.table
@@ -75,7 +79,10 @@ END {
     print a[1], a[2], a[3], a[4], cnt[k]
   }
 }
-' OFS='\t' genotype_filters.table |
+' OFS='\t' tmp.table |
 LC_ALL=C sort -t $'\t' -k1,1 -k2,2 -k3,3 -k4,4n >> gtfilters.table
 
 pigz -p${1} gtfilters.table
+
+# Remove temporary vcf files
+rm -f tmp*
