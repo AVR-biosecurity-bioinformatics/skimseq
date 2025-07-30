@@ -6,7 +6,7 @@
 include { BAM_STATS                             } from '../modules/bam_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { FASTP                                 } from '../modules/fastp'
-include { FASTQTOBAM                            } from '../modules/fastqtobam'
+include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 include { MERGE_BAM                             } from '../modules/merge_bam'
 
@@ -61,14 +61,14 @@ workflow PROCESS_READS {
         Read filtering and alignments
     */
 
-    FASTQTOBAM (
+    MAP_TO_GENOME (
         ch_fastq_split,
         ch_fastp_filters,
         ch_genome_indexed
     )
     
     // group chunked .bam files by sample
-    FASTQTOBAM.out.bam
+    MAP_TO_GENOME.out.bam
         .groupTuple ( by: 0 )
         .set { ch_grouped_genome_bam }
 
@@ -90,7 +90,7 @@ workflow PROCESS_READS {
     )
 
     // Create reports channel for multiqc
-    FASTQTOBAM.out.json
+    MAP_TO_GENOME.out.json
         .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_BAM.out.markdup)
         .set { ch_reports}
 
