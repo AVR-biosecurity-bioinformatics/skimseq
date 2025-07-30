@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
-set -u
+set -uo pipefail   # no -e so we can inspect PIPESTATUS
+
 ## args are the following:
 # $1 = cpus 
 # $2 = sample name
@@ -46,7 +46,7 @@ seqkit range -r ${5}:${6} ${4} > ${2}.${CHUNK_NAME}.R.fq
 # run filtering
 if [[ ${21} == "none" ]]; then
     # use individual filtering parameters for fastp
-    ( fastp \
+    fastp \
         -i ${2}.${CHUNK_NAME}.F.fq \
         -I ${2}.${CHUNK_NAME}.R.fq \
         -q ${8} \
@@ -67,20 +67,18 @@ if [[ ${21} == "none" ]]; then
         -j ${2}.${CHUNK_NAME}.fastp.json \
         -R ${2} \
         --stdout \
-	|| >&2 echo "fastp exit=$?"   ) | \
-     ( bwa-mem2 mem -p ${7} \
+	| bwa-mem2 mem -p ${7} \
         	-t ${1} \
         	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         	-K 100000000 \
        	-Y \
 		- \
-	|| >&2 echo "bwa-mem2 exit=$?"  ) | \
-     ( samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam || >&2 echo "samtools sort exit=$?"  ) 
+	| samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam
 
 
 else 
     # use custom string of flags for fastp
-    ( fastp \
+    fastp \
         -i ${2}.${CHUNK_NAME}.F.fq \
         -I ${2}.${CHUNK_NAME}.R.fq \
         ${18} \
@@ -89,18 +87,32 @@ else
         -j ${2}.${CHUNK_NAME}.fastp.json \
         -R ${2} \
         --stdout \
-	|| >&2 echo "fastp exit=$?"   ) | \
-     ( bwa-mem2 mem -p ${7} \
+     | bwa-mem2 mem -p ${7} \
         	-t ${1} \
         	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         	-K 100000000 \
        	-Y \
 		- \
-	|| >&2 echo "bwa-mem2 exit=$?"   )  | \
-     ( samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam || >&2 echo "samtools sort exit=$?"  ) 
+     | samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam
 
 fi
+
+# Capture and report individual tool pipe statuses
+st=("${PIPESTATUS[@]}")
+names=("fastp" "bwa-mem2 mem" "samtools sort")
+
+ec=0
+for i in "${!st[@]}"; do
+  if (( st[i] != 0 )); then
+    echo "${names[i]} failed with exit code ${st[i]}" >&2
+    # remember a non-zero to return
+    ec=${st[i]}                  
+  fi
+done
 
 # Remove temporary fastqs
 rm ${2}.${CHUNK_NAME}.F.fq
 rm ${2}.${CHUNK_NAME}.R.fq
+
+# If any tool returned non-zero, return that exit status to nextflow for retry
+exit "${ec}"           

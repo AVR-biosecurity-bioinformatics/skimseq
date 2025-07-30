@@ -8,7 +8,7 @@ include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmap
 include { FASTP                                 } from '../modules/fastp'
 include { FASTQTOBAM                            } from '../modules/fastqtobam'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
-include { MERGE_FILTER_BAM                      } from '../modules/merge_filter_bam'
+include { MERGE_BAM                             } from '../modules/merge_bam'
 
 //include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
 //include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
@@ -41,12 +41,6 @@ workflow PROCESS_READS {
     .collect( sort: false )
     .set { ch_fastp_filters }
     
-    // collect BAM filtering parameters into a single list
-    Channel.of(
-        params.bam_rmdup
-    )
-    .collect( sort: false )
-    .set { ch_bam_filters }
 
     /* 
         Read splitting
@@ -79,29 +73,28 @@ workflow PROCESS_READS {
         .set { ch_grouped_genome_bam }
 
     // Merge chunked .bam files by sample, filter, and index
-    MERGE_FILTER_BAM (
-        ch_grouped_genome_bam,
-        ch_bam_filters
+    MERGE_BAM (
+        ch_grouped_genome_bam
     )
 
     // extract unmapped reads
     EXTRACT_UNMAPPED (
-        MERGE_FILTER_BAM.out.bam
+        MERGE_BAM.out.bam
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
     // generate statistics about the .bam files
     BAM_STATS (
-        MERGE_FILTER_BAM.out.bam
+        MERGE_BAM.out.bam
     )
 
     // Create reports channel for multiqc
     FASTQTOBAM.out.json
-        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_FILTER_BAM.out.markdup)
+        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_BAM.out.markdup)
         .set { ch_reports}
 
     emit: 
-    bam = MERGE_FILTER_BAM.out.bam
+    bam = MERGE_BAM.out.bam
     reports = ch_reports
 }
