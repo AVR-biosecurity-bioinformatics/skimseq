@@ -6,6 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
+include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
 include { ANNOTATE_SITES                                            } from '../subworkflows/annotate_sites'
 include { FILTER_SITES                                              } from '../subworkflows/filter_sites'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
