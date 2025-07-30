@@ -3,7 +3,6 @@
 */
 
 //// import modules
-include { ANNOTATE_VCF                                             } from '../modules/annotate_vcf'
 include { FILTER_SITES as FILTER_SNPS                              } from '../modules/filter_sites'
 include { FILTER_SITES as FILTER_INDELS                            } from '../modules/filter_sites'
 include { FILTER_SITES as FILTER_INVARIANT                         } from '../modules/filter_sites'
@@ -24,6 +23,7 @@ workflow FILTER_VARIANTS {
 
     // collect generic genotype filtering parameters into a single list
     // These are used for all variant types
+    // TODO: move these to their own subworkflow
     Channel.of(
         params.gt_qual,        
         params.gt_dp_min,         
@@ -32,14 +32,6 @@ workflow FILTER_VARIANTS {
     .collect( sort: false )
     .set { ch_geno_filters }
 
-
-    // TODO: Genotype filters go here
-
-
-    // Annotate vcf post genotype filters
-    ANNOTATE_VCF (
-        ch_vcf
-    )
 
     // collect SNP filtering parameters into a single list
     Channel.of(
@@ -127,21 +119,21 @@ workflow FILTER_VARIANTS {
 
     // filter SNPs
     FILTER_SNPS (
-        ANNOTATE_VCF.out.vcf,
+        ch_vcf,
         ch_snp_filters,
         ch_mask_bed_vcf
     )
 
     // filter indels
     FILTER_INDELS (
-        ANNOTATE_VCF.out.vcf,
+        ch_vcf,
         ch_indel_filters,
         ch_mask_bed_vcf
     )
 
     // filter indels
     FILTER_INVARIANT (
-        ANNOTATE_VCF.out.vcf,
+        ch_vcf,
         ch_inv_filters,
         ch_mask_bed_vcf
     )
