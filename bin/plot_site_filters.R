@@ -179,7 +179,7 @@ tryCatch(
   finally = {
     ### save R environment if script throws error code
     if (params.rdata == "true") {
-      save.image(file = "PLOT_VARIANT_QC.rda")
+      save.image(file = "PLOT_SITE_FILTERS.rda")
     }
   }
 )

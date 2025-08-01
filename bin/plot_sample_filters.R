@@ -41,7 +41,8 @@ tryCatch(
     df <- read_tsv(table_files) %>%
       dplyr::mutate(
         label = ifelse(
-          missing > params.sample_max_missing,
+          missing >
+            as.numeric(params.sample_max_missing %>% str_remove_all("\\[|\\]")),
           "FAIL",
           "PASS"
         )
@@ -50,7 +51,9 @@ tryCatch(
       ggplot(aes(x = missing, fill = label)) +
       geom_histogram() +
       geom_vline(
-        xintercept = params.sample_max_missing,
+        xintercept = as.numeric(
+          params.sample_max_missing %>% str_remove_all("\\[|\\]")
+        ),
         lty = "dashed"
       ) +
       scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
@@ -69,7 +72,7 @@ tryCatch(
   finally = {
     ### save R environment if script throws error code
     if (params.rdata == "true") {
-      save.image(file = "PLOT_VARIANT_QC.rda")
+      save.image(file = "PLOT_SAMPLE_FILTERS.rda")
     }
   }
 )
