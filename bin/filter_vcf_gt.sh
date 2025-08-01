@@ -49,11 +49,9 @@ gatk VariantsToTable \
 	--show-filtered \
 	-O tmp.table
 
-# Convert to a per-stat and sample histogram for plotting
+# Below code creates per-sample counts of different CQ and DP values by variant type
+# This ensures file sizes arent too large for loading into R for plotting
 echo -e "TYPE\tCOUNTS\tFILTER\tGQ\tDP" > gtfiltered.table
-
-# Below code creates per-sample counts of different CQ and DP values by type
-# This ensures file sizes arent too large for loading into R
 
 awk -F'\t' '
 # ───────────────── HEADER LINE ───────────────────────────

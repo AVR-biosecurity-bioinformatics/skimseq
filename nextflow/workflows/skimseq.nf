@@ -7,6 +7,7 @@ include { MASK_GENOME                                               } from '../s
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
+include { FILTER_SAMPLES                                            } from '../subworkflows/filter_samples'
 include { ANNOTATE_SITES                                            } from '../subworkflows/annotate_sites'
 include { FILTER_SITES                                              } from '../subworkflows/filter_sites'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
@@ -191,10 +192,17 @@ workflow SKIMSEQ {
     )
 
     /*
+    Filter samples
+    */
+    FILTER_SAMPLES (
+        FILTER_GENOTYPES.out.vcf
+    )
+
+    /*
     Annotate variants with extra info for site based filtering
     */
     ANNOTATE_SITES (
-        FILTER_GENOTYPES.out.vcf
+        FILTER_SAMPLES.out.vcf
     )
 
     /*
