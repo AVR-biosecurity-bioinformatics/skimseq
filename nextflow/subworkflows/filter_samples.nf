@@ -17,7 +17,7 @@ workflow FILTER_SAMPLES {
     // collect generic genotype filtering parameters into a single list
     // These are used for all variant types
     Channel.of(
-        params.sample_missing
+        params.sample_max_missing
     )
     .collect( sort: false )
     .set { ch_sample_filters }
