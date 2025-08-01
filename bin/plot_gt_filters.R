@@ -68,6 +68,7 @@ tryCatch(
         col_select = c("TYPE", "FILTER", "COUNTS", filter_to_select)
       ) %>%
         dplyr::filter(TYPE == type_to_select) %>%
+        dplyr::filter(!FILTER == "MISSING") %>%
         dplyr::mutate(
           label = ifelse(
             stringr::str_detect(FILTER, filter_to_select),
