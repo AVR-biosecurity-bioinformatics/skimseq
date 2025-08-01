@@ -8,12 +8,13 @@ process FILTER_VCF_SAMPLES {
 
     input:
     tuple path(vcf), path(vcf_tbi)
-    tuple val(sample_missing)
+    val(sample_missing)
 
     output: 
     tuple path("*subset.vcf.gz"), path("*subset.vcf.gz.tbi"),  emit: vcf
     path("*.table.gz"),                                        emit: tables
-    
+    path("samples_to_keep.txt"),                              emit: samples_to_keep
+   
     script:
     def process_script = "${process_name}.sh"
     """

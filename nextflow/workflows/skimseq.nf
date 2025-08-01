@@ -220,7 +220,7 @@ workflow SKIMSEQ {
         ANNOTATE_SITES.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
-        ch_sample_names
+        FILTER_SAMPLES.out.sample_names
     )
 
     /*

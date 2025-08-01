@@ -11,9 +11,9 @@ set -u
 echo -e 'sample\tmissing' > sample_missing.table
 
 paste \
-  <(bcftools query -f '[%SAMPLE\t]\n' annot.vcf.gz |
+  <(bcftools query -f '[%SAMPLE\t]\n' ${3} |
     head -1 | tr '\t' '\n') \
-  <(bcftools query -f '[%GT\t]\n' annot.vcf.gz | \
+  <(bcftools query -f '[%GT\t]\n' ${3} | \
     awk -v OFS="\t" '
         NR==1 { ncol = NF }                         # remember how many samples
         { for (i = 1; i <= NF; i++)                # count ./.
@@ -31,7 +31,9 @@ paste \
 awk -F'\t' 'NR>1 && $2 < 0.40 { print $1 }' sample_missing.table > samples_to_keep.txt
 
 # Include only samples that passed the missing data filter
-bcftools view --threads ${1} -S samples_to_keep.txt -o subset.vcf.gz
+bcftools view --threads ${1} -S samples_to_keep.txt -o subset.vcf.gz ${3}
+
+tabix subset.vcf.gz
 
 pigz -p${1} sample_missing.table
 
