@@ -4,7 +4,7 @@
 
 //// import modules
 include { FILTER_VCF_SAMPLES                               } from '../modules/filter_vcf_samples'
-//include { PLOT_SAMPLE_FILTERS                              } from '../modules/plot_sample_filters'
+include { PLOT_SAMPLE_FILTERS                              } from '../modules/plot_sample_filters'
 
 
 workflow FILTER_SAMPLES {
@@ -32,13 +32,11 @@ workflow FILTER_SAMPLES {
         .splitText( by: 1 )
         .set { ch_sample_names_filt }
 
-    ch_sample_names_filt.view()
-
     // plot samples qc
-    //PLOT_SAMPLE_FILTERS (
-    //    FILTER_VCF_SAMPLES.out.tables,
-    //    ch_sample_filters
-    //)
+    PLOT_SAMPLE_FILTERS (
+        FILTER_VCF_SAMPLES.out.tables,
+        ch_sample_filters
+    )
         
     emit: 
     vcf = FILTER_VCF_SAMPLES.out.vcf
