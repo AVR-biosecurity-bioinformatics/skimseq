@@ -12,7 +12,7 @@ echo -e 'sample\tmissing' > sample_missing.table
 
 paste \
   <(bcftools query -f '[%SAMPLE\t]\n' ${3} |
-    head -1 | tr '\t' '\n') \
+    head -1 | tr '\t' '\n'| awk 'NF') \
   <(bcftools query -f '[%GT\t]\n' ${3} | \
     awk -v OFS="\t" '
         NR==1 { ncol = NF }                         # remember how many samples

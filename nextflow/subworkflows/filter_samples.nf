@@ -32,6 +32,8 @@ workflow FILTER_SAMPLES {
         .splitText( by: 1 )
         .set { ch_sample_names_filt }
 
+    ch_sample_names_filt.view()
+
     // plot samples qc
     //PLOT_SAMPLE_FILTERS (
     //    FILTER_VCF_SAMPLES.out.tables,
