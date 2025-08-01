@@ -12,10 +12,19 @@ set -u
 # $8 = exclude_padding
 # $9 = output_invariant
 
+# Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
+java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
+fi
+
+
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
 if [[ "${9}" == "false" ]]; then
     # joint genotype variant sites only
-    gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
+    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenotypeGVCFs \
         -R ${4} \
         -V gendb://${3} \
         -L ${6} \
@@ -25,6 +34,8 @@ if [[ "${9}" == "false" ]]; then
         --interval-merging-rule ALL \
         --merge-input-intervals true \
         --only-output-calls-starting-in-intervals \
+        --max-alternate-alleles 6 \
+        --genomicsdb-max-alternate-alleles 10 \
         --tmp-dir /tmp
 
 elif [[ "${9}" == "true" ]]; then
@@ -33,14 +44,14 @@ elif [[ "${9}" == "true" ]]; then
 
     # First use gatk selectvariants to get the sites to genotype
     # This resolves the memory leak when calling invariant sites from genomicsDB reported in: https://github.com/broadinstitute/gatk/issues/8989
-    gatk --java-options "-Xmx${2}G" SelectVariants \
+    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  SelectVariants \
         -R ${4} \
         -V gendb://${3} \
         -L ${6} \
         -O source.g.vcf.gz 
 
     # Then genotype both variant and invariant sites using the gvcf
-    gatk --java-options "-Xmx${2}G" GenotypeGVCFs \
+    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  GenotypeGVCFs \
         -R ${4} \
         -V source.g.vcf.gz \
         -L ${6} \
@@ -96,7 +107,7 @@ else
 fi 
 
 # Calculate genotype posteriors over genomic intervals
-gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" CalculateGenotypePosteriors \
     -V joint_called.vcf.gz \
     -L ${6} \
     -O joint_called_posterior.vcf.gz \
