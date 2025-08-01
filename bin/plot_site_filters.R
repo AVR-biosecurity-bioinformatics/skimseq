@@ -37,7 +37,9 @@ tryCatch(
     params.inv_dp_max <- args[25]
 
     # Max missing
-    params.max_missing <- args[26]
+    params.snp_max_missing <- args[26]
+    params.indel_max_missing <- args[27]
+    params.inv_max_missing <- args[28]
 
     # TESTING
     #params.snp_qd <- 2.0
@@ -88,29 +90,29 @@ tryCatch(
     # fmt: skip
     parameter_table <- tibble::tribble(
       ~filter, ~type, ~lower, ~upper,
-      "QD", "snps", params.snp_qd, NA,
-      "QUAL", "snps", params.snp_qual, NA,
-      "SOR", "snps", params.snp_sor, NA,
-      "FS", "snps", params.snp_fs, NA,
-      "MQ", "snps", params.snp_mq, NA,
-      "MQRankSum", "snps", params.snp_mqrs, NA,
-      "ReadPosRankSum", "snps", params.snp_rprs, NA,
-      "MAF", "snps", params.snp_maf, NA,
-      "MAC", "snps", params.snp_mac, NA,
-      "ExcessHet", "snps", params.snp_eh, NA,
-      "DP", "snps", params.snp_dp_min, params.snp_dp_max,
-      "QD", "indels", params.indel_qd, NA,
-      "QUAL", "indels", params.indel_qual, NA,
-      "FS", "indels", params.indel_fs, NA,
-      "ReadPosRankSum", "indels", params.indel_rprs, NA,
-      "MAF", "indels", params.indel_maf, NA,
-      "MAC", "indels", params.indel_mac, NA,
-      "ExcessHet", "indels", params.indel_eh, NA,
-      "DP", "indels", params.indel_dp_min, params.indel_dp_max,
-      "DP", "inv", params.inv_dp_min, params.inv_dp_max,
-      "F_MISSING", "snps", params.max_missing, NA,
-      "F_MISSING", "indels", params.max_missing, NA,
-      "F_MISSING", "inv", params.max_missing, NA,
+      "QD", "snp", params.snp_qd, NA,
+      "QUAL", "snp", params.snp_qual, NA,
+      "SOR", "snp", params.snp_sor, NA,
+      "FS", "snp", params.snp_fs, NA,
+      "MQ", "snp", params.snp_mq, NA,
+      "MQRankSum", "snp", params.snp_mqrs, NA,
+      "ReadPosRankSum", "snp", params.snp_rprs, NA,
+      "MAF", "snp", params.snp_maf, NA,
+      "MAC", "snp", params.snp_mac, NA,
+      "ExcessHet", "snp", params.snp_eh, NA,
+      "DP", "snp", params.snp_dp_min, params.snp_dp_max,
+      "QD", "indel", params.indel_qd, NA,
+      "QUAL", "indel", params.indel_qual, NA,
+      "FS", "indel", params.indel_fs, NA,
+      "ReadPosRankSum", "indel", params.indel_rprs, NA,
+      "MAF", "indel", params.indel_maf, NA,
+      "MAC", "indel", params.indel_mac, NA,
+      "ExcessHet", "indel", params.indel_eh, NA,
+      "DP", "indel", params.indel_dp_min, params.indel_dp_max,
+      "DP", "invariant", params.inv_dp_min, params.inv_dp_max,
+      "F_MISSING", "snp", params.snp_max_missing, NA,
+      "F_MISSING", "indel", params.indel_max_missing, NA,
+      "F_MISSING", "invariant", params.inv_max_missing, NA,
     ) %>%
       dplyr::mutate(
         upper = as.numeric(upper),
@@ -167,17 +169,17 @@ tryCatch(
         theme(legend.position = "none")
     }
 
-    gg.snp_qc_dist <- wrap_plots(plot_list)
+    gg.site_qc_dist <- wrap_plots(plot_list)
 
     # Write out plots
-    pdf("variant_filtering_qc.pdf", width = 11, height = 8)
-    plot(gg.snp_qc_dist)
+    pdf("site_filtering_qc.pdf", width = 11, height = 8)
+    plot(gg.site_qc_dist)
     try(dev.off(), silent = TRUE)
   },
   finally = {
     ### save R environment if script throws error code
     if (params.rdata == "true") {
-      save.image(file = "PLOT_VARIANT_QC.rda")
+      save.image(file = "PLOT_SITE_FILTERS.rda")
     }
   }
 )

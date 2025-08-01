@@ -5,7 +5,7 @@
 //// import modules
 include { ANNOTATE_VCF                                            } from '../modules/annotate_vcf'
 
-workflow ANNOTATE_VARIANTS {
+workflow ANNOTATE_SITES {
 
     take:
     ch_vcf
