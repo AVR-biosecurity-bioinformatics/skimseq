@@ -5,8 +5,10 @@
 //// import modules
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
+include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
-include { CREATE_BED_INTERVALS                                   } from '../modules/create_bed_intervals'
+include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_HC        } from '../modules/create_bed_intervals'
+include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_JC        } from '../modules/create_bed_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
 workflow GATK_GENOTYPING {
@@ -30,29 +32,30 @@ workflow GATK_GENOTYPING {
           ch_breakpoints_bed = ch_dummy_file
     }
         
-    // create groups of genomic intervals for parallel genotyping
-    CREATE_BED_INTERVALS (
+    // create groups of genomic intervals for parallel haplotypecaller
+    // TODO: Replace this with a process that takes into account the number of aligned bases
+    CREATE_BED_INTERVALS_HC (
         ch_genome_indexed,
         ch_include_bed,
         ch_breakpoints_bed,
-        params.interval_n,
-        params.interval_size,
+        params.hc_interval_n,
+        params.hc_interval_size,
         params.interval_subdivide_balanced
     )
 
     // create intervals channel, with one interval_bed file per element
-    CREATE_BED_INTERVALS.out.interval_bed
+    CREATE_BED_INTERVALS_HC.out.interval_bed
         .flatten()
         // get hash from interval_bed name as element to identify intervals
         .map { interval_bed ->
             def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_bed ] }
-        .set { ch_interval_bed }
+        .set { ch_interval_bed_hc }
         
 
     // combine sample-level bams with each interval_bed file and interval hash
     ch_sample_bam
-        .combine ( ch_interval_bed )
+        .combine ( ch_interval_bed_hc )
         .set { ch_sample_intervals }
 
     // collect haplotypecaller parameters into a single list
@@ -77,14 +80,62 @@ workflow GATK_GENOTYPING {
         ch_hc_params
     )
 
-    // group GVCFs by interval 
+    // Merge interval GVCFs by sample
+    // TODO: This would be faster using GatherGVCFs, but need to make sure the intervals are ordered
     CALL_VARIANTS.out.gvcf_intervals
-        .map { sample, gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
         .groupTuple ( by: 0 )
-        // join to get back interval_file
-        .join ( ch_interval_bed, by: 0 )
-        .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
+        .set { ch_gvcf_to_merge }
+
+    MERGE_GVCFS (
+        ch_gvcf_to_merge
+    )
+
+    // Calculate number of intervals to make for parallel joint calling
+    /* number of chunks = round( params.jc_interval_sample_scale * N ), clamped to ≥ 2 */
+    ch_vcfs.count()
+    .map { n ->
+        double f = (params.jc_interval_sample_scale as double)
+        assert f > 0 && f <= 1 : "params.chunk_frac must be in (0,1], got: ${f}"
+        int nchunks = Math.max(2, (int)Math.round(n * f))
+        nchunks
+    }
+    .set { ch_jc_nchunks }   // => emits a single integer
+
+    // create groups of genomic intervals for parallel joint calling
+    CREATE_BED_INTERVALS_JC (
+        ch_genome_indexed,
+        ch_include_bed,
+        ch_breakpoints_bed,
+        ch_jc_nchunks,
+        -1,
+        params.interval_subdivide_balanced
+    )
+
+    // create intervals channel, with one interval_bed file per element
+    CREATE_BED_INTERVALS_JC.out.interval_bed
+        .flatten()
+        // get hash from interval_bed name as element to identify intervals
+        .map { interval_bed ->
+            def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
+            [ interval_hash, interval_bed ] }
+        .set { ch_interval_bed_jc }
+        
+
+    // combine sample-level gvcf with each interval_bed file and interval hash
+    MERGE_GVCFS
+        .combine ( ch_interval_bed_jc )
         .set { ch_gvcf_interval }
+
+
+    // group GVCFs by interval 
+    //CALL_VARIANTS.out.gvcf_intervals
+    //    .map { sample, gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
+    //    .groupTuple ( by: 0 )
+        // join to get back interval_file
+    //    .join ( ch_interval_bed, by: 0 )
+    //    .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
+    //    .set { ch_gvcf_interval }
+
 
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (
@@ -101,7 +152,7 @@ workflow GATK_GENOTYPING {
         params.output_invariant
     )
 
-    // collect .vcfs into a single element
+    // collect joint called .vcfs into a single element
     JOINT_GENOTYPE.out.vcf
         .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
         .collect()
