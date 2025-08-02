@@ -24,7 +24,7 @@ sample_id=$(echo "$vcf" | cut -f1 -d '.')
 paste -d '\t' <(echo "$sample_id") <(echo "$vcf") > ${4}.sample_map
 
 # Import gvcfs into genomicsdb
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  GenomicsDBImport \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
     --genomicsdb-workspace-path ${4} \
     --batch-size 0 \
     -L ${5} \

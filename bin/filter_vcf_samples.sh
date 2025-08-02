@@ -30,8 +30,8 @@ paste \
 # Extract sample names for those with < sample_missing
 awk -F'\t' 'NR>1 && $2 < 0.40 { print $1 }' sample_missing.table > samples_to_keep.txt
 
-# Include only samples that passed the missing data filter
-bcftools view --threads ${1} -S samples_to_keep.txt -o subset.vcf.gz ${3}
+# Include only samples that passed the missing data filter, and sites that are all missing after sample filtering
+bcftools view -U --threads ${1} -S samples_to_keep.txt -o subset.vcf.gz ${3}
 
 tabix subset.vcf.gz
 
