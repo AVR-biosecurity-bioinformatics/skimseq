@@ -134,8 +134,6 @@ workflow GATK_GENOTYPING {
         .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
-    ch_gvcf_interval.view()
-
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (
         ch_gvcf_interval,
@@ -154,7 +152,8 @@ workflow GATK_GENOTYPING {
     // collect joint called .vcfs into a single element
     JOINT_GENOTYPE.out.vcf
         .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
-        .collect()
+        .collect(flat: false)
+ 	    .map { it.transpose() }
         .set { ch_vcfs }
 
     // merge interval .vcfs into a single file
