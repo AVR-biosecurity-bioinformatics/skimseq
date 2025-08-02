@@ -21,7 +21,7 @@ process MERGE_VCFS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${outname}
+        "${outname}"
 
     """
 }

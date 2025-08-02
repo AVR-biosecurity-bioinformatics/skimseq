@@ -122,7 +122,7 @@ workflow FILTER_SITES {
         .set { ch_vcfs }
 
     // merge filtered SNPs and indels together into one file
-    // TODO: change the output na,e 
+    // TODO: change the output name to the project name
     MERGE_FILTERED (
         ch_vcfs,
         "merged"

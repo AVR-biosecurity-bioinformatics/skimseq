@@ -87,7 +87,7 @@ workflow GATK_GENOTYPING {
         .set { ch_gvcf_to_merge }
 
     MERGE_GVCFS (
-        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ gvcf, tbi ] }
+        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ gvcf, tbi ] },
         ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
 
@@ -129,23 +129,12 @@ workflow GATK_GENOTYPING {
         .combine ( ch_interval_bed_jc )
         .map { gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
         .groupTuple ( by: 0 )
-                // join to get back interval_file
-        .join ( ch_interval_bed, by: 0 )
+        // join to get back interval_file
+        .join ( ch_interval_bed_jc, by: 0 )
         .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
     ch_gvcf_interval.view()
-
-
-    // group GVCFs by interval 
-    //CALL_VARIANTS.out.gvcf_intervals
-    //    .map { sample, gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
-    //    .groupTuple ( by: 0 )
-        // join to get back interval_file
-    //    .join ( ch_interval_bed, by: 0 )
-    //    .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
-    //    .set { ch_gvcf_interval }
-
 
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (
@@ -153,7 +142,7 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed
     )
 
-    // joint-call genotypes
+    // joint-call genotypes across all samples per Interval
     JOINT_GENOTYPE (
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
@@ -170,7 +159,8 @@ workflow GATK_GENOTYPING {
 
     // merge interval .vcfs into a single file
     MERGE_VCFS (
-        ch_vcfs
+        ch_vcfs,
+        "joint"
     )
 
     emit: 

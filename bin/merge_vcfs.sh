@@ -9,11 +9,21 @@ set -u
 # get list of .vcf files in directory
 ls *.vcf.gz > vcf.list
 
+# Check if files to be merged are gvcf or regular vcf
+if [[ $f == *.g.vcf.gz ]]; then
+  extension=".g.vcf.gz"
+elif [[ $f == *.vcf.gz ]]; then
+  extension=".vcf.gz"
+else
+  echo "file extension not recognised"
+  exit 1
+fi
+
 # merge all .vcfs together
 gatk --java-options "-Xmx${2}G" MergeVcfs \
     -I vcf.list \
-    -O ${3}.vcf.gz
+    -O ${3}$extension
 
 # reindex the output file
 gatk --java-options "-Xmx${2}G" IndexFeatureFile \
-    -I ${3}.vcf.gz 
+    -I ${3}$extension
