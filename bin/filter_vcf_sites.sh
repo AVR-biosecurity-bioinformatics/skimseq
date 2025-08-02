@@ -30,6 +30,14 @@ set -u
 # MQRankSum = MappingQualityRankSumTest (compares the mapping qualities of the reads supporting the reference allele and the alternate allele.)
 # ReadPosRankSum = (compares whether positions of the reference and alternate alleles are different within the reads. Alleles only near the ends of reads may be errors, because that is where sequencers tend to make the most errors)
 
+# Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
+java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
+fi
+
 # Make sure mask file is sorted and unique
 bedtools sort -i ${19} | uniq > vcf_masks.bed
 
@@ -52,7 +60,7 @@ else
     exit 1
 fi
 
-gatk SelectVariants \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SelectVariants \
 	--verbosity ERROR \
 	-V ${3} \
 	$TYPE \
@@ -83,7 +91,7 @@ else
 fi
 
 # Annotate filter column for sites that fail filters
-gatk VariantFiltration \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" VariantFiltration \
 	--verbosity ERROR \
 	-V tmp.vcf.gz \
 	"${filters[@]}" \
@@ -91,7 +99,7 @@ gatk VariantFiltration \
 	-O tmp_annot.vcf.gz
 
 # Create summary table of filters
-gatk VariantsToTable \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" VariantsToTable \
 	--verbosity ERROR \
 	-V tmp_annot.vcf.gz \
 	-F CHROM -F POS -F TYPE -F FILTER -F QUAL -F QD -F DP -F MQ -F MQRankSum -F FS -F ReadPosRankSum \
@@ -102,14 +110,14 @@ gatk VariantsToTable \
 pigz -p${1} ${4}_filtered.table
 
 # Exclude filtered sites from output vcf
-gatk SelectVariants \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SelectVariants \
 	--verbosity ERROR \
 	-V tmp_annot.vcf.gz \
 	--exclude-filtered \
 	-O tmp_filtered.vcf.gz 
 
 # Sort site filtered vcf
-gatk SortVcf \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SortVcf \
     -I tmp_filtered.vcf.gz \
     -O ${4}_filtered.vcf.gz 
 

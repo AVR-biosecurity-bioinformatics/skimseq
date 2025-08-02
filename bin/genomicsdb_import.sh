@@ -8,10 +8,12 @@ set -u
 # $4 = interval hash
 # $5 = interval_list
 
-# Mem for genomicsdb must be a few GB less than assigned mem
-genomicsdb_mem=$(( ${2} - 2 ))        # leave 2 GB head-room
-if (( genomicsdb_mem < 1 )); then    # clamp to ≥1 GB
-    genomicsdb_mem=1
+# Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
+java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
 fi
 
 ## NOTE: .g.vcf files and their .tbi indexes are staged 
@@ -22,7 +24,7 @@ sample_id=$(echo "$vcf" | cut -f1 -d '.')
 paste -d '\t' <(echo "$sample_id") <(echo "$vcf") > ${4}.sample_map
 
 # Import gvcfs into genomicsdb
-gatk --java-options "-Xmx${genomicsdb_mem}G -Xms${genomicsdb_mem}g"  GenomicsDBImport \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
     --genomicsdb-workspace-path ${4} \
     --batch-size 0 \
     -L ${5} \

@@ -9,6 +9,14 @@ set -u
 # $5 = gt_dp_min
 # $6 = gt_dp_max
 
+# Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
+java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
+fi
+
 # Set up filters
 filters=()
 [[ "${4}"  != NA ]] && filters+=( -G-filter "GQ < ${4}"             --genotype-filter-name GQ )
@@ -19,14 +27,14 @@ filters=()
 # See: https://github.com/broadinstitute/gatk/issues/9108
 
 # Annotate filter column for genotypes that fail filters
-gatk VariantFiltration \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" VariantFiltration \
 	--verbosity ERROR \
 	-V ${3} \
 	"${filters[@]}" \
 	-O tmp_annot.vcf.gz
 
 # Exclude filtered genotypes from output vcf
-gatk SelectVariants \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SelectVariants \
 	--verbosity ERROR \
 	-V tmp_annot.vcf.gz \
     --set-filtered-gt-to-nocall \
@@ -37,12 +45,12 @@ gatk SelectVariants \
  bcftools view -U tmp_filtered.vcf.gz -o tmp2_filtered.vcf.gz 
 
 # Sort site filtered vcf
-gatk SortVcf \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SortVcf \
     -I tmp2_filtered.vcf.gz \
     -O gtfiltered.vcf.gz 
 
 # Create genotype filters  summary  table
-gatk VariantsToTable \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" VariantsToTable \
 	--verbosity ERROR \
 	-V tmp_annot.vcf.gz \
 	-F CHROM -F POS -F TYPE --GF GT --GF FT --GF GQ --GF DP \
