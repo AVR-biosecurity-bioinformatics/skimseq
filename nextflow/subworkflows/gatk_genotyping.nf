@@ -150,6 +150,7 @@ workflow GATK_GENOTYPING {
     )
 
     // collect joint called .vcfs into a single element
+    // Use collect without flattening and transpose to get [[vcf] [tbi]]
     JOINT_GENOTYPE.out.vcf
         .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
         .collect(flat: false)
