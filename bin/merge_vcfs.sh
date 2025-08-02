@@ -10,9 +10,9 @@ set -u
 ls *.vcf.gz > vcf.list
 
 # Check if files to be merged are gvcf or regular vcf
-if [[ $f == *.g.vcf.gz ]]; then
+if [[ $(head -1 vcf.list) == *.g.vcf.gz ]]; then
   extension=".g.vcf.gz"
-elif [[ $f == *.vcf.gz ]]; then
+elif [[ $(head -1 vcf.list) == *.vcf.gz ]]; then
   extension=".vcf.gz"
 else
   echo "file extension not recognised"
