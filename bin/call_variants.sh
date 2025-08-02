@@ -26,13 +26,14 @@ if [[ ${14} == "false" ]];    then RMDUP="-DF NotDuplicateReadFilter";          
 echo ${4} | tr ' ' '\n' > bam.list
 
 # call variants per sample across all the bam chunks
+# NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
 gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     -R $5 \
     -I bam.list \
     -L $7 \
     -O ${3}.${6}.g.vcf.gz \
     --native-pair-hmm-threads ${1} \
-    --interval-padding ${8} \
+    --assembly-region-padding ${8} \
     --exclude-intervals ${9} \
     --interval-exclusion-padding ${10} \
     --interval-merging-rule ALL \

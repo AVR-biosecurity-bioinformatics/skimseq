@@ -14,18 +14,10 @@ workflow FILTER_SAMPLES {
 
     main: 
 
-    // collect generic genotype filtering parameters into a single list
-    // These are used for all variant types
-    Channel.of(
-        params.sample_max_missing
-    )
-    .collect( sort: false )
-    .set { ch_sample_filters }
-
     // filter samples
     FILTER_VCF_SAMPLES (
         ch_vcf,
-        ch_sample_filters
+        params.sample_max_missing
     )
 
     FILTER_VCF_SAMPLES.out.samples_to_keep
@@ -35,7 +27,7 @@ workflow FILTER_SAMPLES {
     // plot samples qc
     PLOT_SAMPLE_FILTERS (
         FILTER_VCF_SAMPLES.out.tables,
-        ch_sample_filters
+        params.sample_max_missing
     )
         
     emit: 

@@ -118,12 +118,15 @@ workflow FILTER_SITES {
     // Create channel of VCFs to merge
     FILTER_SNPS.out.vcf
         .mix(FILTER_INDELS.out.vcf, FILTER_INVARIANT.out.vcf)
-        .collect()
+        .collect(flat: false)
+ 	    .map { it.transpose() }
         .set { ch_vcfs }
 
     // merge filtered SNPs and indels together into one file
+    // TODO: change the output name to the project name
     MERGE_FILTERED (
-        ch_vcfs
+        ch_vcfs,
+        "merged"
     )
 
     // Calculate VCF statistics
