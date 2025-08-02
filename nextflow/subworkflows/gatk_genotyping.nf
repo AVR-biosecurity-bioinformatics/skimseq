@@ -88,7 +88,7 @@ workflow GATK_GENOTYPING {
 
     MERGE_GVCFS (
         ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ gvcf, tbi ] },
-        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
+        ch_gvcf_to_merge.flatMap { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
 
     // Calculate number of intervals to make for parallel joint calling
