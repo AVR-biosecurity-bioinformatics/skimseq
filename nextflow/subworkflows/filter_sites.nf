@@ -122,8 +122,10 @@ workflow FILTER_SITES {
         .set { ch_vcfs }
 
     // merge filtered SNPs and indels together into one file
+    // TODO: change the output na,e 
     MERGE_FILTERED (
-        ch_vcfs
+        ch_vcfs,
+        "merged"
     )
 
     // Calculate VCF statistics

@@ -6,10 +6,11 @@ process MERGE_VCFS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    path(vcf_and_indexes)
+    tuple path(vcf), path(vcf_tbi)
+    val(outname)
 
     output: 
-    tuple path("merged.vcf.gz"), path("merged.vcf.gz.tbi"),       emit: vcf
+    tuple path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
@@ -19,7 +20,8 @@ process MERGE_VCFS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${task.memory.giga} 
+        ${task.memory.giga} \
+        ${outname}
 
     """
 }

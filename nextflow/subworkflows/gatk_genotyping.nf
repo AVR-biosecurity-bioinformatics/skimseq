@@ -87,12 +87,14 @@ workflow GATK_GENOTYPING {
         .set { ch_gvcf_to_merge }
 
     MERGE_GVCFS (
-        ch_gvcf_to_merge
+        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ gvcf, tbi ] }
+        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
 
     // Calculate number of intervals to make for parallel joint calling
     /* number of chunks = round( params.jc_interval_sample_scale * N ), clamped to ≥ 2 */
-    ch_vcfs.count()
+    MERGE_GVCFS.out.vcf
+    .count()
     .map { n ->
         double f = (params.jc_interval_sample_scale as double)
         assert f > 0 && f <= 1 : "params.chunk_frac must be in (0,1], got: ${f}"
@@ -122,9 +124,17 @@ workflow GATK_GENOTYPING {
         
 
     // combine sample-level gvcf with each interval_bed file and interval hash
-    MERGE_GVCFS
+    // Then group by interval for joint genotyping
+    MERGE_GVCFS.out.vcf 
         .combine ( ch_interval_bed_jc )
+        .map { gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
+        .groupTuple ( by: 0 )
+                // join to get back interval_file
+        .join ( ch_interval_bed, by: 0 )
+        .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
+
+    ch_gvcf_interval.view()
 
 
     // group GVCFs by interval 
