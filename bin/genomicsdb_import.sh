@@ -34,4 +34,5 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
     --interval-merging-rule ALL \
     --bypass-feature-reader \
     --max-num-intervals-to-import-in-parallel ${1} \
-    --reader-threads 1
+    --reader-threads 1 \
+    --genomicsdb-shared-posixfs-optimizations true

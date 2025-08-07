@@ -36,7 +36,8 @@ if [[ "${9}" == "false" ]]; then
         --only-output-calls-starting-in-intervals \
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \
-        --tmp-dir /tmp
+        --tmp-dir /tmp \
+        --genomicsdb-shared-posixfs-optimizations true
 
 elif [[ "${9}" == "true" ]]; then
     # Joint genotype both variant and invariant
