@@ -28,7 +28,7 @@ interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 interval_size=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 
 # Exclude any intervals if exclusion files are not empty
-bedtools subtract -a ${4} -b ${6} > included_intervals.bed
+bedtools subtract -a ${5} -b ${6} > included_intervals.bed
 
 # Calculate number of groups
 if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
