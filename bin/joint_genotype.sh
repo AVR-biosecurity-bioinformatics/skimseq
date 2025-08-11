@@ -32,7 +32,7 @@ if [[ "${9}" == "false" ]]; then
         --exclude-intervals ${7} \
         --interval-exclusion-padding ${8} \
         --interval-merging-rule ALL \
-        --merge-input-intervals true \
+        --merge-input-intervals \
         --only-output-calls-starting-in-intervals \
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \

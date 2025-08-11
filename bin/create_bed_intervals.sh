@@ -20,7 +20,7 @@ if (( java_mem < 1 )); then
 fi
 
 # parse interval_subdivide options
-if [[ ${7} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
+if [[ ${7} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION"; \
 else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW"; fi
 
 # Convert any scientific notation to integers
