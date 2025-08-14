@@ -8,14 +8,13 @@ set -u
 
 ## Extract mitochondrial genome contig
 echo "${3}" > name.lst
-MITO_NAME=$( echo "$3" | tr -d ' |)' | sed -e 's/(/_/g' )
-seqtk subseq ${2} name.lst > ${MITO_NAME}.fa
+seqtk subseq ${2} name.lst > mito.fa
 
 # Index mitochondrial genome for bwa
-bwa-mem2 index ${MITO_NAME}.fa
+bwa-mem2 index mito.fa
 
 # Index with samtools 
-samtools faidx ${MITO_NAME}.fa
+samtools faidx mito.fa
 
 # Create mitochondrial bed
-awk '{print $1"\t0\t"$2}' ${MITO_NAME}.fa.fai | sed 's/\s*$/\tMito/' > ${MITO_NAME}.bed
+awk '{print $1"\t0\t"$2}' mito.fa.fai | sed 's/\s*$/\tMito/' > mito.bed
