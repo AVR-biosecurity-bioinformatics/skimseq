@@ -11,12 +11,15 @@ process PLOT_TREE {
     path(popmap)
 
     output: 
-    path("*.pdf"),             emit: plots
+    path("*.pdf"),              emit: plots, optional: true
+    path("*.nwk"),              emit: tree
+    path("*.csv"),              emit: tree_df
 
     script:
     def process_script = "${process_name}.R"
     """
-    shifter --image=gmboowa/ggtree:latest -- \
+    ## shifter --image=gmboowa/ggtree:latest -- \
+    shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
         ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata} \

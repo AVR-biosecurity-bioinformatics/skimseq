@@ -18,7 +18,7 @@ tryCatch(
       "tibble",
       "dplyr",
       "ape",
-      "ggtree",
+      # "ggtree",
       "ggplot2",
       NULL
     )
@@ -57,13 +57,13 @@ tryCatch(
       distmat <- as.dist(M_clean)
 
       # Construct a tree using NJ method
-      tree <- ape::nj(distmat)
+      tree <- ape::bionj(distmat)
 
       # save the tree to Newick format file
       write.tree(tree, file = paste0(prefix, "_tree.nwk"))
 
-      # Create base tree
-      p1 <- ggtree(tree, layout = "equal_angle") # see more at ggtree
+      # # Create base tree
+      # p1 <- ggtree(tree, layout = "equal_angle") # see more at ggtree
 
       # Add population colours
       tree_df <- tibble::enframe(
@@ -73,8 +73,10 @@ tryCatch(
       ) %>%
         dplyr::left_join(popmap)
 
-      # Update tree with colours
-      gg.tree <- p1 %<+% (tree_df) + aes(color = pop)
+      readr::write_csv(tree_df, paste0(prefix, "_tree.csv"))
+
+      # # Update tree with colours
+      # gg.tree <- p1 %<+% (tree_df) + aes(color = pop)
     } else {
       # If all are dropped by NAN filter, create empty plot
       gg.tree <- ggplot() +
