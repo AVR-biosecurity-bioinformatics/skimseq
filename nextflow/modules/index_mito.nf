@@ -22,7 +22,7 @@ process INDEX_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${ref_genome} \
-        ${mito_contig}
+        "${mito_contig}"
 
     """
 }
