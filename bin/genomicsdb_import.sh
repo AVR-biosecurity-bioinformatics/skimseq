@@ -16,6 +16,14 @@ if (( java_mem < 1 )); then
     java_mem=1
 fi
 
+# reader threads should leave one thread free 
+reader_threads=$(( ${1} -1 ))
+
+# Clamp to at least 1
+if (( reader_threads < 1 )); then
+    reader_threads=1
+fi
+
 ## NOTE: .g.vcf files and their .tbi indexes are staged 
 
 # Create sample map file
@@ -36,7 +44,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
     --merge-input-intervals \
     --interval-merging-rule ALL \
     --bypass-feature-reader \
-    --reader-threads $(( ${1} -1 )) \
+    --reader-threads $reader_threads \
     --genomicsdb-shared-posixfs-optimizations \
     --consolidate
 
