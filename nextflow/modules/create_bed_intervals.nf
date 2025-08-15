@@ -24,6 +24,7 @@ process CREATE_BED_INTERVALS {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${task.memory.giga} \
         ${interval_n} \
         ${interval_size} \
         ${include_bed} \

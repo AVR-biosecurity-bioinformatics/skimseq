@@ -32,28 +32,21 @@ if [[ "${9}" == "false" ]]; then
         --exclude-intervals ${7} \
         --interval-exclusion-padding ${8} \
         --interval-merging-rule ALL \
-        --merge-input-intervals true \
+        --merge-input-intervals \
         --only-output-calls-starting-in-intervals \
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \
-        --tmp-dir /tmp
+        --tmp-dir /tmp \
+        --genomicsdb-shared-posixfs-optimizations true
 
 elif [[ "${9}" == "true" ]]; then
     # Joint genotype both variant and invariant
     # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
 
-    # First use gatk selectvariants to get the sites to genotype
-    # This resolves the memory leak when calling invariant sites from genomicsDB reported in: https://github.com/broadinstitute/gatk/issues/8989
-    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  SelectVariants \
-        -R ${4} \
-        -V gendb://${3} \
-        -L ${6} \
-        -O source.g.vcf.gz 
-
-    # Then genotype both variant and invariant sites using the gvcf
+    # genotype both variant and invariant sites 
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  GenotypeGVCFs \
         -R ${4} \
-        -V source.g.vcf.gz \
+        -V gendb://${3} \
         -L ${6} \
         -O calls.vcf.gz \
         --exclude-intervals ${7} \
@@ -61,8 +54,17 @@ elif [[ "${9}" == "true" ]]; then
         --interval-merging-rule ALL \
         --merge-input-intervals true \
         --only-output-calls-starting-in-intervals \
-        --include-non-variant-sites true \
-        --tmp-dir /tmp
+        --max-alternate-alleles 6 \
+        --genomicsdb-max-alternate-alleles 10 \
+        --tmp-dir /tmp \
+        --genomicsdb-shared-posixfs-optimizations true
+
+    # Get the sites as a GVCF as well to transfer the annotations over
+    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  SelectVariants \
+        -R ${4} \
+        -V gendb://${3} \
+        -L ${6} \
+        -O source.g.vcf.gz 
 
      # Prepare annotation files for re-adding specific genotype fields to invariant sites
 

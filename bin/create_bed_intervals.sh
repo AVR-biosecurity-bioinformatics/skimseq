@@ -3,23 +3,32 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = interval_n
-# $3 = interval_size
-# $4 = include_bed     
-# $5 = exclude_bed
-# $6 = interval_subdivide_balanced
-# $7 = Reference_genome
+# $2 = mem
+# $3 = interval_n
+# $4 = interval_size
+# $5 = include_bed     
+# $6 = exclude_bed
+# $7 = interval_subdivide_balanced
+# $8 = Reference_genome
+
+# Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
+java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
+fi
 
 # parse interval_subdivide options
-if [[ ${6} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION "; \
+if [[ ${7} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION"; \
 else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW"; fi
 
 # Convert any scientific notation to integers
-interval_n=$(awk -v x="${2}" 'BEGIN {printf("%d\n",x)}')
-interval_size=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+interval_size=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 
 # Exclude any intervals if exclusion files are not empty
-bedtools subtract -a ${4} -b ${5} > included_intervals.bed
+bedtools subtract -a ${5} -b ${6} > included_intervals.bed
 
 # Calculate number of groups
 if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
@@ -44,8 +53,8 @@ fi
 
 # Group current intervals into even groups of approximately even base content
 # Optionally subdivide furthr
-gatk SplitIntervals \
-   -R ${7} \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
+   -R ${8} \
    -L included_intervals.bed \
    --scatter-count ${n_splits} \
    --interval-merging-rule OVERLAPPING_ONLY \
@@ -58,7 +67,7 @@ for i in *scattered.interval_list;do
   HASH=$( md5sum "$i" | awk '{print $1}' ) 
 
   # Convert resulting interval list to bed format
-  java -jar $EBROOTPICARD/picard.jar IntervalListToBed \
+  java "-Xmx${java_mem}G" -jar $EBROOTPICARD/picard.jar IntervalListToBed \
   	--INPUT $i \
   	--OUTPUT tmp.bed
 	
