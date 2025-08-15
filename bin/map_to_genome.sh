@@ -75,13 +75,12 @@ if [[ ${21} == "none" ]]; then
 		- \
 	| samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam
 
-
 else 
     # use custom string of flags for fastp
     fastp \
         -i ${2}.${CHUNK_NAME}.F.fq \
         -I ${2}.${CHUNK_NAME}.R.fq \
-        ${18} \
+        ${21} \
 	--thread ${1} \
         -h ${2}.${CHUNK_NAME}.fastp.html \
         -j ${2}.${CHUNK_NAME}.fastp.json \
@@ -101,12 +100,14 @@ fi
 st=("${PIPESTATUS[@]}")
 names=("fastp" "bwa-mem2 mem" "samtools sort")
 
+# Default to exit code 0
 ec=0
 for i in "${!st[@]}"; do
   if (( st[i] != 0 )); then
     echo "${names[i]} failed with exit code ${st[i]}" >&2
-    # remember a non-zero to return
-    ec=${st[i]}                  
+    # take the first failing stage
+    ec=${st[i]}                         
+    break
   fi
 done
 
