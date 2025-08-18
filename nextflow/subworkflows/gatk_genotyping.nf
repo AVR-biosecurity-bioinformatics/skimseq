@@ -27,7 +27,7 @@ workflow GATK_GENOTYPING {
             
     // create groups of genomic intervals for parallel haplotypecaller
     // TODO: Replace this with a process that takes into account the number of aligned bases
-    CREATE_BED_INTERVALS_HC (
+    CREATE_HC_INTERVALS (
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
@@ -37,7 +37,7 @@ workflow GATK_GENOTYPING {
     )
 
     // create intervals channel, with one interval_bed file per element
-    CREATE_BED_INTERVALS_HC.out.interval_bed
+    CREATE_HC_INTERVALS.out.interval_bed
         .flatten()
         // get hash from interval_bed name as element to identify intervals
         .map { interval_bed ->
