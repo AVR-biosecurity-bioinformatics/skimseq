@@ -1,5 +1,5 @@
-process CREATE_BED_INTERVALS {
-    def process_name = "create_bed_intervals"    
+process CREATE_HC_INTERVALS {
+    def process_name = "create_hc_intervals"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
