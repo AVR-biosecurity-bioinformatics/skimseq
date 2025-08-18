@@ -7,6 +7,8 @@ process CREATE_JC_INTERVALS {
 
     input:
     tuple path(ref_fasta), path(indexes)
+    path(include_bed)
+    path(exclude_bed)
     val(interval_n)
 
     output: 
@@ -22,6 +24,8 @@ process CREATE_JC_INTERVALS {
         ${task.cpus} \
         ${task.memory.giga} \
         ${interval_n} \
+        ${include_bed} \
+        "${exclude_bed}" \
         ${ref_fasta}
 
     """

@@ -5,7 +5,9 @@ set -u
 # $1 = cpus 
 # $2 = mem
 # $3 = interval_n
-# $4 = Reference_genome
+# $4 = include_bed     
+# $5 = exclude_bed
+# $6 = Reference_genome
 
 # NOTE: Intervals for joint calling are made directly from the chromosomes, any masked bases should not have been included in single sample calling
 # This is to properly handle genomicsDBimport 
@@ -21,19 +23,28 @@ fi
 # Convert any scientific notation to integers
 interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
+# Create an included intervals file, only contig names that are in this file will be retained
+bedtools subtract -a ${4} -b ${5} > included_intervals.bed
+awk '{contigs[$1]=1} END {for(c in contigs) print c}' included_intervals.bed > included_contigs.txt
+
 # Calculate number of bases that should theoretically be contained in each interval
-exp_bases_per_group=$(awk -v interval_n="$interval_n" '{sum += $2} END {print sum/interval_n}' ${4}.fai)
+exp_bases_per_group=$(awk -v interval_n="$interval_n" '{sum += $2} END {print sum/interval_n}' ${6}.fai)
 
-# Subset chromosomes longer than expected bases per group - these will be split into smaller intervals
-awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }'  ${4}.fai > long.bed
+# Subset chromosomes longer than expected bases per group, and filter to just those contig names in included intervals
+awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }'  ${6}.fai > long.bed
+awk 'NR==FNR {keep[$1]; next} ($1 in keep)' included_contigs.txt long.bed > long.filtered.bed
 
-# Subset chromosomes shorter than expected bases per group - these will be grouped together
-awk -v minlen="$exp_bases_per_group" '{ if($2 < minlen) print $1 "\t0\t" $2 }'  ${4}.fai > short.bed
+# Subset chromosomes shorter than expected bases per group, and filter to just those contig names in included intervals
+awk -v minlen="$exp_bases_per_group" '{ if($2 < minlen) print $1 "\t0\t" $2 }'  ${6}.fai > short.bed
+awk 'NR==FNR {keep[$1]; next} ($1 in keep)' included_contigs.txt short.bed > short.filtered.bed
 
-# Total bases in long contigs
+mv long.filtered.bed long.bed
+mv short.filtered.bed short.bed
+
+# Total bases in long contigs - these contigs will be split into smaller intervals
 long_bases=$(awk '{sum += $3 - $2} END {print sum}' long.bed)
 
-# Total bases in short contigs
+# Total bases in short contigs - these contigs will be grouped together
 short_bases=$(awk '{sum += $3 - $2} END {print sum}' short.bed)
 
 # Total bases in genome
@@ -49,7 +60,7 @@ if (( short_splits < 1 )); then short_splits=1; fi
 
 # Divide the long chromosomes into shorter ones, DONT MIX CONTIGS
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
-   -R ${4} \
+   -R ${6} \
    -L long.bed \
    --dont-mix-contigs true \
    --scatter-count ${long_splits} \
@@ -60,7 +71,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
 
 # Group the short chromosomes together, MIX CONTIGS
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
-   -R ${4} \
+   -R ${6} \
    -L short.bed \
    --scatter-count ${short_splits} \
    --interval-merging-rule OVERLAPPING_ONLY \

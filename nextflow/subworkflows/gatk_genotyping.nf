@@ -24,20 +24,13 @@ workflow GATK_GENOTYPING {
     /* 
         Genotype samples individually and jointly
     */
-    
-    // If intervals are being subdivided on the mask, use the mask bed
-    if ( params.interval_subdivide_at_masks ){
-          ch_breakpoints_bed = ch_mask_bed_gatk
-        } else {
-          ch_breakpoints_bed = ch_dummy_file
-    }
-        
+            
     // create groups of genomic intervals for parallel haplotypecaller
     // TODO: Replace this with a process that takes into account the number of aligned bases
     CREATE_BED_INTERVALS_HC (
         ch_genome_indexed,
         ch_include_bed,
-        ch_breakpoints_bed,
+        ch_mask_bed_gatk,
         params.hc_interval_n,
         params.hc_interval_size,
         params.interval_subdivide_balanced
@@ -106,6 +99,8 @@ workflow GATK_GENOTYPING {
     // create groups of genomic intervals for parallel joint calling
     CREATE_JC_INTERVALS (
         ch_genome_indexed,
+        ch_include_bed,
+        ch_mask_bed_gatk,
         ch_jc_nchunks
     )
 
