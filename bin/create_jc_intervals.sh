@@ -10,8 +10,8 @@ set -u
 # $6 = Reference_genome
 # $7 = jc_interval_min_n
 
-# NOTE: Intervals for joint calling are made directly from the chromosomes
-# any masked bases should not have been included in single sample calling
+# NOTE: Intervals for joint calling are made directly from the contigs, NOT broken up by genotypable intervals
+# This seems to make genomicsDB faster
 
 # ---- GATK Resources ----
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
