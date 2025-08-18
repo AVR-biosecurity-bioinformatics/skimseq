@@ -62,3 +62,4 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
     --reader-threads $reader_threads \
     --genomicsdb-shared-posixfs-optimizations \
     --consolidate
+
