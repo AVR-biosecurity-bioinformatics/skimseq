@@ -4,14 +4,15 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = interval_n
+# $3 = scaling_factor
 # $4 = include_bed     
 # $5 = exclude_bed
 # $6 = Reference_genome
 
-# NOTE: Intervals for joint calling are made directly from the chromosomes, any masked bases should not have been included in single sample calling
-# This is to properly handle genomicsDBimport 
+# NOTE: Intervals for joint calling are made directly from the chromosomes
+# any masked bases should not have been included in single sample calling
 
+# ---- GATK Resources ----
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
 java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
 
@@ -20,15 +21,34 @@ if (( java_mem < 1 )); then
     java_mem=1
 fi
 
-# Convert any scientific notation to integers
-interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+# ---- Calculate nchunks ----
+# Number of samples
+n_samples=$(ls *.g.vcf.gz | wc -l)
 
+# Count the number of records in the largest gvcf (by filesize)
+n_variants=$(bcftools view -H $(ls -S *.g.vcf.gz | head -n1) | wc -l)
+
+available_mem_gb=48          # Mem available for the joint calling steps (in GB)
+safety_factor=0.8            # fraction of memory to actually use
+scaling_factor=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}') # GB per variant per sample (2.5e-7) - ROUGH ESTIMATE
+
+# Total memory required if full genome in one interval
+mem_total=$(echo "$n_variants * $n_samples * $scaling_factor" | bc -l)
+
+# Max memory per chunk considering safety factor
+max_mem_per_chunk=$(echo "$available_mem_gb * $safety_factor" | bc -l)
+
+# Recommended number of chunks (round up)
+n_chunks=$(echo "($mem_total / $max_mem_per_chunk + 0.9999)/1" | bc)
+if (( n_chunks < 1 )); then n_chunks=1; fi
+
+# ---- Create chromosome list ----
 # Create an included intervals file, only contig names that are in this file will be retained
 bedtools subtract -a ${4} -b ${5} > included_intervals.bed
 awk '{contigs[$1]=1} END {for(c in contigs) print c}' included_intervals.bed > included_contigs.txt
 
 # Calculate number of bases that should theoretically be contained in each interval
-exp_bases_per_group=$(awk -v interval_n="$interval_n" '{sum += $2} END {print sum/interval_n}' ${6}.fai)
+exp_bases_per_group=$(awk -v n_chunks="$n_chunks" '{sum += $2} END {print sum/n_chunks}' ${6}.fai)
 
 # Subset chromosomes longer than expected bases per group, and filter to just those contig names in included intervals
 awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }'  ${6}.fai > long.bed
@@ -50,9 +70,9 @@ short_bases=$(awk '{sum += $3 - $2} END {print sum}' short.bed)
 # Total bases in genome
 total_bases=$((long_bases + short_bases))
 
-# Number of splits for long and short sets
-long_splits=$(( interval_n * long_bases / total_bases ))
-short_splits=$(( interval_n * short_bases / total_bases ))
+# Divide the total number of splits between the long and short sets
+long_splits=$(( n_chunks * long_bases / total_bases ))
+short_splits=$(( n_chunks * short_bases / total_bases ))
 
 # Ensure at least 1 interval per set
 if (( long_splits < 1 )); then long_splits=1; fi

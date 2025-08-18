@@ -84,24 +84,13 @@ workflow GATK_GENOTYPING {
         ch_gvcf_to_merge.flatMap { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
 
-    // Calculate number of intervals to make for parallel joint calling
-    /* number of chunks = round( params.jc_interval_sample_scale * N ), clamped to ≥ 2 */
-    MERGE_GVCFS.out.vcf
-    .count()
-    .map { n ->
-        double f = (params.jc_interval_sample_scale as double)
-        assert f > 0 && f <= 1 : "params.chunk_frac must be in (0,1], got: ${f}"
-        int nchunks = Math.max(2, (int)Math.round(n * f))
-        nchunks
-    }
-    .set { ch_jc_nchunks }   // => emits a single integer
-
     // create groups of genomic intervals for parallel joint calling
     CREATE_JC_INTERVALS (
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
-        ch_jc_nchunks
+        jc_interval_scaling_factor,
+        MERGE_GVCFS.out.vcf 
     )
 
     // create intervals channel, with one interval_bed file per element

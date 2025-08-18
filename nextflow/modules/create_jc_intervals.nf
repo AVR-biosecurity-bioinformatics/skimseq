@@ -10,7 +10,8 @@ process CREATE_JC_INTERVALS {
     path(include_bed)
     path(exclude_bed)
     val(interval_n)
-
+    tuple path(gvcf), path(tbi)
+    
     output: 
     path("_*.bed"),              emit: interval_bed
     
@@ -23,7 +24,7 @@ process CREATE_JC_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${interval_n} \
+        ${jc_interval_scaling_factor} \
         ${include_bed} \
         "${exclude_bed}" \
         ${ref_fasta}
