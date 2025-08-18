@@ -90,14 +90,13 @@ workflow GATK_GENOTYPING {
  	    .map { it.transpose() }
         .set { ch_gvcf }
 
-    ch_gvcf.view()
-
     // create groups of genomic intervals for parallel joint calling
     CREATE_JC_INTERVALS (
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
         params.jc_interval_scaling_factor,
+        params.jc_interval_min_n,
         ch_gvcf
     )
 
@@ -109,7 +108,6 @@ workflow GATK_GENOTYPING {
             def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_bed ] }
         .set { ch_interval_bed_jc }
-        
 
     // combine sample-level gvcf with each interval_bed file and interval hash
     // Then group by interval for joint genotyping

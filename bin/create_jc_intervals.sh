@@ -4,10 +4,11 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = scaling_factor
+# $3 = jc_interval_scaling_factor
 # $4 = include_bed     
 # $5 = exclude_bed
 # $6 = Reference_genome
+# $7 = jc_interval_min_n
 
 # NOTE: Intervals for joint calling are made directly from the chromosomes
 # any masked bases should not have been included in single sample calling
@@ -40,7 +41,7 @@ max_mem_per_chunk=$(echo "$available_mem_gb * $safety_factor" | bc -l)
 
 # Recommended number of chunks (round up)
 n_chunks=$(echo "($mem_total / $max_mem_per_chunk + 0.9999)/1" | bc)
-if (( n_chunks < 1 )); then n_chunks=1; fi
+if (( n_chunks < ${7} )); then n_chunks=${7}; fi
 
 # ---- Create chromosome list ----
 # Create an included intervals file, only contig names that are in this file will be retained
@@ -51,7 +52,7 @@ awk '{contigs[$1]=1} END {for(c in contigs) print c}' included_intervals.bed > i
 exp_bases_per_group=$(awk -v n_chunks="$n_chunks" '{sum += $2} END {print sum/n_chunks}' ${6}.fai)
 
 # Subset chromosomes longer than expected bases per group, and filter to just those contig names in included intervals
-awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }'  ${6}.fai > long.bed
+awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }' ${6}.fai > long.bed
 awk 'NR==FNR {keep[$1]; next} ($1 in keep)' included_contigs.txt long.bed > long.filtered.bed
 
 # Subset chromosomes shorter than expected bases per group, and filter to just those contig names in included intervals
@@ -74,7 +75,7 @@ total_bases=$((long_bases + short_bases))
 long_splits=$(( n_chunks * long_bases / total_bases ))
 short_splits=$(( n_chunks * short_bases / total_bases ))
 
-# Ensure at least 1 interval per set
+# Ensure at least 1 interval per set, as the short contigs go through different processing to long ones
 if (( long_splits < 1 )); then long_splits=1; fi
 if (( short_splits < 1 )); then short_splits=1; fi
 

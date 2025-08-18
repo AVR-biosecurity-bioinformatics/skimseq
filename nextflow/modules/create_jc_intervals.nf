@@ -10,6 +10,7 @@ process CREATE_JC_INTERVALS {
     path(include_bed)
     path(exclude_bed)
     val(jc_interval_scaling_factor)
+    val(jc_interval_min_n)
     tuple path(gvcf), path(tbi)
 
     output: 
@@ -27,7 +28,9 @@ process CREATE_JC_INTERVALS {
         ${jc_interval_scaling_factor} \
         ${include_bed} \
         "${exclude_bed}" \
-        ${ref_fasta}
+        ${ref_fasta} \
+        ${jc_interval_min_n}
+
 
     """
   
