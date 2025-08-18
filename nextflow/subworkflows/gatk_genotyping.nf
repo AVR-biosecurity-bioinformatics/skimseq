@@ -84,13 +84,21 @@ workflow GATK_GENOTYPING {
         ch_gvcf_to_merge.flatMap { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
 
+
+    MERGE_GVCFS.out.vcf
+        .collect(flat: false)
+ 	    .map { it.transpose() }
+        .set { ch_gvcf }
+
+    ch_gvcf.view()
+
     // create groups of genomic intervals for parallel joint calling
     CREATE_JC_INTERVALS (
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
-        jc_interval_scaling_factor,
-        MERGE_GVCFS.out.vcf 
+        params.jc_interval_scaling_factor,
+        ch_gvcf
     )
 
     // create intervals channel, with one interval_bed file per element

@@ -30,7 +30,7 @@ n_variants=$(bcftools view -H $(ls -S *.g.vcf.gz | head -n1) | wc -l)
 
 available_mem_gb=48          # Mem available for the joint calling steps (in GB)
 safety_factor=0.8            # fraction of memory to actually use
-scaling_factor=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}') # GB per variant per sample (2.5e-7) - ROUGH ESTIMATE
+scaling_factor=$(awk -v x="${3}" 'BEGIN {printf("%.10f\n", x)}')  # GB per variant per sample (2.5e-7) - ROUGH ESTIMATE
 
 # Total memory required if full genome in one interval
 mem_total=$(echo "$n_variants * $n_samples * $scaling_factor" | bc -l)

@@ -9,9 +9,9 @@ process CREATE_JC_INTERVALS {
     tuple path(ref_fasta), path(indexes)
     path(include_bed)
     path(exclude_bed)
-    val(interval_n)
+    val(jc_interval_scaling_factor)
     tuple path(gvcf), path(tbi)
-    
+
     output: 
     path("_*.bed"),              emit: interval_bed
     
