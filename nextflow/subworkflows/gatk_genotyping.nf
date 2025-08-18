@@ -7,7 +7,7 @@ include { CALL_VARIANTS                                          } from '../modu
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
-include { CREATE_HC_INTERVALS                                    } from '../modules/create_bed_intervals'
+include { CREATE_HC_INTERVALS                                    } from '../modules/create_hc_intervals'
 include { CREATE_JC_INTERVALS                                    } from '../modules/create_jc_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
