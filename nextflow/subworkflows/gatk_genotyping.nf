@@ -8,7 +8,7 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_HC        } from '../modules/create_bed_intervals'
-include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_JC        } from '../modules/create_bed_intervals'
+include { CREATE_JC_INTERVALS                                    } from '../modules/create_jc_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
 workflow GATK_GENOTYPING {
@@ -104,17 +104,13 @@ workflow GATK_GENOTYPING {
     .set { ch_jc_nchunks }   // => emits a single integer
 
     // create groups of genomic intervals for parallel joint calling
-    CREATE_BED_INTERVALS_JC (
+    CREATE_JC_INTERVALS (
         ch_genome_indexed,
-        ch_include_bed,
-        ch_breakpoints_bed,
-        ch_jc_nchunks,
-        -1,
-        params.interval_subdivide_balanced
+        ch_jc_nchunks
     )
 
     // create intervals channel, with one interval_bed file per element
-    CREATE_BED_INTERVALS_JC.out.interval_bed
+    CREATE_JC_INTERVALS.out.interval_bed
         .flatten()
         // get hash from interval_bed name as element to identify intervals
         .map { interval_bed ->

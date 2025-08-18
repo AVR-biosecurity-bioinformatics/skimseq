@@ -9,7 +9,7 @@ set -u
 # $5 = Sample
 
 # Subset to target sample
-bcftools view -s ${5} $2 -U --exclude-uncalled -o ${5}.vcf.gz
+bcftools view -s ${5} $2 --exclude-uncalled -o ${5}.vcf.gz
 
 # Calculate Per-sample statistics
 bcftools stats -F ${4} ${5}.vcf.gz > ${5}.vcfstats.txt
