@@ -22,13 +22,13 @@ fi
 interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
 # Calculate number of bases that should theoretically be contained in each interval
-exp_bases_per_group=$(awk -v interval_n="$interval_n" '{sum += $2} END {print sum/interval_n}' genome.fasta.fai)
+exp_bases_per_group=$(awk -v interval_n="$interval_n" '{sum += $2} END {print sum/interval_n}' ${4}.fai)
 
 # Subset chromosomes longer than expected bases per group - these will be split into smaller intervals
-awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }' genome.fasta.fai > long.bed
+awk -v minlen="$exp_bases_per_group" '{ if($2 >= minlen) print $1 "\t0\t" $2 }'  ${4}.fai > long.bed
 
 # Subset chromosomes shorter than expected bases per group - these will be grouped together
-awk -v minlen="$exp_bases_per_group" '{ if($2 < minlen) print $1 "\t0\t" $2 }' genome.fasta.fai > short.bed
+awk -v minlen="$exp_bases_per_group" '{ if($2 < minlen) print $1 "\t0\t" $2 }'  ${4}.fai > short.bed
 
 # Total bases in long contigs
 long_bases=$(awk '{sum += $3 - $2} END {print sum}' long.bed)
@@ -49,7 +49,7 @@ if (( short_splits < 1 )); then short_splits=1; fi
 
 # Divide the long chromosomes into shorter ones, DONT MIX CONTIGS
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
-    -R ../GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic_withmito.fna \
+   -R ${4} \
    -L long.bed \
    --dont-mix-contigs true \
    --scatter-count ${long_splits} \
@@ -60,7 +60,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
 
 # Group the short chromosomes together, MIX CONTIGS
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
-    -R ../GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic_withmito.fna \
+   -R ${4} \
    -L short.bed \
    --scatter-count ${short_splits} \
    --interval-merging-rule OVERLAPPING_ONLY \
