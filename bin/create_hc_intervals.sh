@@ -4,12 +4,12 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = interval_n
-# $4 = interval_size
-# $5 = include_bed     
-# $6 = exclude_bed
-# $7 = interval_subdivide_balanced
-# $8 = Reference_genome
+# $3 = interval_size
+# $4 = include_bed     
+# $5 = exclude_bed
+# $6 = Reference_genome
+# $7 = bam_files
+
 
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
 java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
@@ -19,65 +19,51 @@ if (( java_mem < 1 )); then
     java_mem=1
 fi
 
-# parse interval_subdivide options
-if [[ ${7} == "true" ]];   then SUBDIVISION_MODE="--subdivision-mode INTERVAL_SUBDIVISION"; \
-else SUBDIVISION_MODE="--subdivision-mode  BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW"; fi
-
-# Convert any scientific notation to integers
-interval_n=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
-interval_size=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
-
 # Exclude any intervals if exclusion files are not empty
-bedtools subtract -a ${5} -b ${6} > included_intervals.bed
+bedtools subtract -a ${4} -b ${5} > included_intervals.bed
 
-# Calculate number of groups
-if [ "$interval_size" -ge 0 ] && [ "$interval_n" -eq -1 ]; then
-    # Only interval_size provided
-    
-    # Calculate the total length and number of splits based on interval_size
-    total_length=$(awk -F'\t' 'BEGIN{SUM=0}{ SUM+=$3-$2 }END{print SUM}' included_intervals.bed)
-    n_splits=$(awk -v total_length=$total_length -v interval_size=$interval_size 'BEGIN { print ( total_length / interval_size ) }')
-    
-elif [ "$interval_size" -eq -1 ] && [ "$interval_n" -ge 0 ]; then
-    # Only interval_n provided
-    n_splits=$interval_n
-    
-elif [ "$interval_size"  -ge 0 ] && [ "$interval_n" -ge 0 ]; then
-    # Both interval_size and interval_n provided, prefer interval_n
-    n_splits=$interval_n
-    
-else
-    # If neither are provided, dont do any splitting
-    n_splits=1
-fi
+# Use bedtools multicov to get per-interval coverage for all BAMs at once
+bam_files=( $(ls *.bam | grep -v '.bai' ) )
+bedtools multicov -bams "${bam_files[@]}" -bed included_intervals.bed > windows_cov.txt
 
-# Group current intervals into even groups of approximately even base content
-# Optionally subdivide furthr
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SplitIntervals \
-   -R ${8} \
-   -L included_intervals.bed \
-   --scatter-count ${n_splits} \
-   --interval-merging-rule OVERLAPPING_ONLY \
-   -O $(pwd) \
-   $SUBDIVISION_MODE
+# get total aligned bases per window
+awk '{
+    sum=0;
+    for(i=4;i<=NF;i++) sum+=$i;
+    print $1"\t"$2"\t"$3"\t"sum
+}' windows_cov.txt > intervals_with_len.bed
+
+TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+
+OUTDIR=$(pwd)
+
+# Use greedy algorithm to chunk
+awk -v target="$TARGET_BASES" -v outdir="$OUTDIR" '
+    BEGIN{chunk=1; sum=0; fname=sprintf("%s/chunk_%d.bed", outdir, chunk)}
+    {
+    chrom=$1; start=$2; end=$3; weighted=$4
+    if(sum+weighted>target && sum>0){
+        chunk++
+        fname=sprintf("%s/chunk_%d.bed", outdir, chunk)
+        sum=0
+    }
+    print chrom"\t"start"\t"end > fname
+   sum+=weighted
+}' intervals_with_len.bed
    
-# Rename and convert each split output into a bed, and add padding
-for i in *scattered.interval_list;do
+# Rename each output to a hash
+for i in *chunk_*.bed;do
   # Hashed output name
   HASH=$( md5sum "$i" | awk '{print $1}' ) 
 
-  # Convert resulting interval list to bed format
-  java "-Xmx${java_mem}G" -jar $EBROOTPICARD/picard.jar IntervalListToBed \
-  	--INPUT $i \
-  	--OUTPUT tmp.bed
-	
-	#adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
-	cat tmp.bed | cut -f1-4 > _${HASH}.bed
-	
-  # remove intermediate files
-  rm $i tmp.bed
+  #adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
+  cut -f1-4 "$i" > _${HASH}.bed
+
+  sum=$(awk '{sum+=$3-$2} END{print sum}' "$i")
+  echo "$HASH: $sum bases"
+  rm $i
 done
 
 # Remove temporary bed files
-rm -f intervals_filtered.bed included_intervals.bed
+rm -f included_intervals.bed
 

@@ -24,16 +24,20 @@ workflow GATK_GENOTYPING {
     /* 
         Genotype samples individually and jointly
     */
-            
+    ch_sample_bam       
+        .collect(flat: false)
+ 	    .map { it.transpose() }
+        .set { ch_all_bam }
+
+    ch_all_bam.view()
+
     // create groups of genomic intervals for parallel haplotypecaller
-    // TODO: Replace this with a process that takes into account the number of aligned bases
     CREATE_HC_INTERVALS (
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
-        params.hc_interval_n,
         params.hc_interval_size,
-        params.interval_subdivide_balanced
+        ch_all_bam
     )
 
     // create intervals channel, with one interval_bed file per element
@@ -53,7 +57,7 @@ workflow GATK_GENOTYPING {
 
     // collect haplotypecaller parameters into a single list
     Channel.of(
-        params.hc_interval_padding
+        params.hc_interval_padding,
         params.hc_min_pruning,
         params.hc_min_dangling_length,
         params.hc_max_reads_startpos,
@@ -83,7 +87,6 @@ workflow GATK_GENOTYPING {
         ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ gvcf, tbi ] },
         ch_gvcf_to_merge.flatMap { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
-
 
     MERGE_GVCFS.out.vcf
         .collect(flat: false)

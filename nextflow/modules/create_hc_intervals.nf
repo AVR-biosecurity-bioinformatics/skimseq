@@ -9,9 +9,7 @@ process CREATE_HC_INTERVALS {
     tuple path(ref_fasta), path(indexes)
     path(include_bed)
     path(exclude_bed)
-    val(interval_n)
     val(interval_size)
-    val(interval_subdivide_balanced)
 
     output: 
     path("_*.bed"),              emit: interval_bed
@@ -26,10 +24,8 @@ process CREATE_HC_INTERVALS {
         ${task.cpus} \
         ${task.memory.giga} \
         ${interval_n} \
-        ${interval_size} \
         ${include_bed} \
         "${exclude_bed}" \
-        ${interval_subdivide_balanced} \
         ${ref_fasta}
 
     """
