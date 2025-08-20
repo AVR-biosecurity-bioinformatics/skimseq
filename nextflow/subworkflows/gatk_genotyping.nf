@@ -53,12 +53,13 @@ workflow GATK_GENOTYPING {
 
     // collect haplotypecaller parameters into a single list
     Channel.of(
+        params.hc_interval_padding
         params.hc_min_pruning,
         params.hc_min_dangling_length,
         params.hc_max_reads_startpos,
         params.hc_rmdup,
         params.hc_minmq,
-        params.ploidy
+        params.ploidy,
     )
     .collect( sort: false )
     .set { ch_hc_params }
@@ -67,7 +68,6 @@ workflow GATK_GENOTYPING {
     CALL_VARIANTS (
         ch_sample_intervals,
         ch_genome_indexed,
-        params.interval_padding,
         ch_mask_bed_gatk, 
         params.exclude_padding,
         ch_hc_params
