@@ -95,6 +95,8 @@ workflow SKIMSEQ {
 
     ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
     ch_genome_bed = INDEX_GENOME.out.genome_bed
+    ch_long_bed = INDEX_GENOME.out.long_bed
+    ch_short_bed = INDEX_GENOME.out.short_bed
 
 
     // Handle optional include_bed
@@ -181,7 +183,9 @@ workflow SKIMSEQ {
         ch_sample_bam,
         ch_genome_indexed,
         ch_include_bed,
-        ch_mask_bed_gatk
+        ch_mask_bed_gatk,
+        ch_long_bed,
+        ch_short_bed
     )
 
     /*

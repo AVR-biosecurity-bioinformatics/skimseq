@@ -8,7 +8,8 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
-include { COUNT_VCF_BED                                          } from '../modules/count_vcf_bed'
+include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
+include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC    } from '../modules/create_interval_chunks'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
@@ -20,6 +21,8 @@ workflow GATK_GENOTYPING {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_gatk
+    ch_long_bed
+    ch_short_bed
 
     main: 
 
@@ -99,26 +102,43 @@ workflow GATK_GENOTYPING {
        Create groups of genomic intervals for parallel joint calling
     */
 
-    // TODO: This needs to be done separately for long and short intervals
-
-    // Count number of reads in each interval
-    COUNT_VCF_BED (
+    // Count number of reads contained within each interval, for long contigs (chromosomes)
+    COUNT_VCF_BED_LONG (
         MERGE_GVCFS.out.vcf,
-        ch_include_bed.first(),
+        ch_long_bed.first(),
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
 
-    // Create joint calling intervals
+    // Count number of reads contained within each interval, for short contigs (scaffolds)
+    COUNT_VCF_BED_SHORT (
+        MERGE_GVCFS.out.vcf,
+        ch_short_bed.first(),
+        ch_mask_bed_gatk,
+        ch_genome_indexed
+    )
+
+    COUNT_VCF_BED.out.counts
+        .map { sample, counts -> [ counts ] }
+        .collect() 
+        .concat( 
+            COUNT_VCF_BED.out.counts
+                .map { sample, counts -> [ counts ] }
+                .collect()
+        ).set { ch_long_short_beds }
+
+
+    // Create joint calling intervals, run one job for short 
     // As next step is parallelised by interval, use the 'sum' mode
     CREATE_INTERVAL_CHUNKS_JC (
         params.jc_genotypes_per_chunk,
-        COUNT_VCF_BED.out.counts.map { sample, counts -> [ counts ] }.collect(),
+        ch_long_short_beds,
         "sum"
     )
 
     // create intervals channel, with one interval_bed file per element
     CREATE_INTERVAL_CHUNKS_JC.out.interval_bed
+        .collect()
         .flatten()
         // get hash from interval_bed name as element to identify intervals
         .map { interval_bed ->
