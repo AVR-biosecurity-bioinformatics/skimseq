@@ -54,7 +54,7 @@ awk '{print $1"\t0\t"$2}' $2.fai > genome.bed
 chr_min_length=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
 # Create bed file just containing long contigs (chromosomes)
-awk -v minlen="$chr_min_length" '{ if($2 >= minlen) print $1 "\t0\t" $2 }' ${6}.fai > long.bed
+awk -v minlen="$chr_min_length" '{ if($2 >= minlen) print $1 "\t0\t" $2 }' ${2}.fai > long.bed
 
 # Create bed file just containing short contigs (scaffolds)
-awk -v minlen="$chr_min_length" '{ if($2 < minlen) print $1 "\t0\t" $2 }'  ${6}.fai > short.bed
+awk -v minlen="$chr_min_length" '{ if($2 < minlen) print $1 "\t0\t" $2 }'  ${2}.fai > short.bed

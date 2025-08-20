@@ -90,7 +90,8 @@ workflow SKIMSEQ {
     */
 
     INDEX_GENOME (
-        ch_genome
+        ch_genome, 
+        params.min_chr_length
     )
 
     ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()

@@ -15,7 +15,7 @@ bedtools subtract -a ${5} -b ${6} > included_intervals.bed
 
 # Count number of VCF records overlapping intervals
 bedtools intersect \
-    -a ${5} \
+    -a included_intervals.bed \
     -b ${3} \
     -c \
     | awk -v OFS="\t" '{print $1, $2, $3, $5}' > ${7}.counts.bed
