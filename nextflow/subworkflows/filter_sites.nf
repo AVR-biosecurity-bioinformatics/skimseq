@@ -131,7 +131,7 @@ workflow FILTER_SITES {
 
     // Calculate VCF statistics
     VCF_STATS (
-         MERGE_FILTERED.out.vcf,
+         MERGE_FILTERED.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] },
          ch_genome_indexed,
          ch_sample_names
     )
@@ -141,7 +141,7 @@ workflow FILTER_SITES {
         .set { ch_reports}
         
     emit: 
-    filtered_merged = MERGE_FILTERED.out.vcf
+    filtered_merged = MERGE_FILTERED.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
     filtered_snps = FILTER_SNPS.out.vcf
     filtered_indels = FILTER_INDELS.out.vcf
     reports = ch_reports

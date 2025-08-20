@@ -17,4 +17,5 @@ bedtools subtract -a ${5} -b ${6} > included_intervals.bed
 bedtools intersect \
     -a ${5} \
     -b ${3} \
-    -c > ${7}.counts.bed
+    -c \
+    | awk -v OFS="\t" '{print $1, $2, $3, $5}' > ${7}.counts.bed

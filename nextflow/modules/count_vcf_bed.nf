@@ -6,7 +6,7 @@ process COUNT_VCF_BED {
     module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple path(gvcf), path(tbi)
+    tuple val(sample), path(gvcf), path(tbi)
     path(interval_bed)
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
