@@ -24,7 +24,12 @@ workflow GATK_GENOTYPING {
     /* 
         Genotype samples individually and jointly
     */
-     ch_sample_bam.map { sample, bam, bai -> [ bam, bai ] }.view()
+
+    ch_sample_bam
+        .map { sample, bam, bai -> [ bam, bai ] }
+        .collect(flat: false)
+ 	    .map { it.transpose() }
+        .set { ch_all_bam }
 
     // create groups of genomic intervals for parallel haplotypecaller
     CREATE_HC_INTERVALS (
@@ -32,7 +37,7 @@ workflow GATK_GENOTYPING {
         ch_include_bed,
         ch_mask_bed_gatk,
         params.hc_interval_size,
-        ch_sample_bam.map { sample, bam, bai -> [ bam, bai ] }
+        ch_all_bam
     )
 
     // create intervals channel, with one interval_bed file per element

@@ -31,7 +31,7 @@ awk '{
     sum=0;
     for(i=4;i<=NF;i++) sum+=$i;
     print $1"\t"$2"\t"$3"\t"sum
-}' windows_cov.txt > intervals_with_len.bed
+}' windows_cov.txt > intervals_with_depth.bed
 
 TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 
@@ -49,7 +49,7 @@ awk -v target="$TARGET_BASES" -v outdir="$OUTDIR" '
     }
     print chrom"\t"start"\t"end > fname
    sum+=weighted
-}' intervals_with_len.bed
+}' intervals_with_depth.bed
    
 # Rename each output to a hash
 for i in *chunk_*.bed;do
