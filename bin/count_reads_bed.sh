@@ -16,7 +16,7 @@ bedtools subtract -a ${4} -b ${5} > included_intervals.bed
 # Count number of reads overlapping intervals
 bedtools coverage \
     -a included_intervals.bed \
-    -b ${3}.bam \
+    -b ${3} \
     -g ${4}.fai \
     -counts \
     | awk -v OFS="\t" '{print $1, $2, $3}' > ${6}.counts.bed
