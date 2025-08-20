@@ -19,4 +19,4 @@ bedtools coverage \
     -b ${3} \
     -g ${4}.fai \
     -counts \
-    | awk -v OFS="\t" '{print $1, $2, $3}' > ${7}.counts.bed
+    | awk -v OFS="\t" '{print $1, $2, $3, $5}' > ${7}.counts.bed

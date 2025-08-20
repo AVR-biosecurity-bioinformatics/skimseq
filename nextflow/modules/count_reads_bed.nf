@@ -12,7 +12,7 @@ process COUNT_READS_BED {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    path("*counts.bed"),                 emit: counts
+    tuple val(sample), path("*counts.bed"),                 emit: counts
     
     script:
     def process_script = "${process_name}.sh"
