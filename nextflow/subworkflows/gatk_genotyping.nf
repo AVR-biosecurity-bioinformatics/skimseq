@@ -7,6 +7,7 @@ include { CALL_VARIANTS                                          } from '../modu
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
+include { count_reads_bed                                        } from '../modules/count_reads_bed'
 include { CREATE_HC_INTERVALS                                    } from '../modules/create_hc_intervals'
 include { CREATE_JC_INTERVALS                                    } from '../modules/create_jc_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
@@ -25,11 +26,13 @@ workflow GATK_GENOTYPING {
         Genotype samples individually and jointly
     */
 
-    ch_sample_bam
-        .map { sample, bam, bai -> [ bam, bai ] }
-        .collect(flat: false)
- 	    .map { it.transpose() }
-        .set { ch_all_bam }
+    // Count number of reads in each interval
+    COUNT_READS_BED (
+        ch_sample_bam,
+        ch_include_bed,
+        ch_mask_bed_gatk,
+        ch_genome_indexed
+    )
 
     // create groups of genomic intervals for parallel haplotypecaller
     CREATE_HC_INTERVALS (
@@ -37,7 +40,7 @@ workflow GATK_GENOTYPING {
         ch_include_bed,
         ch_mask_bed_gatk,
         params.hc_interval_size,
-        ch_all_bam
+        COUNT_READS_BED.out.counts
     )
 
     // create intervals channel, with one interval_bed file per element

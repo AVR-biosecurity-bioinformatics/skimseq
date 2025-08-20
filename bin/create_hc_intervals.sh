@@ -10,7 +10,6 @@ set -u
 # $6 = Reference_genome
 # $7 = bam_files
 
-
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
 java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
 
@@ -19,23 +18,19 @@ if (( java_mem < 1 )); then
     java_mem=1
 fi
 
-# Exclude any intervals if exclusion files are not empty
-bedtools subtract -a ${4} -b ${5} > included_intervals.bed
+TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+OUTDIR=$(pwd)
 
-# Use bedtools multicov to get per-interval coverage for all BAMs at once
-bam_files=( $(ls *.bam | grep -v '.bai' ) )
-bedtools multicov -bams "${bam_files[@]}" -bed included_intervals.bed > windows_cov.txt
+
+# Combine coverage files for all samples
+bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
 
 # get total aligned bases per window
 awk '{
     sum=0;
     for(i=4;i<=NF;i++) sum+=$i;
     print $1"\t"$2"\t"$3"\t"sum
-}' windows_cov.txt > intervals_with_depth.bed
-
-TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
-
-OUTDIR=$(pwd)
+}' combined_counts.bed > intervals_with_depth.bed
 
 # Use greedy algorithm to chunk
 awk -v target="$TARGET_BASES" -v outdir="$OUTDIR" '
