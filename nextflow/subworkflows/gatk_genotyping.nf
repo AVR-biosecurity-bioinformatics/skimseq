@@ -26,6 +26,8 @@ workflow GATK_GENOTYPING {
         Genotype samples individually and jointly
     */
 
+    ch_sample_bam.view()
+
     // Count number of reads in each interval
     COUNT_READS_BED (
         ch_sample_bam,
@@ -33,6 +35,8 @@ workflow GATK_GENOTYPING {
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
+
+    COUNT_READS_BED.out.counts.view()
 
     // create groups of genomic intervals for parallel haplotypecaller
     CREATE_HC_INTERVALS (

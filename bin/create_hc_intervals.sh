@@ -8,7 +8,7 @@ set -u
 # $4 = include_bed     
 # $5 = exclude_bed
 # $6 = Reference_genome
-# $7 = bam_files
+# $7 = counts_files
 
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
 java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
@@ -20,7 +20,6 @@ fi
 
 TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
-
 
 # Combine coverage files for all samples
 bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed

@@ -10,7 +10,7 @@ process CREATE_HC_INTERVALS {
     path(include_bed)
     path(exclude_bed)
     val(interval_size)
-    tuple path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
+    path(counts)
 
     output: 
     path("_*.bed"),              emit: interval_bed
@@ -27,7 +27,8 @@ process CREATE_HC_INTERVALS {
         ${interval_size} \
         ${include_bed} \
         "${exclude_bed}" \
-        ${ref_fasta}
+        ${ref_fasta} \
+        "${counts_files}"
 
     """
   
