@@ -118,11 +118,11 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed
     )
 
-    COUNT_VCF_BED.out.counts
+    COUNT_VCF_BED_LONG.out.counts
         .map { sample, counts -> [ counts ] }
         .collect() 
         .concat( 
-            COUNT_VCF_BED.out.counts
+            COUNT_VCF_BED_SHORT.out.counts
                 .map { sample, counts -> [ counts ] }
                 .collect()
         ).set { ch_long_short_beds }
