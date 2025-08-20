@@ -22,9 +22,6 @@ process CREATE_HC_INTERVALS {
         ${task.cpus} \
         ${task.memory.giga} \
         ${interval_size} \
-        ${include_bed} \
-        "${exclude_bed}" \
-        ${ref_fasta} \
         "${counts_files}"
 
     """
