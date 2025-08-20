@@ -63,7 +63,3 @@ for i in *chunk_*.bed;do
   echo "$HASH: $sum bases"
   rm $i
 done
-
-# Remove temporary bed files
-rm -f included_intervals.bed
-
