@@ -40,9 +40,6 @@ workflow GATK_GENOTYPING {
 
     // create groups of genomic intervals for parallel haplotypecaller
     CREATE_HC_INTERVALS (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_mask_bed_gatk,
         params.hc_interval_size,
         COUNT_READS_BED.out.counts
     )

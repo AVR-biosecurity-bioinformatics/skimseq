@@ -5,10 +5,7 @@ set -u
 # $1 = cpus 
 # $2 = mem
 # $3 = interval_size
-# $4 = include_bed     
-# $5 = exclude_bed
-# $6 = Reference_genome
-# $7 = counts_files
+# $5 = counts_files
 
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
 java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
