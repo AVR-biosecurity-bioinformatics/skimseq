@@ -7,10 +7,13 @@ process INDEX_GENOME {
 
     input:
     path(ref_genome)
+    val(min_chr_length)
     
     output: 
     tuple path(ref_genome), path("*.{fa.*,fna.*,dict}"),             emit: fasta_indexed
     path("genome.bed"),                                              emit: genome_bed
+    path("long.bed"),                                                emit: long_bed
+    path("short.bed"),                                               emit: short_bed
 
     script:
     def process_script = "${process_name}.sh"
@@ -20,7 +23,8 @@ process INDEX_GENOME {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${ref_genome} 
+        ${ref_genome} \
+        ${min_chr_length}
 
     """
 }
