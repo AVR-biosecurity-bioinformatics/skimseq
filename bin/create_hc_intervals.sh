@@ -4,30 +4,36 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = interval_size
-# $5 = counts_files
+# $3 = counts_per_chunk
+# $4 = counts_files
+# $5 = mode
 
-TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 
 # Combine coverage files for all samples
 bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
 
-# get mean aligned bases per window
-awk '{
+# get either the mean, or the sum, of feature counts per window across samples
+# This depends on the mode parameter
+awk -v mode="${5}" '{
     sum=0;
     n=0;
     for(i=4;i<=NF;i++){
         sum+=$i;
         n++
     }
-    mean = (n>0 ? sum/n : 0)
-    print $1"\t"$2"\t"$3"\t"mean
-}' combined_counts.bed > intervals_with_depth.bed
+    if(mode=="mean"){
+        val = (n>0 ? sum/n : 0)
+    } else {
+        val = sum
+    }
+    print $1"\t"$2"\t"$3"\t"val
+}' combined_counts.bed > intervals_with_counts.bed
 
 # Use greedy algorithm to assign intervals to chunks.
-# Once they reach TARGET_BASES, begin a new chunk.
-awk -v target="$TARGET_BASES" -v outdir="$OUTDIR" '
+# Once they reach COUNTS_PER_CHUNK, begin a new chunk.
+awk -v target="$COUNTS_PER_CHUNK" -v outdir="$OUTDIR" '
     BEGIN{chunk=1; sum=0; fname=sprintf("%s/chunk_%d.bed", outdir, chunk)}
     {
     chrom=$1; start=$2; end=$3; weighted=$4
@@ -38,7 +44,7 @@ awk -v target="$TARGET_BASES" -v outdir="$OUTDIR" '
     }
     print chrom"\t"start"\t"end > fname
    sum+=weighted
-}' intervals_with_depth.bed
+}' intervals_with_counts.bed
    
 # Rename each output to a hash
 for i in *chunk_*.bed;do

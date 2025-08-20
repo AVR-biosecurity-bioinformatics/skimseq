@@ -8,8 +8,9 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
+include { COUNT_VCF_BED                                          } from '../modules/count_vcf_bed'
 include { CREATE_HC_INTERVALS                                    } from '../modules/create_hc_intervals'
-include { CREATE_JC_INTERVALS                                    } from '../modules/create_jc_intervals'
+include { CREATE_HC_INTERVALS as CREATE_JC_INTERVALS             } from '../modules/create_hc_intervals'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
 workflow GATK_GENOTYPING {
@@ -23,7 +24,7 @@ workflow GATK_GENOTYPING {
     main: 
 
     /* 
-        Genotype samples individually and jointly
+       Create groups of genomic intervals for parallel haplotypecaller
     */
 
     // Count number of reads in each interval
@@ -34,10 +35,12 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed
     )
 
-    // create groups of genomic intervals for parallel haplotypecaller
+    // Create haplotypecaller intervals
+    // As next step is parallelised by sample*interval, use the 'mean' mode
     CREATE_HC_INTERVALS (
-        params.hc_interval_size,
+        params.hc_bases_per_chunk,
         COUNT_READS_BED.out.counts.map { sample, counts -> [ counts ] }.collect()
+        "mean"
     )
 
     // create intervals channel, with one interval_bed file per element
@@ -54,6 +57,10 @@ workflow GATK_GENOTYPING {
     ch_sample_bam
         .combine ( ch_interval_bed_hc )
         .set { ch_sample_intervals }
+
+    /* 
+       Call variants per sample
+    */
 
     // collect haplotypecaller parameters into a single list
     Channel.of(
@@ -93,15 +100,37 @@ workflow GATK_GENOTYPING {
  	    .map { it.transpose() }
         .set { ch_gvcf }
 
-    // create groups of genomic intervals for parallel joint calling
-    CREATE_JC_INTERVALS (
-        ch_genome_indexed,
-        ch_include_bed,
+    /* 
+       Create groups of genomic intervals for parallel joint calling
+    */
+
+    // TODO: This needs to be done separately for long and short intervals
+
+    // Count number of reads in each interval
+    COUNT_VCF_BED (
+        ch_gvcf,
+        ch_include_bed.first(),
         ch_mask_bed_gatk,
-        params.jc_interval_scaling_factor,
-        params.jc_interval_min_n,
-        ch_gvcf
+        ch_genome_indexed
     )
+
+    // Create joint calling intervals
+    // As next step is parallelised by interval, use the 'sum' mode
+    CREATE_JC_INTERVALS (
+        params.jc_genotypes_per_chunk,
+        COUNT_VCF_BED.out.counts.map { sample, counts -> [ counts ] }.collect()
+        "sum"
+    )
+
+    // create groups of genomic intervals for parallel joint calling
+    //CREATE_JC_INTERVALS (
+    //    ch_genome_indexed,
+    //    ch_include_bed,
+    //    ch_mask_bed_gatk,
+    //    params.jc_interval_scaling_factor,
+    //    params.jc_interval_min_n,
+    //    ch_gvcf
+    //)
 
     // create intervals channel, with one interval_bed file per element
     CREATE_JC_INTERVALS.out.interval_bed
