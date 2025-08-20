@@ -7,14 +7,6 @@ set -u
 # $3 = interval_size
 # $5 = counts_files
 
-# Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
-java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
-
-# Clamp to at least 1 GB so Java has something to start with
-if (( java_mem < 1 )); then
-    java_mem=1
-fi
-
 TARGET_BASES=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 
@@ -33,7 +25,8 @@ awk '{
     print $1"\t"$2"\t"$3"\t"mean
 }' combined_counts.bed > intervals_with_depth.bed
 
-# Use greedy algorithm to chunk
+# Use greedy algorithm to assign intervals to chunks.
+# Once they reach TARGET_BASES, begin a new chunk.
 awk -v target="$TARGET_BASES" -v outdir="$OUTDIR" '
     BEGIN{chunk=1; sum=0; fname=sprintf("%s/chunk_%d.bed", outdir, chunk)}
     {
