@@ -21,11 +21,16 @@ OUTDIR=$(pwd)
 # Combine coverage files for all samples
 bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
 
-# get total aligned bases per window
+# get mean aligned bases per window
 awk '{
     sum=0;
-    for(i=4;i<=NF;i++) sum+=$i;
-    print $1"\t"$2"\t"$3"\t"sum
+    n=0;
+    for(i=4;i<=NF;i++){
+        sum+=$i;
+        n++
+    }
+    mean = (n>0 ? sum/n : 0)
+    print $1"\t"$2"\t"$3"\t"mean
 }' combined_counts.bed > intervals_with_depth.bed
 
 # Use greedy algorithm to chunk
