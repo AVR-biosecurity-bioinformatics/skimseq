@@ -10,8 +10,8 @@ set -u
 # $6 = exclude_bed
 # $7 = sample
 
-# Exclude any intervals if exclusion files are not empty
-bedtools subtract -a ${5} -b ${6} > included_intervals.bed
+# Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
+bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") > included_intervals.bed
 
 # Count number of reads overlapping intervals
 bedtools coverage \
