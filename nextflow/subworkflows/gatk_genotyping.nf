@@ -109,6 +109,10 @@ workflow GATK_GENOTYPING {
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
+    .map { sample, counts -> counts }
+    .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
+    .toList()        
+    .set { counts_long }
 
     // Count number of reads contained within each interval, for short contigs (scaffolds)
     COUNT_VCF_BED_SHORT (
@@ -117,19 +121,19 @@ workflow GATK_GENOTYPING {
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
+    .map { sample, counts -> counts }
+    .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
+    .toList()        
+    .set { counts_short }
 
-    COUNT_VCF_BED_LONG.out.counts
-        .map { sample, counts -> [ counts ] }
-        .collect() 
-        .concat( 
-            COUNT_VCF_BED_SHORT.out.counts
-                .map { sample, counts -> [ counts ] }
-                .collect()
-        ).set { ch_long_short_beds }
+    // Merge both long and short bed list channels
+    counts_long
+        .mix(counts_short)
+        .filter { L -> L && L.size() > 0 } // drop empty [] lists
+        .set { ch_long_short_beds }
 
-
-    // Create joint calling intervals, run one job for short 
-    // As next step is parallelised by interval, use the 'sum' mode
+    // Create joint calling intervals, long and short processed separately
+    // Use 'sum' mode to consider counts * samples - i.e. number of genotypes
     CREATE_INTERVAL_CHUNKS_JC (
         params.jc_genotypes_per_chunk,
         ch_long_short_beds,
