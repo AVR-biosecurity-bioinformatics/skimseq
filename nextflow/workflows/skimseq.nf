@@ -141,7 +141,8 @@ workflow SKIMSEQ {
 
     PROCESS_READS (
         ch_reads,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_sample_names
     )
     
     PROCESS_READS.out.bam

@@ -17,6 +17,7 @@ workflow PROCESS_READS {
     take:
     ch_reads
     ch_genome_indexed
+    ch_sample_names
 
     main: 
 
@@ -51,10 +52,33 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
+    // Parse interval CSVs
     SPLIT_FASTQ.out.fastq_interval
         .splitCsv ( by: 1, elem: 3, sep: "," )
 	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
 	    .set { ch_fastq_split }
+
+    // PASS samples reported by SPLIT_FASTQ
+    SPLIT_FASTQ.out.sample_status
+        .splitCsv ( by: 1, elem: 2, sep: "," )
+        .filter { sample, st -> st == 'PASS' }
+        .map { sample, st -> s }
+        .unique()
+        .collect() 
+	    .set { ch_pass_samples }
+
+//        .map { sample, st -> [ sample.toString(), st.toString().toUpperCase() ] }
+
+
+    // Guard: Dont start mapping if ANY sample failed (i.e., not in PASS)
+    ch_sample_names.combine(ch_pass_samples).map { expected, pass ->
+        def missing = (expected as Set) - (pass as Set)
+        if (missing) {
+        error "Split failed for sample(s): ${missing.join(', ')}"
+        }
+        true
+    }
+	.set { ch_all_pass_ok }
 
     /* 
         Read filtering and alignments
@@ -63,7 +87,8 @@ workflow PROCESS_READS {
     MAP_TO_GENOME (
         ch_fastq_split,
         ch_fastp_filters,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_all_pass_ok 
     )
     
     // group chunked .bam files by sample
