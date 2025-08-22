@@ -20,6 +20,7 @@ N_READS_F=$( seqtk size $3 | cut -f1 )
 N_READS_R=$( seqtk size $4 | cut -f1 )
 
 if [[ "$N_READS_F" == "$N_READS_R" ]]; then
+    # If number of forward and reverse reads match, status = PASS
     STATUS=PASS
     N_READS=N_READS_F
 
@@ -59,9 +60,9 @@ if [[ "$N_READS_F" == "$N_READS_R" ]]; then
         echo "1,${N_READS}" > $INTERVALS_FILE
     fi
 else
+    # If number of forward and reverse reads dont match, status = FAIL
     STATUS=FAIL
 fi
 
 # Output PASS or FAIL for this sample
-# Fail is when number of reads dont match between forward and reverse fastq (corrupted)
 echo "${2},${STATUS}" > status.csv
