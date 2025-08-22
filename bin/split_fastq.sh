@@ -11,14 +11,17 @@ set -u
 # Convert any scientific notation to integers
 CHUNK_SIZE=$(awk -v x="${5}" 'BEGIN {printf("%d\n",x)}')
 
+# Create a file to store intervals
+INTERVALS_FILE="intervals_${2}.csv"
+touch $INTERVALS_FILE  # Create an empty file for intervals
+
 # Calculate number of reads in forward and reverse fastqs
 N_READS_F=$( seqtk size $3 | cut -f1 )
 N_READS_R=$( seqtk size $4 | cut -f1 )
 
 if [[ "$N_READS_F" == "$N_READS_R" ]]; then
-    # Create a file to store intervals
-    INTERVALS_FILE="intervals_${2}.csv"
-    touch $INTERVALS_FILE  # Create an empty file for intervals
+    STATUS=PASS
+    N_READS=N_READS_F
 
     # if N_READS is less than CHUNK_SIZE, don't split file
     if [[ $N_READS -gt $CHUNK_SIZE ]]; then
@@ -57,7 +60,6 @@ if [[ "$N_READS_F" == "$N_READS_R" ]]; then
     fi
 else
     STATUS=FAIL
-    touch $INTERVALS_FILE
 fi
 
 # Output PASS or FAIL for this sample
