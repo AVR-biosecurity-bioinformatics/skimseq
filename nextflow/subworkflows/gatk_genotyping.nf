@@ -7,8 +7,11 @@ include { CALL_VARIANTS                                          } from '../modu
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
-include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_HC        } from '../modules/create_bed_intervals'
-include { CREATE_BED_INTERVALS as CREATE_BED_INTERVALS_JC        } from '../modules/create_bed_intervals'
+include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
+include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
+include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC    } from '../modules/create_interval_chunks'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
 workflow GATK_GENOTYPING {
@@ -18,33 +21,33 @@ workflow GATK_GENOTYPING {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_gatk
+    ch_long_bed
+    ch_short_bed
 
     main: 
 
     /* 
-        Genotype samples individually and jointly
+       Create groups of genomic intervals for parallel haplotypecaller
     */
-    
-    // If intervals are being subdivided on the mask, use the mask bed
-    if ( params.interval_subdivide_at_masks ){
-          ch_breakpoints_bed = ch_mask_bed_gatk
-        } else {
-          ch_breakpoints_bed = ch_dummy_file
-    }
-        
-    // create groups of genomic intervals for parallel haplotypecaller
-    // TODO: Replace this with a process that takes into account the number of aligned bases
-    CREATE_BED_INTERVALS_HC (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_breakpoints_bed,
-        params.hc_interval_n,
-        params.hc_interval_size,
-        params.interval_subdivide_balanced
+
+    // Count number of reads in each interval
+    COUNT_READS_BED (
+        ch_sample_bam,
+        ch_include_bed.first(),
+        ch_mask_bed_gatk,
+        ch_genome_indexed
+    )
+
+    // Create haplotypecaller intervals
+    // As next step is parallelised by sample*interval, use the 'mean' mode
+    CREATE_INTERVAL_CHUNKS_HC (
+        params.hc_bases_per_chunk,
+        COUNT_READS_BED.out.counts.map { sample, counts -> [ counts ] }.collect(),
+        "mean"
     )
 
     // create intervals channel, with one interval_bed file per element
-    CREATE_BED_INTERVALS_HC.out.interval_bed
+    CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
         .flatten()
         // get hash from interval_bed name as element to identify intervals
         .map { interval_bed ->
@@ -58,14 +61,19 @@ workflow GATK_GENOTYPING {
         .combine ( ch_interval_bed_hc )
         .set { ch_sample_intervals }
 
+    /* 
+       Call variants per sample
+    */
+
     // collect haplotypecaller parameters into a single list
     Channel.of(
+        params.hc_interval_padding,
         params.hc_min_pruning,
         params.hc_min_dangling_length,
         params.hc_max_reads_startpos,
         params.hc_rmdup,
         params.hc_minmq,
-        params.ploidy
+        params.ploidy,
     )
     .collect( sort: false )
     .set { ch_hc_params }
@@ -74,7 +82,6 @@ workflow GATK_GENOTYPING {
     CALL_VARIANTS (
         ch_sample_intervals,
         ch_genome_indexed,
-        params.interval_padding,
         ch_mask_bed_gatk, 
         params.exclude_padding,
         ch_hc_params
@@ -91,43 +98,63 @@ workflow GATK_GENOTYPING {
         ch_gvcf_to_merge.flatMap { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
     )
 
-    // Calculate number of intervals to make for parallel joint calling
-    /* number of chunks = round( params.jc_interval_sample_scale * N ), clamped to ≥ 2 */
-    MERGE_GVCFS.out.vcf
-    .count()
-    .map { n ->
-        double f = (params.jc_interval_sample_scale as double)
-        assert f > 0 && f <= 1 : "params.chunk_frac must be in (0,1], got: ${f}"
-        int nchunks = Math.max(2, (int)Math.round(n * f))
-        nchunks
-    }
-    .set { ch_jc_nchunks }   // => emits a single integer
+    /* 
+       Create groups of genomic intervals for parallel joint calling
+    */
 
-    // create groups of genomic intervals for parallel joint calling
-    CREATE_BED_INTERVALS_JC (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_breakpoints_bed,
-        ch_jc_nchunks,
-        -1,
-        params.interval_subdivide_balanced
+    // Count number of reads contained within each interval, for long contigs (chromosomes)
+    COUNT_VCF_BED_LONG (
+        MERGE_GVCFS.out.vcf,
+        ch_long_bed.first(),
+        ch_mask_bed_gatk,
+        ch_genome_indexed
+    )
+    .map { sample, counts -> counts }
+    .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
+    .toList()        
+    .set { counts_long }
+
+    // Count number of reads contained within each interval, for short contigs (scaffolds)
+    COUNT_VCF_BED_SHORT (
+        MERGE_GVCFS.out.vcf,
+        ch_short_bed.first(),
+        ch_mask_bed_gatk,
+        ch_genome_indexed
+    )
+    .map { sample, counts -> counts }
+    .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
+    .toList()        
+    .set { counts_short }
+
+    // Merge both long and short bed list channels
+    counts_long
+        .mix(counts_short)
+        .filter { L -> L && L.size() > 0 } // drop empty [] lists
+        .set { ch_long_short_beds }
+
+    // Create joint calling intervals, long and short processed separately
+    // Use 'sum' mode to consider counts * samples - i.e. number of genotypes
+    CREATE_INTERVAL_CHUNKS_JC (
+        params.jc_genotypes_per_chunk,
+        ch_long_short_beds,
+        "sum"
     )
 
     // create intervals channel, with one interval_bed file per element
-    CREATE_BED_INTERVALS_JC.out.interval_bed
+    CREATE_INTERVAL_CHUNKS_JC.out.interval_bed
+        .collect()
         .flatten()
         // get hash from interval_bed name as element to identify intervals
         .map { interval_bed ->
             def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_bed ] }
         .set { ch_interval_bed_jc }
-        
 
     // combine sample-level gvcf with each interval_bed file and interval hash
     // Then group by interval for joint genotyping
     MERGE_GVCFS.out.vcf 
         .combine ( ch_interval_bed_jc )
-        .map { gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
+        .map { sample, gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_jc, by: 0 )
@@ -164,8 +191,5 @@ workflow GATK_GENOTYPING {
     )
 
     emit: 
-    vcf = MERGE_VCFS.out.vcf
-    //posteriors = ch_posteriors
-
-
+    vcf = MERGE_VCFS.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
 }

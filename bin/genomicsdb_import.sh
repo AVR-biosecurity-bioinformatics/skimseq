@@ -19,10 +19,24 @@ fi
 # reader threads should leave one thread free 
 reader_threads=$(( ${1} -1 ))
 
-# Clamp to at least 1
+# Clamp to at least 1 reader thread
 if (( reader_threads < 1 )); then
     reader_threads=1
 fi
+
+# Check how many chromosomes are in bed file.
+# If there are multiple chromosomes, use --merge-contigs-into-num-partitions 1 to group them together
+# Otherwise parallel processing doesnt work
+num_chroms=$(cut -f1 ${5} | sort -u | wc -l)
+echo "Number of chromosomes: $num_chroms"
+
+if (( num_chroms == 1 )); then
+    # 1 chromosome, run as normal
+    MERGE_CONTIGS=""
+else
+    MERGE_CONTIGS="--merge-contigs-into-num-partitions 1"
+fi
+
 
 ## NOTE: .g.vcf files and their .tbi indexes are staged 
 
@@ -42,10 +56,10 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
     --sample-name-map ${4}.sample_map \
     --tmp-dir /tmp \
     --merge-input-intervals \
+    $MERGE_CONTIGS \
     --interval-merging-rule ALL \
     --bypass-feature-reader \
     --reader-threads $reader_threads \
     --genomicsdb-shared-posixfs-optimizations \
     --consolidate
 
-#  --max-num-intervals-to-import-in-parallel ${1} \ incompatible with merge-input-intevals

@@ -20,7 +20,6 @@ if (( java_mem < 1 )); then
     java_mem=1
 fi
 
-
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
 if [[ "${9}" == "false" ]]; then
     # joint genotype variant sites only
@@ -116,7 +115,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" CalculateGenotypePosteri
     --interval-merging-rule ALL \
     --tmp-dir /tmp
 
-# Convert <NON_REF> back to missing to ensure compatibility with filtering steps
+# Convert any <NON_REF> back to missing to ensure compatibility with filtering steps
 bcftools view joint_called_posterior.vcf.gz -Ov \
     | awk 'BEGIN{OFS="\t"}
         /^#/ {print; next}
