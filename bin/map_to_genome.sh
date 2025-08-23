@@ -38,9 +38,18 @@ sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 # create hash of read 1 name for output
 CHUNK_NAME=$(basename "${5}" .txt.gz)
 
+# First ensure all pairs are properly paired - drop those that arent
+repair.sh \
+    in=${3} \
+    in2=${4} \
+    out=tmp.F.fq out2=tmp.R.fq \
+    tossbrokenreads=t \
+    tossjunk=t \
+    usejni=t
+
 # create temporary fastq files of just the read ID's in the interval
-seqkit grep -f seqids_F.txt ${3} > ${2}.${CHUNK_NAME}.F.fq
-seqkit grep -f seqids_R.txt ${4} > ${2}.${CHUNK_NAME}.R.fq
+seqkit grep -f seqids_F.txt tmp.F.fq > ${2}.${CHUNK_NAME}.F.fq
+seqkit grep -f seqids_R.txt tmp.R.fq > ${2}.${CHUNK_NAME}.R.fq
 
 # Extract information from header of first read for reda group setup
 READ_HEADER=$(zcat ${3} | head -n 1 | sed 's#/1$##' )
