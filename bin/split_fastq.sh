@@ -40,7 +40,7 @@ for i in *chunk_*.txt;do
   HASH=$( md5sum "$i" | awk '{print $1}' ) 
 
   #adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
-  cut -f1-4 "$i" > _${HASH}.txt
+  gzip -c "$i" > _${HASH}.txt.gz
   rm $i
 done
 

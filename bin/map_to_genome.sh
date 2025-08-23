@@ -36,8 +36,8 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 # RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
 # Handle MGI stype read name ends if present
-cat ${5} > seqids_F.txt
-sed 's#/1$#/2#' ${5} > seqids_R.txt
+zcat ${5} > seqids_F.txt
+sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 
 # create hash of read 1 name for output
 CHUNK_NAME=$(basename "${5}" .txt)

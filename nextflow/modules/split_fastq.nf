@@ -10,7 +10,7 @@ process SPLIT_FASTQ {
     val(chunk_size)
 
     output: 
-    tuple val(sample), path(fastq1), path(fastq2), path("_*.txt"), emit: fastq_interval 
+    tuple val(sample), path(fastq1), path(fastq2), path("_*.txt.gz"), emit: fastq_interval 
 
     
     script:
