@@ -51,9 +51,12 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-    // create intervals channel, with one interval_bed file per element
+    // unnest intervals 
     SPLIT_FASTQ.out.fastq_interval
-        .flatten()
+        .flatMap { sample, read1, read2, intervals ->
+            def files = (intervals instanceof Collection) ? intervals : [ intervals ]
+            files.collect { t -> tuple(sample, read1, read2, t) } // emit one tuple per interval
+        }
         .set { ch_fastq_split }
 
     ch_fastq_split.view()

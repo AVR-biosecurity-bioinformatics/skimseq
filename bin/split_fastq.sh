@@ -20,10 +20,6 @@ repair.sh \
 # Then get the sequence IDs of the properly paired reads
 seqkit seq -ni tmp.F.fq  > seqids.txt
 
-# Create a file to store intervals
-INTERVALS_FILE="intervals_${2}.csv"
-touch $INTERVALS_FILE  # Create an empty file for intervals
-
 # Calculate number of reads
 N_READS=$( cat seqids.txt  | wc -l)
 

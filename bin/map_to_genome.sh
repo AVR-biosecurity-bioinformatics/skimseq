@@ -35,22 +35,23 @@ RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')
 RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 # RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
-# create hash of read 1 name for output
-CHUNK_NAME=$(basename "${5}")
-
 # Handle MGI stype read name ends if present
+cat ${5} > seqids_F.txt
 sed 's#/1$#/2#' ${5} > seqids_R.txt
 
+# create hash of read 1 name for output
+CHUNK_NAME=$(basename "${5}" .txt)
+
 # create temporary fastq files of just the read ID's in the interval
-seqkit grep -f ${5} ${3} > ${2}.${CHUNK_NAME}.F.fq
+seqkit grep -f seqids_F.txt ${3} > ${2}.${CHUNK_NAME}.F.fq
 seqkit grep -f seqids_R.txt ${4} > ${2}.${CHUNK_NAME}.R.fq
 
 # run filtering
-if [[ ${21} == "none" ]]; then
+if [[ ${20} == "none" ]]; then
     # use individual filtering parameters for fastp
     fastp \
-        -i ${2}.${CHUNK_NAME}.F.paired.fq \
-        -I ${2}.${CHUNK_NAME}.R.paired.fq \
+        -i ${2}.${CHUNK_NAME}.F.fq \
+        -I ${2}.${CHUNK_NAME}.R.fq \
         -q ${7} \
         --length_required ${8} \
         --n_base_limit ${9} \
