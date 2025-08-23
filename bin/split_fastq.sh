@@ -15,7 +15,9 @@ CHUNK_SIZE=$(awk -v x="${5}" 'BEGIN {printf("%d\n",x)}')
 repair.sh \
     in=${3} \
     in2=${4} \
-    out=tmp.F.fq out2=tmp.R.fq
+    out=tmp.F.fq out2=tmp.R.fq \
+    tossbrokenreads=t \
+    usejni=t
 
 # Then get the sequence IDs of the properly paired reads
 seqkit seq -ni tmp.F.fq  > seqids.txt
