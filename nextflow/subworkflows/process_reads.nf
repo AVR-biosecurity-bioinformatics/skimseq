@@ -51,28 +51,13 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-    // Parse interval CSVs
+    // unnest per-sample fastq intervals 
     SPLIT_FASTQ.out.fastq_interval
-        .splitCsv ( by: 1, elem: 3, sep: "," )
-	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
-	    .set { ch_fastq_split }
-
-
-    // FAIL samples reported by SPLIT_FASTQ
-    SPLIT_FASTQ.out.sample_status
-        .splitCsv ( by: 1, elem: 2, sep: "," )
-        .filter { sample, st -> st == 'FAIL' }
-        .map { sample, st -> sample }
-        .unique()
-        .collect() 
-        .set { ch_fail_samples }
-
-    ch_fail_samples
-    .map { fails ->
-        if (fails && fails.size() > 0)
-            error "Aborting: Fastq(s) are malformed for sample(s): ): ${fails.join(', ')}"
-        true
-    }
+        .flatMap { sample, read1, read2, intervals ->
+            def files = (intervals instanceof Collection) ? intervals : [ intervals ]
+            files.collect { t -> tuple(sample, read1, read2, t) } // emit one tuple per interval
+        }
+        .set { ch_fastq_split }
 
     /* 
         Read filtering and alignments

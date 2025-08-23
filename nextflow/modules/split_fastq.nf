@@ -3,15 +3,14 @@ process SPLIT_FASTQ {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "seqtk/1.4-GCC-13.3.0"
+    module "SeqKit/2.8.2:BBMap/39.17-GCC-13.3.0"
 
     input:
     tuple val(sample), path(fastq1), path(fastq2)
     val(chunk_size)
 
     output: 
-    tuple val(sample), path(fastq1), path(fastq2), path("intervals_${sample}.csv"), emit: fastq_interval 
-    path("status.csv"), emit: sample_status 
+    tuple val(sample), path(fastq1), path(fastq2), path("_*.txt.gz"), emit: fastq_interval 
 
     
     script:
