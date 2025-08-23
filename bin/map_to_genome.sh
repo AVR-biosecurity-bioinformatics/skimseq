@@ -30,10 +30,6 @@ if [[ ${11} == "true" ]];   then CUT_RIGHT="--cut_right";                       
 if [[ ${14} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
 if [[ ${16} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
 
-# Setup read group headers for BAM, these are necessary for merging of replicates
-RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')
-RG_LB=$(echo ${2} | awk -F _ '{print $2}')
-# RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
 # Handle MGI stype read name ends if present
 zcat ${5} > seqids_F.txt
@@ -46,7 +42,22 @@ CHUNK_NAME=$(basename "${5}" .txt)
 seqkit grep -f seqids_F.txt ${3} > ${2}.${CHUNK_NAME}.F.fq
 seqkit grep -f seqids_R.txt ${4} > ${2}.${CHUNK_NAME}.R.fq
 
-# run filtering
+# Extract information from header of first read for reda group setup
+READ_HEADER=$(zcat ${3} | head -n 1 | sed 's#/1$##' ) # Get header of first read
+FCID=$(echo ${READ_HEADER} | cut -d ':' -f 3) #Read flow cell ID
+LANE=$(echo ${READ_HEADER} | cut -d ':' -f 4) #Read lane number 
+SAMPLE=${2}
+
+# Setup read group headers for BAM, these are necessary for GATK merging adn duplicate detection
+RG_ID="${FCID}.${LANE}"
+RG_PU="${FCID}.${LANE}.${SAMPLE}"
+RG_SM="${SAMPLE}"
+RG_LB="${SAMPLE}" # Note - it would be better if this represented a "library" - i.e. differentiating multiple libs from same sample
+RG_PL=ILLUMINA #Note use illumina for MGI too
+
+RG_FULL=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
+
+# Filtering and alignment pipe
 if [[ ${20} == "none" ]]; then
     # use individual filtering parameters for fastp
     fastp \
@@ -73,7 +84,7 @@ if [[ ${20} == "none" ]]; then
         --stdout \
 	| bwa-mem2 mem -p ${6} \
         	-t ${1} \
-        	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
+        	-R $READ_GROUP \
         	-K 100000000 \
        	-Y \
 		- \
@@ -93,7 +104,7 @@ else
         --stdout \
      | bwa-mem2 mem -p ${6} \
         	-t ${1} \
-        	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
+        	-R $READ_GROUP \
         	-K 100000000 \
        	-Y \
 		- \
