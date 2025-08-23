@@ -51,11 +51,18 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-    // Parse interval CSVs
+    // create intervals channel, with one interval_bed file per element
     SPLIT_FASTQ.out.fastq_interval
-        .splitCsv ( by: 1, elem: 3, sep: "," )
-	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
-	    .set { ch_fastq_split }
+        .flatten()
+        .set { ch_fastq_split }
+
+    ch_fastq_split.view()
+
+    // Parse interval CSVs
+    //SPLIT_FASTQ.out.fastq_interval
+    //    .splitCsv ( by: 1, elem: 3, sep: "," )
+	//    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
+	//    .set { ch_fastq_split }
 
     /* 
         Read filtering and alignments

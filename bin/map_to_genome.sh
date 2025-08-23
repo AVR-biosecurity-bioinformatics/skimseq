@@ -6,30 +6,29 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # $2 = sample name
 # $3 = fastq file 1
 # $4 = fastq file 2
-# $5 = start coord
-# $6 = end coord
-# $7 = ref_genome fasta
-# $8 = params.rf_quality,
-# $9 = params.rf_length,
-# $10 = params.rf_n_bases,
-# $11 = params.rf_trim_polyg,
-# $12 = params.rf_cut_right,
-# $13 = params.rf_cut_window_size,
-# $14 = params.rf_cut_mean_quality,
-# $15 = params.rf_lc_filter,
-# $16 = params.rf_lc_threshold,
-# $17 = params.rf_correction,
-# $18 = params.rf_overlap_length,
-# $19 = params.rf_overlap_diff,
-# $20 = params.rf_overlap_diff_pc,
-# $21 = params.rf_custom_flags
+# $5 = interval_seqids
+# $6 = ref_genome fasta
+# $7 = params.rf_quality,
+# $8 = params.rf_length,
+# $9 = params.rf_n_bases,
+# $10 = params.rf_trim_polyg,
+# $11 = params.rf_cut_right,
+# $12 = params.rf_cut_window_size,
+# $13 = params.rf_cut_mean_quality,
+# $14 = params.rf_lc_filter,
+# $15 = params.rf_lc_threshold,
+# $16 = params.rf_correction,
+# $17 = params.rf_overlap_length,
+# $18 = params.rf_overlap_diff,
+# $19 = params.rf_overlap_diff_pc,
+# $20 = params.rf_custom_flags
 
 
 # parse filtering options as flags
-if [[ ${11} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
-if [[ ${12} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
-if [[ ${15} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
-if [[ ${17} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
+if [[ ${10} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
+if [[ ${11} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
+if [[ ${14} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
+if [[ ${16} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
 
 # Setup read group headers for BAM, these are necessary for merging of replicates
 RG_ID=$(echo ${2} | awk -F _ '{print $1 "." $4}')
@@ -37,14 +36,14 @@ RG_LB=$(echo ${2} | awk -F _ '{print $2}')
 # RG_PI=$(grep peak ${5} | sed -e 's/"peak":\(.*\),/\1/' | tr -d '[:space:]') #  Disabled as unnecesary
 
 # create hash of read 1 name for output
-CHUNK_NAME=$(echo "${5}-${6}")
+CHUNK_NAME=$(basename "${5}")
 
-# create temporary fastq of just the reads in the interval
-seqkit range -r ${5}:${6} ${3} > ${2}.${CHUNK_NAME}.F.fq
-seqkit range -r ${5}:${6} ${4} > ${2}.${CHUNK_NAME}.R.fq
+# Handle MGI stype read name ends if present
+sed 's#/1$#/2#' ${5} > seqids_R.txt
 
-# Only process proper pairs
-seqkit pair -1 ${2}.${CHUNK_NAME}.F.fq -2 ${2}.${CHUNK_NAME}.R.fq
+# create temporary fastq files of just the read ID's in the interval
+seqkit grep -f ${5} ${3} > ${2}.${CHUNK_NAME}.F.fq
+seqkit grep -f seqids_R.txt ${4} > ${2}.${CHUNK_NAME}.R.fq
 
 # run filtering
 if [[ ${21} == "none" ]]; then
@@ -52,25 +51,26 @@ if [[ ${21} == "none" ]]; then
     fastp \
         -i ${2}.${CHUNK_NAME}.F.paired.fq \
         -I ${2}.${CHUNK_NAME}.R.paired.fq \
-        -q ${8} \
-        --length_required ${9} \
-        --n_base_limit ${10} \
+        -q ${7} \
+        --length_required ${8} \
+        --n_base_limit ${9} \
         $TRIM_POLY_G \
         $CUT_RIGHT \
-        --cut_right_window_size ${13} \
-        --cut_right_mean_quality ${14} \
+        --cut_right_window_size ${12} \
+        --cut_right_mean_quality ${13} \
         $LOW_COMPLEXITY_FILTER \
-        --complexity_threshold ${16} \
+        --complexity_threshold ${15} \
         $CORRECTION \
-        --overlap_len_require ${18} \
-        --overlap_diff_limit ${19} \
-        --overlap_diff_percent_limit ${20} \
+        --overlap_len_require ${17} \
+        --overlap_diff_limit ${18} \
+        --overlap_diff_percent_limit ${19} \
         --thread ${1} \
         -h ${2}.${CHUNK_NAME}.fastp.html \
         -j ${2}.${CHUNK_NAME}.fastp.json \
         -R ${2} \
+        --fix_mgi_id \
         --stdout \
-	| bwa-mem2 mem -p ${7} \
+	| bwa-mem2 mem -p ${6} \
         	-t ${1} \
         	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         	-K 100000000 \
@@ -83,13 +83,14 @@ else
     fastp \
         -i ${2}.${CHUNK_NAME}.F.fq \
         -I ${2}.${CHUNK_NAME}.R.fq \
-        ${21} \
+        ${20} \
 	--thread ${1} \
         -h ${2}.${CHUNK_NAME}.fastp.html \
         -j ${2}.${CHUNK_NAME}.fastp.json \
         -R ${2} \
+        --fix_mgi_id \
         --stdout \
-     | bwa-mem2 mem -p ${7} \
+     | bwa-mem2 mem -p ${6} \
         	-t ${1} \
         	-R  $(echo "@RG\tID:${RG_ID}\tPL:ILLUMINA\tLB:${RG_LB}\tSM:${2}") \
         	-K 100000000 \
