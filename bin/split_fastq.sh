@@ -17,6 +17,7 @@ repair.sh \
     in2=${4} \
     out=tmp.F.fq out2=tmp.R.fq \
     tossbrokenreads=t \
+    tossjunk=t \
     usejni=t
 
 # Then get the sequence IDs of the properly paired reads
