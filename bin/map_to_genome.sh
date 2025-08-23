@@ -43,12 +43,15 @@ CHUNK_NAME=$(echo "${5}-${6}")
 seqkit range -r ${5}:${6} ${3} > ${2}.${CHUNK_NAME}.F.fq
 seqkit range -r ${5}:${6} ${4} > ${2}.${CHUNK_NAME}.R.fq
 
+# Only process proper pairs
+seqkit pair -1 ${2}.${CHUNK_NAME}.F.fq -2 ${2}.${CHUNK_NAME}.R.fq
+
 # run filtering
 if [[ ${21} == "none" ]]; then
     # use individual filtering parameters for fastp
     fastp \
-        -i ${2}.${CHUNK_NAME}.F.fq \
-        -I ${2}.${CHUNK_NAME}.R.fq \
+        -i ${2}.${CHUNK_NAME}.F.paired.fq \
+        -I ${2}.${CHUNK_NAME}.R.paired.fq \
         -q ${8} \
         --length_required ${9} \
         --n_base_limit ${10} \

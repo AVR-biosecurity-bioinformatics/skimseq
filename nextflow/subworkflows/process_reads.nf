@@ -57,23 +57,6 @@ workflow PROCESS_READS {
 	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
 	    .set { ch_fastq_split }
 
-
-    // FAIL samples reported by SPLIT_FASTQ
-    SPLIT_FASTQ.out.sample_status
-        .splitCsv ( by: 1, elem: 2, sep: "," )
-        .filter { sample, st -> st == 'FAIL' }
-        .map { sample, st -> sample }
-        .unique()
-        .collect() 
-        .set { ch_fail_samples }
-
-    ch_fail_samples
-    .map { fails ->
-        if (fails && fails.size() > 0)
-            error "Aborting: Fastq(s) are malformed for sample(s): ): ${fails.join(', ')}"
-        true
-    }
-
     /* 
         Read filtering and alignments
     */
