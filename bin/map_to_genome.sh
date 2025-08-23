@@ -48,14 +48,15 @@ FCID=$(echo ${READ_HEADER} | cut -d ':' -f 3) #Read flow cell ID
 LANE=$(echo ${READ_HEADER} | cut -d ':' -f 4) #Read lane number 
 SAMPLE=${2}
 
-# Setup read group headers for BAM, these are necessary for GATK merging adn duplicate detection
+# Setup read group headers for BAM, these are necessary for GATK merging and duplicate detection
+# See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
 RG_ID="${FCID}.${LANE}"
 RG_PU="${FCID}.${LANE}.${SAMPLE}"
 RG_SM="${SAMPLE}"
 RG_LB="${SAMPLE}" # Note - it would be better if this represented a "library" - i.e. differentiating multiple libs from same sample
-RG_PL=ILLUMINA #Note use illumina for MGI too
+RG_PL=ILLUMINA #Note should use "DNBSEQ (MGI/BGI)" for MGI
 
-RG_FULL=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
+READ_GROUP=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
 
 # Filtering and alignment pipe
 if [[ ${20} == "none" ]]; then
