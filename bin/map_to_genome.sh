@@ -36,17 +36,25 @@ zcat ${5} > seqids_F.txt
 sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 
 # create hash of read 1 name for output
-CHUNK_NAME=$(basename "${5}" .txt)
+CHUNK_NAME=$(basename "${5}" .txt.gz)
 
 # create temporary fastq files of just the read ID's in the interval
 seqkit grep -f seqids_F.txt ${3} > ${2}.${CHUNK_NAME}.F.fq
 seqkit grep -f seqids_R.txt ${4} > ${2}.${CHUNK_NAME}.R.fq
 
 # Extract information from header of first read for reda group setup
-READ_HEADER=$(zcat ${3} | head -n 1 | sed 's#/1$##' ) # Get header of first read
-FCID=$(echo ${READ_HEADER} | cut -d ':' -f 3) #Read flow cell ID
-LANE=$(echo ${READ_HEADER} | cut -d ':' -f 4) #Read lane number 
+READ_HEADER=$(zcat ${3} | head -n 1 | sed 's#/1$##' )
 SAMPLE=${2}
+
+# Check if its SRA format data - which doesnt contain FCID and LANE
+if [[ $READ_HEADER == @SRR* ]]; then
+    # SRA data - Use placeholder FCID and LANE
+    FCID=SRA
+    LANE=SRA
+else
+    FCID=$(echo ${READ_HEADER} | cut -d ':' -f 3) #Read flow cell ID
+    LANE=$(echo ${READ_HEADER} | cut -d ':' -f 4) #Read lane number 
+fi
 
 # Setup read group headers for BAM, these are necessary for GATK merging and duplicate detection
 # See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
