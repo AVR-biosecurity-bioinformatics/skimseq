@@ -48,4 +48,4 @@ for i in *chunk_*.txt;do
 done
 
 # Remove temporary fastqs
-rm tmp.F.fq tmp.R.fq
+rm tmp.F.fq tmp.R.fq seqids.txt
