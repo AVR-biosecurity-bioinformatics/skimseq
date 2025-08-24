@@ -34,7 +34,7 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
 
 else
      # If only one chunk (all reads), the interval is all seqids
-    mv seqids.txt chunk_1.txt
+    cp seqids.txt chunk_1.txt
 fi
 
 # Rename each output to a hash
