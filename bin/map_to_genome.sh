@@ -45,7 +45,8 @@ repair.sh \
     out=tmp.F.fq out2=tmp.R.fq \
     tossbrokenreads=t \
     tossjunk=t \
-    usejni=t
+    usejni=t \
+    ignorebadquality=t
 
 # create temporary fastq files of just the read ID's in the interval
 seqkit grep -f seqids_F.txt tmp.F.fq > ${2}.${CHUNK_NAME}.F.fq

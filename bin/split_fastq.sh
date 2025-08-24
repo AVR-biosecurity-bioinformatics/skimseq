@@ -18,7 +18,8 @@ repair.sh \
     out=tmp.F.fq out2=tmp.R.fq \
     tossbrokenreads=t \
     tossjunk=t \
-    usejni=t
+    usejni=t \
+    ignorebadquality=t
 
 # Then get the sequence IDs of the properly paired reads
 seqkit seq -ni tmp.F.fq  > seqids.txt
