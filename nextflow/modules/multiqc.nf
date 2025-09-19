@@ -8,6 +8,7 @@ process MULTIQC {
 
     input:
     path(multiqc_files)
+    tuple val(sample), val(lib), val(start), val(end)
     path(multiqc_config)
 
     output: 

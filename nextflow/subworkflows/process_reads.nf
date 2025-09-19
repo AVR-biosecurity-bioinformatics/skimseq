@@ -70,7 +70,7 @@ workflow PROCESS_READS {
         Read splitting
     */
 
-    // split paired fastq into chunks using seqtk
+    // split paired fastq into chunks for parallel processing
     SPLIT_FASTQ (
         ch_all_fixed_fastq,
         params.fastq_chunk_size
@@ -91,34 +91,36 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
     
-    // group chunked .bam files by sample
-    MAP_TO_GENOME.out.bam
-        .groupTuple ( by: 0 )
-        .set { ch_grouped_genome_bam }
-
-    // Merge chunked .bam files by sample, filter, and index
+    // Merge chunked .bam files by sample (column 0), filter, and index
     MERGE_BAM (
-        ch_grouped_genome_bam
+        MAP_TO_GENOME.out.bam.groupTuple ( by: 0 )
     )
 
     // extract unmapped reads
+    // TODO: Make this optional
     EXTRACT_UNMAPPED (
         MERGE_BAM.out.bam
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // generate statistics about the .bam files
+    // generate QC statistics for the merged .bam files
     BAM_STATS (
         MERGE_BAM.out.bam
     )
 
     // Create reports channel for multiqc
-    MAP_TO_GENOME.out.json
+    MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
         .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_BAM.out.markdup)
         .set { ch_reports}
+
+    // Create sample renaming table to handle chunks in multiqc report
+    MAP_TO_GENOME.out.json
+        .map { sample, lib, start, end, json -> [ sample, lib, start, end ] }
+        .set { renaming_table }
 
     emit: 
     bam = MERGE_BAM.out.bam
     reports = ch_reports
+    renaming_table = renaming_table
 }

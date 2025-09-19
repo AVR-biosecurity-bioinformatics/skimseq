@@ -258,6 +258,7 @@ workflow SKIMSEQ {
     // Create Multiqc reports
     MULTIQC (
         multiqc_files,
+        PROCESS_READS.out.renaming_table,
         ch_multiqc_config.toList()
     )
 

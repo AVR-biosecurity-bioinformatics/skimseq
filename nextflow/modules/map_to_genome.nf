@@ -11,9 +11,9 @@ process MAP_TO_GENOME {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), val(lib), path("*.bam"),        emit: bam
-    tuple val(sample), path("*.json"),                 emit: json
-    tuple val(sample), path("*.html"),                 emit: html
+    tuple val(sample), val(lib), path("*.bam"),                          emit: bam
+    tuple val(sample), val(lib), val(start), val(end), path("*.json"),   emit: json
+    tuple val(sample), path("*.html"),                                   emit: html
     
     script:
     def process_script = "${process_name}.sh"
