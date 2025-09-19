@@ -56,6 +56,18 @@ workflow PROCESS_READS {
         }
         .set { validation_routes }
 
+    // Print a warning if any samples fail
+    validation_routes.fail
+    .map { sample, lib, read1, read2, _ -> sample } 
+    .unique()
+    .collect()
+    .map { fails ->
+        if (fails && fails.size() > 0)
+        log.warn "Repairing malformed FASTQs for ${fails.size()} sample(s): ${fails.join(', ')}"
+        true
+    }
+    .set { _warn_done }  // force evaluation
+
     // Repair any fastqs that failed
     REPAIR_FASTQ(
         validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
