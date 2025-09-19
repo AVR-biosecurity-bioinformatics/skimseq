@@ -47,26 +47,24 @@ workflow PROCESS_READS {
         ch_reads
     )
 
-    VALIDATE_FASTQ.out.fastq_with_status.view()
-
-    // Convert stdout file to a string in-channel
+    // Convert stdout to a string for status (PASS or FAIL)
     VALIDATE_FASTQ.out.fastq_with_status
-    .map { sample, r1, r2, out -> [ sample, r1, r2, out.text.trim() ] }    // status as String
-    .branch { s, r1, r2, st ->
-        fail: st == 'FAIL'
-        pass: st == 'PASS'
-    }
-    .set { validation_routes }
+        .map { sample, read1, read2, stdout -> [ sample, read1, read2, stdout.trim() ] }
+        .branch { sample, read1, read2, status ->
+            fail: status == 'FAIL'
+            pass: status == 'PASS'
+        }
+        .set { validation_routes }
 
+    // Repair any fastqs that failed
     REPAIR_FASTQ(
-    validation_routes.fail.map { s, r1, r2, _ -> [s, r1, r2] }
+        validation_routes.fail.map { sample, read1, read2, _ -> [sample, read1, read2] }
     )
 
-    VALIDATE_FASTQ_PASSED = validation_routes.pass.map { s, r1, r2, _ -> [s, r1, r2] }
-
-    VALIDATE_FASTQ_PASSED
-    .mix( REPAIR_FASTQ.out.fastq )
-    .set { ch_all_fixed_fastq }
+    // Join repaired fastqs back into validated fastqs
+    validation_routes.pass.map { sample, read1, read2, _ -> [sample, read1, read2] }
+        .mix( REPAIR_FASTQ.out.fastq )
+        .set { ch_all_fixed_fastq }
 
     /* 
         Read splitting
