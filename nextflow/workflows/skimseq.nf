@@ -255,10 +255,12 @@ workflow SKIMSEQ {
         .ifEmpty([])
         .set { multiqc_files }
 
+
+
     // Create Multiqc reports
     MULTIQC (
         multiqc_files,
-        PROCESS_READS.out.renaming_table,
+        PROCESS_READS.out.renaming_table.toList(),
         ch_multiqc_config.toList()
     )
 

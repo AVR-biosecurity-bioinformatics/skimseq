@@ -116,9 +116,12 @@ workflow PROCESS_READS {
 
     // Create sample renaming table to handle chunks in multiqc report
     MAP_TO_GENOME.out.json
-        .map { sample, lib, start, end, json -> [ sample, lib, start, end ] }
-        .set { renaming_table }
-
+    .map { sample, lib, start, end, json ->
+        def unit = "${lib}.${start}-${end}"
+        [ unit, sample ]
+    }
+    .set { renaming_table }
+    
     emit: 
     bam = MERGE_BAM.out.bam
     reports = ch_reports
