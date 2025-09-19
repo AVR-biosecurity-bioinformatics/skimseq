@@ -255,12 +255,20 @@ workflow SKIMSEQ {
         .ifEmpty([])
         .set { multiqc_files }
 
-
+    Channel
+    .of(['unit','sample'])                   // header
+    .mix( PROCESS_READS.out.renaming_table )             // then rows
+    .map { cols -> tuple('renaming_table.csv', cols.join(',') + '\n') }
+    .collectFile(
+        storeDir: "${launchDir}/output",
+        mode: 'overwrite'
+    )
+    .set { ch_renaming_csv }                 // optional handle to the written file
 
     // Create Multiqc reports
     MULTIQC (
         multiqc_files,
-        PROCESS_READS.out.renaming_table.toList(),
+        ch_renaming_csv,
         ch_multiqc_config.toList()
     )
 

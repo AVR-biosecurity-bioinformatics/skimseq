@@ -120,6 +120,8 @@ workflow PROCESS_READS {
         def unit = "${lib}.${start}-${end}"
         [ unit, sample ]
     }
+    .collect(flat: false)
+    .map { it.transpose() }
     .set { renaming_table }
     
     emit: 
