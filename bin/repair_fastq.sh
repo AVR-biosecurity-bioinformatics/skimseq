@@ -11,8 +11,8 @@ set -u
 repair.sh \
     in=${3} \
     in2=${4} \
-    out=${2}.repaired.F.fq.gz \
-    out2=${2}.repaired.R.fq.gz \
+    out=$(sed -E 's/\.(fastq|fq)\.gz$/.repaired.fastq.gz/' <<<"${3}") \
+    out2=$(sed -E 's/\.(fastq|fq)\.gz$/.repaired.fastq.gz/' <<<"${4}") \
     tossbrokenreads=t \
     tossjunk=t \
     ignorebadquality=t \
