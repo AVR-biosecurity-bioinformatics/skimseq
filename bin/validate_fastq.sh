@@ -19,5 +19,5 @@ else
     STATUS=FAIL
 fi
 
-# Output PASS or FAIL for this sample
-echo "${2},${STATUS}" > status.csv
+# Print ONLY the status to STDOUT (captured by Nextflow as `stdout`)
+echo "$STATUS"

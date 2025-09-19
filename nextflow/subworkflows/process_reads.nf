@@ -47,49 +47,26 @@ workflow PROCESS_READS {
         ch_reads
     )
 
-    // FAIL samples reported by VALIDATE_FASTQ -> collect once as a Set so we can branch later
-    VALIDATE_FASTQ.out.sample_status
-        .splitCsv( by: 1, elem: 2, sep: "," )     // [sample, status]
-        .filter { sample, st -> st == 'FAIL' }
-        .map    { sample, st -> sample }
-        .unique()
-        .collect()
-        .map { it as Set }                         // Set<String> of failing samples
-        .set { ch_fail_set }
+    VALIDATE_FASTQ.out.fastq_with_status.view()
 
-    // (Optional) warn if any failures were found
-    ch_fail_set
-        .map { fails ->
-            if (fails && fails.size() > 0)
-                log.warn "Repairing malformed FASTQs for sample(s): ${fails.join(', ')}"
-            true
-        }
-
-    // -- Route only failing samples to REPAIR_FASTQ -------------------------------
-    // Use the original input channel ch_reads to pick up the raw tuples that need repair.
-    // We combine with ch_fail_set (a single-emission channel) and branch on membership.
-    ch_reads
-        .combine(ch_fail_set)
-        .branch { tuple, fails ->
-            def sample = tuple[0]                  // expecting [sample, r1, r2]
-            fail: fails.contains(sample)
-            pass: !fails.contains(sample)
-        }
-        .set { BR }
-
-    // Failing tuples -> REPAIR_FASTQ
-    BR.fail
-        .map { tuple, _fails -> tuple }            // drop the Set that came from combine()
-        .set { ch_reads_to_repair }
+    // Convert stdout file to a string in-channel
+    VALIDATE_FASTQ.out.fastq_with_status
+    .map { sample, r1, r2, out -> [ sample, r1, r2, out.text.trim() ] }    // status as String
+    .branch { s, r1, r2, st ->
+        fail: st == 'FAIL'
+        pass: st == 'PASS'
+    }
+    .set { validation_routes }
 
     REPAIR_FASTQ(
-        ch_reads_to_repair                         // expects [sample, r1, r2]
+    validation_routes.fail.map { s, r1, r2, _ -> [s, r1, r2] }
     )
 
-    // Merge repaired + validated-pass before splitting
-    VALIDATE_FASTQ.out.fastq
-        .mix(REPAIR_FASTQ.out.fastq)
-        .set { ch_all_fixed_fastq }                // [sample, r1, r2]
+    VALIDATE_FASTQ_PASSED = validation_routes.pass.map { s, r1, r2, _ -> [s, r1, r2] }
+
+    VALIDATE_FASTQ_PASSED
+    .mix( REPAIR_FASTQ.out.fastq )
+    .set { ch_all_fixed_fastq }
 
     /* 
         Read splitting
@@ -97,7 +74,7 @@ workflow PROCESS_READS {
 
     // split paired fastq into chunks using seqtk
     SPLIT_FASTQ (
-        VALIDATE_FASTQ.out.fastq,
+        ch_all_fixed_fastq,
         params.fastq_chunk_size
     )
 

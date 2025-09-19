@@ -9,9 +9,7 @@ process VALIDATE_FASTQ {
     tuple val(sample), path(fastq1), path(fastq2)
 
     output: 
-    tuple val(sample), path(fastq1), path(fastq2), emit: fastq
-    path("status.csv"), emit: sample_status 
-
+    tuple val(sample), path(fastq1), path(fastq2), stdout, emit: fastq_with_status
     
     script:
     def process_script = "${process_name}.sh"
