@@ -8,8 +8,12 @@ process REPAIR_FASTQ {
     input:
     tuple val(sample), path(fastq1), path(fastq2)
 
+    // derive repaired filenames from inputs
+    def out1 = fastq1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '.repaired.fastq.gz')
+    def out2 = fastq2.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '.repaired.fastq.gz')
+
     output: 
-    tuple val(sample), path("*.repaired.fastq.gz"), path("*.repaired.fastq.gz"), emit: fastq
+    tuple val(sample), path("${sample}_R1.repaired.fastq.gz"), path("${sample}_R2.repaired.fastq.gz"), emit: fastq
     
     script:
     def process_script = "${process_name}.sh"
