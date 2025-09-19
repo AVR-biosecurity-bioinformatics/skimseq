@@ -9,7 +9,7 @@ process REPAIR_FASTQ {
     tuple val(sample), path(fastq1), path(fastq2)
 
     output: 
-    tuple val(sample), path("*.repaired.F.fq.gz"), path("*.repaired.F.fq.gz"), emit: fastq
+    tuple val(sample), path("*.repaired.fastq.gz"), path("*.repaired.fastq.gz"), emit: fastq
     
     script:
     def process_script = "${process_name}.sh"
