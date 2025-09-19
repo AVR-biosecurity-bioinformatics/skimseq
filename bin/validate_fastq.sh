@@ -9,7 +9,7 @@ set -u
 
 # Calculate number of reads in forward and reverse fastqs
 N_READS_F=$( seqtk size $3 | cut -f1 )
-N_READS_R=$( seqtk size $3 | cut -f1 )
+N_READS_R=$( seqtk size $4 | cut -f1 )
 
 if [[ "$N_READS_F" == "$N_READS_R" ]]; then
     # If number of forward and reverse reads match, status = PASS
