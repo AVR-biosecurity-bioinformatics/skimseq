@@ -42,6 +42,11 @@ workflow PROCESS_READS {
     
 
     /* 
+        Validate fastq and extract read headers
+    */
+
+
+    /* 
         Read splitting
     */
 
@@ -51,13 +56,10 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
-    // unnest per-sample fastq intervals 
     SPLIT_FASTQ.out.fastq_interval
-        .flatMap { sample, read1, read2, intervals ->
-            def files = (intervals instanceof Collection) ? intervals : [ intervals ]
-            files.collect { t -> tuple(sample, read1, read2, t) } // emit one tuple per interval
-        }
-        .set { ch_fastq_split }
+        .splitCsv ( by: 1, elem: 3, sep: "," )
+	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
+	    .set { ch_fastq_split }
 
     /* 
         Read filtering and alignments
