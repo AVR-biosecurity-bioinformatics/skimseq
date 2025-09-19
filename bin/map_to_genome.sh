@@ -4,7 +4,7 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 ## args are the following:
 # $1 = cpus 
 # $2 = sample name
-# $3 = sample name
+# $3 = lib name
 # $4 = fastq file 1
 # $5 = fastq file 2
 # $6 = start coord

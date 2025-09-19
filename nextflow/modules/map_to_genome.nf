@@ -23,6 +23,7 @@ process MAP_TO_GENOME {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${sample} \
         ${lib} \
         ${fastq1} \
         ${fastq2} \
