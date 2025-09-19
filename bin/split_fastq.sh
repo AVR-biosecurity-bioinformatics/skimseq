@@ -3,7 +3,7 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = sample name
+# $2 = library name
 # $3 = file1
 # $4 = file2
 # $5 = chunk size

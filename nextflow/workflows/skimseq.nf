@@ -46,7 +46,15 @@ workflow SKIMSEQ {
             file( row[2], checkIfExists: true ),    // read1 
             file( row[3], checkIfExists: true )     // read2
             ] }
+        .map { sample, r1, r2 ->
+            // Derive a stable library ID from the R1 basename (minus extensions)
+            // This is needed when there are multiple libraries for the same sample
+            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
+            [ sample, lib, r1, r2 ]
+            }
         .set { ch_reads }
+
+    ch_reads.view()
 
     // Sample names and pops channel
     ch_samplesheet 

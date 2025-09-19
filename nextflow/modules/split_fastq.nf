@@ -6,11 +6,11 @@ process SPLIT_FASTQ {
     module "seqtk/1.4-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
+    tuple val(sample), val(lib), path(fastq1), path(fastq2)
     val(chunk_size)
 
     output: 
-    tuple val(sample), path(fastq1), path(fastq2), path("intervals_${sample}.csv"), emit: fastq_interval 
+    tuple val(sample), val(lib), path(fastq1), path(fastq2), path("intervals_${sample}.csv"), emit: fastq_interval 
 
     
     script:
@@ -21,7 +21,7 @@ process SPLIT_FASTQ {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${sample} \
+        ${lib} \
         ${fastq1} \
         ${fastq2} \
         ${chunk_size}

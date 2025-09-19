@@ -6,10 +6,10 @@ process VALIDATE_FASTQ {
     module "seqtk/1.4-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
+    tuple val(sample), val(lib), path(fastq1), path(fastq2)
 
     output: 
-    tuple val(sample), path(fastq1), path(fastq2), stdout, emit: fastq_with_status
+    tuple val(sample), val(lib), path(fastq1), path(fastq2), stdout, emit: fastq_with_status
     
     script:
     def process_script = "${process_name}.sh"

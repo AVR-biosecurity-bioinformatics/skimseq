@@ -7,7 +7,7 @@ process MERGE_BAM {
     module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(temp_bam, name: 'temp*.bam')
+    tuple val(sample), val(lib), path(temp_bam, name: 'temp*.bam')
 
     output: 
     tuple val(sample), path("*.bam"), path("*.bam.bai"),        emit: bam

@@ -6,14 +6,10 @@ process REPAIR_FASTQ {
     module "BBMap/39.17-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
-
-    // derive repaired filenames from inputs
-    def out1 = fastq1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '.repaired.fastq.gz')
-    def out2 = fastq2.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '.repaired.fastq.gz')
+    tuple val(sample), val(lib), path(fastq1), path(fastq2)
 
     output: 
-    tuple val(sample), path("${sample}_R1.repaired.fastq.gz"), path("${sample}_R2.repaired.fastq.gz"), emit: fastq
+    tuple val(sample), val(lib), path("${lib}_R1.repaired.fastq.gz"), path("${lib}_R2.repaired.fastq.gz"), emit: fastq
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,7 +19,7 @@ process REPAIR_FASTQ {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${sample} \
+        ${lib} \
         ${fastq1} \
         ${fastq2}
 

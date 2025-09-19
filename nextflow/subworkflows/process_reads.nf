@@ -49,8 +49,8 @@ workflow PROCESS_READS {
 
     // Convert stdout to a string for status (PASS or FAIL)
     VALIDATE_FASTQ.out.fastq_with_status
-        .map { sample, read1, read2, stdout -> [ sample, read1, read2, stdout.trim() ] }
-        .branch { sample, read1, read2, status ->
+        .map { sample, lib, read1, read2, stdout -> [ sample, lib, read1, read2, stdout.trim() ] }
+        .branch { sample, lib, read1, read2, status ->
             fail: status == 'FAIL'
             pass: status == 'PASS'
         }
@@ -58,11 +58,11 @@ workflow PROCESS_READS {
 
     // Repair any fastqs that failed
     REPAIR_FASTQ(
-        validation_routes.fail.map { sample, read1, read2, _ -> [sample, read1, read2] }
+        validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
     )
 
     // Join repaired fastqs back into validated fastqs
-    validation_routes.pass.map { sample, read1, read2, _ -> [sample, read1, read2] }
+    validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
         .mix( REPAIR_FASTQ.out.fastq )
         .set { ch_all_fixed_fastq }
 
@@ -77,8 +77,8 @@ workflow PROCESS_READS {
     )
 
     SPLIT_FASTQ.out.fastq_interval
-        .splitCsv ( by: 1, elem: 3, sep: "," )
-	    .map { sample, read1, read2, intervals -> [ sample, read1, read2, intervals[0], intervals[1] ] }
+        .splitCsv ( by: 1, elem: 4, sep: "," )
+	    .map { sample, lib, read1, read2, intervals -> [ sample, lib, read1, read2, intervals[0], intervals[1] ] }
 	    .set { ch_fastq_split }
 
     /* 
