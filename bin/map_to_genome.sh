@@ -37,7 +37,7 @@ zcat ${6} > seqids_F.txt
 sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 
 # create hash of read 1 name for output
-CHUNK_NAME=$(echo "${5}-${6}")
+CHUNK_NAME=$(echo "${6}-${7}")
 
 # create temporary fastq of just the reads in the interval
 seqkit range -r ${6}:${7} ${4} > ${3}.${CHUNK_NAME}.F.fq
