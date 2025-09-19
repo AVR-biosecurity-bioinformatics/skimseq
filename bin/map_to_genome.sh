@@ -4,47 +4,49 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 ## args are the following:
 # $1 = cpus 
 # $2 = sample name
-# $3 = fastq file 1
-# $4 = fastq file 2
-# $5 = interval_seqids
-# $6 = ref_genome fasta
-# $7 = params.rf_quality,
-# $8 = params.rf_length,
-# $9 = params.rf_n_bases,
-# $10 = params.rf_trim_polyg,
-# $11 = params.rf_cut_right,
-# $12 = params.rf_cut_window_size,
-# $13 = params.rf_cut_mean_quality,
-# $14 = params.rf_lc_filter,
-# $15 = params.rf_lc_threshold,
-# $16 = params.rf_correction,
-# $17 = params.rf_overlap_length,
-# $18 = params.rf_overlap_diff,
-# $19 = params.rf_overlap_diff_pc,
-# $20 = params.rf_custom_flags
+# $3 = lib name
+# $4 = fastq file 1
+# $5 = fastq file 2
+# $6 = start coord
+# $7 = end coord
+# $8 = ref_genome fasta
+# $9 = params.rf_quality,
+# $10 = params.rf_length,
+# $11 = params.rf_n_bases,
+# $12 = params.rf_trim_polyg,
+# $13 = params.rf_cut_right,
+# $14 = params.rf_cut_window_size,
+# $15 = params.rf_cut_mean_quality,
+# $16 = params.rf_lc_filter,
+# $17 = params.rf_lc_threshold,
+# $18 = params.rf_correction,
+# $19 = params.rf_overlap_length,
+# $20 = params.rf_overlap_diff,
+# $21 = params.rf_overlap_diff_pc,
+# $22 = params.rf_custom_flags
 
 
 # parse filtering options as flags
-if [[ ${10} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
-if [[ ${11} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
-if [[ ${14} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
-if [[ ${16} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
-
+if [[ ${12} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
+if [[ ${13} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
+if [[ ${16} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
+if [[ ${18} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
 
 # Handle MGI stype read name ends if present
-zcat ${5} > seqids_F.txt
+zcat ${6} > seqids_F.txt
 sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 
 # create hash of read 1 name for output
-CHUNK_NAME=$(basename "${5}" .txt.gz)
+CHUNK_NAME=$(echo "${6}-${7}")
 
-# create temporary fastq files of just the read ID's in the interval
-seqkit grep -f seqids_F.txt ${3} > ${2}.${CHUNK_NAME}.F.fq
-seqkit grep -f seqids_R.txt ${4} > ${2}.${CHUNK_NAME}.R.fq
+# create temporary fastq of just the reads in the interval
+seqkit range -r ${6}:${7} ${4} > ${3}.${CHUNK_NAME}.F.fq
+seqkit range -r ${6}:${7} ${5} > ${3}.${CHUNK_NAME}.R.fq
 
 # Extract information from header of first read for reda group setup
-READ_HEADER=$(zcat ${3} | head -n 1 | sed 's#/1$##' )
+READ_HEADER=$(zcat ${4} | head -n 1 | sed 's#/1$##' )
 SAMPLE=${2}
+LIB=${3}
 
 # Check if its SRA format data - which doesnt contain FCID and LANE
 if [[ $READ_HEADER == @SRR* ]]; then
@@ -61,63 +63,63 @@ fi
 RG_ID="${FCID}.${LANE}"
 RG_PU="${FCID}.${LANE}.${SAMPLE}"
 RG_SM="${SAMPLE}"
-RG_LB="${SAMPLE}" # Note - it would be better if this represented a "library" - i.e. differentiating multiple libs from same sample
+RG_LB="${LIB}"
 RG_PL=ILLUMINA #Note should use "DNBSEQ (MGI/BGI)" for MGI
 
 READ_GROUP=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
 
-# Filtering and alignment pipe
-if [[ ${20} == "none" ]]; then
+# run filtering
+if [[ ${22} == "none" ]]; then
     # use individual filtering parameters for fastp
     fastp \
-        -i ${2}.${CHUNK_NAME}.F.fq \
-        -I ${2}.${CHUNK_NAME}.R.fq \
-        -q ${7} \
-        --length_required ${8} \
-        --n_base_limit ${9} \
+        -i ${3}.${CHUNK_NAME}.F.fq \
+        -I ${3}.${CHUNK_NAME}.R.fq \
+        -q ${9} \
+        --length_required ${10} \
+        --n_base_limit ${11} \
         $TRIM_POLY_G \
         $CUT_RIGHT \
-        --cut_right_window_size ${12} \
-        --cut_right_mean_quality ${13} \
+        --cut_right_window_size ${14} \
+        --cut_right_mean_quality ${15} \
         $LOW_COMPLEXITY_FILTER \
-        --complexity_threshold ${15} \
+        --complexity_threshold ${17} \
         $CORRECTION \
-        --overlap_len_require ${17} \
-        --overlap_diff_limit ${18} \
-        --overlap_diff_percent_limit ${19} \
+        --overlap_len_require ${19} \
+        --overlap_diff_limit ${20} \
+        --overlap_diff_percent_limit ${21} \
         --thread ${1} \
-        -h ${2}.${CHUNK_NAME}.fastp.html \
-        -j ${2}.${CHUNK_NAME}.fastp.json \
-        -R ${2} \
+        -h ${3}.${CHUNK_NAME}.fastp.html \
+        -j ${3}.${CHUNK_NAME}.fastp.json \
+        -R ${3} \
         --fix_mgi_id \
         --stdout \
-	| bwa-mem2 mem -p ${6} \
+	| bwa-mem2 mem -p ${8} \
         	-t ${1} \
         	-R $READ_GROUP \
         	-K 100000000 \
        	-Y \
 		- \
-	| samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam
+	| samtools sort --threads ${1} -o ${3}.${CHUNK_NAME}.bam
 
 else 
     # use custom string of flags for fastp
     fastp \
-        -i ${2}.${CHUNK_NAME}.F.fq \
-        -I ${2}.${CHUNK_NAME}.R.fq \
-        ${20} \
+        -i ${3}.${CHUNK_NAME}.F.fq \
+        -I ${3}.${CHUNK_NAME}.R.fq \
+        ${21} \
 	--thread ${1} \
-        -h ${2}.${CHUNK_NAME}.fastp.html \
-        -j ${2}.${CHUNK_NAME}.fastp.json \
-        -R ${2} \
+        -h ${3}.${CHUNK_NAME}.fastp.html \
+        -j ${3}.${CHUNK_NAME}.fastp.json \
+        -R ${3} \
         --fix_mgi_id \
         --stdout \
-     | bwa-mem2 mem -p ${6} \
+     | bwa-mem2 mem -p ${8} \
         	-t ${1} \
         	-R $READ_GROUP \
         	-K 100000000 \
        	-Y \
 		- \
-     | samtools sort --threads ${1} -o ${2}.${CHUNK_NAME}.bam
+     | samtools sort --threads ${1} -o ${3}.${CHUNK_NAME}.bam
 
 fi
 
@@ -137,8 +139,8 @@ for i in "${!st[@]}"; do
 done
 
 # Remove temporary fastqs
-rm ${2}.${CHUNK_NAME}.F.fq
-rm ${2}.${CHUNK_NAME}.R.fq
+rm ${3}.${CHUNK_NAME}.F.fq
+rm ${3}.${CHUNK_NAME}.R.fq
 
 # If any tool returned non-zero, return that exit status to nextflow for retry
 exit "${ec}"           

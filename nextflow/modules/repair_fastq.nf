@@ -1,17 +1,15 @@
-process SPLIT_FASTQ {
-    def process_name = "split_fastq"    
+process REPAIR_FASTQ {
+    def process_name = "repair_fastq"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "seqtk/1.4-GCC-13.3.0"
+    module "BBMap/39.17-GCC-13.3.0"
 
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)
-    val(chunk_size)
 
     output: 
-    tuple val(sample), val(lib), path(fastq1), path(fastq2), path("intervals_${lib}.csv"), emit: fastq_interval 
-
+    tuple val(sample), val(lib), path("${lib}_R1.repaired.fastq.gz"), path("${lib}_R2.repaired.fastq.gz"), emit: fastq
     
     script:
     def process_script = "${process_name}.sh"
@@ -23,8 +21,7 @@ process SPLIT_FASTQ {
         ${task.cpus} \
         ${lib} \
         ${fastq1} \
-        ${fastq2} \
-        ${chunk_size}
+        ${fastq2}
 
     """
 }

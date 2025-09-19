@@ -8,6 +8,7 @@ process MULTIQC {
 
     input:
     path(multiqc_files)
+    path(renaming_csv)
     path(multiqc_config)
 
     output: 
@@ -24,7 +25,8 @@ process MULTIQC {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${multiqc_config}
+        ${multiqc_config} \
+        ${renaming_csv}
 
     """
 }

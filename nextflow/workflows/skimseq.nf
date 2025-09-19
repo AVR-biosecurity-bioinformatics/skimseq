@@ -46,6 +46,12 @@ workflow SKIMSEQ {
             file( row[2], checkIfExists: true ),    // read1 
             file( row[3], checkIfExists: true )     // read2
             ] }
+        .map { sample, r1, r2 ->
+            // Derive a stable library ID from the R1 basename (minus extensions)
+            // This is needed when there are multiple libraries for the same sample
+            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
+            [ sample, lib, r1, r2 ]
+            }
         .set { ch_reads }
 
     // Sample names and pops channel
@@ -249,9 +255,18 @@ workflow SKIMSEQ {
         .ifEmpty([])
         .set { multiqc_files }
 
+    // Create CSV table for renaming multiqc samples
+    PROCESS_READS.out.renaming_table
+        .map { cols -> tuple('renaming_table.csv', cols.join(',') + '\n') }
+        .collectFile(
+        name: 'renaming_table.csv', sort: true
+        )
+        .set { ch_renaming_csv }                 // optional handle to the written file
+
     // Create Multiqc reports
     MULTIQC (
         multiqc_files,
+        ch_renaming_csv,
         ch_multiqc_config.toList()
     )
 

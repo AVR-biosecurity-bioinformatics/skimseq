@@ -6,11 +6,10 @@
 include { BAM_STATS                             } from '../modules/bam_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
+include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
+include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
 include { MERGE_BAM                             } from '../modules/merge_bam'
-
-//include { FASTQC as FASTQC_POSTTRIM             } from '../modules/fastqc'
-//include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 
 workflow PROCESS_READS {
 
@@ -42,22 +41,57 @@ workflow PROCESS_READS {
     
 
     /* 
+        Validate fastq and extract read headers
+    */
+    VALIDATE_FASTQ (
+        ch_reads
+    )
+
+    // Convert stdout to a string for status (PASS or FAIL)
+    VALIDATE_FASTQ.out.fastq_with_status
+        .map { sample, lib, read1, read2, stdout -> [ sample, lib, read1, read2, stdout.trim() ] }
+        .branch { sample, lib, read1, read2, status ->
+            fail: status == 'FAIL'
+            pass: status == 'PASS'
+        }
+        .set { validation_routes }
+
+    // Print a warning if any samples fail
+    validation_routes.fail
+    .map { sample, lib, read1, read2, _ -> sample } 
+    .unique()
+    .collect()
+    .map { fails ->
+        if (fails && fails.size() > 0)
+        log.warn "Repairing malformed FASTQs for ${fails.size()} sample(s): ${fails.join(', ')}"
+        true
+    }
+    .set { _warn_done }  // force evaluation
+
+    // Repair any fastqs that failed
+    REPAIR_FASTQ(
+        validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
+    )
+
+    // Join repaired fastqs back into validated fastqs
+    validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
+        .mix( REPAIR_FASTQ.out.fastq )
+        .set { ch_all_fixed_fastq }
+
+    /* 
         Read splitting
     */
 
-    // split paired fastq into chunks using seqtk
+    // split paired fastq into chunks for parallel processing
     SPLIT_FASTQ (
-        ch_reads,
+        ch_all_fixed_fastq,
         params.fastq_chunk_size
     )
 
-    // unnest per-sample fastq intervals 
     SPLIT_FASTQ.out.fastq_interval
-        .flatMap { sample, read1, read2, intervals ->
-            def files = (intervals instanceof Collection) ? intervals : [ intervals ]
-            files.collect { t -> tuple(sample, read1, read2, t) } // emit one tuple per interval
-        }
-        .set { ch_fastq_split }
+        .splitCsv ( by: 1, elem: 4, sep: "," )
+	    .map { sample, lib, read1, read2, intervals -> [ sample, lib, read1, read2, intervals[0], intervals[1] ] }
+	    .set { ch_fastq_split }
 
     /* 
         Read filtering and alignments
@@ -69,34 +103,40 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
     
-    // group chunked .bam files by sample
-    MAP_TO_GENOME.out.bam
-        .groupTuple ( by: 0 )
-        .set { ch_grouped_genome_bam }
-
-    // Merge chunked .bam files by sample, filter, and index
+    // Merge chunked .bam files by sample (column 0), filter, and index
     MERGE_BAM (
-        ch_grouped_genome_bam
+        MAP_TO_GENOME.out.bam.groupTuple ( by: 0 )
     )
 
     // extract unmapped reads
+    // TODO: Make this optional
     EXTRACT_UNMAPPED (
         MERGE_BAM.out.bam
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // generate statistics about the .bam files
+    // generate QC statistics for the merged .bam files
     BAM_STATS (
         MERGE_BAM.out.bam
     )
 
     // Create reports channel for multiqc
-    MAP_TO_GENOME.out.json
+    MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
         .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_BAM.out.markdup)
         .set { ch_reports}
 
+    // Create sample renaming table to handle chunks in multiqc report
+    MAP_TO_GENOME.out.json
+    .map { sample, lib, start, end, json ->
+        def unit = "${lib}.${start}-${end}"
+        [ unit, sample ]
+    }
+    .set { renaming_table }
+    
     emit: 
     bam = MERGE_BAM.out.bam
     reports = ch_reports
+    renaming_table = renaming_table
 }
+
