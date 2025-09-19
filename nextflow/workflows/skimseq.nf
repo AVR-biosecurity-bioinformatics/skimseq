@@ -54,8 +54,6 @@ workflow SKIMSEQ {
             }
         .set { ch_reads }
 
-    ch_reads.view()
-
     // Sample names and pops channel
     ch_samplesheet 
         .splitCsv ( by: 1, skip: 1 )
