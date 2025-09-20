@@ -3,7 +3,7 @@ process REPAIR_FASTQ {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BBMap/39.17-GCC-13.3.0"
+    module "SeqKit/2.8.2"
 
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)
