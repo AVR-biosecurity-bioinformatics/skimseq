@@ -56,7 +56,7 @@ workflow PROCESS_READS {
         }
         .set { validation_routes }
 
-    // Print a warning if any samples fail
+    // Print a warning if any samples fail validation and need to be repaired
     validation_routes.fail
     .map { sample, lib, read1, read2, _ -> sample } 
     .unique()
@@ -68,7 +68,7 @@ workflow PROCESS_READS {
     }
     .set { _warn_done }  // force evaluation
 
-    // Repair any fastqs that failed
+    // Repair any fastqs that failed validation 
     REPAIR_FASTQ(
         validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
     )
@@ -82,12 +82,13 @@ workflow PROCESS_READS {
         Read splitting
     */
 
-    // split paired fastq into chunks for parallel processing
+    // split paired fastq files into chunks for parallel processing
     SPLIT_FASTQ (
         ch_all_fixed_fastq,
         params.fastq_chunk_size
     )
 
+    // Create new channel with each fastq chunk
     SPLIT_FASTQ.out.fastq_interval
         .splitCsv ( by: 1, elem: 4, sep: "," )
 	    .map { sample, lib, read1, read2, intervals -> [ sample, lib, read1, read2, intervals[0], intervals[1] ] }
