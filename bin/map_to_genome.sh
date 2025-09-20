@@ -40,8 +40,8 @@ sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 CHUNK_NAME=$(echo "${6}-${7}")
 
 # create temporary fastq of just the reads in the interval
-seqkit range -r ${6}:${7} ${4} > ${3}.${CHUNK_NAME}.F.fq
-seqkit range -r ${6}:${7} ${5} > ${3}.${CHUNK_NAME}.R.fq
+seqkit range --threads ${1} -r ${6}:${7} ${4} > ${3}.${CHUNK_NAME}.F.fq
+seqkit range --threads ${1} -r ${6}:${7} ${5} > ${3}.${CHUNK_NAME}.R.fq
 
 # Extract information from header of first read for reda group setup
 READ_HEADER=$(zcat ${4} | head -n 1 | sed 's#/1$##' )

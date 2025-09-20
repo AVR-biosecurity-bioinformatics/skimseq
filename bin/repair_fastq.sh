@@ -8,8 +8,8 @@ set -u
 # $4 = file2
 
 # Sanatise forward and reverse fastq files
-seqkit sana --threads ${1} ${3} -o rescued_1.fq.gz
-seqkit sana --threads ${1} ${4} -o rescued_2.fq.gz
+zcat ${3} | seqkit sana --threads ${1} -o rescued_1.fq.gz
+zcat ${4} | seqkit sana --threads ${1} -o rescued_2.fq.gz
 
 # Check if both rescued files have content
 if [[ -s rescued_1.fq.gz && -s rescued_2.fq.gz ]]; then
