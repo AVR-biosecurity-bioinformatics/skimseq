@@ -18,4 +18,5 @@ bedtools coverage \
     -a included_intervals.bed \
     -b ${3} \
     -g ${4}.fai \
+    -sorted \
     -counts > ${7}.counts.bed
