@@ -45,5 +45,5 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --min-base-quality-score ${15} \
     --minimum-mapping-quality ${16} \
     --mapping-quality-threshold-for-genotyping ${16} \
-    -ploidy ${16} \
+    -ploidy ${17} \
     -ERC GVCF
