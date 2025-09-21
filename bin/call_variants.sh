@@ -21,7 +21,7 @@ set -u
 # $17 = ploidy
 
 # 1GB of memory should be retained outside the java heap
-java_mem=$(( ( ${2} - 1 )) 
+java_mem=$(( ( ${2} - 1 )))
 
 # Clamp to at least 1 GB so Java has something to start with
 if (( java_mem < 1 )); then
