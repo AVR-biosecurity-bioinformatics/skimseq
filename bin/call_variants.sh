@@ -20,6 +20,14 @@ set -u
 # $16 = hc_minmq
 # $17 = ploidy
 
+# 1GB of memory should be retained outside the java heap
+java_mem=$(( ( ${2} - 1 )) 
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
+fi
+
 # parse filtering options as flags
 if [[ ${14} == "false" ]];    then RMDUP="-DF NotDuplicateReadFilter";                  else RMDUP=""; fi
 
@@ -28,7 +36,7 @@ echo ${4} | tr ' ' '\n' > bam.list
 
 # call variants per sample across all the bam chunks
 # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
-gatk --java-options "-Xmx${2}G" HaplotypeCaller \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${1}" HaplotypeCaller \
     -R $5 \
     -I bam.list \
     -L $7 \
