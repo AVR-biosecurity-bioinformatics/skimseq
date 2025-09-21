@@ -73,6 +73,7 @@ workflow GATK_GENOTYPING {
         params.hc_min_dangling_length,
         params.hc_max_reads_startpos,
         params.hc_rmdup,
+        params.hc_minbq,
         params.hc_minmq,
         params.ploidy,
     )

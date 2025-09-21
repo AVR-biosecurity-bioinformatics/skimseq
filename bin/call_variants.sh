@@ -16,8 +16,9 @@ set -u
 # $12 = hc_min_dangling_length
 # $13 = hc_max_reads_startpos
 # $14 = hc_rmdup
-# $15 = hc_minmq
-# $16 = ploidy
+# $15 = hc_minbq
+# $16 = hc_minmq
+# $17 = ploidy
 
 # parse filtering options as flags
 if [[ ${14} == "false" ]];    then RMDUP="-DF NotDuplicateReadFilter";                  else RMDUP=""; fi
@@ -37,12 +38,12 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --exclude-intervals ${9} \
     --interval-exclusion-padding ${10} \
     --interval-merging-rule ALL \
-    --min-base-quality-score 15 \
     --min-pruning ${11} \
     --min-dangling-branch-length ${12} \
     --max-reads-per-alignment-start ${13} \
     $RMDUP \
-    --minimum-mapping-quality ${15} \
-    --mapping-quality-threshold-for-genotyping ${15} \
+    --min-base-quality-score ${15} \
+    --minimum-mapping-quality ${16} \
+    --mapping-quality-threshold-for-genotyping ${16} \
     -ploidy ${16} \
     -ERC GVCF
