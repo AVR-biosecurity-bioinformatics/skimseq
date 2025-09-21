@@ -26,9 +26,9 @@ bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") > included_inter
 samtools bedcov included_intervals.bed "${3}" -c > counts.bed.tmp
 
 # Select columns based on mode
-if [[ "$mode" == "reads" ]]; then
+if [[ "${8}" == "reads" ]]; then
     awk '{print $1, $2, $3, $5}' counts.bed.tmp > ${7}.counts.bed
-elif [[ "$mode" == "bases" ]]; then
+elif [[ "${8}" == "bases" ]]; then
     awk '{print $1, $2, $3, $4}' counts.bed.tmp > ${7}.counts.bed
 fi
 
