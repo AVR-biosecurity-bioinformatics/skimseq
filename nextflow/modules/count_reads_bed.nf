@@ -11,6 +11,7 @@ process COUNT_READS_BED {
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
     val(mode)
+    
 
     output: 
     tuple val(sample), path("*counts.bed"),                 emit: counts
