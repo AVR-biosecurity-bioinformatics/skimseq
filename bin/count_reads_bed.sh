@@ -22,7 +22,7 @@ awk -v mode="${8}" 'BEGIN{OFS="\t"}
 {
     if(mode=="reads") print $1,$2,$3,$5
     else if(mode=="bases") print $1,$2,$3,$4
-}' > ${7}.counts.bed
+}' counts.bed.tmp > ${7}.counts.bed
 
 # Remove temporary files
 rm -f counts.bed.tmp

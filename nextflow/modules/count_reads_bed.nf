@@ -6,13 +6,12 @@ process COUNT_READS_BED {
     module "BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
+    tuple val(sample), path(bam), path(bam_index)
     path(interval_bed)
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
     val(mode)
     
-
     output: 
     tuple val(sample), path("*counts.bed"),                 emit: counts
     
