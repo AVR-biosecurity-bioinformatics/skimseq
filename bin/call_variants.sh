@@ -16,8 +16,17 @@ set -u
 # $12 = hc_min_dangling_length
 # $13 = hc_max_reads_startpos
 # $14 = hc_rmdup
-# $15 = hc_minmq
-# $16 = ploidy
+# $15 = hc_minbq
+# $16 = hc_minmq
+# $17 = ploidy
+
+# 1GB of memory should be retained outside the java heap
+java_mem=$(( ( ${2} - 1 )))
+
+# Clamp to at least 1 GB so Java has something to start with
+if (( java_mem < 1 )); then
+    java_mem=1
+fi
 
 # parse filtering options as flags
 if [[ ${14} == "false" ]];    then RMDUP="-DF NotDuplicateReadFilter";                  else RMDUP=""; fi
@@ -27,7 +36,7 @@ echo ${4} | tr ' ' '\n' > bam.list
 
 # call variants per sample across all the bam chunks
 # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
-gatk --java-options "-Xmx${2}G" HaplotypeCaller \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${1}" HaplotypeCaller \
     -R $5 \
     -I bam.list \
     -L $7 \
@@ -37,12 +46,12 @@ gatk --java-options "-Xmx${2}G" HaplotypeCaller \
     --exclude-intervals ${9} \
     --interval-exclusion-padding ${10} \
     --interval-merging-rule ALL \
-    --min-base-quality-score 15 \
     --min-pruning ${11} \
     --min-dangling-branch-length ${12} \
     --max-reads-per-alignment-start ${13} \
     $RMDUP \
-    --minimum-mapping-quality ${15} \
-    --mapping-quality-threshold-for-genotyping ${15} \
-    -ploidy ${16} \
+    --min-base-quality-score ${15} \
+    --minimum-mapping-quality ${16} \
+    --mapping-quality-threshold-for-genotyping ${16} \
+    -ploidy ${17} \
     -ERC GVCF

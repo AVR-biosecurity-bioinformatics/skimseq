@@ -35,7 +35,8 @@ workflow GATK_GENOTYPING {
         ch_sample_bam,
         ch_include_bed.first(),
         ch_mask_bed_gatk,
-        ch_genome_indexed
+        ch_genome_indexed,
+        "bases"
     )
 
     // Create haplotypecaller intervals
@@ -72,6 +73,7 @@ workflow GATK_GENOTYPING {
         params.hc_min_dangling_length,
         params.hc_max_reads_startpos,
         params.hc_rmdup,
+        params.hc_minbq,
         params.hc_minmq,
         params.ploidy,
     )
