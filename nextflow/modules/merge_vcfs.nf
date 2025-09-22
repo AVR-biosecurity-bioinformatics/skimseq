@@ -3,7 +3,7 @@ process MERGE_VCFS {
     // tag "-"
 
     // Conditional publishing of gvcf only when alias is set
-    publishDir "${launchDir}/output/results/gvcf",
+    publishDir "${launchDir}/output/results/vcf/gvcf",
     mode: 'copy',
     saveAs: { fname ->
         def flag = params.output_gvcf.toString().toBoolean()
@@ -12,7 +12,7 @@ process MERGE_VCFS {
     }
 
     // Conditional publishing of unfiltered_vcf only when alias is set
-    publishDir "${launchDir}/output/results/unfiltered_vcf",
+    publishDir "${launchDir}/output/results/vcf/unfiltered",
     mode: 'copy',
     saveAs: { fname ->
         def flag = params.output_unfiltered_vcf.toString().toBoolean()
