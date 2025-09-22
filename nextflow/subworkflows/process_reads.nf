@@ -3,13 +3,13 @@
 */
 
 //// import modules
-include { BAM_STATS                             } from '../modules/bam_stats'
+include { CRAM_STATS                            } from '../modules/cram_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
-include { MERGE_BAM                             } from '../modules/merge_bam'
+include { MERGE_CRAM                            } from '../modules/merge_cram'
 
 workflow PROCESS_READS {
 
@@ -105,7 +105,7 @@ workflow PROCESS_READS {
     )
     
     // Merge chunked .cram files by sample (column 0), filter, and index
-    MERGE_BAM (
+    MERGE_CRAM (
         MAP_TO_GENOME.out.cram.groupTuple ( by: 0 ),
         ch_genome_indexed
     )
@@ -113,21 +113,21 @@ workflow PROCESS_READS {
     // extract unmapped reads
     // TODO: Make this optional
     EXTRACT_UNMAPPED (
-        MERGE_BAM.out.cram,
+        MERGE_CRAM.out.cram,
         ch_genome_indexed
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
     // generate QC statistics for the merged .cram files
-    BAM_STATS (
-        MERGE_BAM.out.cram,
+    CRAM_STATS (
+        MERGE_CRAM.out.cram,
         ch_genome_indexed
     )
 
     // Create reports channel for multiqc
     MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
-        .mix(BAM_STATS.out.stats, BAM_STATS.out.flagstats, BAM_STATS.out.coverage, MERGE_BAM.out.markdup)
+        .mix(CRAM_STATS.out.stats, CRAM_STATS.out.flagstats, CRAM_STATS.out.coverage, MERGE_CRAM.out.markdup)
         .set { ch_reports}
 
     // Create sample renaming table to handle chunks in multiqc report
@@ -139,7 +139,7 @@ workflow PROCESS_READS {
     .set { renaming_table }
     
     emit: 
-    cram = MERGE_BAM.out.cram
+    cram = MERGE_CRAM.out.cram
     reports = ch_reports
     renaming_table = renaming_table
 }

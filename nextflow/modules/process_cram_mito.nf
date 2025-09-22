@@ -1,5 +1,5 @@
-process BAM_STATS {
-    def process_name = "bam_stats"    
+process PROCESS_CRAM_MITO {
+    def process_name = "process_cram_mito"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -7,12 +7,11 @@ process BAM_STATS {
 
     input:
     tuple val(sample), path(cram), path(cram_index)
+    path(mito_bed_files)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("*.stats.txt"),               emit: stats
-    tuple val(sample), path("*.flagstats.txt"),           emit: flagstats
-    tuple val(sample), path("*.coverage.txt"),            emit: coverage
+    tuple val(sample), path("*.mito.bam"), path("*.mito.bam.bai"),        emit: bam
     
     script:
     def process_script = "${process_name}.sh"
@@ -24,6 +23,7 @@ process BAM_STATS {
         ${task.cpus} \
         ${sample} \
         "${cram}" \
+        ${mito_bed_files} \
         ${ref_genome}
 
     """
