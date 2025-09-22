@@ -20,7 +20,6 @@ process MERGE_VCFS {
         (flag && isAlias) ? fname : null
     }
 
-    //params.output_gvcf.toString().toBoolean() && task.process == 'MERGE_GVCFS' 
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"

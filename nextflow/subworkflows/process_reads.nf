@@ -112,10 +112,12 @@ workflow PROCESS_READS {
 
     // extract unmapped reads
     // TODO: Make this optional
-    EXTRACT_UNMAPPED (
-        MERGE_CRAM.out.cram,
-        ch_genome_indexed
-    )
+    if( params.output_unmapped_reads ) {
+        EXTRACT_UNMAPPED (
+            MERGE_CRAM.out.cram,
+            ch_genome_indexed
+        )
+    }
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
