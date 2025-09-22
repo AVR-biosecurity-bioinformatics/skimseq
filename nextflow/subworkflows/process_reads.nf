@@ -139,7 +139,7 @@ workflow PROCESS_READS {
     .set { renaming_table }
     
     emit: 
-    bam = MERGE_BAM.out.cram
+    cram = MERGE_BAM.out.cram
     reports = ch_reports
     renaming_table = renaming_table
 }
