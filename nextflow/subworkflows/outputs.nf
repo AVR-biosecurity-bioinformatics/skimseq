@@ -31,28 +31,40 @@ workflow OUTPUTS {
         .set{ ch_vcfs }
 
     // Create beagle GL file
-    CREATE_BEAGLE_GL (
-        ch_vcfs,
-        ch_genome_indexed,
-        false
-    )
+    def ch_beagle_gl_out = Channel.empty()
+    if (params.output_beagle_gl) {
+        CREATE_BEAGLE_GL (
+            ch_vcfs,
+            ch_genome_indexed,
+            false
+        )
+        ch_beagle_gl_out = CREATE_BEAGLE_GL.out.beagle
+    }
 
     // Create beagle GP file
-    CREATE_BEAGLE_GP (
-        ch_vcfs,
-        ch_genome_indexed,
-        true
-    )
+    def ch_beagle_gp_out = Channel.empty()
+    if (params.output_beagle_gp) {
+        CREATE_BEAGLE_GP (
+            ch_vcfs,
+            ch_genome_indexed,
+            true
+        )
+        ch_beagle_gl_out = CREATE_BEAGLE_GP.out.beagle
+    }
 
     // Create pseudohaploid vcf file
-    CREATE_PSEUDOHAP (
-        ch_vcfs,
-        ch_genome_indexed
-    )
+    def ch_pseudohap_out = Channel.empty()
+    if (params.output_pseudohaploid_vcf) {
+        CREATE_PSEUDOHAP (
+            ch_vcfs,
+            ch_genome_indexed
+        )
+        ch_pseudohap_out = CREATE_PSEUDOHAP.out.vcf
+    }
 
     // Create updated channel for distance matrices
     ch_vcfs
-        .mix(CREATE_PSEUDOHAP.out.vcf)
+        .mix(ch_pseudohap_out)
         .set{ ch_vcfs_for_dist }
 
     VCF2DIST (
