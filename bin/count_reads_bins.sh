@@ -9,13 +9,13 @@ set -u
 # $5 = interval_bed
 # $6 = sample
 
-# Create list of bams to be processed
-echo ${3} | tr ' ' '\n' > bam.list
+# Create list of crams to be processed
+echo ${3} | tr ' ' '\n' > cram.list
 
 # call variants per sample across all the bam chunks
 gatk --java-options "-Xmx${2}G" CollectReadCounts \
     -R $4 \
-    -I bam.list \
+    -I cram.list \
     -L $5 \
     --interval-merging-rule OVERLAPPING_ONLY \
     --format TSV \

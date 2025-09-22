@@ -6,7 +6,8 @@ process COUNT_READS_BED {
     module "BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(bam), path(bam_index)
+    tuple val(sample), path(cram), path(cram_index)
+
     path(interval_bed)
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
@@ -24,7 +25,7 @@ process COUNT_READS_BED {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        "${bam}" \
+        "${cram}" \
         ${ref_genome} \
         ${interval_bed} \
         ${exclude_bed} \

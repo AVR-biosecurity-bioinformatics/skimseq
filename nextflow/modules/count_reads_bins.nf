@@ -6,7 +6,7 @@ process COUNT_READS_BINS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
+    tuple val(sample), path(cram), path(cram_index)
     path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
 
@@ -22,7 +22,7 @@ process COUNT_READS_BINS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        "${bam}" \
+        "${cram}" \
         ${ref_genome} \
         ${interval_bed} \
         ${sample}

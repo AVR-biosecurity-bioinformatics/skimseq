@@ -31,14 +31,14 @@ fi
 # parse filtering options as flags
 if [[ ${14} == "false" ]];    then RMDUP="-DF NotDuplicateReadFilter";                  else RMDUP=""; fi
 
-# Create list of bams to be processed
-echo ${4} | tr ' ' '\n' > bam.list
+# Create list of crams to be processed
+echo ${4} | tr ' ' '\n' > cram.list
 
-# call variants per sample across all the bam chunks
+# call variants by sample * interval chunk
 # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${1}" HaplotypeCaller \
     -R $5 \
-    -I bam.list \
+    -I cram.list \
     -L $7 \
     -O ${3}.${6}.g.vcf.gz \
     --native-pair-hmm-threads ${1} \

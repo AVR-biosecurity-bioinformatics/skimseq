@@ -17,7 +17,7 @@ workflow MASK_GENOME {
     ch_include_bed
     ch_exclude_bed
     ch_mito_bed
-    ch_sample_bam
+    ch_sample_cram
 
     main: 
 
@@ -47,7 +47,7 @@ workflow MASK_GENOME {
 
     // Count reads in each group of binned intervals
     COUNT_READS_BINS (
-          ch_sample_bam,
+          ch_sample_cram,
           ch_binned_bed,
           ch_genome_indexed
     ) 
