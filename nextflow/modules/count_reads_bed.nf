@@ -7,6 +7,7 @@ process COUNT_READS_BED {
 
     input:
     tuple val(sample), path(cram), path(cram_index)
+
     path(interval_bed)
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
