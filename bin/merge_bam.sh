@@ -11,9 +11,9 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 echo ${3} | tr ' ' '\n' > cram.list
 
 samtools merge --threads ${1} -b cram.list --reference ${4} -u -o - \
-    | samtools collate --threads ${1} -u - - \
+    | samtools collate --threads ${1} -O -u - - \
     | samtools fixmate --threads ${1} -m -u - - \
-    | samtools sort -M --threads ${1} -o -u - - \
+    | samtools sort -M --threads ${1} -o - - \
     | samtools markdup --threads ${1} \
         -s -f  ${2}.markdup.json --json \
         -l 300 \

@@ -10,7 +10,7 @@ set -u
 # $6 = sample
 
 # Create list of crams to be processed
-echo ${4} | tr ' ' '\n' > cram.list
+echo ${3} | tr ' ' '\n' > cram.list
 
 # call variants per sample across all the bam chunks
 gatk --java-options "-Xmx${2}G" CollectReadCounts \

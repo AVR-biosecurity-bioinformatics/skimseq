@@ -22,7 +22,7 @@ process COUNT_READS_BINS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        "${bam}" \
+        "${cram}" \
         ${ref_genome} \
         ${interval_bed} \
         ${sample}
