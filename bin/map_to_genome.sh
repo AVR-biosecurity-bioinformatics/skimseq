@@ -99,7 +99,12 @@ if [[ ${22} == "none" ]]; then
         	-K 100000000 \
        	-Y \
 		- \
-	| samtools sort --threads ${1} -o ${3}.${CHUNK_NAME}.bam
+	| samtools sort \
+    -M \
+    --threads ${1} \
+    --reference ${8} \
+    -O CRAM \
+    -o ${3}.${CHUNK_NAME}.cram
 
 else 
     # use custom string of flags for fastp
@@ -119,7 +124,12 @@ else
         	-K 100000000 \
        	-Y \
 		- \
-     | samtools sort --threads ${1} -o ${3}.${CHUNK_NAME}.bam
+    | samtools sort \
+      -M \
+      --threads ${1} \
+      --reference ${8} \
+      -O CRAM \
+      -o ${3}.${CHUNK_NAME}.cram
 
 fi
 

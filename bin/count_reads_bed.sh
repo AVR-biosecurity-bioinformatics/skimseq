@@ -15,7 +15,7 @@ set -u
 bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") > included_intervals.bed
 
 # Count number of aligned reads and aligned bases overlapping intervals
-samtools bedcov included_intervals.bed "${3}" -c > counts.bed.tmp
+samtools bedcov --reference ${4} included_intervals.bed "${3}" -c > counts.bed.tmp
 
 # Select columns based on mode
 awk -v mode="${8}" 'BEGIN{OFS="\t"} 

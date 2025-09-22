@@ -11,9 +11,10 @@ include { PROCESS_BAM_MITO                      } from '../modules/process_bam_m
 workflow MITO_GENOTYPING {
 
     take:
-    ch_sample_bam
+    ch_sample_cram
     ch_mito_indexed
     ch_mito_bed
+    ch_genome_indexed
 
     main: 
 
@@ -23,8 +24,9 @@ workflow MITO_GENOTYPING {
 
     // process mito bam (merge, sort, index)
     PROCESS_BAM_MITO (
-        ch_sample_bam,
-        ch_mito_bed
+        ch_sample_cram,
+        ch_mito_bed,
+        ch_genome_indexed
     )
 
     // call consensus fasta file from mito bam

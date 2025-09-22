@@ -17,7 +17,7 @@ include { GENOMICSDB_IMPORT                                      } from '../modu
 workflow GATK_GENOTYPING {
 
     take:
-    ch_sample_bam
+    ch_sample_cram
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_gatk
@@ -32,7 +32,7 @@ workflow GATK_GENOTYPING {
 
     // Count number of reads in each interval
     COUNT_READS_BED (
-        ch_sample_bam,
+        ch_sample_cram,
         ch_include_bed.first(),
         ch_mask_bed_gatk,
         ch_genome_indexed,
@@ -57,8 +57,8 @@ workflow GATK_GENOTYPING {
         .set { ch_interval_bed_hc }
         
 
-    // combine sample-level bams with each interval_bed file and interval hash
-    ch_sample_bam
+    // combine sample-level crams with each interval_bed file and interval hash
+    ch_sample_cram
         .combine ( ch_interval_bed_hc )
         .set { ch_sample_intervals }
 

@@ -6,8 +6,9 @@ process PROCESS_BAM_MITO {
     module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(bam), path(bam_index)
+    tuple val(sample), path(cram), path(cram_index)
     path(mito_bed_files)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     tuple val(sample), path("*.mito.bam"), path("*.mito.bam.bai"),        emit: bam

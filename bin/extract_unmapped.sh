@@ -4,14 +4,14 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = sample name
-# $3 = Sorted bam file
+# $3 = Sorted cram file
 
 # Create empty output files
 touch ${2}.unmapped.R1.fastq
 touch ${2}.unmapped.R2.fastq
 
 # Extract reads where only both pairs are unmapped (f12)
-samtools collate -@ $1 -u -O ${3} \
+samtools collate -@ $1 -u ${3} --reference ${4} \
 | samtools fastq \
 -@ $1 \
 -1 ${2}.unmapped.R1.fastq.gz \

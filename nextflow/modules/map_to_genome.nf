@@ -11,7 +11,7 @@ process MAP_TO_GENOME {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), val(lib), path("*.bam"),                          emit: bam
+    tuple val(sample), val(lib), path("*.cram"),                         emit: cram
     tuple val(sample), val(lib), val(start), val(end), path("*.json"),   emit: json
     tuple val(sample), path("*.html"),                                   emit: html
     

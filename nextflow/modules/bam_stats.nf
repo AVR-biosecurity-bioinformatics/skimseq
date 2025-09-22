@@ -6,7 +6,8 @@ process BAM_STATS {
     module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai')
+    tuple val(sample), path(cram), path(cram_index)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     tuple val(sample), path("*.stats.txt"),               emit: stats
@@ -22,8 +23,8 @@ process BAM_STATS {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        ${bam} \
-        ${bam_index}
+        "${cram}" \
+        ${ref_genome}
 
     """
 }

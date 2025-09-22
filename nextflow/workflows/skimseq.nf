@@ -150,8 +150,8 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
     
-    PROCESS_READS.out.bam
-      .set{ ch_sample_bam }
+    PROCESS_READS.out.cram
+      .set{ ch_sample_cram }
 
     /*
     Create genomic masks
@@ -162,7 +162,7 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_exclude_bed,
         ch_mito_bed,
-        ch_sample_bam
+        ch_sample_cram
       )
     
     /*
@@ -170,9 +170,10 @@ workflow SKIMSEQ {
     */
 
     MITO_GENOTYPING (
-        ch_sample_bam,
+        ch_sample_cram,
         ch_mito_indexed,
-        ch_mito_bed
+        ch_mito_bed,
+        ch_genome_indexed
     )
     
     /*
@@ -187,7 +188,7 @@ workflow SKIMSEQ {
     }
     
     GATK_GENOTYPING (
-        ch_sample_bam,
+        ch_sample_cram,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,

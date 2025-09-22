@@ -104,22 +104,25 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
     
-    // Merge chunked .bam files by sample (column 0), filter, and index
+    // Merge chunked .cram files by sample (column 0), filter, and index
     MERGE_BAM (
-        MAP_TO_GENOME.out.bam.groupTuple ( by: 0 )
+        MAP_TO_GENOME.out.cram.groupTuple ( by: 0 ),
+        ch_genome_indexed
     )
 
     // extract unmapped reads
     // TODO: Make this optional
     EXTRACT_UNMAPPED (
-        MERGE_BAM.out.bam
+        MERGE_BAM.out.cram,
+        ch_genome_indexed
     )
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // generate QC statistics for the merged .bam files
+    // generate QC statistics for the merged .cram files
     BAM_STATS (
-        MERGE_BAM.out.bam
+        MERGE_BAM.out.cram,
+        ch_genome_indexed
     )
 
     // Create reports channel for multiqc
@@ -136,7 +139,7 @@ workflow PROCESS_READS {
     .set { renaming_table }
     
     emit: 
-    bam = MERGE_BAM.out.bam
+    bam = MERGE_BAM.out.cram
     reports = ch_reports
     renaming_table = renaming_table
 }
