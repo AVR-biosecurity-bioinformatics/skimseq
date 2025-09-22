@@ -22,8 +22,9 @@ process PROCESS_BAM_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        "${bam}" \
-        ${mito_bed_files}
+        "${cram}" \
+        ${mito_bed_files} \
+        ${ref_genome}
 
     """
 }
