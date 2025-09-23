@@ -13,11 +13,7 @@ set -u
 # Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
 # Make sure the bed is sorted in same order as vcf
 bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
- | bedtools sort -i stdin -g ${4} > included_intervals.bed
-
-# Count number of VCF records overlapping intervals
-#bcftools query -f '%CHROM\t%POS0\t%POS\n' ${3} \
-#    | bedtools intersect -a included_intervals.bed -b - -c > ${7}.counts.bed
+ | bedtools sort -i stdin -g ${4}.fai > included_intervals.bed
 
 bedtools intersect \
     -a included_intervals.bed \

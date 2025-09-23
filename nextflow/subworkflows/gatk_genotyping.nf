@@ -23,6 +23,7 @@ workflow GATK_GENOTYPING {
     ch_mask_bed_gatk
     ch_long_bed
     ch_short_bed
+    ch_dummy_file
 
     main: 
 
@@ -105,6 +106,7 @@ workflow GATK_GENOTYPING {
     */
 
     // Count number of reads contained within each interval, for long contigs (chromosomes)
+    // Note: For the long contigs use the mask to split them into smaller genotypable chunks
     COUNT_VCF_BED_LONG (
         MERGE_GVCFS.out.vcf,
         ch_long_bed.first(),
@@ -116,11 +118,13 @@ workflow GATK_GENOTYPING {
     .toList()        
     .set { counts_long }
 
-    // Count number of reads contained within each interval, for short contigs (scaffolds)
+    // Count number of vcf records contained within each interval, for short contigs (scaffolds)
+    // Note: For the short contigs use the full contigs with NO MASK, by providing ch_dummy_file
+    // This ensures compatibility with --merge-contigs-into-num-partitions in genomicsdbimport
     COUNT_VCF_BED_SHORT (
         MERGE_GVCFS.out.vcf,
         ch_short_bed.first(),
-        ch_mask_bed_gatk,
+        ch_dummy_file,
         ch_genome_indexed
     )
     .map { sample, counts -> counts }

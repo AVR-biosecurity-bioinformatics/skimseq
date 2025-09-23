@@ -193,7 +193,8 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_mask_bed_gatk,
         ch_long_bed,
-        ch_short_bed
+        ch_short_bed,
+        ch_dummy_file
     )
 
     /*
