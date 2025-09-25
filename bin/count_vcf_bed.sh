@@ -19,4 +19,5 @@ bedtools intersect \
     -a included_intervals.bed \
     -b ${3} \
     -sorted \
+    -g ${4}.fai \
     -c > ${7}.counts.bed
