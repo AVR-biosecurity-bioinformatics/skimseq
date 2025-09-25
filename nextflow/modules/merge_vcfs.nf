@@ -29,7 +29,7 @@ process MERGE_VCFS {
     val(outname)
 
     output: 
-    tuple val(outname), path("${outname}.vcf.gz", optional: true), path("${outname}.g.vcf.gz", optional: true), path("${outname}.vcf.gz.tbi", optional: true), path("${outname}.g.vcf.gz.tbi", optional: true),       emit: vcf
+    tuple val(outname),  path("${outname}.{vcf,g.vcf}.gz"), path("${outname}.{vcf,g.vcf}.gz.tbi"),       emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
