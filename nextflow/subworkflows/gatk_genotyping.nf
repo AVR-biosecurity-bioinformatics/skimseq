@@ -119,8 +119,9 @@ workflow GATK_GENOTYPING {
     .set { counts_long }
 
     // Count number of vcf records contained within each interval, for short contigs (scaffolds)
-    // Note: For the short contigs use the full contigs with NO MASK, by providing ch_dummy_file
+    // NOTE: For the short contigs use the full contigs with NO MASK, by providing ch_dummy_file
     // This ensures compatibility with --merge-contigs-into-num-partitions in genomicsdbimport
+    // Masked regions will still not be included if the mask was used for call_variants
     COUNT_VCF_BED_SHORT (
         MERGE_GVCFS.out.vcf,
         ch_short_bed.first(),
