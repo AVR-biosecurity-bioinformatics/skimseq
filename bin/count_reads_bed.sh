@@ -16,10 +16,9 @@ set -u
 # Set up samtools flags
 if [[ ${9} == "false" ]]; then
     # if duplicates are not removed, include them in counts
-    KEEP_FLAGS="DUP"
-    REMOVE_FLAGS="UNMAP,SECONDARY,QCFAIL"
+    FLAGS="-g DUP -G UNMAP,SECONDARY,QCFAIL"
 else 
-    REMOVE_FLAGS="UNMAP,SECONDARY,QCFAIL,DUP"
+    FLAGS="-G UNMAP,SECONDARY,QCFAIL,DUP"
 fi
 
 # Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
@@ -32,8 +31,7 @@ bedtools subtract \
 samtools bedcov \
     --min-MQ ${10} \
     --reference ${4} \
-    -g $KEEP_FLAGS \
-    -G $REMOVE_FLAGS \
+    $FLAGS \
     included_intervals.bed \
     "${3}" -c > counts.bed.tmp
 
