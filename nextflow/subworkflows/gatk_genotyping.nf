@@ -48,31 +48,33 @@ workflow GATK_GENOTYPING {
         "mean"
     )
 
-    // create intervals channel, with one interval_bed file per element
+   
+    // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, beds)
+    // where `beds` is either a List<Path> or a single Path
     CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
-        //.flatten()
-        // get hash from interval_bed name as element to identify intervals
-        .map { sample, interval_bed ->
-            def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
-            [ sample, interval_hash, interval_bed ] }
-        .set { ch_interval_bed_hc }
-        
+    .flatMap { sample, beds ->
+        // normalize to a list for cases where there are only 1 bed output for a sample
+        def lst = (beds instanceof List) ? beds : [ beds ]
+        // emit one tuple per bed
+        lst.collect { bed ->
+        bed  = bed as Path
+        def base = bed.baseName                 // e.g. "_abc123..."; no ".bed"
+        def hash = base.startsWith('_') ? base.substring(1) : base
+        tuple(sample, hash, bed)
+        }
+    }
+    .set { ch_interval_bed_hc }
 
-    // combine sample-level crams with each interval_bed file and interval hash
-    //ch_sample_cram
-    //    .combine ( ch_interval_bed_hc )
-    //    .set { ch_sample_intervals }
-
-    ch_sample_cram
-        .map { sample, cram, crai -> tuple(sample, cram, crai) }
-        .join( ch_interval_bed_hc.map{ s,h,b -> tuple(s, h, b) } )
-        .map { sample, cram, crai, hash, interval_bed ->
+    ch_interval_bed_hc 
+	.combine( ch_sample_cram, by: [0, 0] )
+        .map { sample, hash, interval_bed,cram, crai ->
             // final tuple per (sample, interval) for variant calling
-            tuple(sample, hash, interval_bed, cram, crai)
+            tuple(sample,cram, crai, hash, interval_bed)
         }
         .set { ch_sample_intervals }
 
-    ch_sample_intervals.view()
+   ch_sample_intervals.view()
+
 
     /* 
        Call variants per sample

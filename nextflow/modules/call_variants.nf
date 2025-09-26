@@ -6,7 +6,7 @@ process CALL_VARIANTS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(sample), path(bam, name: '*sorted.bam'), path(bam_index, name: '*sorted.bam.bai'), val(interval_hash), path(interval_bed)
+    tuple val(sample), path(cram, name: '*sorted.cram'), path(cram_index, name: '*sorted.cram.crai'), val(interval_hash), path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
     
     path(exclude_bed)
@@ -26,7 +26,7 @@ process CALL_VARIANTS {
         ${task.cpus} \
         ${task.memory.giga} \
         ${sample} \
-        "${bam}" \
+        "${cram}" \
         ${ref_genome} \
         ${interval_hash} \
         ${interval_bed} \

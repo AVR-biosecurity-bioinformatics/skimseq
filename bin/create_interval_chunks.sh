@@ -11,25 +11,41 @@ set -u
 COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 
-# Combine coverage files for all samples
-bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
+# Gather counts files
+COUNT_FILES=( *counts.bed )
+N=${#COUNT_FILES[@]}
 
-# get either the mean, or the sum, of feature counts per window across samples
-# This depends on the mode parameter
-awk -v mode="${5}" '{
-    sum=0;
-    n=0;
-    for(i=4;i<=NF;i++){
-        sum+=$i;
-        n++
-    }
-    if(mode=="mean"){
-        val = (n>0 ? sum/n : 0)
-    } else {
-        val = sum
-    }
-    print $1"\t"$2"\t"$3"\t"val
-}' combined_counts.bed > intervals_with_counts.bed
+# Exit if no count files present
+if (( N == 0 )); then
+  echo "ERROR: No *counts.bed files found" >&2
+  exit 1
+fi
+
+if (( N == 1 )); then
+    echo "Only one counts file detected (${COUNT_FILES[0]}). Skipping merge."
+    # Ensure exactly 4 columns (chr, start, end, count)
+    awk '{print $1"\t"$2"\t"$3"\t"$4}' "${COUNT_FILES[0]}" > intervals_with_counts.bed
+else
+    # counts files for all samples
+    bedtools unionbedg -i "${COUNT_FILES[@]}" -filler 0 > combined_counts.bed
+
+    # get either the mean, or the sum, of feature counts per window across samples
+    # This depends on the mode parameter
+    awk -v mode="${5}" '{
+        sum=0;
+        n=0;
+        for(i=4;i<=NF;i++){
+            sum+=$i;
+            n++
+        }
+        if(mode=="mean"){
+            val = (n>0 ? sum/n : 0)
+        } else {
+            val = sum
+        }
+        print $1"\t"$2"\t"$3"\t"val
+    }' combined_counts.bed > intervals_with_counts.bed
+fi
 
 # Use greedy algorithm to assign intervals to chunks.
 # Once they reach COUNTS_PER_CHUNK, begin a new chunk.
