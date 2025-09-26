@@ -10,12 +10,32 @@ set -u
 # $6 = exclude_bed
 # $7 = sample
 # $8 = mode
+# $9 = hc_rmdup
+# $10 = hc_minmq
+
+# Set up samtools flags
+if [[ ${9} == "false" ]]; then
+    # if duplicates are not removed, include them in counts
+    KEEP_FLAGS="DUP"
+    REMOVE_FLAGS="UNMAP,SECONDARY,QCFAIL"
+else 
+    REMOVE_FLAGS="UNMAP,SECONDARY,QCFAIL,DUP"
+fi
 
 # Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
-bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") > included_intervals.bed
+bedtools subtract \
+    -a <(cut -f1-3 "${5}") \
+    -b <(cut -f1-3 "${6}") > included_intervals.bed
 
 # Count number of aligned reads and aligned bases overlapping intervals
-samtools bedcov --reference ${4} included_intervals.bed "${3}" -c > counts.bed.tmp
+# Exclude by the same mapping quality and duplicate removal that will be used for gatk
+samtools bedcov \
+    --min-MQ ${10} \
+    --reference ${4} \
+    -g $KEEP_FLAGS \
+    -G $REMOVE_FLAGS \
+    included_intervals.bed \
+    "${3}" -c > counts.bed.tmp
 
 # Select columns based on mode
 awk -v mode="${8}" 'BEGIN{OFS="\t"} 

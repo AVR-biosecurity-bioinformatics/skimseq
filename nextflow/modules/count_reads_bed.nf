@@ -12,6 +12,8 @@ process COUNT_READS_BED {
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
     val(mode)
+    val(hc_rmdup)
+    val(hc_minmq)
     
     output: 
     tuple val(sample), path("*counts.bed"),                 emit: counts
@@ -30,7 +32,9 @@ process COUNT_READS_BED {
         ${interval_bed} \
         ${exclude_bed} \
         ${sample} \
-        ${mode}
+        ${mode} \
+        ${hc_rmdup} \
+        ${hc_minmq}
         
     """
 }
