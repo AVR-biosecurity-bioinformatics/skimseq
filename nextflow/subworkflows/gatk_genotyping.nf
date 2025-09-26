@@ -10,8 +10,8 @@ include { MERGE_VCFS                                             } from '../modu
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC    } from '../modules/create_interval_chunks'
+include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
+include { CREATE_INTERVAL_CHUNKS_JC                              } from '../modules/create_interval_chunks_jc'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 
 workflow GATK_GENOTYPING {
@@ -133,7 +133,7 @@ workflow GATK_GENOTYPING {
     COUNT_VCF_BED_SHORT (
         MERGE_GVCFS.out.vcf,
         ch_short_bed.first(),
-        ch_dummy_file,
+        ch_mask_bed_gatk,
         ch_genome_indexed
     )
     .map { sample, counts -> counts }
@@ -160,10 +160,12 @@ workflow GATK_GENOTYPING {
         .collect()
         .flatten()
         // get hash from interval_bed name as element to identify intervals
-        .map { interval_bed ->
+        .map { sample, interval_bed ->
             def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_bed ] }
         .set { ch_interval_bed_jc }
+
+
 
     // combine sample-level gvcf with each interval_bed file and interval hash
     // Then group by interval for joint genotyping

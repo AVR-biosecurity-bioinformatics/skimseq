@@ -1,5 +1,5 @@
-process CREATE_INTERVAL_CHUNKS {
-    def process_name = "create_interval_chunks"    
+process CREATE_INTERVAL_CHUNKS_HC {
+    def process_name = "create_interval_chunks_hc"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
