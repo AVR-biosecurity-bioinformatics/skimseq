@@ -11,10 +11,13 @@ set -u
 # $7 = sample
 
 # Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
-bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") > included_intervals.bed
+# Make sure the bed is sorted in same order as vcf
+bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
+ | bedtools sort -i stdin -g ${4}.fai > included_intervals.bed
 
-# Count number of VCF records overlapping intervals
 bedtools intersect \
     -a included_intervals.bed \
     -b ${3} \
+    -sorted \
+    -g ${4}.fai \
     -c > ${7}.counts.bed

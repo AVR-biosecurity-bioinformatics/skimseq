@@ -5,31 +5,15 @@ set -u
 # $1 = cpus 
 # $2 = mem
 # $3 = counts_per_chunk
-# $4 = counts_files
-# $5 = mode
+# $4 = counts_file
 
 COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 
-# Combine coverage files for all samples
-bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
+# HC interval chunks operate on a single sample counts file only 
 
-# get either the mean, or the sum, of feature counts per window across samples
-# This depends on the mode parameter
-awk -v mode="${5}" '{
-    sum=0;
-    n=0;
-    for(i=4;i<=NF;i++){
-        sum+=$i;
-        n++
-    }
-    if(mode=="mean"){
-        val = (n>0 ? sum/n : 0)
-    } else {
-        val = sum
-    }
-    print $1"\t"$2"\t"$3"\t"val
-}' combined_counts.bed > intervals_with_counts.bed
+# Ensure exactly 4 columns (chr, start, end, count)
+awk '{print $1"\t"$2"\t"$3"\t"$4}' "${4}" > intervals_with_counts.bed
 
 # Use greedy algorithm to assign intervals to chunks.
 # Once they reach COUNTS_PER_CHUNK, begin a new chunk.
