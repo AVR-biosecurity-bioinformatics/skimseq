@@ -40,41 +40,36 @@ workflow GATK_GENOTYPING {
         "bases"
     )
 
-    // Create haplotypecaller intervals on per sample pas
-    // As next step is parallelised by sample*interval, use the 'mean' mode
+    // Create haplotypecaller intervals on per sample basis
+    // Mean mode is irrelevant here as only single counts file is present
     CREATE_INTERVAL_CHUNKS_HC (
         COUNT_READS_BED.out.counts,
         params.hc_bases_per_chunk,
         "mean"
     )
-
    
-    // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, beds)
-    // where `beds` is either a List<Path> or a single Path
+    // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
+    // where `bed` is either a List<Path> or a single Path, so has to be normalised to list
     CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
     .flatMap { sample, beds ->
         // normalize to a list for cases where there are only 1 bed output for a sample
         def lst = (beds instanceof List) ? beds : [ beds ]
-        // emit one tuple per bed
+        // emit one tuple per bed file
         lst.collect { bed ->
         bed  = bed as Path
-        def base = bed.baseName                 // e.g. "_abc123..."; no ".bed"
+        def base = bed.baseName
         def hash = base.startsWith('_') ? base.substring(1) : base
         tuple(sample, hash, bed)
         }
     }
     .set { ch_interval_bed_hc }
 
+    // Combine intervals with cram files for genotyping
     ch_interval_bed_hc 
 	.combine( ch_sample_cram, by: [0, 0] )
-        .map { sample, hash, interval_bed,cram, crai ->
-            // final tuple per (sample, interval) for variant calling
-            tuple(sample,cram, crai, hash, interval_bed)
+        .map { sample, hash, interval_bed,cram, crai -> tuple(sample,cram, crai, hash, interval_bed)
         }
-        .set { ch_sample_intervals }
-
-   ch_sample_intervals.view()
-
+    .set { ch_sample_intervals }
 
     /* 
        Call variants per sample

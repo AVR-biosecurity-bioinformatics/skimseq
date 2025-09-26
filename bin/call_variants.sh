@@ -5,7 +5,7 @@ set -u
 # $1 = cpus 
 # $2 = memory
 # $3 = sample name
-# $4 = bam file
+# $4 = cram file
 # $5 = ref genome
 # $6 = interval hash
 # $7 = interval_bed
