@@ -214,9 +214,9 @@ workflow SKIMSEQ {
     /*
     Annotate variants with extra info for site based filtering
     */
-    ANNOTATE_SITES (
-        FILTER_SAMPLES.out.vcf
-    )
+    //ANNOTATE_SITES (
+    //    FILTER_SAMPLES.out.vcf
+    //)
 
     /*
     Filter SNPs, INDELs, and invariant sites
@@ -230,7 +230,7 @@ workflow SKIMSEQ {
     }
     
     FILTER_SITES (
-        ANNOTATE_SITES.out.vcf,
+        FILTER_GENOTYPES.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
         FILTER_SAMPLES.out.sample_names
