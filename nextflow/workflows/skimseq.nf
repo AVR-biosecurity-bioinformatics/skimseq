@@ -200,16 +200,16 @@ workflow SKIMSEQ {
     /*
     Filter genotypes
     */
-    FILTER_GENOTYPES (
-        GATK_GENOTYPING.out.vcf
-    )
+    //FILTER_GENOTYPES (
+    //    GATK_GENOTYPING.out.vcf
+    //)
 
     /*
     Filter samples
     */
-    FILTER_SAMPLES (
-        FILTER_GENOTYPES.out.vcf
-    )
+   // FILTER_SAMPLES (
+    //    FILTER_GENOTYPES.out.vcf
+    //)
 
     /*
     Annotate variants with extra info for site based filtering
@@ -230,10 +230,9 @@ workflow SKIMSEQ {
     }
     
     FILTER_SITES (
-        FILTER_GENOTYPES.out.vcf,
+        GATK_GENOTYPING.out.vcf,
         ch_genome_indexed,
-        ch_mask_bed_vcf,
-        FILTER_SAMPLES.out.sample_names
+        ch_mask_bed_vcf
     )
 
     /*

@@ -9,7 +9,10 @@ include { FILTER_VCF_SITES as FILTER_INVARIANT                     } from '../mo
 include { MERGE_VCFS as MERGE_FILTERED                             } from '../modules/merge_vcfs'
 include { VCF_STATS                                                } from '../modules/vcf_stats'
 include { PLOT_SITE_FILTERS                                        } from '../modules/plot_site_filters'
-
+include { FILTER_VCF_GT                                } from '../modules/filter_vcf_gt'
+include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
+include { FILTER_VCF_SAMPLES                               } from '../modules/filter_vcf_samples'
+include { PLOT_SAMPLE_FILTERS                              } from '../modules/plot_sample_filters'
 
 workflow FILTER_SITES {
 
@@ -17,9 +20,46 @@ workflow FILTER_SITES {
     ch_vcf
     ch_genome_indexed
     ch_mask_bed_vcf
-    ch_sample_names
 
     main: 
+
+    // collect generic genotype filtering parameters into a single list
+    // These are used for all variant types
+    Channel.of(
+        params.gt_qual,        
+        params.gt_dp_min,         
+        params.gt_dp_max
+    )
+    .collect( sort: false )
+    .set { ch_geno_filters }
+
+    // filter genotypes
+    FILTER_VCF_GT (
+        ch_vcf,
+        ch_geno_filters
+    )
+
+    // plot genotype qc
+    PLOT_GT_FILTERS (
+        FILTER_VCF_GT.out.tables,
+        ch_geno_filters
+    )
+
+    // filter samples
+    FILTER_VCF_SAMPLES (
+        FILTER_VCF_GT.out.vcf,
+        params.sample_max_missing
+    )
+
+    FILTER_VCF_SAMPLES.out.samples_to_keep
+        .splitText( by: 1 )
+        .set { ch_sample_names_filt }
+
+    // plot samples qc
+    PLOT_SAMPLE_FILTERS (
+        FILTER_VCF_SAMPLES.out.tables,
+        params.sample_max_missing
+    )
 
     // collect SNP filtering parameters into a single list
     Channel.of(
@@ -86,21 +126,21 @@ workflow FILTER_SITES {
 
     // filter SNPs
     FILTER_SNPS (
-        ch_vcf,
+        FILTER_VCF_SAMPLES.out.vcf,
         ch_snp_filters,
         ch_mask_bed_vcf
     )
 
     // filter indels
     FILTER_INDELS (
-        ch_vcf,
+        FILTER_VCF_SAMPLES.out.vcf,
         ch_indel_filters,
         ch_mask_bed_vcf
     )
 
     // filter indels
     FILTER_INVARIANT (
-        ch_vcf,
+        FILTER_VCF_SAMPLES.out.vcf,
         ch_inv_filters,
         ch_mask_bed_vcf
     )
