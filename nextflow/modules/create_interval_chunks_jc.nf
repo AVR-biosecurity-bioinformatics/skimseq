@@ -8,7 +8,6 @@ process CREATE_INTERVAL_CHUNKS_JC {
     input:
     path(counts_files)
     val(counts_per_chunk)
-    val(mode)
 
     output: 
     path("_*.bed"),              emit: interval_bed

@@ -6,7 +6,6 @@ set -u
 # $2 = mem
 # $3 = counts_per_chunk
 # $4 = counts_file
-# $5 = mode
 
 COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)

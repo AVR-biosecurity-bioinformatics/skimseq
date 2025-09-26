@@ -6,29 +6,20 @@ set -u
 # $2 = mem
 # $3 = counts_per_chunk
 # $4 = counts_files
-# $5 = mode
 
 COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 
+# HC interval chunks takes multiple files
+
 # counts files for all samples
 bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
 
-# get either the mean, or the sum, of feature counts per window across samples
-# This depends on the mode parameter
-awk -v mode="${5}" '{
-    sum=0;
-    n=0;
-    for(i=4;i<=NF;i++){
-        sum+=$i;
-        n++
-    }
-    if(mode=="mean"){
-        val = (n>0 ? sum/n : 0)
-   } else {
-        val = sum
-    }
-    print $1"\t"$2"\t"$3"\t"val
+# Take the sum of feature counts across windows
+awk 'BEGIN{OFS="\t"} {
+  sum = 0
+  for (i = 4; i <= NF; i++) sum += $i
+  print $1, $2, $3, sum
 }' combined_counts.bed > intervals_with_counts.bed
 
 # Use greedy algorithm to assign intervals to chunks.

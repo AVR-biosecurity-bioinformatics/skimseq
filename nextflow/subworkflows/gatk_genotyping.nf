@@ -41,11 +41,9 @@ workflow GATK_GENOTYPING {
     )
 
     // Create haplotypecaller intervals on per sample basis
-    // Mean mode is irrelevant here as only single counts file is present
     CREATE_INTERVAL_CHUNKS_HC (
         COUNT_READS_BED.out.counts,
-        params.hc_bases_per_chunk,
-        "mean"
+        params.hc_bases_per_chunk
     )
    
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
@@ -148,11 +146,10 @@ workflow GATK_GENOTYPING {
         .set { ch_long_short_beds }
 
     // Create joint calling intervals, long and short processed separately
-    // Use 'sum' mode to consider counts * samples - i.e. number of genotypes
+    // Takes the sum of counts * samples - i.e. number of genotypes
     CREATE_INTERVAL_CHUNKS_JC (
         ch_long_short_beds,
-        params.jc_genotypes_per_chunk,
-        "sum"
+        params.jc_genotypes_per_chunk
     )
 
     // create intervals channel, with one interval_bed file per element
@@ -160,12 +157,10 @@ workflow GATK_GENOTYPING {
         .collect()
         .flatten()
         // get hash from interval_bed name as element to identify intervals
-        .map { sample, interval_bed ->
+        .map { interval_bed ->
             def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
             [ interval_hash, interval_bed ] }
         .set { ch_interval_bed_jc }
-
-
 
     // combine sample-level gvcf with each interval_bed file and interval hash
     // Then group by interval for joint genotyping
