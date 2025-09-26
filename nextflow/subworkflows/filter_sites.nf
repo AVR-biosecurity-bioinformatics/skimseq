@@ -53,7 +53,7 @@ workflow FILTER_SITES {
 
     FILTER_VCF_SAMPLES.out.samples_to_keep
         .splitText( by: 1 )
-        .set { ch_sample_names_filt }
+        .set { ch_sample_names }
 
     // plot samples qc
     PLOT_SAMPLE_FILTERS (
