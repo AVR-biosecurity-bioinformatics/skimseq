@@ -6,12 +6,12 @@ process CREATE_INTERVAL_CHUNKS {
     module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
+    tuple val(sample), path(counts_files)
     val(counts_per_chunk)
-    path(counts_files)
     val(mode)
 
     output: 
-    path("_*.bed"),              emit: interval_bed
+    tuple val(sample), path("_*.bed"),              emit: interval_bed
     
     script:
     def process_script = "${process_name}.sh"

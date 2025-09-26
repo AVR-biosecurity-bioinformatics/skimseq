@@ -40,28 +40,39 @@ workflow GATK_GENOTYPING {
         "bases"
     )
 
-    // Create haplotypecaller intervals
+    // Create haplotypecaller intervals on per sample pas
     // As next step is parallelised by sample*interval, use the 'mean' mode
     CREATE_INTERVAL_CHUNKS_HC (
+        COUNT_READS_BED.out.counts,
         params.hc_bases_per_chunk,
-        COUNT_READS_BED.out.counts.map { sample, counts -> [ counts ] }.collect(),
         "mean"
     )
 
     // create intervals channel, with one interval_bed file per element
     CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
-        .flatten()
+        //.flatten()
         // get hash from interval_bed name as element to identify intervals
-        .map { interval_bed ->
+        .map { sample, interval_bed ->
             def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
-            [ interval_hash, interval_bed ] }
+            [ sample, interval_hash, interval_bed ] }
         .set { ch_interval_bed_hc }
         
 
     // combine sample-level crams with each interval_bed file and interval hash
+    //ch_sample_cram
+    //    .combine ( ch_interval_bed_hc )
+    //    .set { ch_sample_intervals }
+
     ch_sample_cram
-        .combine ( ch_interval_bed_hc )
+        .map { sample, cram, crai -> tuple(sample, cram, crai) }
+        .join( ch_interval_bed_hc.map{ s,h,b -> tuple(s, h, b) } )
+        .map { sample, cram, crai, hash, interval_bed ->
+            // final tuple per (sample, interval) for variant calling
+            tuple(sample, hash, interval_bed, cram, crai)
+        }
         .set { ch_sample_intervals }
+
+    ch_sample_intervals.view()
 
     /* 
        Call variants per sample
@@ -142,8 +153,8 @@ workflow GATK_GENOTYPING {
     // Create joint calling intervals, long and short processed separately
     // Use 'sum' mode to consider counts * samples - i.e. number of genotypes
     CREATE_INTERVAL_CHUNKS_JC (
-        params.jc_genotypes_per_chunk,
         ch_long_short_beds,
+        params.jc_genotypes_per_chunk,
         "sum"
     )
 
