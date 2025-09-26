@@ -22,8 +22,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
         ${task.cpus} \
         ${task.memory.giga} \
         ${counts_per_chunk} \
-        "${counts_files}" \
-        "${mode}"
+        "${counts_files}" 
 
     """
   
