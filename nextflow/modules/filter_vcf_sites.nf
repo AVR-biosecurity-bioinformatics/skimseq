@@ -8,7 +8,8 @@ process FILTER_VCF_SITES {
 
     input:
     tuple path(vcf), path(vcf_tbi)
-    tuple val(variant_type), val(qd), val(qual), val(sor), val(fs), val(mq), val(mqrs), val(rprs), val(maf), val(mac), val(eh), val(dp_min), val(dp_max), val(max_missing), val(custom_flags)
+    val(variant_type)
+    val(filters)
     path(mask_bed)
 
     output: 
@@ -16,6 +17,24 @@ process FILTER_VCF_SITES {
     path("*.table.gz"),                                                  emit: tables
     
     script:
+    // Build flags (skip null/empty)
+    def flags = [
+      filters.qd          ? "--minQD ${filters.qd}"                 : null,
+      filters.qual        ? "--minQUAL ${filters.qual}"             : null,
+      filters.sor         ? "--maxSOR ${filters.sor}"               : null,
+      filters.fs          ? "--maxFS ${filters.fs}"                 : null,
+      filters.mq          ? "--minMQ ${filters.mq}"                 : null,
+      filters.mqrs        ? "--maxMQRankSum ${filters.mqrs}"        : null,
+      filters.rprs        ? "--maxReadPosRankSum ${filters.rprs}"   : null,
+      filters.maf         ? "--minMAF ${filters.maf}"               : null,
+      filters.mac         ? "--minMAC ${filters.mac}"               : null,
+      filters.eh          ? "--excessHet ${filters.eh}"             : null,
+      filters.dp_min      ? "--minDP ${filters.dp_min}"             : null,
+      filters.dp_max      ? "--maxDP ${filters.dp_max}"             : null,
+      filters.max_missing ? "--max-missing ${filters.max_missing}"  : null,
+      filters.custom_flags? "${filters.custom_flags}"               : null
+    ].findAll{ it }.join(' ')
+
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
@@ -26,20 +45,7 @@ process FILTER_VCF_SITES {
         ${task.memory.giga} \
         ${vcf} \
         "${variant_type}" \
-        "${qd}" \
-        "${qual}" \
-        "${sor}" \
-        "${fs}" \
-        "${mq}" \
-        "${mqrs}" \
-        "${rprs}" \
-        "${maf}" \
-        "${mac}" \
-        "${eh}" \
-        "${dp_min}" \
-        "${dp_max}" \
-        "${max_missing}" \
-        "${custom_flags}" \
+        ${flags} \
         ${mask_bed}
 
     """

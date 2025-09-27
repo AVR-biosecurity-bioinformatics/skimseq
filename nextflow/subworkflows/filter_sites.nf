@@ -61,72 +61,62 @@ workflow FILTER_SITES {
         params.sample_max_missing
     )
 
-    // collect SNP filtering parameters into a single list
-    Channel.of(
-        "snp",
-        params.snp_qd,          
-        params.snp_qual,        
-        params.snp_sor,         
-        params.snp_fs,          
-        params.snp_mq,          
-        params.snp_mqrs,        
-        params.snp_rprs,        
-        params.snp_maf,      
-        params.snp_mac,            
-        params.snp_eh,          
-        params.snp_dp_min,      
-        params.snp_dp_max,
-        params.snp_max_missing,
-        params.snp_custom_flags
-    )
-    .collect( sort: false )
-    .set { ch_snp_filters }
+    // collect SNP filtering parameters into a map
+    // TODO: how to handle custom flags?
+    def SNP_FILTERS = [
+        type: 'snp',
+        qd: params.snp_qd,
+        qual: params.snp_qual,
+        sor: params.snp_sor,
+        fs: params.snp_fs,
+        mq: params.snp_mq,
+        mqrs: params.snp_mqrs,
+        rprs: params.snp_rprs,
+        maf: params.snp_maf,
+        mac: params.snp_mac,
+        eh: params.snp_eh,
+        dp_min: params.snp_dp_min,
+        dp_max: params.snp_dp_max,
+        max_missing: params.snp_max_missing,
+        custom_flags: params.snp_custom_flags
+    ]
 
-    // collect indel filtering parameters into a single list
-    Channel.of (
-        "indel",
-        params.indel_qd,          
-        params.indel_qual,        
-        "NA",         
-        params.indel_fs,          
-        "NA",       
-        "NA",       
-        params.indel_rprs,        
-        params.indel_maf,      
-        params.indel_mac,            
-        params.indel_eh,          
-        params.indel_dp_min,      
-        params.indel_dp_max,
-        params.indel_max_missing,
-        params.indel_custom_flags
-    )
-    .collect ( sort: false )
-    .set { ch_indel_filters }
+
+    // collect indel filtering parameters into a map
+    def INDEL_FILTERS = [
+        type: 'indel',
+        qd: params.indel_qd,
+        qual: params.indel_qual,
+        fs: params.indel_fs,
+        rprs: params.indel_rprs,
+        maf: params.indel_maf,
+        mac: params.indel_mac,
+        eh: params.indel_eh,
+        dp_min: params.indel_dp_min,
+        dp_max: params.indel_dp_max,
+        max_missing: params.indel_max_missing,
+        custom_flags: params.indel_custom_flags
+    ]
 
     // collect invariant filtering parameters into a single list
-    Channel.of (     
-        "invariant",
-        "NA",          
-        "NA",       
-        "NA",         
-        "NA",          
-        "NA",       
-        "NA",       
-        "NA",    
-        "NA",     
-        "NA",            
-        "NA",          
-        params.inv_dp_min,      
-        params.inv_dp_max,
-        params.inv_max_missing,
-        params.inv_custom_flags,
-    )
-    .collect ( sort: false )
-    .set { ch_inv_filters }
+    def INV_FILTERS = [
+        type: 'invariant',
+        dp_min: params.inv_dp_min,
+        dp_max: params.inv_dp_max,
+        max_missing: params.inv_max_missing,
+        custom_flags: params.inv_custom_flags
+    ]
+
+    // Create value channels
+    Channel.value(SNP_FILTERS).set { ch_snp_filters }
+    Channel.value(INDEL_FILTERS).set { ch_indel_filters }
+    Channel.value(INV_FILTERS).set { ch_inv_filters }
+
 
     // filter SNPs
     FILTER_SNPS (
         FILTER_VCF_SAMPLES.out.vcf,
+        "snp",
         ch_snp_filters,
         ch_mask_bed_vcf
     )
@@ -134,6 +124,7 @@ workflow FILTER_SITES {
     // filter indels
     FILTER_INDELS (
         FILTER_VCF_SAMPLES.out.vcf,
+        "indel",
         ch_indel_filters,
         ch_mask_bed_vcf
     )
@@ -141,6 +132,7 @@ workflow FILTER_SITES {
     // filter indels
     FILTER_INVARIANT (
         FILTER_VCF_SAMPLES.out.vcf,
+        "invariant",
         ch_inv_filters,
         ch_mask_bed_vcf
     )

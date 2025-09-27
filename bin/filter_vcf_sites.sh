@@ -6,21 +6,8 @@ set -u
 # $2 = mem
 # $3 = vcf
 # $4 = variant_type
-# $5 = qd
-# $6 = qual
-# $7 = sor
-# $8 = fs
-# $9 = mq
-# $10 = mqrs
-# $11 = rprs
-# $12 = maf
-# $13 = mac
-# $14 = eh
-# $15 = dp_min
-# $16 = dp_max
-# $17 = max_missing
-# $18 = custom_flags
-# $19 = mask_bed
+# $5 = flags
+# $6 = mask_bed
 
 # QD = Quality by depth (variant confidence (from the QUAL field) divided by the unfiltered depth of non-hom-ref samples.)
 # QUAL = Raw quality
@@ -39,7 +26,7 @@ if (( java_mem < 1 )); then
 fi
 
 # Make sure mask file is sorted and unique
-bedtools sort -i ${19} | uniq > vcf_masks.bed
+bedtools sort -i ${6} | uniq > vcf_masks.bed
 
 # Index mask bed for use in filtering
 gatk IndexFeatureFile \
@@ -67,34 +54,11 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" SelectVariants \
 	$RESTRICT \
 	-O tmp.vcf.gz
 
-# Set up filters
-filters=()
-if [[ ${18} == "none" ]]; then
-	# use individual parameters
-    [[ "${5}"  != NA ]] && filters+=( -filter "QD < ${5}"                --filter-name QD )
-    [[ "${6}"  != NA ]] && filters+=( -filter "QUAL < ${6}"              --filter-name QUAL )
-    [[ "${7}"  != NA ]] && filters+=( -filter "SOR > ${7}"               --filter-name SOR )
-    [[ "${8}"  != NA ]] && filters+=( -filter "FS > ${8}"                --filter-name FS )
-    [[ "${9}"  != NA ]] && filters+=( -filter "MQ < ${9}"                --filter-name MQ )
-    [[ "${10}"  != NA ]] && filters+=( -filter "MQRankSum < ${10}"       --filter-name MQRankSum )
-    [[ "${11}"  != NA ]] && filters+=( -filter "ReadPosRankSum < ${11}"  --filter-name ReadPosRankSum )
-    [[ "${12}" != NA ]] && filters+=( -filter "MAF < ${12}"              --filter-name MAF )
-    [[ "${13}" != NA ]] && filters+=( -filter "MAC < ${13}"              --filter-name MAC )
-    [[ "${14}" != NA ]] && filters+=( -filter "ExcessHet > ${14}"        --filter-name ExcessHet )
-    [[ "${15}" != NA ]] && filters+=( -filter "DP < ${15}"               --filter-name DPmin )
-    [[ "${16}" != NA ]] && filters+=( -filter "DP > ${16}"               --filter-name DPmax )
-    [[ "${17}" != NA ]] && filters+=( -filter "F_MISSING > ${17}"        --filter-name F_MISSING )
-
-else
-	# use custom filters
-	filters+=(${18})
-fi
-
 # Annotate filter column for sites that fail filters
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" VariantFiltration \
 	--verbosity ERROR \
 	-V tmp.vcf.gz \
-	"${filters[@]}" \
+	"${5}" \
 	--mask vcf_masks.bed --mask-name "Mask" \
 	-O tmp_annot.vcf.gz
 
