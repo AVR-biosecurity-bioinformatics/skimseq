@@ -77,8 +77,7 @@ workflow FILTER_SITES {
         eh: params.snp_eh,
         dp_min: params.snp_dp_min,
         dp_max: params.snp_dp_max,
-        max_missing: params.snp_max_missing,
-        custom_flags: params.snp_custom_flags
+        max_missing: params.snp_max_missing
     ]
 
 
@@ -94,8 +93,7 @@ workflow FILTER_SITES {
         eh: params.indel_eh,
         dp_min: params.indel_dp_min,
         dp_max: params.indel_dp_max,
-        max_missing: params.indel_max_missing,
-        custom_flags: params.indel_custom_flags
+        max_missing: params.indel_max_missing
     ]
 
     // collect invariant filtering parameters into a single list
@@ -103,8 +101,7 @@ workflow FILTER_SITES {
         type: 'invariant',
         dp_min: params.inv_dp_min,
         dp_max: params.inv_dp_max,
-        max_missing: params.inv_max_missing,
-        custom_flags: params.inv_custom_flags
+        max_missing: params.inv_max_missing
     ]
 
     // Create value channels

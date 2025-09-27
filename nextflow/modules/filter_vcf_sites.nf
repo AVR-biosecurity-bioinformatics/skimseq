@@ -17,22 +17,21 @@ process FILTER_VCF_SITES {
     path("*.table.gz"),                                                  emit: tables
     
     script:
-    // Build flags (skip null/empty)
+    // Build filtering flags from map (skip null/empty)
     def flags = [
-      filters.qd          ? "--minQD ${filters.qd}"                 : null,
-      filters.qual        ? "--minQUAL ${filters.qual}"             : null,
-      filters.sor         ? "--maxSOR ${filters.sor}"               : null,
-      filters.fs          ? "--maxFS ${filters.fs}"                 : null,
-      filters.mq          ? "--minMQ ${filters.mq}"                 : null,
-      filters.mqrs        ? "--maxMQRankSum ${filters.mqrs}"        : null,
-      filters.rprs        ? "--maxReadPosRankSum ${filters.rprs}"   : null,
-      filters.maf         ? "--minMAF ${filters.maf}"               : null,
-      filters.mac         ? "--minMAC ${filters.mac}"               : null,
-      filters.eh          ? "--excessHet ${filters.eh}"             : null,
-      filters.dp_min      ? "--minDP ${filters.dp_min}"             : null,
-      filters.dp_max      ? "--maxDP ${filters.dp_max}"             : null,
-      filters.max_missing ? "--max-missing ${filters.max_missing}"  : null,
-      filters.custom_flags? "${filters.custom_flags}"               : null
+      filters.qd          ? "-filter QD < ${filters.qd} --filter-name QD"                           : null,
+      filters.qual        ? "-filter QUAL < ${filters.qual} --filter-name QUAL"                     : null,
+      filters.sor         ? "-filter SOR > ${filters.sor} --filter-name SOR"                        : null,
+      filters.fs          ? "-filter FS > ${filters.fs} --filter-name FS"                           : null,
+      filters.mq          ? "-filter MQ < ${filters.mq} --filter-name MQ"                           : null,
+      filters.mqrs        ? "-filter MQRankSum < ${filters.mqrs} --filter-name MQRankSum"           : null,
+      filters.rprs        ? "-filter ReadPosRankSum < ${filters.rprs} --filter-name ReadPosRankSum" : null,
+      filters.maf         ? "-filter MAF < ${filters.maf} --filter-name MAF"                        : null,
+      filters.mac         ? "-filter MAC < ${filters.mac} --filter-name MAC"                        : null,
+      filters.eh          ? "-filter ExcessHet > ${filters.eh} --filter-name ExcessHet"             : null,
+      filters.dp_min      ? "-filter DP < ${filters.dp_min} --filter-name DPmin"                    : null,
+      filters.dp_max      ? "-filter DP > ${filters.dp_max}--filter-name DPmax"                     : null,
+      filters.max_missing ? "-filter F_MISSING > ${filters.max_missing} --filter-name F_MISSING"    : null
     ].findAll{ it }.join(' ')
 
     def process_script = "${process_name}.sh"
