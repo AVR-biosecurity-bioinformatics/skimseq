@@ -135,14 +135,15 @@ workflow FILTER_SITES {
     )
 
     // plot variant qc
-    PLOT_SITE_FILTERS (
-        FILTER_SNPS.out.tables,
-        FILTER_INDELS.out.tables,
-        FILTER_INVARIANT.out.tables,
-        ch_snp_filters,
-        ch_indel_filters,
-        ch_inv_filters
-    )
+    // NOT WORKING WITH NEW MAP APPROACH
+   //PLOT_SITE_FILTERS (
+   //     FILTER_SNPS.out.tables,
+   //     FILTER_INDELS.out.tables,
+   //     FILTER_INVARIANT.out.tables,
+   //     ch_snp_filters,
+   //     ch_indel_filters,
+   //     ch_inv_filters
+   // )
 
     // Create channel of VCFs to merge
     FILTER_SNPS.out.vcf

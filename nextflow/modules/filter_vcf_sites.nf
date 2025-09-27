@@ -17,22 +17,26 @@ process FILTER_VCF_SITES {
     path("*.table.gz"),                                                  emit: tables
     
     script:
+    // helper to build one filter clause with quotes
+    def mkFilter = { expr, name -> "-filter \"${expr}\" --filter-name ${name}" }
+
     // Build filtering flags from map (skip null/empty)
     def flags = [
-      filters.qd          ? "-filter QD < ${filters.qd} --filter-name QD"                           : null,
-      filters.qual        ? "-filter QUAL < ${filters.qual} --filter-name QUAL"                     : null,
-      filters.sor         ? "-filter SOR > ${filters.sor} --filter-name SOR"                        : null,
-      filters.fs          ? "-filter FS > ${filters.fs} --filter-name FS"                           : null,
-      filters.mq          ? "-filter MQ < ${filters.mq} --filter-name MQ"                           : null,
-      filters.mqrs        ? "-filter MQRankSum < ${filters.mqrs} --filter-name MQRankSum"           : null,
-      filters.rprs        ? "-filter ReadPosRankSum < ${filters.rprs} --filter-name ReadPosRankSum" : null,
-      filters.maf         ? "-filter MAF < ${filters.maf} --filter-name MAF"                        : null,
-      filters.mac         ? "-filter MAC < ${filters.mac} --filter-name MAC"                        : null,
-      filters.eh          ? "-filter ExcessHet > ${filters.eh} --filter-name ExcessHet"             : null,
-      filters.dp_min      ? "-filter DP < ${filters.dp_min} --filter-name DPmin"                    : null,
-      filters.dp_max      ? "-filter DP > ${filters.dp_max}--filter-name DPmax"                     : null,
-      filters.max_missing ? "-filter F_MISSING > ${filters.max_missing} --filter-name F_MISSING"    : null
-    ].findAll{ it }.join(' ')
+    filters.qd          != null ? mkFilter("QD < ${filters.qd}",                      "QD")              : null,
+    filters.qual        != null ? mkFilter("QUAL < ${filters.qual}",                  "QUAL")            : null,
+    filters.sor         != null ? mkFilter("SOR > ${filters.sor}",                    "SOR")             : null,
+    filters.fs          != null ? mkFilter("FS > ${filters.fs}",                      "FS")              : null,
+    filters.mq          != null ? mkFilter("MQ < ${filters.mq}",                      "MQ")              : null,
+    filters.mqrs        != null ? mkFilter("MQRankSum < ${filters.mqrs}",             "MQRankSum")       : null,
+    filters.rprs        != null ? mkFilter("ReadPosRankSum < ${filters.rprs}",        "ReadPosRankSum")  : null,
+    filters.maf         != null ? mkFilter("MAF < ${filters.maf}",                    "MAF")             : null,
+    filters.mac         != null ? mkFilter("MAC < ${filters.mac}",                    "MAC")             : null,
+    filters.eh          != null ? mkFilter("ExcessHet > ${filters.eh}",               "ExcessHet")       : null,
+    filters.dp_min      != null ? mkFilter("DP < ${filters.dp_min}",                  "DPmin")           : null,
+    filters.dp_max      != null ? mkFilter("DP > ${filters.dp_max}",                  "DPmax")           : null,
+    filters.max_missing != null ? mkFilter("F_MISSING > ${filters.max_missing}",      "F_MISSING")       : null
+    ].findAll{ it }  // drop nulls
+    .join(' ')
 
     def process_script = "${process_name}.sh"
     """
@@ -44,8 +48,8 @@ process FILTER_VCF_SITES {
         ${task.memory.giga} \
         ${vcf} \
         "${variant_type}" \
-        ${flags} \
-        ${mask_bed}
+        ${mask_bed} \
+        ${flags}
 
     """
 }
