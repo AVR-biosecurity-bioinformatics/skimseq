@@ -134,7 +134,7 @@ workflow GATK_GENOTYPING {
     COUNT_VCF_BED_SHORT (
         MERGE_GVCFS.out.vcf,
         ch_short_bed.first(),
-        ch_mask_bed_gatk,
+        ch_dummy_file,
         ch_genome_indexed
     )
     .map { sample, counts -> counts }
