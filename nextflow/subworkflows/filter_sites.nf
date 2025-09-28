@@ -5,7 +5,6 @@
 //// import modules
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { MERGE_VCFS                                   } from '../modules/merge_vcfs'
-include { MERGE_VCFS as MERGE_ALL                      } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_SITE_FILTERS                            } from '../modules/plot_site_filters'
 include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
@@ -72,24 +71,29 @@ workflow FILTER_SITES {
         gt_dp_max: params.gt_dp_max
     ]
 
-    // Create joint channel for next step
+    // Create joint of all 3 variant type filters
     Channel
-    .from(SNP_FILTERS, INDEL_FILTERS, INV_FILTERS)
-    .map { f -> tuple(f.type as String, f) }
-    .set { ch_type_filters }     // emits: val(type), val(filters)
+        .from(SNP_FILTERS, INDEL_FILTERS, INV_FILTERS)
+        .map { f -> tuple(f.type as String, f) }
+        .set { ch_type_filters }
+    
+    // For each input VCF, combine with type_filters and run FILTER_VCF for each type
+    FILTER_VCF (
+        ch_vcf_to_filter.combine( ch_type_filters ),
+	    ch_mask_bed_vcf
+    )
 
-    // For each input VCF, run FILTER_VCF three times (snp/indel/invariant)
-    ch_vcf
-        .cross( ch_type_filters ) 
-        .map { vcf, vcf_tbi, type, filters -> tuple(vcf, vcf_tbi, type, filters, ch_mask_bed_vcf) }
-        | FILTER_VCF
+    // Create a channel of all 3 variant types + all together for merging
+    FILTER_VCF.out.vcf
+        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('all', vcf, tbi) })
+        .groupTuple(by: 0)
+        .set { ch_vcf_to_merge }
 
     // Group all filtered VCFs by variant type and merge
-    FILTER_VCF.out.vcf
-    .map { type, vcf, tbi -> tuple(type, vcf) }
-    .groupTuple()
-    | MERGE_VCFS
-
+    MERGE_VCFS (
+        ch_vcf_to_merge
+    )
+      
     // plot variant qc
     // NOT WORKING WITH NEW MAP APPROACH
    //PLOT_SITE_FILTERS (
@@ -101,23 +105,16 @@ workflow FILTER_SITES {
    //     ch_inv_filters
    // )
 
-    // Gather all per-type merged VCFs, then merge all into one
-    MERGE_VCFS.out.vcf
-        .map { type, vcf, tbi -> vcf }
-        .collect() 
-        .map { vcf_list -> tuple('all', vcf_list) }
-        | MERGE_ALL
-        .set { ch_merged_all }
-
     // Calculate VCF statistics
-    VCF_STATS (
-         ch_merged_all.map { sample, vcf, tbi -> [ vcf, tbi ] },
-         ch_genome_indexed,
-         ch_sample_names
+   VCF_STATS (
+        MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] },
+        ch_genome_indexed,
+        ch_sample_names
     )
         
-    emit: 
-    filtered_all = ch_merged_all.map { type, vcf, tbi -> [ vcf, tbi ] }
+    // Subset the merged vcf channels to each variant type for emission
+    emit:
+    filtered_all = MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }
     filtered_snps = MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }
     filtered_indels = MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }
     reports = VCF_STATS.out.vcfstats

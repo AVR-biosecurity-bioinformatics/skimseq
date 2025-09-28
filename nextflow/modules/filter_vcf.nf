@@ -7,10 +7,11 @@ process FILTER_VCF {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi), val(variant_type), val(filters), path(mask_bed)
+    tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type), val(filters)
+    path(mask_bed)
 
     output: 
-    tuple path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),        emit: vcf
+    tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),        emit: vcf
     //path("*.table.gz"),                                                  emit: tables
     
     script:
