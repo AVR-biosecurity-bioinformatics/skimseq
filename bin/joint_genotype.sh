@@ -120,43 +120,10 @@ bcftools view joint_called_posterior.vcf.gz -Ov \
     | awk 'BEGIN{OFS="\t"}
         /^#/ {print; next}
         { if($5=="<NON_REF>") $5="."; print }' \
-    | bgzip > tmp.vcf.gz
-tabix tmp.vcf.gz
-
-# Add additional info tags to be used for filtering
-bcftools +fill-tags --threads ${1} tmp.vcf.gz -o tmp2.vcf.gz -- -t AC,AN,MAF,F_MISSING,NS
-
-# Add minor alelle count (MAC) info tag
-
-# First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp2.vcf.gz \
-| awk 'BEGIN{OFS="\t"}
-       {
-         split($3,ac,",")          # AC is comma‑separated if multi‑allelic
-         mac=$4                    # start with AN
-         refCount = $4             # will be AN - sum(AC)
-         for(i in ac){refCount-=ac[i]; mac=(ac[i]<mac?ac[i]:mac)}
-         mac=(refCount<mac?refCount:mac)
-         print $1,$2,mac
-       }'                         \
-| bgzip > MAC.tsv.gz
-tabix -s1 -b2 -e2 MAC.tsv.gz
-
-# Create VCF header line for MAC filter
-cat > add_MAC.hdr <<'EOF'
-##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
-EOF
-
-# Annotate the vcf with INFO/MAC
-bcftools annotate \
-     -h add_MAC.hdr \
-     -a MAC.tsv.gz \
-     -c CHROM,POS,INFO/MAC \
-     -O z -o ${5}.vcf.gz \
-     tmp2.vcf.gz
+    | bgzip > ${5}.vcf.gz
 
 # reindex the output file
-tabix ${5}.vcf.gz
+bcftools index --threads ${1} ${5}.vcf.gz
 
 # Remove temporary files
-rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz* tmp.vcf.gz* tmp2.vcf.gz*
+rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz* 
