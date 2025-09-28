@@ -193,18 +193,19 @@ workflow GATK_GENOTYPING {
 
     // collect joint called .vcfs into a single element
     // Use collect without flattening and transpose to get [[vcf] [tbi]]
-    JOINT_GENOTYPE.out.vcf
-        .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
-        .collect(flat: false)
- 	    .map { it.transpose() }
-        .set { ch_vcfs }
+    //JOINT_GENOTYPE.out.vcf
+    //    .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
+    //    .collect(flat: false)
+ 	//    .map { it.transpose() }
+    //    .set { ch_vcfs }
 
     // merge interval .vcfs into a single file
-    MERGE_VCFS (
-        ch_vcfs,
-        "joint"
-    )
+    //MERGE_VCFS (
+    //    ch_vcfs,
+    //    "joint"
+    //)
 
     emit: 
-    vcf = MERGE_VCFS.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
+    //vcf = MERGE_VCFS.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
+    vcf = JOINT_GENOTYPE.out.vcf
 }

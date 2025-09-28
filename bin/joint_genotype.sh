@@ -23,7 +23,7 @@ fi
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
 if [[ "${9}" == "false" ]]; then
     # joint genotype variant sites only
-    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenotypeGVCFs \
+    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
         -R ${4} \
         -V gendb://${3} \
         -L ${6} \
@@ -43,7 +43,7 @@ elif [[ "${9}" == "true" ]]; then
     # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
 
     # genotype both variant and invariant sites 
-    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  GenotypeGVCFs \
+    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G"  GenotypeGVCFs \
         -R ${4} \
         -V gendb://${3} \
         -L ${6} \
@@ -108,7 +108,7 @@ else
 fi 
 
 # Calculate genotype posteriors over genomic intervals
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" CalculateGenotypePosteriors \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" CalculateGenotypePosteriors \
     -V joint_called.vcf.gz \
     -L ${6} \
     -O joint_called_posterior.vcf.gz \
