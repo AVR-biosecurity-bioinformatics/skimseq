@@ -105,8 +105,7 @@ workflow GATK_GENOTYPING {
         .set { ch_gvcf_to_merge }
 
     MERGE_GVCFS (
-        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ gvcf, tbi ] },
-        ch_gvcf_to_merge.flatMap { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample ] }
+        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample, gvcf, tbi ] }
     )
 
     /* 
