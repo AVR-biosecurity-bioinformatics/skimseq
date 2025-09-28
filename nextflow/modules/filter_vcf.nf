@@ -7,7 +7,7 @@ process FILTER_VCF {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi)
+    tuple val(interval_hash), path(interval_bed), path(vcf), path(vcf_tbi)
     val(variant_type)
     val(filters)
     path(mask_bed)
@@ -58,7 +58,8 @@ process FILTER_VCF {
         ${task.memory.giga} \
         ${vcf} \
         "${variant_type}" \
-        ${mask_bed}
+        ${mask_bed} \
+        ${interval_hash}
 
     """
 }

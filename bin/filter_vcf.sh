@@ -7,6 +7,7 @@ set -uoe pipefail
 # $3 = vcf
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
+# $6 = interval_hash
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
@@ -83,10 +84,10 @@ bcftools filter --threads ${1} -Ou -e "
 tmp3.vcf.gz \
 | \
 # Keep only variants that PASS
-bcftools view --threads ${1} -f PASS -Oz -o ${4}_filtered.vcf.gz
+bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_filtered.vcf.gz
 
 # Index output vcf
-bcftools index --threads ${1} -t ${4}_filtered.vcf.gz
+bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 
 # Remove temporary vcf files
 rm -f tmp* *.tsv.gz

@@ -3,12 +3,8 @@
 */
 
 //// import modules
-include { FILTER_VCF as FILTER_SNPS                    } from '../modules/filter_vcf'
-include { FILTER_VCF as FILTER_INDELS                  } from '../modules/filter_vcf'
-include { FILTER_VCF as FILTER_INVARIANT               } from '../modules/filter_vcf'
-include { MERGE_VCFS as MERGE_SNPS                     } from '../modules/merge_vcfs'
-include { MERGE_VCFS as MERGE_INDELS                   } from '../modules/merge_vcfs'
-include { MERGE_VCFS as MERGE_INVARIANT                } from '../modules/merge_vcfs'
+include { FILTER_VCF                                   } from '../modules/filter_vcf'
+include { MERGE_VCFS                                   } from '../modules/merge_vcfs'
 include { MERGE_VCFS as MERGE_ALL                      } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_SITE_FILTERS                            } from '../modules/plot_site_filters'
@@ -76,67 +72,23 @@ workflow FILTER_SITES {
         gt_dp_max: params.gt_dp_max
     ]
 
-    // Create value channels
-    Channel.value(SNP_FILTERS).set { ch_snp_filters }
-    Channel.value(INDEL_FILTERS).set { ch_indel_filters }
-    Channel.value(INV_FILTERS).set { ch_inv_filters }
+    // Create joint channel for next step
+    Channel
+    .from(SNP_FILTERS, INDEL_FILTERS, INV_FILTERS)
+    .map { f -> tuple(f.type as String, f) }
+    .set { ch_type_filters }     // emits: val(type), val(filters)
 
+    // For each input VCF, run FILTER_VCF three times (snp/indel/invariant)
+    ch_vcf
+        .cross( ch_type_filters ) 
+        .map { vcf, vcf_tbi, type, filters -> tuple(vcf, vcf_tbi, type, filters, ch_mask_bed_vcf) }
+        | FILTER_VCF
 
-    // Filter SNPs in parallel, then merge
-    FILTER_SNPS (
-        ch_vcf,
-        "snp",
-        ch_snp_filters,
-        ch_mask_bed_vcf
-    )
-
-    FILTER_SNPS.out.vcf
-            .collect(flat: false)
-            .map { it.transpose() }
-            .set { ch_snps_to_merge }
-
-    MERGE_SNPS (
-        ch_snps_to_merge,
-        "snp"
-    )
-
-    // filter indels in parallel, then merge
-    FILTER_INDELS (
-        ch_vcf,
-        "indel",
-        ch_indel_filters,
-        ch_mask_bed_vcf
-    )
-
-    FILTER_INDELS.out.vcf
-            .collect(flat: false)
-            .map { it.transpose() }
-            .set { ch_indels_to_merge }
-
-    // Merged filtered indels
-    MERGE_INDELS (
-        ch_indels_to_merge,
-        "indel"
-    )
-
-    // filter invariants in parallel, th
-    FILTER_INVARIANT (
-        ch_vcf,
-        "invariant",
-        ch_inv_filters,
-        ch_mask_bed_vcf
-    )
-
-    FILTER_INVARIANT.out.vcf
-            .collect(flat: false)
-            .map { it.transpose() }
-            .set { ch_invariants_to_merge }
-
-    // Merged filtered invariants
-    MERGE_INVARIANT (
-        ch_invariants_to_merge,
-        "invariant"
-    )
+    // Group all filtered VCFs by variant type and merge
+    FILTER_VCF.out.vcf
+    .map { type, vcf, tbi -> tuple(type, vcf) }
+    .groupTuple()
+    | MERGE_VCFS
 
     // plot variant qc
     // NOT WORKING WITH NEW MAP APPROACH
@@ -149,35 +101,25 @@ workflow FILTER_SITES {
    //     ch_inv_filters
    // )
 
-    // Create channel of ALL VCFs to merge
-    FILTER_SNPS.out.vcf
-        .mix(FILTER_INDELS.out.vcf, FILTER_INVARIANT.out.vcf)
-        .collect(flat: false)
- 	    .map { it.transpose() }
-        .set { ch_all_to_merge }
-
-    // merge filtered SNPs and indels together into one file
-    // TODO: change the output name to the project name
-    MERGE_ALL (
-        ch_all_to_merge,
-        "merged"
-    )
+    // Gather all per-type merged VCFs, then merge all into one
+    MERGE_VCFS.out.vcf
+        .map { type, vcf, tbi -> vcf }
+        .collect() 
+        .map { vcf_list -> tuple('all', vcf_list) }
+        | MERGE_ALL
+        .set { ch_merged_all }
 
     // Calculate VCF statistics
     VCF_STATS (
-         MERGE_ALL.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] },
+         ch_merged_all.map { sample, vcf, tbi -> [ vcf, tbi ] },
          ch_genome_indexed,
          ch_sample_names
     )
-
-    // Create reports channel for multiqc
-    VCF_STATS.out.vcfstats
-        .set { ch_reports}
         
     emit: 
-    filtered_all = MERGE_ALL.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
-    filtered_snps = FILTER_SNPS.out.vcf
-    filtered_indels = FILTER_INDELS.out.vcf
-    reports = ch_reports
+    filtered_all = ch_merged_all.map { type, vcf, tbi -> [ vcf, tbi ] }
+    filtered_snps = MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }
+    filtered_indels = MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }
+    reports = VCF_STATS.out.vcfstats
 
 }

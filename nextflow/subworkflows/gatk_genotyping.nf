@@ -6,7 +6,6 @@
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
-include { MERGE_VCFS                                             } from '../modules/merge_vcfs' 
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
@@ -191,21 +190,6 @@ workflow GATK_GENOTYPING {
         params.output_invariant
     )
 
-    // collect joint called .vcfs into a single element
-    // Use collect without flattening and transpose to get [[vcf] [tbi]]
-    //JOINT_GENOTYPE.out.vcf
-    //    .map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
-    //    .collect(flat: false)
- 	//    .map { it.transpose() }
-    //    .set { ch_vcfs }
-
-    // merge interval .vcfs into a single file
-    //MERGE_VCFS (
-    //    ch_vcfs,
-    //    "joint"
-    //)
-
     emit: 
-    //vcf = MERGE_VCFS.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
-    vcf = JOINT_GENOTYPE.out.vcf.map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
+    vcf = JOINT_GENOTYPE.out.vcf
 }
