@@ -123,7 +123,7 @@ bcftools view joint_called_posterior.vcf.gz -Ov \
     | bgzip > ${5}.vcf.gz
 
 # reindex the output file
-bcftools index --threads ${1} ${5}.vcf.gz
+bcftools index -t --threads ${1} ${5}.vcf.gz
 
 # Remove temporary files
 rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz* 
