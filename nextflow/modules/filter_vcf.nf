@@ -14,7 +14,7 @@ process FILTER_VCF {
 
     output: 
     tuple path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),        emit: vcf
-    path("*.table.gz"),                                                  emit: tables
+    //path("*.table.gz"),                                                  emit: tables
     
     script:
     // Env exports for +setGT (genotype-level)

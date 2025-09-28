@@ -24,44 +24,6 @@ workflow FILTER_SITES {
 
     main: 
 
-    // collect generic genotype filtering parameters into a single list
-    // These are used for all variant types
-    //Channel.of(
-    //    params.gt_qual,        
-    //    params.gt_dp_min,         
-    //    params.gt_dp_max
-    //)
-    //.collect( sort: false )
-    //.set { ch_geno_filters }
-
-    // filter genotypes
-   // FILTER_VCF_GT (
-   //     ch_vcf,
-   //     ch_geno_filters
-   // )
-
-    // plot genotype qc
-   // PLOT_GT_FILTERS (
-   //     FILTER_VCF_GT.out.tables,
-    //    ch_geno_filters
-    //)
-
-    // filter samples
-   // FILTER_VCF_SAMPLES (
-   //     FILTER_VCF_GT.out.vcf,
-   //     params.sample_max_missing
-   // )
-
-   // FILTER_VCF_SAMPLES.out.samples_to_keep
-   //     .splitText( by: 1 )
-   //     .set { ch_sample_names }
-
-    // plot samples qc
-    //PLOT_SAMPLE_FILTERS (
-   //     FILTER_VCF_SAMPLES.out.tables,
-    //    params.sample_max_missing
-    //)
-
     // collect SNP filtering parameters into a map
     // TODO: how to handle custom flags?
     def SNP_FILTERS = [

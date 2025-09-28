@@ -24,6 +24,8 @@ case "$VTYPE" in
   *) echo "variant_type must be snp|indel|invariant"; exit 1;;
 esac
 
+## TODO: Move all annotations to here
+
 # Subset to target variant class
 bcftools view ${TYPE_ARGS} -Ou "$VCF" \
 | \
@@ -32,7 +34,7 @@ bcftools +setGT -Ou -- -t q -n . \
     -i "FMT/GQ < ${GQ:-0} || FMT/DP < ${gtDPmin:-0} || FMT/DP > ${gtDPmax:-999999}" \
 | \
 # Recompute site tags that depend on GTs
-bcftools +fill-tags -Ou -- -t AC,AN,AF,MAF,MAC,DP \
+bcftools +fill-tags -Ou -- -t AC,AN,AF,MAF \
 | \
 # Site-level filtering (uses env vars exported by Nextflow)
 bcftools filter -Ou -e "
@@ -50,10 +52,11 @@ bcftools filter -Ou -e "
     (INFO/DP > ${DPmax:-999999999}) ||
     (F_MISSING > ${F_MISSING:-1})
 " \
-| \
-# Apply BED mask as FILTER flag "Mask"
-bcftools annotate -Ou -a vcf_masks.bed -c CHROM,FROM,TO,FILTER/Mask \
+-M vcf_masks.bed \
+--soft-filter + \
 | \
 # Write output + index
 bcftools view -Oz -o filtered.vcf.gz
 bcftools index -t filtered.vcf.gz
+
+# TODO: Add exit code passing for piper
