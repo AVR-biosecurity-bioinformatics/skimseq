@@ -26,13 +26,13 @@ workflow FILTER_SITES {
 
     // collect generic genotype filtering parameters into a single list
     // These are used for all variant types
-    Channel.of(
-        params.gt_qual,        
-        params.gt_dp_min,         
-        params.gt_dp_max
-    )
-    .collect( sort: false )
-    .set { ch_geno_filters }
+    //Channel.of(
+    //    params.gt_qual,        
+    //    params.gt_dp_min,         
+    //    params.gt_dp_max
+    //)
+    //.collect( sort: false )
+    //.set { ch_geno_filters }
 
     // filter genotypes
    // FILTER_VCF_GT (
@@ -78,7 +78,10 @@ workflow FILTER_SITES {
         eh: params.snp_eh,
         dp_min: params.snp_dp_min,
         dp_max: params.snp_dp_max,
-        max_missing: params.snp_max_missing
+        max_missing: params.snp_max_missing,
+        gq: params.gt_qual,
+        gt_dp_min: params.gt_dp_min,
+        gt_dp_max: params.gt_dp_max
     ]
 
 
@@ -94,7 +97,10 @@ workflow FILTER_SITES {
         eh: params.indel_eh,
         dp_min: params.indel_dp_min,
         dp_max: params.indel_dp_max,
-        max_missing: params.indel_max_missing
+        max_missing: params.indel_max_missing,
+        gq: params.gt_qual,
+        gt_dp_min: params.gt_dp_min,
+        gt_dp_max: params.gt_dp_max
     ]
 
     // collect invariant filtering parameters into a single list
@@ -102,7 +108,10 @@ workflow FILTER_SITES {
         type: 'invariant',
         dp_min: params.inv_dp_min,
         dp_max: params.inv_dp_max,
-        max_missing: params.inv_max_missing
+        max_missing: params.inv_max_missing,
+        gq: params.gt_qual,
+        gt_dp_min: params.gt_dp_min,
+        gt_dp_max: params.gt_dp_max
     ]
 
     // Create value channels
@@ -113,7 +122,7 @@ workflow FILTER_SITES {
 
     // filter SNPs
     FILTER_SNPS (
-        FILTER_VCF_SAMPLES.out.vcf,
+        ch_vcf,
         "snp",
         ch_snp_filters,
         ch_mask_bed_vcf
@@ -121,7 +130,7 @@ workflow FILTER_SITES {
 
     // filter indels
     FILTER_INDELS (
-        FILTER_VCF_SAMPLES.out.vcf,
+        ch_vcf,
         "indel",
         ch_indel_filters,
         ch_mask_bed_vcf
@@ -129,7 +138,7 @@ workflow FILTER_SITES {
 
     // filter indels
     FILTER_INVARIANT (
-        FILTER_VCF_SAMPLES.out.vcf,
+        ch_vcf,
         "invariant",
         ch_inv_filters,
         ch_mask_bed_vcf
