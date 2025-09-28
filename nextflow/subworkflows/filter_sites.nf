@@ -13,7 +13,7 @@ include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_s
 workflow FILTER_SITES {
 
     take:
-    ch_vcf
+    ch_vcfs
     ch_genome_indexed
     ch_mask_bed_vcf
     ch_sample_names
@@ -79,7 +79,7 @@ workflow FILTER_SITES {
     
     // For each input VCF, combine with type_filters and run FILTER_VCF for each type
     FILTER_VCF (
-        ch_vcf_to_filter.combine( ch_type_filters ),
+        ch_vcfs.combine( ch_type_filters ),
 	    ch_mask_bed_vcf
     )
 
@@ -94,6 +94,12 @@ workflow FILTER_SITES {
         ch_vcf_to_merge
     )
       
+    // Extract merged variant type vcfs into convenient channels
+    MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_all_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_snp_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_indel_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_invariant_filtered }
+
     // plot variant qc
     // NOT WORKING WITH NEW MAP APPROACH
    //PLOT_SITE_FILTERS (
@@ -107,16 +113,16 @@ workflow FILTER_SITES {
 
     // Calculate VCF statistics
    VCF_STATS (
-        MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] },
+        ch_all_filtered,
         ch_genome_indexed,
         ch_sample_names
     )
         
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    filtered_all = MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }
-    filtered_snps = MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }
-    filtered_indels = MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }
+    filtered_all = ch_all_filtered
+    filtered_snps = ch_snp_filtered
+    filtered_indels = ch_indel_filtered
     reports = VCF_STATS.out.vcfstats
 
 }
