@@ -9,9 +9,7 @@ include { FILTER_VCF as FILTER_INVARIANT               } from '../modules/filter
 include { MERGE_VCFS as MERGE_FILTERED                 } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_SITE_FILTERS                            } from '../modules/plot_site_filters'
-include { FILTER_VCF_GT                                } from '../modules/filter_vcf_gt'
 include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
-include { FILTER_VCF_SAMPLES                           } from '../modules/filter_vcf_samples'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
 workflow FILTER_SITES {

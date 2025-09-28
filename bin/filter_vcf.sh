@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail   # no -e so we can inspect PIPESTATUS
+
 ## args:
 # $1 = cpus 
 # $2 = mem (GB)
@@ -47,10 +48,26 @@ bcftools filter --threads ${1} -Ou -e "
     (F_MISSING > ${F_MISSING:-1})
 " \
 -M vcf_masks.bed \
---soft-filter + \
+--soft-filter FILTER \
 | \
-# Write output + index
-bcftools view --threads ${1} -Oz -o ${4}_filtered.vcf.gz
+# Keep only variants that PASS
+bcftools view --threads ${1} -f PASS -Oz -o ${4}_filtered.vcf.gz
+
+# Index output
 bcftools index --threads ${1} -t ${4}_filtered.vcf.gz
 
-# TODO: Add exit code passing for piper
+# Exit code parsing
+# Capture and report individual tool pipe statuses
+st=("${PIPESTATUS[@]}")
+names=("bcftools view" "bcftools setgt" "bcftools filltags" "bcftools filter" "bcftools view")
+
+# Default to exit code 0
+ec=0
+for i in "${!st[@]}"; do
+  if (( st[i] != 0 )); then
+    echo "${names[i]} failed with exit code ${st[i]}" >&2
+    # take the first failing stage
+    ec=${st[i]}                         
+    break
+  fi
+done
