@@ -95,21 +95,35 @@ workflow FILTER_SITES {
     )
       
     // Extract merged variant type vcfs into convenient channels
-    MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_all_filtered }
-    MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_snp_filtered }
-    MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_indel_filtered }
-    MERGE_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.set { ch_invariant_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_all_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
+    MERGE_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
 
-    // plot variant qc
+    // Variant QC plots
     // NOT WORKING WITH NEW MAP APPROACH
-   //PLOT_SITE_FILTERS (
-   //     FILTER_SNPS.out.tables,
-   //     FILTER_INDELS.out.tables,
-   //     FILTER_INVARIANT.out.tables,
-   //     ch_snp_filters,
-   //     ch_indel_filters,
-   //     ch_inv_filters
-   // )
+
+    // plot genotype qc
+    //PLOT_GT_FILTERS (
+    //    FILTER_VCF_GT.out.tables,
+    //    ch_geno_filters
+    //)
+
+    // plot site qc
+    //PLOT_SITE_FILTERS (
+    //     FILTER_SNPS.out.tables,
+    //     FILTER_INDELS.out.tables,
+    //     FILTER_INVARIANT.out.tables,
+    //     ch_snp_filters,
+    //     ch_indel_filters,
+    //     ch_inv_filters
+    // )
+
+    // plot samples qc
+    //PLOT_SAMPLE_FILTERS (
+    //    FILTER_VCF_SAMPLES.out.tables,
+    //    params.sample_max_missing
+    //)
 
     // Calculate VCF statistics
    VCF_STATS (
