@@ -46,7 +46,6 @@ workflow FILTER_SITES {
         gt_dp_max: params.gt_dp_max
     ]
 
-
     // collect indel filtering parameters into a map
     def INDEL_FILTERS = [
         type: 'indel',

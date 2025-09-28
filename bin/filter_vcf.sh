@@ -7,17 +7,11 @@ set -euo pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
 
-CPUS="$1"
-MEM="$2"
-VCF="$3"
-VTYPE="$4"
-MASK="$5"
-
 # Make sure mask file is sorted and unique (and 0-based, half-open)
-sort -k1,1 -k2,2n -k3,3n "$MASK" | uniq > vcf_masks.bed
+sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
 
 # Map VTYPE -> bcftools selectors
-case "$VTYPE" in
+case "${4}" in
   snp)       TYPE_ARGS="-v snps   -m2 -M2 -e 'ALT=\"*\"'";;   # biallelic SNPs, drop star alleles
   indel)     TYPE_ARGS="-v indels -m2 -M2";;                  # biallelic INDELs
   invariant) TYPE_ARGS="-v ref";;                              # reference-only sites (if present)
@@ -27,17 +21,17 @@ esac
 ## TODO: Move all annotations to here
 
 # Subset to target variant class
-bcftools view ${TYPE_ARGS} -Ou "$VCF" \
+bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
 | \
 # Filter genotypes -> set failing GTs to missing
-bcftools +setGT -Ou -- -t q -n . \
+bcftools +setGT --threads ${1} -Ou -- -t q -n . \
     -i "FMT/GQ < ${GQ:-0} || FMT/DP < ${gtDPmin:-0} || FMT/DP > ${gtDPmax:-999999}" \
 | \
 # Recompute site tags that depend on GTs
-bcftools +fill-tags -Ou -- -t AC,AN,AF,MAF \
+bcftools +fill-tags --threads ${1} -Ou -- -t AC,AN,AF,MAF \
 | \
 # Site-level filtering (uses env vars exported by Nextflow)
-bcftools filter -Ou -e "
+bcftools filter --threads ${1} -Ou -e "
     (INFO/QD < ${QD:-0}) ||
     (QUAL < ${QUAL_THR:-0}) ||
     (INFO/SOR > ${SOR:-1e9}) ||
@@ -56,7 +50,7 @@ bcftools filter -Ou -e "
 --soft-filter + \
 | \
 # Write output + index
-bcftools view -Oz -o filtered.vcf.gz
-bcftools index -t filtered.vcf.gz
+bcftools view --threads ${1} -Oz -o ${4}_filtered.vcf.gz
+bcftools index --threads ${1} -t ${4}_filtered.vcf.gz
 
 # TODO: Add exit code passing for piper
