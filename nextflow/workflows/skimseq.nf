@@ -217,9 +217,7 @@ workflow SKIMSEQ {
 
     */
     OUTPUTS (
-        FILTER_SITES.out.filtered_merged,
-        FILTER_SITES.out.filtered_snps,
-        FILTER_SITES.out.filtered_indels,
+        FILTER_SITES.out.vcf,
         ch_genome_indexed,
         ch_sample_pop
     )

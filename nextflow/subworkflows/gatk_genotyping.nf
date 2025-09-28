@@ -207,5 +207,5 @@ workflow GATK_GENOTYPING {
 
     emit: 
     //vcf = MERGE_VCFS.out.vcf.map { sample, vcf, tbi -> [ vcf, tbi ] }
-    vcf = JOINT_GENOTYPE.out.vcf
+    vcf = JOINT_GENOTYPE.out.vcf.map { interval_hash, interval_bed, vcf, tbi -> [ vcf, tbi ] }
 }

@@ -67,6 +67,7 @@ workflow OUTPUTS {
         .mix(ch_pseudohap_out)
         .set{ ch_vcfs_for_dist }
 
+    // Create distance matrices from VCFs
     VCF2DIST (
         ch_vcfs_for_dist
     )
@@ -84,13 +85,6 @@ workflow OUTPUTS {
         ch_popmap,
         false
     )
-
-    // TODO: create ordination plot from covariance matrices generated via PCA
-    //PLOT_ORDINATION (
-    //    VCF2DIST.out.mat,
-    //    ch_popmap,
-    //    true
-    //)
 
     // Create NJ tree
     PLOT_TREE (

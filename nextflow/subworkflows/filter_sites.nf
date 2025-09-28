@@ -6,7 +6,10 @@
 include { FILTER_VCF as FILTER_SNPS                    } from '../modules/filter_vcf'
 include { FILTER_VCF as FILTER_INDELS                  } from '../modules/filter_vcf'
 include { FILTER_VCF as FILTER_INVARIANT               } from '../modules/filter_vcf'
-include { MERGE_VCFS as MERGE_FILTERED                 } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_SNPS                     } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_INDELS                   } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_INVARIANT                } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_ALL                      } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_SITE_FILTERS                            } from '../modules/plot_site_filters'
 include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
@@ -79,7 +82,7 @@ workflow FILTER_SITES {
     Channel.value(INV_FILTERS).set { ch_inv_filters }
 
 
-    // filter SNPs
+    // Filter SNPs in parallel, then merge
     FILTER_SNPS (
         ch_vcf,
         "snp",
@@ -87,7 +90,17 @@ workflow FILTER_SITES {
         ch_mask_bed_vcf
     )
 
-    // filter indels
+    FILTER_SNPS.out.vcf
+            .collect(flat: false)
+            .map { it.transpose() }
+            .set { ch_snps_to_merge }
+
+    MERGE_SNPS (
+        ch_snps_to_merge,
+        "snp"
+    )
+
+    // filter indels in parallel, then merge
     FILTER_INDELS (
         ch_vcf,
         "indel",
@@ -95,12 +108,34 @@ workflow FILTER_SITES {
         ch_mask_bed_vcf
     )
 
-    // filter indels
+    FILTER_INDELS.out.vcf
+            .collect(flat: false)
+            .map { it.transpose() }
+            .set { ch_indels_to_merge }
+
+    // Merged filtered indels
+    MERGE_INDELS (
+        ch_indels_to_merge,
+        "indel"
+    )
+
+    // filter invariants in parallel, th
     FILTER_INVARIANT (
         ch_vcf,
         "invariant",
         ch_inv_filters,
         ch_mask_bed_vcf
+    )
+
+    FILTER_INVARIANT.out.vcf
+            .collect(flat: false)
+            .map { it.transpose() }
+            .set { ch_invariants_to_merge }
+
+    // Merged filtered invariants
+    MERGE_INVARIANT (
+        ch_invariants_to_merge,
+        "invariant"
     )
 
     // plot variant qc
@@ -114,17 +149,17 @@ workflow FILTER_SITES {
    //     ch_inv_filters
    // )
 
-    // Create channel of VCFs to merge
+    // Create channel of ALL VCFs to merge
     FILTER_SNPS.out.vcf
         .mix(FILTER_INDELS.out.vcf, FILTER_INVARIANT.out.vcf)
         .collect(flat: false)
  	    .map { it.transpose() }
-        .set { ch_vcfs }
+        .set { ch_all_to_merge }
 
     // merge filtered SNPs and indels together into one file
     // TODO: change the output name to the project name
-    MERGE_FILTERED (
-        ch_vcfs,
+    MERGE_ALL (
+        ch_all_to_merge,
         "merged"
     )
 

@@ -25,7 +25,7 @@ process MERGE_VCFS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi)
+    tuple path(vcf, name: '*.vcf.gz'), path(vcf_tbi, name: '*.vcf.gz.tbi')
     val(outname)
 
     output: 
