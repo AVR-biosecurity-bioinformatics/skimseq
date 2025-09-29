@@ -193,7 +193,7 @@ workflow GATK_GENOTYPING {
     if( params.output_unfiltered_vcf ) {
 
         JOINT_GENOTYPE.out.vcf
-            .map { interval_hash, interval_bed, vcf, tbi -> tuple('all', vcf, tbi) }
+            .map { interval_hash, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
             .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }

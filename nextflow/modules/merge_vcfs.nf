@@ -24,7 +24,7 @@ process MERGE_VCFS {
     publishDir "${launchDir}/output/results/vcf/filtered",
     mode: 'copy',
     saveAs: { fname ->
-        def isAlias = (task.process == 'SKIMSEQ:GATK_GENOTYPING:MERGE_FILTERED_VCFS')
+        def isAlias = (task.process == 'SKIMSEQ:FILTER_SITES:MERGE_FILTERED_VCFS')
         (isAlias) ? fname : null
     }
 
