@@ -105,7 +105,7 @@ workflow FILTER_SITES {
 
     // plot site qc
     PLOT_SITE_FILTERS (
-        FILTER_VCF.out.tables
+        FILTER_VCF.out.tables.collect()
     )
 
     // plot genotype qc

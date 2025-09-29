@@ -32,15 +32,18 @@ tryCatch(
     table_files <- list.files(pattern = "\\.tsv.gz$")
 
     # Read in all tables and combine
-    df <- tidyr::read_tsv(
-      table_files
+    df <- readr::read_tsv(
+      table_files,
+      col_names = c("RULE", "FILTER", "VARIANT_TYPE", "BIN", "COUNT"),
+      col_types = c("cccnn")
     ) %>%
       dplyr::group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>%
       dplyr::summarise(COUNT = sum(COUNT))
 
-    gg.site_qc_dist <- df %>%
+    gg.filter_qc <- df %>%
       ggplot(aes(x = BIN, y = COUNT, fill = FILTER)) +
       geom_col() +
+      #TODO: add back in these vlines for filter thresholds
       #geom_vline(
       #  data = parameter_table %>% dplyr::slice(i),
       #  aes(xintercept = lower),
@@ -57,8 +60,8 @@ tryCatch(
       theme(legend.position = "none")
 
     # Write out plots
-    pdf("site_filtering_qc.pdf", width = 11, height = 8)
-    plot(gg.site_qc_dist)
+    pdf("variant_filter_qc.pdf", width = 11, height = 8)
+    plot(gg.filter_qc)
     try(dev.off(), silent = TRUE)
   },
   finally = {
