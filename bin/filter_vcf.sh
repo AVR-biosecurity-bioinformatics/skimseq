@@ -79,11 +79,7 @@ bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 # ------- make filter summary histograms ------
 INPUT=tmp.tagged.bcf
 
-# Define binning Rule table: RULE  SHOWN_NAME   BINFMT            BINWIDTH
-#   RULE         -> string present in FILTER when it fails
-#   SHOWN_NAME   -> label to print in FILTER column (e.g. QUAL, QD)
-#   BINFMT       -> bcftools query format string for the metric to bin
-#   BINWIDTH     -> bin size for awk histogram
+# RULES:  FAIL_TAG   RULE_LABEL   QUERY_FORMAT (numeric value only)    BINWIDTH
 RULES=$(cat <<'EOF'
 QUAL_FAIL    QUAL        %QUAL\n                 10
 QD_FAIL      QD          %INFO/QD\n             0.2
@@ -101,9 +97,8 @@ MISS_FAIL    F_MISSING   %INFO/F_MISSING\n      0.02
 EOF
 )
 
-
-
-# ------- helpers -------
+# ---- helpers ----
+# bin numeric values into BIN-size buckets (prints the BIN only)
 bin_stream() {
   awk -v BIN="$1" '
     $1=="." || $1=="" { next }
@@ -111,27 +106,48 @@ bin_stream() {
   '
 }
 
-# ------- build the long format summary table -------
+# count identical BINs and print RULE  FILTER  VTYPE  BIN  COUNT
+emit_counts() {
+  awk -v rule="$1" -v status="$2" -v vt="$3" -v OFS='\t' '
+    { h[$1]++ }
+    END {
+      # print bins in ascending order
+      n=0; for (b in h) bins[n++]=b
+      asort(bins)
+      for (i=1; i<=n; i++) {
+        b=bins[i]; print rule, status, vt, b+0, h[b]
+      }
+    }'
+}
+
+# ---- build the table ----
 out="${6}_${4}_filter_summary.tsv"
-touch $out
+printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant
 
-while read -r RULE NAME FMT BIN; do
-  [ -z "$RULE" ] && continue
+while read -r FAILTAG RULELABEL FMT BIN; do
+  [ -z "$FAILTAG" ] && continue
 
-  # FAIL = records that tripped THIS rule
-  bcftools query -i 'FILTER~"'"$RULE"'"' -f "$FMT" "$INPUT" \
-    | bin_stream "$BIN" \
-    | awk -v n="$NAME" -v vt="$VTYPE" -v OFS='\t' '{print n,"FAIL", vt, $1}' >> "$out"
+  # FAIL = records that tripped THIS rule (or rules with same label)
+  # If you want DPmin/DPmax combined into one "DP" FAIL set, uncomment this block:
+   if [ "$RULELABEL" = "DP" ]; then
+     FAILSELECT='FILTER~"(DPmin_FAIL|DPmax_FAIL)"'
+   else
+     FAILSELECT='FILTER~"'"$FAILTAG"'"'
+   fi
 
-  # PASS = records that did NOT trip THIS rule (even if others did)
-  bcftools query -i 'FILTER!~"'"$RULE"'"' -f "$FMT" "$INPUT" \
+  FAILSELECT='FILTER~"'"$FAILTAG"'"'
+  bcftools query -i "$FAILSELECT" -f "$FMT" "$INPUT" \
     | bin_stream "$BIN" \
-    | awk -v n="$NAME" -v vt="$VTYPE" -v OFS='\t' '{print n,"PASS",vt, $1}' >> "$out"
+    | emit_counts "$RULELABEL" "FAIL" "$VTYPE" >> "$out"
+
+  # PASS = records that did NOT trip THIS rule (rule-specific comparison)
+  PASSSEL='FILTER!~"'"$FAILTAG"'"'
+  bcftools query -i "$PASSSEL" -f "$FMT" "$INPUT" \
+    | bin_stream "$BIN" \
+    | emit_counts "$RULELABEL" "PASS" "$VTYPE" >> "$out"
 done <<< "$RULES"
-
-# Could have extra rule for sample_missing
 
 
 # Zip output summary table

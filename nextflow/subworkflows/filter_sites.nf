@@ -85,7 +85,7 @@ workflow FILTER_SITES {
 
     // Create a channel of all 3 variant types + all together for merging
     FILTER_VCF.out.vcf
-        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('all', vcf, tbi) })
+        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
@@ -95,7 +95,7 @@ workflow FILTER_SITES {
     )
       
     // Extract merged variant type vcfs into convenient channels
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_all_filtered }
+    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
@@ -103,21 +103,16 @@ workflow FILTER_SITES {
     // Variant QC plots
     // NOT WORKING WITH NEW MAP APPROACH
 
+    // plot site qc
+    PLOT_SITE_FILTERS (
+        FILTER_VCF.out.tables
+    )
+
     // plot genotype qc
     //PLOT_GT_FILTERS (
     //    FILTER_VCF_GT.out.tables,
     //    ch_geno_filters
     //)
-
-    // plot site qc
-    //PLOT_SITE_FILTERS (
-    //     FILTER_SNPS.out.tables,
-    //     FILTER_INDELS.out.tables,
-    //     FILTER_INVARIANT.out.tables,
-    //     ch_snp_filters,
-    //     ch_indel_filters,
-    //     ch_inv_filters
-    // )
 
     // plot samples qc
     //PLOT_SAMPLE_FILTERS (
@@ -127,14 +122,14 @@ workflow FILTER_SITES {
 
     // Calculate VCF statistics
    VCF_STATS (
-        ch_all_filtered,
+        ch_combined_filtered,
         ch_genome_indexed,
         ch_sample_names
     )
         
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    filtered_all = ch_all_filtered
+    filtered_combined = ch_combined_filtered
     filtered_snps = ch_snp_filtered
     filtered_indels = ch_indel_filtered
     reports = VCF_STATS.out.vcfstats
