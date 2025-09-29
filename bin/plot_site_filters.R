@@ -32,15 +32,15 @@ tryCatch(
     table_files <- list.files(pattern = "\\.tsv.gz$")
 
     # Read in all tables and combine
-    df <- read_tsv(
-      table_files,
-      col_names = c("name", "label", "type", "bin", "count")
-    )
+    df <- tidyr::read_tsv(
+      table_files
+    ) %>%
+      dplyr::group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>%
+      dplyr::summarise(COUNT = sum(COUNT))
 
     gg.site_qc_dist <- df %>%
-      ggplot(aes(x = bin, y = count, fill = label)) +
+      ggplot(aes(x = BIN, y = COUNT, fill = FILTER)) +
       geom_col() +
-      #geom_density()+
       #geom_vline(
       #  data = parameter_table %>% dplyr::slice(i),
       #  aes(xintercept = lower),
@@ -51,12 +51,8 @@ tryCatch(
       #  aes(xintercept = upper),
       #  lty = "dashed"
       #) +
-      facet_wrap(type ~ name) +
+      facet_wrap(VARIANT_TYPE ~ RULE, scales = "free_x") +
       scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
-      labs(
-        x = paste0(type_to_select, " ", filter_to_select),
-        y = "Count"
-      ) +
       theme_classic() +
       theme(legend.position = "none")
 
