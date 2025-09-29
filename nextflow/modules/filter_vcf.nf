@@ -11,8 +11,8 @@ process FILTER_VCF {
     path(mask_bed)
 
     output: 
-    tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),        emit: vcf
-    //path("*.table.gz"),                                                  emit: tables
+    tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),      emit: vcf
+    path("*_filter_summary.tsv.gz"),                                                      emit: tables
     
     script:
     // Env exports for +setGT (genotype-level)
