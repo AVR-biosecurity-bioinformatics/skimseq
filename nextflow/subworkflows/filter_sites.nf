@@ -85,7 +85,7 @@ workflow FILTER_SITES {
 
     // Create a channel of all 3 variant types + all together for merging
     FILTER_VCF.out.vcf
-        .concat(FILTER_VCF.out.vcf.map { interval_hash, interval_bed, vcf, tbi -> tuple('all', vcf, tbi) })
+        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('all', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
