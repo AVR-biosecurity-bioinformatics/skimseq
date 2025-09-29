@@ -4,7 +4,7 @@
 
 //// import modules
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
-include { MERGE_VCFS                                   } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_SITE_FILTERS                            } from '../modules/plot_site_filters'
 include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
@@ -85,20 +85,20 @@ workflow FILTER_SITES {
 
     // Create a channel of all 3 variant types + all together for merging
     FILTER_VCF.out.vcf
-        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('all', vcf, tbi) })
+        .concat(FILTER_VCF.out.vcf.map { interval_hash, interval_bed, vcf, tbi -> tuple('all', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
     // Group all filtered VCFs by variant type and merge
-    MERGE_VCFS (
+    MERGE_FILTERED_VCFS (
         ch_vcf_to_merge
     )
       
     // Extract merged variant type vcfs into convenient channels
-    MERGE_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_all_filtered }
-    MERGE_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
-    MERGE_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
-    MERGE_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
+    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='all' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_all_filtered }
+    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
+    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
+    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
 
     // Variant QC plots
     // NOT WORKING WITH NEW MAP APPROACH

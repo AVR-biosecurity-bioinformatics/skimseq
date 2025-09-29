@@ -6,6 +6,7 @@
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
+include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
@@ -188,6 +189,19 @@ workflow GATK_GENOTYPING {
         params.exclude_padding,
         params.output_invariant
     )
+
+    if( params.output_unfiltered_vcf ) {
+        JOINT_GENOTYPE.out.vcf
+            .map { type, vcf, tbi -> tuple('all', vcf, tbi) })
+            .groupTuple(by: 0)
+            .set { ch_vcf_to_merge }
+
+        MERGE_UNFILTERED_VCFS (
+            ch_vcf_to_merge
+        )
+        
+    )
+
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
