@@ -22,22 +22,20 @@ case "${4}" in
 esac
 
 # Subset to target variant class
-bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
-| \
 # Filter genotypes -> set failing GTs to missing
-bcftools +setGT --threads ${1} -Ou -- -t q -n . \
-    -i "FMT/GQ < ${GQ:-0} || FMT/DP < ${gtDPmin:-0} || FMT/DP > ${gtDPmax:-999999}" \
-| \
 # TODO: filter samples using -S samples_to_keep.txt
-bcftools view --threads ${1} -U -o tmp.vcf.gz 
-
-# Recompute site tags that depend on GTs and samples
-bcftools +fill-tags --threads ${1} tmp.vcf.gz -o tmp2.vcf.gz -- -t AC,AN,MAF,F_MISSING,NS
+# Re-calculate tags
+bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
+| bcftools +setGT -Ou -- -t q -n . \
+    -i "FMT/GQ < ${GQ:-0} || FMT/DP < ${gtDPmin:-0} || FMT/DP > ${gtDPmax:-999999}" \
+| bcftools view -U -Ou \
+| bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
+| bcftools view -Ob -o tmp.bcf
 
 # Add minor alelle count (MAC) info tag
 
 # First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp2.vcf.gz \
+bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp.bcf \
 | awk 'BEGIN{OFS="\t"}
        {
          split($3,ac,",")          # AC is comma‑separated if multi‑allelic
@@ -57,7 +55,7 @@ EOF
 
 # Annotate the vcf with INFO/MAC
 # Then do Site-level filtering (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
-bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp2.vcf.gz \
+bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
   | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD < ${QD:-0}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR > ${SOR:-1e9}" \
@@ -71,7 +69,7 @@ bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp2.vc
   | bcftools filter -Ou -s DPmin_FAIL  -m+ -e "INFO/DP < ${DPmin:-0}" \
   | bcftools filter -Ou -s DPmax_FAIL  -m+ -e "INFO/DP > ${DPmax:-999999999}" \
   | bcftools filter -Ou -s MISS_FAIL   -m+ -e "INFO/F_MISSING > ${F_MISSING:-1}" \
-  | bcftools filter -Ou -M vcf_masks.bed \
+  | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
   | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
 
 # Keep only variants that PASS & index output
@@ -86,7 +84,7 @@ INPUT=tmp.tagged.bcf
 #   SHOWN_NAME   -> label to print in FILTER column (e.g. QUAL, QD)
 #   BINFMT       -> bcftools query format string for the metric to bin
 #   BINWIDTH     -> bin size for awk histogram
-read -r -d '' RULES <<'EOF'
+RULES=$(cat <<'EOF'
 QUAL_FAIL    QUAL        %QUAL\n                 10
 QD_FAIL      QD          %INFO/QD\n             0.2
 SOR_FAIL     SOR         %INFO/SOR\n            0.2
@@ -101,42 +99,43 @@ DPmin_FAIL   DP          %INFO/DP\n             5
 DPmax_FAIL   DP          %INFO/DP\n             5
 MISS_FAIL    F_MISSING   %INFO/F_MISSING\n      0.02
 EOF
+)
+
+
 
 # ------- helpers -------
-bin_stream_with_type() {
-  awk -v BIN="$1" -v OFS='\t' '
-    $2=="." || $2=="" { next }
-    {
-      # If TYPE has multiple entries (e.g., "snp,indel"), keep the first; or change to "ALL" if you prefer
-      split($1, t, /,/); typ=t[1]
-      val=$2+0
-      b = int(val / BIN) * BIN
-      print typ, b
-    }'
+bin_stream() {
+  awk -v BIN="$1" '
+    $1=="." || $1=="" { next }
+    { v=$1+0; b=int(v/BIN)*BIN; print b }
+  '
 }
 
 # ------- build the long format summary table -------
-out="${4}_filter_summary.tsv"
-: > "$out"
+out="${6}_${4}_filter_summary.tsv"
+touch $out
+
+VTYPE="${4}"  # snp|indel|invariant
 
 while read -r RULE NAME FMT BIN; do
   [ -z "$RULE" ] && continue
 
-  # ---- FAIL rows for THIS rule ----
-  sel_fail=$([ -n "$TYPE_SEL" ] && echo "${TYPE_SEL} && " || echo "")'FILTER~"'"$RULE"'"'
-  bcftools query -i "$sel_fail" -f "$FMT" "$INPUT" \
-    | bin_stream_with_type "$BIN" \
-    | awk -v n="$NAME" -v OFS='\t' '{print n, "no",  $1, $2}' >> "$out"
+  # FAIL = records that tripped THIS rule
+  bcftools query -i 'FILTER~"'"$RULE"'"' -f "$FMT" "$INPUT" \
+    | bin_stream "$BIN" \
+    | awk -v n="$NAME" -v vt="$VTYPE" -v OFS='\t' '{print n,"FAIL", vt, $1}' >> "$out"
 
-  # ---- PASS rows for THIS rule ----
-  sel_pass=$([ -n "$TYPE_SEL" ] && echo "${TYPE_SEL} && " || echo "")'FILTER!~"'"$RULE"'"'
-  bcftools query -i "$sel_pass" -f "$FMT" "$INPUT" \
-    | bin_stream_with_type "$BIN" \
-    | awk -v n="$NAME" -v OFS='\t' '{print n, "yes", $1, $2}' >> "$out"
+  # PASS = records that did NOT trip THIS rule (even if others did)
+  bcftools query -i 'FILTER!~"'"$RULE"'"' -f "$FMT" "$INPUT" \
+    | bin_stream "$BIN" \
+    | awk -v n="$NAME" -v vt="$VTYPE" -v OFS='\t' '{print n,"PASS",vt, $1}' >> "$out"
 done <<< "$RULES"
 
+# Could have extra rule for sample_missing
+
+
 # Zip output summary table
-pigz -p ${1} ${6}_${4}_filter_summary.tsv
+pigz -p ${1} $out
 
 # Remove temporary vcf files
-rm -f tmp* MAC.tsv.gz
+rm -f tmp* MAC.tsv.gz* *.hdr
