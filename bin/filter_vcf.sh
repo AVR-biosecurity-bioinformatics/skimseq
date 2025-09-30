@@ -22,15 +22,56 @@ case "${4}" in
 esac
 
 # Subset to target variant class
-# Filter genotypes -> set failing GTs to missing
+bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
+
+GQ_THR=${GQ:-0}
+GTDP_MIN=${gtDPmin:-0}
+GTDP_MAX=${gtDPmax:-999999999}
+
+# Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
+bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
+| awk -v OFS='\t' -v gq="$GQ_THR" -v dmin="$GTDP_MIN" -v dmax="$GTDP_MAX" '
+  {
+    printf "%s%s%s", $1, OFS, $2
+    # fields: 3=GQ_s1, 4=DP_s1, 5=GQ_s2, 6=DP_s2, ...
+    for (i=3; i<=NF; i+=2) {
+      g=$i; d=$(i+1)
+      if (g=="." || d==".") {
+        ft="."
+      } else {
+        ft=""
+        if (g+0 < gq)  ft = (ft=="" ? "GQ_FAIL"   : ft ";GQ_FAIL")
+        if (d+0 < dmin)ft = (ft=="" ? "DPmin_FAIL": ft ";DPmin_FAIL")
+        if (d+0 > dmax)ft = (ft=="" ? "DPmax_FAIL": ft ";DPmax_FAIL")
+        if (ft=="") ft="PASS"
+      }
+      printf OFS "%s", ft
+    }
+    print ""
+  }' \
+| bgzip -c > FT.tsv.gz
+
+tabix -s1 -b2 -e2 FT.tsv.gz
+
+# add header + inject FORMAT/FT
+cat > ft.hdr <<'EOF'
+##FORMAT=<ID=FT,Number=.,Type=String,Description="Genotype-level filters (per-sample) from GQ/DP thresholds">
+EOF
+
+# Annotate filter column in vcf
+bcftools annotate \
+  -h ft.hdr \
+  -a FT.tsv.gz \
+  -c CHROM,POS,FORMAT/FT \
+  -Oz -o with_ft.vcf.gz pre_mask.bcf
+
+# Set failing GTs to missing and re-calculate site tags
 # TODO: filter samples using -S samples_to_keep.txt
-# Re-calculate tags
-bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
-| bcftools +setGT -Ou -- -t q -n . \
-    -i "FMT/GQ < ${GQ:-0} || FMT/DP < ${gtDPmin:-0} || FMT/DP > ${gtDPmax:-999999}" \
-| bcftools view -U -Ou \
-| bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
-| bcftools view -Ob -o tmp.bcf
+# 
+bcftools +setGT -Ou with_ft.vcf.gz -- -t q -n . -i 'FMT/FT!="PASS" && FMT/FT!="."' \
+  | bcftools view -U -Ou \
+  | bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
+  | bcftools view -Ob -o tmp.bcf
 
 # Add minor alelle count (MAC) info tag
 
@@ -54,7 +95,7 @@ cat > add_MAC.hdr <<'EOF'
 EOF
 
 # Annotate the vcf with INFO/MAC
-# Then do Site-level filtering (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
+# Then do Site-level soft filtering (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
   | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD < ${QD:-0}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     < ${QUAL_THR:-0}" \
@@ -73,6 +114,7 @@ bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf
   | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
 
 # Keep only variants that PASS & index output
+# TODO: Drop FT and other extra fields from vcf
 bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_filtered.vcf.gz tmp.tagged.bcf
 bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 
@@ -120,6 +162,7 @@ emit_counts() {
     }'
 }
 
+
 # ---- build the table ----
 out="${6}_${4}_filter_summary.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
@@ -148,7 +191,6 @@ while read -r FAILTAG RULELABEL FMT BIN; do
     | bin_stream "$BIN" \
     | emit_counts "$RULELABEL" "PASS" "$VTYPE" >> "$out"
 done <<< "$RULES"
-
 
 # Zip output summary table
 pigz -p ${1} $out
