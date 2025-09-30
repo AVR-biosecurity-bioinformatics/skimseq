@@ -107,8 +107,7 @@ bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf
   | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF < ${MAF:-0}" \
   | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC < ${MAC:-0}" \
   | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet > ${EH:-1e9}" \
-  | bcftools filter -Ou -s DPmin_FAIL  -m+ -e "INFO/DP < ${DPmin:-0}" \
-  | bcftools filter -Ou -s DPmax_FAIL  -m+ -e "INFO/DP > ${DPmax:-999999999}" \
+  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP > ${DPmax:-999999999}" \
   | bcftools filter -Ou -s MISS_FAIL   -m+ -e "INFO/F_MISSING > ${F_MISSING:-1}" \
   | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
   | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
@@ -120,24 +119,6 @@ bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 
 # ------- make filter summary histograms ------
 INPUT=tmp.tagged.bcf
-
-# RULES:  FAIL_TAG   RULE_LABEL   QUERY_FORMAT (numeric value only)    BINWIDTH
-RULES=$(cat <<'EOF'
-QUAL_FAIL    QUAL        %QUAL\n                 10
-QD_FAIL      QD          %INFO/QD\n             0.2
-SOR_FAIL     SOR         %INFO/SOR\n            0.2
-FS_FAIL      FS          %INFO/FS\n             2
-MQ_FAIL      MQ          %INFO/MQ\n             1
-MQRS_FAIL    MQRankSum   %INFO/MQRankSum\n      0.2
-RPRS_FAIL    ReadPosRS   %INFO/ReadPosRankSum\n 0.2
-MAF_FAIL     MAF         %INFO/MAF\n            0.02
-MAC_FAIL     MAC         %INFO/MAC\n            1
-EH_FAIL      ExcessHet   %INFO/ExcessHet\n      0.5
-DPmin_FAIL   DP          %INFO/DP\n             5
-DPmax_FAIL   DP          %INFO/DP\n             5
-MISS_FAIL    F_MISSING   %INFO/F_MISSING\n      0.02
-EOF
-)
 
 # ---- helpers ----
 # bin numeric values into BIN-size buckets (prints the BIN only)
@@ -162,6 +143,49 @@ emit_counts() {
     }'
 }
 
+# 3) Estimate a good bin width from the overall distribution for this metric
+#    Usage: estimate_bin_width INPUT "%FORMAT\n" [min_bins] [max_bins]
+estimate_bin_width() {
+  local INPUT="$1" FMT="$2" MINB="${3:-10}" MAXB="${4:-200}"
+  bcftools query -f "$FMT" "$INPUT" \
+  | awk -v MINB="$MINB" -v MAXB="$MAXB" '
+      $1!="." && $1!="" {
+        v=$1+0
+        if(++n==1){min=v; max=v} else { if(v<min)min=v; if(v>max)max=v }
+      }
+      END{
+        if(n<2 || max<=min){ print 1; exit }
+        bins = int(sqrt(n)+0.5)
+        if (bins<MINB) bins=MINB
+        if (bins>MAXB) bins=MAXB
+        bw = (max-min)/bins
+        if (bw<=0) bw=1
+        printf("%.6g\n", bw)
+      }'
+}
+
+# Create pass and fail hisogram function
+create_pf_histogram() {
+  local INPUT="$1" FAILTAG="$2" RULELABEL="$3" FMT="$4" BIN="$5" VTYPE="$6"
+
+  # Pick bin width
+  if [[ -z "$BIN" || "$BIN" == "auto" ]]; then
+    BIN=$(estimate_bin_width "$INPUT" "$FMT")
+  fi
+
+  local FAILSEL='FILTER~"'"$FAILTAG"'"'
+  local PASSSEL='FILTER!~"'"$FAILTAG"'"'
+
+  # FAIL
+  bcftools query -i "$FAILSEL" -f "$FMT" "$INPUT" \
+    | bin_stream "$BIN" \
+    | emit_counts "$RULELABEL" "FAIL" "$VTYPE"
+
+  # PASS
+  bcftools query -i "$PASSSEL" -f "$FMT" "$INPUT" \
+    | bin_stream "$BIN" \
+    | emit_counts "$RULELABEL" "PASS" "$VTYPE"
+}
 
 # ---- build the table ----
 out="${6}_${4}_filter_summary.tsv"
@@ -169,28 +193,18 @@ printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant
 
-while read -r FAILTAG RULELABEL FMT BIN; do
-  [ -z "$FAILTAG" ] && continue
-
-  # FAIL = records that tripped THIS rule (or rules with same label)
-  # If you want DPmin/DPmax combined into one "DP" FAIL set, uncomment this block:
-   if [ "$RULELABEL" = "DP" ]; then
-     FAILSELECT='FILTER~"(DPmin_FAIL|DPmax_FAIL)"'
-   else
-     FAILSELECT='FILTER~"'"$FAILTAG"'"'
-   fi
-
-  FAILSELECT='FILTER~"'"$FAILTAG"'"'
-  bcftools query -i "$FAILSELECT" -f "$FMT" "$INPUT" \
-    | bin_stream "$BIN" \
-    | emit_counts "$RULELABEL" "FAIL" "$VTYPE" >> "$out"
-
-  # PASS = records that did NOT trip THIS rule (rule-specific comparison)
-  PASSSEL='FILTER!~"'"$FAILTAG"'"'
-  bcftools query -i "$PASSSEL" -f "$FMT" "$INPUT" \
-    | bin_stream "$BIN" \
-    | emit_counts "$RULELABEL" "PASS" "$VTYPE" >> "$out"
-done <<< "$RULES"
+create_pf_histogram "$INPUT" "QUAL_FAIL"  "QUAL"        "%QUAL\n"                 auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "QD_FAIL"    "QD"          "%INFO/QD\n"              auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "SOR_FAIL"   "SOR"         "%INFO/SOR\n"             auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "FS_FAIL"    "FS"          "%INFO/FS\n"              auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "MQ_FAIL"    "MQ"          "%INFO/MQ\n"              auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "MQRS_FAIL"  "MQRankSum"   "%INFO/MQRankSum\n"       auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "RPRS_FAIL"  "ReadPosRS"   "%INFO/ReadPosRankSum\n"  auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "MAF_FAIL"   "MAF"         "%INFO/MAF\n"             auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "MAC_FAIL"   "MAC"         "%INFO/MAC\n"             auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "EH_FAIL"    "ExcessHet"   "%INFO/ExcessHet\n"       auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "DP_FAIL"    "DP"          "%INFO/DP\n"              auto "$VTYPE" >> "$out"
+create_pf_histogram "$INPUT" "MISS_FAIL"  "F_MISSING"   "%INFO/F_MISSING\n"       auto "$VTYPE" >> "$out"
 
 # Zip output summary table
 pigz -p ${1} $out
