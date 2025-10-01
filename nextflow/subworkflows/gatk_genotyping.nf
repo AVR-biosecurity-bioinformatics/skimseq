@@ -8,7 +8,7 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
-include { COUNT_VCF_DEPTH as COUNT_VCF_BED_LONG                  } from '../modules/count_vcf_bed'
+include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
 include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
 include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
