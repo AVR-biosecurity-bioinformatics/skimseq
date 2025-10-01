@@ -24,11 +24,22 @@ esac
 # Subset to target variant class
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
-# Calculate missing data filters
-
+# Join individual missing data files and output with missing data < missing frac
+awk 'FNR==1 && NR!=1 {next} {print}' *.missing.tsv > missing_summary.tsv
+awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
+  missing_summary.tsv > sample_to_keep.txt
 
 # Calculate percentile DP filters
+zcat *.variant_dp.txt.gz | awk 'NF{print $1+0}' | sort -n > all_dp.sorted
+N=$(wc -l < all_dp.sorted)
 
+# LOWER
+LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
+DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' all_dp.sorted)
+
+#UPPER
+UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
+DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' all_dp.sorted)
 
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
@@ -71,9 +82,9 @@ bcftools annotate \
 # TODO: filter samples using -S samples_to_keep.txt
 # 
 bcftools +setGT -Ou with_ft.vcf.gz -- -t q -n . -i 'FMT/FT!="PASS" && FMT/FT!="."' \
-  | bcftools view -U -Ou \
+  | bcftools view -U -S sample_to_keep.txt -Ou \
   | bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
-  | bcftools view -Ob -o tmp.bcf
+  | bcftools view -U -Ob -o tmp.bcf
 
 # Add minor alelle count (MAC) info tag
 
@@ -109,7 +120,7 @@ bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf
   | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF < ${MAF:-0}" \
   | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC < ${MAC:-0}" \
   | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet > ${EH:-1e9}" \
-  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP > ${DPmax:-999999999}" \
+  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
   | bcftools filter -Ou -s MISS_FAIL   -m+ -e "INFO/F_MISSING > ${F_MISSING:-1}" \
   | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
   | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf

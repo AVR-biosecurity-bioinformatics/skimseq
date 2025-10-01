@@ -37,7 +37,8 @@ process FILTER_VCF {
         filters.mac           != null ? "MAC=${filters.mac}"                     : null,
         filters.eh            != null ? "EH=${filters.eh}"                       : null,
         filters.dp_min        != null ? "DPmin=${filters.dp_min}"                : null,
-        filters.dp_max        != null ? "DPmax=${filters.dp_max}"                : null,
+        filters.dp_lower_perc != null ? "PCT_LOW=${filters.dp_lower_perc}"       : null,
+        filters.dp_upper_perc != null ? "PCT_HIGH=${filters.dp_upper_perc}"      : null,
         filters.max_missing   != null ? "F_MISSING=${filters.max_missing}"       : null
     ].findAll{ it }.join(' ')
 
