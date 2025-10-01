@@ -69,6 +69,7 @@ tryCatch(
         facet_wrap(VARIANT_TYPE ~ RULE, scales = "free") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_y_continuous(labels = scales::percent) +
+        scale_x_binned(n.breaks = 50) +
         theme_classic() +
         labs(x = NULL, y = "Proportion") +
         theme(legend.position = "none")
