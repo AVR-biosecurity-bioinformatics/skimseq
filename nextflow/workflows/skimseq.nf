@@ -209,7 +209,6 @@ workflow SKIMSEQ {
         GATK_GENOTYPING.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
-        ch_sample_names,
         GATK_GENOTYPING.out.missing_frac,
         GATK_GENOTYPING.out.variant_dp
     )

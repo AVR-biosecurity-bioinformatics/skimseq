@@ -15,7 +15,6 @@ workflow FILTER_VARIANTS {
     ch_vcfs
     ch_genome_indexed
     ch_mask_bed_vcf
-    ch_sample_names
     ch_missing_frac
     ch_variant_dp
 
@@ -120,11 +119,15 @@ workflow FILTER_VARIANTS {
         params.sample_max_missing
     )
 
+    FILTER_VCF.out.samples_to_keep
+        .splitText( by: 1 )
+        .set { ch_sample_names_filt }
+
     // Calculate VCF statistics
    VCF_STATS (
         ch_combined_filtered,
         ch_genome_indexed,
-        ch_sample_names
+        ch_sample_names_filt
     )
         
     // Subset the merged vcf channels to each variant type for emission
