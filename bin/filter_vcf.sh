@@ -26,6 +26,7 @@ bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
 # Calculate missing data filters
 
+
 # Calculate percentile DP filters
 
 

@@ -16,8 +16,8 @@ workflow FILTER_VARIANTS {
     ch_genome_indexed
     ch_mask_bed_vcf
     ch_sample_names
-    missing_frac
-    variant_dp
+    ch_missing_frac
+    ch_variant_dp
 
     main: 
 
@@ -40,7 +40,8 @@ workflow FILTER_VARIANTS {
         max_missing: params.snp_max_missing,
         gq: params.gt_qual,
         gt_dp_min: params.gt_dp_min,
-        gt_dp_max: params.gt_dp_max
+        gt_dp_max: params.gt_dp_max,
+        sample_max_missing : params.sample_max_missing
     ]
 
     // collect indel filtering parameters into a map
@@ -58,7 +59,8 @@ workflow FILTER_VARIANTS {
         max_missing: params.indel_max_missing,
         gq: params.gt_qual,
         gt_dp_min: params.gt_dp_min,
-        gt_dp_max: params.gt_dp_max
+        gt_dp_max: params.gt_dp_max,
+        sample_max_missing : params.sample_max_missing
     ]
 
     // collect invariant filtering parameters into a single list
@@ -69,7 +71,8 @@ workflow FILTER_VARIANTS {
         max_missing: params.inv_max_missing,
         gq: params.gt_qual,
         gt_dp_min: params.gt_dp_min,
-        gt_dp_max: params.gt_dp_max
+        gt_dp_max: params.gt_dp_max,
+        sample_max_missing : params.sample_max_missing
     ]
 
     // Create joint of all 3 variant type filters
@@ -78,13 +81,12 @@ workflow FILTER_VARIANTS {
         .map { f -> tuple(f.type as String, f) }
         .set { ch_type_filters }
     
-    
     // For each input VCF, combine with type_filters and run FILTER_VCF for each type
     FILTER_VCF (
         ch_vcfs.combine( ch_type_filters ),
 	    ch_mask_bed_vcf,
-        missing_frac
-        variant_dp
+        ch_missing_frac.collect(),
+        ch_variant_dp.collect()
     )
 
     // Create a channel of all 3 variant types + all together for merging

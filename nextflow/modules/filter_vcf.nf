@@ -9,8 +9,8 @@ process FILTER_VCF {
     input:
     tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type), val(filters)
     path(mask_bed)
-    path(missing_frac)
-    path(variant_dp)
+    tuple val(sample), path(missing_frac)
+    tuple val(sample), path(variant_dp)
 
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),      emit: vcf
@@ -41,8 +41,13 @@ process FILTER_VCF {
         filters.max_missing   != null ? "F_MISSING=${filters.max_missing}"       : null
     ].findAll{ it }.join(' ')
 
+    // Env exports for sample filter expression
+    def sampleEnv = [
+        filters.sample_max_missing   != null ? "MISSING_FRAC=${sample_max_missing.qd}" : null
+    ].findAll{ it }.join(' ')
+
     // Compose one export line (safe if either side is empty)
-    def exports = [gtEnv, siteEnv].findAll{ it }.join(' ')
+    def exports = [gtEnv, siteEnv, sampleEnv].findAll{ it }.join(' ')
     def exportLine = exports ? "export ${exports}" : ": # no thresholds to export"
 
     def process_script = "${process_name}.sh"
@@ -60,7 +65,7 @@ process FILTER_VCF {
         "${variant_type}" \
         ${mask_bed} \
         ${interval_hash} \
-        "${missing_frac} \
+        "${missing_frac}" \
         "${variant_dp}"
 
     """
