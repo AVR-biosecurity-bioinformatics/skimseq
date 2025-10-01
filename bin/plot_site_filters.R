@@ -38,13 +38,16 @@ tryCatch(
       col_types = c("cccnn")
     ) %>%
       filter(!is.na(BIN)) %>%
-      dplyr::group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>%
+      dplyr::group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>% # Sum the bins from multiple parallel chunks
       dplyr::summarise(COUNT = sum(COUNT)) %>%
       ungroup() %>%
       group_by(VARIANT_TYPE, RULE) %>%
       mutate(PROP = COUNT / sum(COUNT, na.rm = TRUE)) %>%
-      mutate(n_grp = dplyr::n()) %>% # Make sure every facet has more than one record to avoid bug with scale_x_binned
-      ungroup() %>%
+      mutate(n_grp = dplyr::n()) %>% # Count number of groups per facet
+      ungroup()
+
+    # Make sure every facet has more than one record to avoid bug with scale_x_binned
+    df_aug <- df %>%
       bind_rows(
         df %>%
           group_by(VARIANT_TYPE, RULE) %>%
@@ -64,7 +67,7 @@ tryCatch(
     variant_qc_plots <- vector("list", length = length(variant_types))
     for (v in 1:length(variant_types)) {
       variant_type <- variant_types[v]
-      variant_qc_plots[[v]] <- df %>%
+      variant_qc_plots[[v]] <- df_aug %>%
         filter(VARIANT_TYPE == variant_type) %>%
         ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
         geom_col() +
@@ -82,7 +85,7 @@ tryCatch(
         facet_wrap(VARIANT_TYPE ~ RULE, scales = "free") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_y_continuous(labels = scales::percent) +
-        scale_x_binned(n.breaks = 25) +
+        scale_x_binned(n.breaks = 50, breaks = scales::breaks_pretty(n = 6)) +
         theme_classic() +
         labs(x = NULL, y = "Proportion") +
         theme(
