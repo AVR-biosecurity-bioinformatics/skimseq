@@ -9,7 +9,7 @@ include { VCF_STATS                                    } from '../modules/vcf_st
 include { PLOT_VCF_FILTERS                            } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
-workflow FILTER_SITES {
+workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
