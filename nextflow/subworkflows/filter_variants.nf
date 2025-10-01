@@ -85,8 +85,8 @@ workflow FILTER_VARIANTS {
     FILTER_VCF (
         ch_vcfs.combine( ch_type_filters ),
 	    ch_mask_bed_vcf,
-        ch_missing_frac.collect(),
-        ch_variant_dp.collect()
+        ch_missing_frac.map { sample, f -> f }.collect(),
+        ch_variant_dp.map { sample, f -> f }.collect()
     )
 
     // Create a channel of all 3 variant types + all together for merging

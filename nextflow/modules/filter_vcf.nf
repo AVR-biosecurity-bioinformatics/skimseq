@@ -9,8 +9,8 @@ process FILTER_VCF {
     input:
     tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type), val(filters)
     path(mask_bed)
-    tuple val(sample), path(missing_frac)
-    tuple val(sample), path(variant_dp)
+    path(missing_frac)
+    path(variant_dp)
 
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),      emit: vcf
@@ -43,7 +43,7 @@ process FILTER_VCF {
 
     // Env exports for sample filter expression
     def sampleEnv = [
-        filters.sample_max_missing   != null ? "MISSING_FRAC=${sample_max_missing.qd}" : null
+        filters.sample_max_missing   != null ? "MISSING_FRAC=${filters.sample_max_missing}" : null
     ].findAll{ it }.join(' ')
 
     // Compose one export line (safe if either side is empty)
