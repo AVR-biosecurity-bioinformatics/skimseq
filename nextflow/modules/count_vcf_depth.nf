@@ -12,7 +12,7 @@ process COUNT_VCF_DEPTH {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("*.missing.tsv"),               emit: missing
+    tuple val(sample), path("*.missing.tsv"),               emit: missing_frac
     tuple val(sample), path("*variant_dp.txt.gz"),          emit: variant_dp
 
     script:

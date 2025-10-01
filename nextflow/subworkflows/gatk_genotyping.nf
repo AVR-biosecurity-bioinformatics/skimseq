@@ -216,4 +216,6 @@ workflow GATK_GENOTYPING {
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
+    missing_frac = COUNT_VCF_DEPTH.out.missing_frac
+    variant_dp = COUNT_VCF_DEPTH.out.variant_dp
 }

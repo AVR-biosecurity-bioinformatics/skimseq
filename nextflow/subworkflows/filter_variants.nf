@@ -16,6 +16,8 @@ workflow FILTER_VARIANTS {
     ch_genome_indexed
     ch_mask_bed_vcf
     ch_sample_names
+    missing_frac
+    variant_dp
 
     main: 
 
@@ -76,10 +78,13 @@ workflow FILTER_VARIANTS {
         .map { f -> tuple(f.type as String, f) }
         .set { ch_type_filters }
     
+    
     // For each input VCF, combine with type_filters and run FILTER_VCF for each type
     FILTER_VCF (
         ch_vcfs.combine( ch_type_filters ),
-	    ch_mask_bed_vcf
+	    ch_mask_bed_vcf,
+        missing_frac
+        variant_dp
     )
 
     // Create a channel of all 3 variant types + all together for merging

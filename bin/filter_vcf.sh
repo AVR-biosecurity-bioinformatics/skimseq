@@ -24,13 +24,14 @@ esac
 # Subset to target variant class
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
-GQ_THR=${GQ:-0}
-GTDP_MIN=${gtDPmin:-0}
-GTDP_MAX=${gtDPmax:-999999999}
+# Calculate missing data filters
+
+# Calculate percentile DP filters
+
 
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
-| awk -v OFS='\t' -v gq="$GQ_THR" -v dmin="$GTDP_MIN" -v dmax="$GTDP_MAX" '
+| awk -v OFS='\t' -v gq="${GQ:-0}" -v dmin="${gtDPmin:-0}" -v dmax="${gtDPmax:-999999999}" '
   {
     printf "%s%s%s", $1, OFS, $2
     # fields: 3=GQ_s1, 4=DP_s1, 5=GQ_s2, 6=DP_s2, ...

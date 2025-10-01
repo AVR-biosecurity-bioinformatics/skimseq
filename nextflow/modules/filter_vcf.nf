@@ -9,6 +9,8 @@ process FILTER_VCF {
     input:
     tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type), val(filters)
     path(mask_bed)
+    path(missing_frac)
+    path(variant_dp)
 
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),      emit: vcf
@@ -57,7 +59,9 @@ process FILTER_VCF {
         ${vcf} \
         "${variant_type}" \
         ${mask_bed} \
-        ${interval_hash}
+        ${interval_hash} \
+        "${missing_frac} \
+        "${variant_dp}"
 
     """
 }
