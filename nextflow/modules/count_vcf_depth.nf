@@ -13,7 +13,7 @@ process COUNT_VCF_DEPTH {
 
     output: 
     tuple val(sample), path("*.missing.tsv"),               emit: missing_frac
-    tuple val(sample), path("*variant_dp.txt.gz"),          emit: variant_dp
+    tuple val(sample), path("*variant_dp.tsv.gz"),          emit: variant_dp
 
     script:
     def process_script = "${process_name}.sh"

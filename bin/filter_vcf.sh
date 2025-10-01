@@ -25,21 +25,28 @@ esac
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
 # Join individual missing data files and output with missing data < missing frac
-awk 'FNR==1 && NR!=1 {next} {print}' *.missing.tsv > missing_summary.tsv
-awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
-  missing_summary.tsv > samples_to_keep.txt
+# Sum DP per (CHROM, POS) across all files
+zcat *.variant_dp.tsv.gz \
+| awk 'NF>=3 && $1!~/^#/ {print $1, $2, $3+0}' OFS='\t' \
+| LC_ALL=C sort -k1,1 -k2,2n \
+| awk 'BEGIN{OFS="\t"}
+       NR==1 {c=$1; p=$2; s=$3; next}
+       { if($1==c && $2==p) s+=$3;
+         else {print c,p,s; c=$1; p=$2; s=$3} }
+       END{ if(NR>0) print c,p,s }' \
+> summed_dp.tsv
 
-# Calculate percentile DP filters
-zcat *.variant_dp.txt.gz | awk 'NF{print $1+0}' | sort -n > all_dp.sorted
-N=$(wc -l < all_dp.sorted)
+# Pull summed DP column and sort
+cut -f3 summed_dp.tsv | sort -n > summed_dp.sorted
+N=$(wc -l < summed_dp.sorted)
 
-# LOWER
-LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' all_dp.sorted)
-
-#UPPER
+# Find line index of record nearest to percentile
+LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
 UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' all_dp.sorted)
+
+# Get percentile values for filters
+DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
+DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
 
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \

@@ -121,6 +121,7 @@ workflow FILTER_VARIANTS {
 
     FILTER_VCF.out.samples_to_keep
         .splitText( by: 1 )
+        .unique()
         .set { ch_sample_names_filt }
 
     // Calculate VCF statistics

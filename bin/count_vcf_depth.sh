@@ -43,5 +43,5 @@ printf "%s\t%d\t%d\t%s\n" "${7}" "${PRESENT_BASES}" "${TARGET_BASES}" "${MISSING
 
 # Per-site DP at variant loci (gVCFs don’t store per-base DP for ref blocks)
 bcftools view -e 'INFO/END>0' "${3}" \
-| bcftools query -f '[%DP]\n' \
-| bgzip -c > "${7}.variant_dp.txt.gz"
+| bcftools query -f '%CHROM\t%POS\t[%DP]\n' \
+| bgzip -c > "${7}.variant_dp.tsv.gz"
