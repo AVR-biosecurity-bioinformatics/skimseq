@@ -64,6 +64,25 @@ tryCatch(
       unique(df$VARIANT_TYPE),
       levels = c("snp", "indel", "invariant")
     )
+
+    # Function to not display all breaks for scale_x_binned
+    thin_binned_labels <- function(target = 8, fmt = scales::label_number()) {
+      force(fmt)
+      function(br) {
+        n <- length(br)
+        if (n <= target) {
+          return(fmt(br))
+        }
+        step <- ceiling(n / target)
+        keep <- unique(sort(c(1, seq(1, n, by = step), n))) # first/last + every step
+        out <- rep("", n)
+        out[keep] <- fmt(br[keep])
+        out
+      }
+    }
+
+    #TODO: add back in  vlines for filter thresholds
+
     variant_qc_plots <- vector("list", length = length(variant_types))
     for (v in 1:length(variant_types)) {
       variant_type <- variant_types[v]
@@ -71,21 +90,13 @@ tryCatch(
         filter(VARIANT_TYPE == variant_type) %>%
         ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
         geom_col() +
-        #TODO: add back in these vlines for filter thresholds
-        #geom_vline(
-        #  data = parameter_table %>% dplyr::slice(i),
-        #  aes(xintercept = lower),
-        #  lty = "dashed"
-        #) +
-        #geom_vline(
-        #  data = parameter_table %>% dplyr::slice(i),
-        #  aes(xintercept = upper),
-        #  lty = "dashed"
-        #) +
         facet_wrap(VARIANT_TYPE ~ RULE, scales = "free") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_y_continuous(labels = scales::percent) +
-        scale_x_binned(n.breaks = 50, breaks = scales::breaks_pretty(n = 6)) +
+        scale_x_binned(
+          n.breaks = 25, # keep many bins
+          labels = thin_binned_labels(8) # show ~8 labels per facet
+        ) +
         theme_classic() +
         labs(x = NULL, y = "Proportion") +
         theme(
