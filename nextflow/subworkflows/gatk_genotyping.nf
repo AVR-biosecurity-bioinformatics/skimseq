@@ -8,6 +8,7 @@ include { JOINT_GENOTYPE                                         } from '../modu
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
 include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
+include { COUNT_VCF_DEPTH as COUNT_VCF_BED_LONG                  } from '../modules/count_vcf_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
 include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
 include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
@@ -107,6 +108,14 @@ workflow GATK_GENOTYPING {
 
     MERGE_GVCFS (
         ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample, gvcf, tbi ] }
+    )
+
+    // Count missing data in each gvcf - this will be used later for missing data and percentile depth filtering
+    COUNT_VCF_DEPTH (
+        MERGE_GVCFS.out.vcf,
+        ch_long_bed.first(),
+        ch_mask_bed_gatk,
+        ch_genome_indexed
     )
 
     /* 
