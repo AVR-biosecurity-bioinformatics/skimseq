@@ -37,31 +37,45 @@ tryCatch(
       col_names = c("RULE", "FILTER", "VARIANT_TYPE", "BIN", "COUNT"),
       col_types = c("cccnn")
     ) %>%
+      filter(!is.na(BIN)) %>%
       dplyr::group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>%
-      dplyr::summarise(COUNT = sum(COUNT))
+      dplyr::summarise(COUNT = sum(COUNT)) %>%
+      ungroup() %>%
+      group_by(VARIANT_TYPE, RULE) %>%
+      mutate(PROP = COUNT / sum(COUNT, na.rm = TRUE))
 
-    gg.filter_qc <- df %>%
-      ggplot(aes(x = BIN, y = COUNT, fill = FILTER)) +
-      geom_col() +
-      #TODO: add back in these vlines for filter thresholds
-      #geom_vline(
-      #  data = parameter_table %>% dplyr::slice(i),
-      #  aes(xintercept = lower),
-      #  lty = "dashed"
-      #) +
-      #geom_vline(
-      #  data = parameter_table %>% dplyr::slice(i),
-      #  aes(xintercept = upper),
-      #  lty = "dashed"
-      #) +
-      facet_wrap(VARIANT_TYPE ~ RULE, scales = "free_x") +
-      scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
-      theme_classic() +
-      theme(legend.position = "none")
-
+    variant_types <- factor(
+      unique(df$VARIANT_TYPE),
+      levels = c("snp", "indel", "invariant")
+    )
+    variant_qc_plots <- vector("list", length = length(variant_types))
+    for (v in 1:length(variant_types)) {
+      variant_type <- variant_types[v]
+      variant_qc_plots[[v]] <- df %>%
+        filter(VARIANT_TYPE == variant_type) %>%
+        ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
+        geom_col() +
+        #TODO: add back in these vlines for filter thresholds
+        #geom_vline(
+        #  data = parameter_table %>% dplyr::slice(i),
+        #  aes(xintercept = lower),
+        #  lty = "dashed"
+        #) +
+        #geom_vline(
+        #  data = parameter_table %>% dplyr::slice(i),
+        #  aes(xintercept = upper),
+        #  lty = "dashed"
+        #) +
+        facet_wrap(VARIANT_TYPE ~ RULE, scales = "free") +
+        scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
+        scale_y_continuous(labels = scales::percent) +
+        theme_classic() +
+        labs(x = NULL, y = "Proportion") +
+        theme(legend.position = "none")
+    }
     # Write out plots
     pdf("variant_filter_qc.pdf", width = 11, height = 8)
-    plot(gg.filter_qc)
+    purrr::walk(variant_qc_plots, plot)
     try(dev.off(), silent = TRUE)
   },
   finally = {

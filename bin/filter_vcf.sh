@@ -41,8 +41,8 @@ bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
       } else {
         ft=""
         if (g+0 < gq)  ft = (ft=="" ? "GQ_FAIL"   : ft ";GQ_FAIL")
-        if (d+0 < dmin)ft = (ft=="" ? "DPmin_FAIL": ft ";DPmin_FAIL")
-        if (d+0 > dmax)ft = (ft=="" ? "DPmax_FAIL": ft ";DPmax_FAIL")
+        if (d+0 < dmin)ft = (ft=="" ? "GTDP_FAIL": ft ";GTDP_FAIL")
+        if (d+0 > dmax)ft = (ft=="" ? "GTDP_FAIL": ft ";GTDP_FAIL")
         if (ft=="") ft="PASS"
       }
       printf OFS "%s", ft
@@ -118,73 +118,102 @@ bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_filtered.vcf.gz tmp.tagged
 bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 
 # ------- make filter summary histograms ------
-INPUT=tmp.tagged.bcf
 
-# ---- helpers ----
-# bin numeric values into BIN-size buckets (prints the BIN only)
-bin_stream() {
-  awk -v BIN="$1" '
-    $1=="." || $1=="" { next }
-    { v=$1+0; b=int(v/BIN)*BIN; print b }
-  '
-}
-
-# count identical BINs and print RULE  FILTER  VTYPE  BIN  COUNT
-emit_counts() {
-  awk -v rule="$1" -v status="$2" -v vt="$3" -v OFS='\t' '
-    { h[$1]++ }
-    END {
-      # print bins in ascending order
-      n=0; for (b in h) bins[n++]=b
-      asort(bins)
-      for (i=1; i<=n; i++) {
-        b=bins[i]; print rule, status, vt, b+0, h[b]
-      }
-    }'
-}
-
-# 3) Estimate a good bin width from the overall distribution for this metric
-#    Usage: estimate_bin_width INPUT "%FORMAT\n" [min_bins] [max_bins]
-estimate_bin_width() {
-  local INPUT="$1" FMT="$2" MINB="${3:-10}" MAXB="${4:-200}"
+# ---- helper functions ----
+# Compute 50-bin width & origin from a bcftools format over SITE values
+# prints: "<width> <origin>"
+fixed_bins_site() {  # INPUT  FORMAT (e.g. "%INFO/QD\n")
+  local INPUT="$1" FMT="$2"
   bcftools query -f "$FMT" "$INPUT" \
-  | awk -v MINB="$MINB" -v MAXB="$MAXB" '
+  | awk '
       $1!="." && $1!="" {
         v=$1+0
-        if(++n==1){min=v; max=v} else { if(v<min)min=v; if(v>max)max=v }
+        if(++n==1){min=v;max=v}else{if(v<min)min=v;if(v>max)max=v}
       }
       END{
-        if(n<2 || max<=min){ print 1; exit }
-        bins = int(sqrt(n)+0.5)
-        if (bins<MINB) bins=MINB
-        if (bins>MAXB) bins=MAXB
-        bw = (max-min)/bins
-        if (bw<=0) bw=1
-        printf("%.6g\n", bw)
+        if(n<2 || max<=min){ print 1, (n?min:0); exit }
+        bw=(max-min)/50; if(bw<=0)bw=1
+        printf("%.12g %.12g\n", bw, min)
       }'
 }
 
-# Create pass and fail hisogram function
+# Compute 50-bin width & origin from a bcftools format over per-GENOTYPE values
+# METRIC is a genotype tag like "%DP" or "%GQ" (no newline)
+fixed_bins_gt() {   # INPUT  METRIC (e.g. "%DP")
+  local INPUT="$1" METRIC="$2"
+  bcftools query -f "[${METRIC}\t]\n" "$INPUT" \
+  | tr '\t' '\n' \
+  | awk '
+      $1!="." && $1!="" {
+        v=$1+0
+        if(++n==1){min=v;max=v}else{if(v<min)min=v;if(v>max)max=v}
+      }
+      END{
+        if(n<2 || max<=min){ print 1, (n?min:0); exit }
+        bw=(max-min)/50; if(bw<=0)bw=1
+        printf("%.12g %.12g\n", bw, min)
+      }'
+}
+
+# Bin numeric stream using BIN width anchored at ORIGIN (usually min)
+bin_stream() {  # BIN ORIGIN
+  local BIN="$1" ORG="${2:-0}"
+  awk -v BIN="$BIN" -v ORG="$ORG" '
+    $1=="." || $1=="" { next }
+    { v=$1+0; b = int((v-ORG)/BIN)*BIN + ORG; print b }
+  '
+}
+
+# Collapse bins to "RULE  FILTER  VTYPE  BIN  COUNT"
+emit_counts() {
+  awk -v rule="$1" -v status="$2" -v vt="$3" -v OFS='\t' '
+    { h[$1]++ }
+    END { n=0; for (b in h) bins[n++]=b; asort(bins);
+          for(i=1;i<=n;i++){ b=bins[i]; print rule, status, vt, b+0, h[b] } }'
+}
+
+# create_pf_histogram MODE INPUT FAILSEL METRIC RULELABEL VTYPE
 create_pf_histogram() {
-  local INPUT="$1" FAILTAG="$2" RULELABEL="$3" FMT="$4" BIN="$5" VTYPE="$6"
+  local MODE="$1" INPUT="$2" FAILSEL="$3" METRIC="$4" RULE="$5" VTYPE="$6"
 
-  # Pick bin width
-  if [[ -z "$BIN" || "$BIN" == "auto" ]]; then
-    BIN=$(estimate_bin_width "$INPUT" "$FMT")
+  if [[ "$MODE" == "SITE" ]]; then
+    # one grid for PASS & FAIL from site metric
+    local BW ORG
+    read BW ORG < <(fixed_bins_site "$INPUT" "$METRIC")
+
+    # FAIL: records whose FILTER matches FAILSEL
+    bcftools query -i "FILTER~\"${FAILSEL}\"" -f "$METRIC" "$INPUT" \
+      | bin_stream "$BW" "$ORG" \
+      | emit_counts "$RULE" "FAIL" "$VTYPE"
+
+    # PASS: records whose FILTER does NOT match FAILSEL
+    bcftools query -i "FILTER!~\"${FAILSEL}\"" -f "$METRIC" "$INPUT" \
+      | bin_stream "$BW" "$ORG" \
+      | emit_counts "$RULE" "PASS" "$VTYPE"
+
+  elif [[ "$MODE" == "GT" ]]; then
+    # we assume INPUT is a VCF/BCF that already carries FORMAT/FT (e.g., with_ft.vcf.gz)
+    # build 100-bin grid from the genotype metric values
+    local BW ORG
+    read BW ORG < <(fixed_bins_gt "$INPUT" "$METRIC")
+
+    # FAIL: FT contains any label matching FAILSEL (whole-token match recommended)
+    bcftools query -f "[${METRIC},%FT\t]\n" "$INPUT" \
+      | tr '\t' '\n' \
+      | awk -F',' -v p="$FAILSEL" '$1!="." && $1!="" && $2 ~ p { print $1 }' \
+      | bin_stream "$BW" "$ORG" \
+      | emit_counts "$RULE" "FAIL" "$VTYPE"
+
+    # PASS: FT does NOT contain those labels
+    bcftools query -f "[${METRIC},%FT\t]\n" "$INPUT" \
+      | tr '\t' '\n' \
+      | awk -F',' -v p="$FAILSEL" '$1!="." && $1!="" && $2 !~ p { print $1 }' \
+      | bin_stream "$BW" "$ORG" \
+      | emit_counts "$RULE" "PASS" "$VTYPE"
+  else
+    echo "create_pf_histogram: unknown MODE '$MODE'" >&2
+    return 2
   fi
-
-  local FAILSEL='FILTER~"'"$FAILTAG"'"'
-  local PASSSEL='FILTER!~"'"$FAILTAG"'"'
-
-  # FAIL
-  bcftools query -i "$FAILSEL" -f "$FMT" "$INPUT" \
-    | bin_stream "$BIN" \
-    | emit_counts "$RULELABEL" "FAIL" "$VTYPE"
-
-  # PASS
-  bcftools query -i "$PASSSEL" -f "$FMT" "$INPUT" \
-    | bin_stream "$BIN" \
-    | emit_counts "$RULELABEL" "PASS" "$VTYPE"
 }
 
 # ---- build the table ----
@@ -193,18 +222,26 @@ printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant
 
-create_pf_histogram "$INPUT" "QUAL_FAIL"  "QUAL"        "%QUAL\n"                 auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "QD_FAIL"    "QD"          "%INFO/QD\n"              auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "SOR_FAIL"   "SOR"         "%INFO/SOR\n"             auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "FS_FAIL"    "FS"          "%INFO/FS\n"              auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "MQ_FAIL"    "MQ"          "%INFO/MQ\n"              auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "MQRS_FAIL"  "MQRankSum"   "%INFO/MQRankSum\n"       auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "RPRS_FAIL"  "ReadPosRS"   "%INFO/ReadPosRankSum\n"  auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "MAF_FAIL"   "MAF"         "%INFO/MAF\n"             auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "MAC_FAIL"   "MAC"         "%INFO/MAC\n"             auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "EH_FAIL"    "ExcessHet"   "%INFO/ExcessHet\n"       auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "DP_FAIL"    "DP"          "%INFO/DP\n"              auto "$VTYPE" >> "$out"
-create_pf_histogram "$INPUT" "MISS_FAIL"  "F_MISSING"   "%INFO/F_MISSING\n"       auto "$VTYPE" >> "$out"
+# Site-level histograms (use tmp.tagged.bcf)
+INPUT_SITE=tmp.tagged.bcf
+create_pf_histogram SITE "$INPUT_SITE" "QUAL_FAIL"  "%QUAL\n"                QUAL        "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "QD_FAIL"    "%INFO/QD\n"             QD          "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "SOR_FAIL"   "%INFO/SOR\n"            SOR         "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "FS_FAIL"    "%INFO/FS\n"             FS          "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MQ_FAIL"    "%INFO/MQ\n"             MQ          "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MQRS_FAIL"  "%INFO/MQRankSum\n"      MQRankSum   "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "RPRS_FAIL"  "%INFO/ReadPosRankSum\n" ReadPosRS   "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcessHet\n"      ExcessHet   "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MISS_FAIL"  "%INFO/F_MISSING\n"      F_MISSING   "$VTYPE" >> "$out"
+
+# Genotype-level histograms (use with_ft.vcf.gz which has FORMAT/FT)
+INPUT_GT=with_ft.vcf.gz
+create_pf_histogram GT "$INPUT_GT" '(^|;)GQ_FAIL(;|$)'        "%GQ" GT_GQ "$VTYPE" >> "$out"
+create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "$VTYPE" >> "$out"
+
 
 # Zip output summary table
 pigz -p ${1} $out
