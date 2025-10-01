@@ -1,5 +1,5 @@
-process PLOT_SITE_FILTERS {
-    def process_name = "plot_site_filters"    
+process PLOT_VCF_FILTERS {
+    def process_name = "plot_vcf_filters"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'

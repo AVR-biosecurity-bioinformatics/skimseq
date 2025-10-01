@@ -6,8 +6,7 @@
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
-include { PLOT_SITE_FILTERS                            } from '../modules/plot_site_filters'
-include { PLOT_GT_FILTERS                              } from '../modules/plot_gt_filters'
+include { PLOT_VCF_FILTERS                            } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
 workflow FILTER_SITES {
@@ -100,21 +99,12 @@ workflow FILTER_SITES {
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
 
-    // Variant QC plots
-    // NOT WORKING WITH NEW MAP APPROACH
-
-    // plot site qc
-    PLOT_SITE_FILTERS (
+    // QC plots for sites and genotypes
+    PLOT_VCF_FILTERS (
         FILTER_VCF.out.tables.collect()
     )
 
-    // plot genotype qc
-    //PLOT_GT_FILTERS (
-    //    FILTER_VCF_GT.out.tables,
-    //    ch_geno_filters
-    //)
-
-    // plot samples qc
+    // QC plots for sample missing data
     //PLOT_SAMPLE_FILTERS (
     //    FILTER_VCF_SAMPLES.out.tables,
     //    params.sample_max_missing

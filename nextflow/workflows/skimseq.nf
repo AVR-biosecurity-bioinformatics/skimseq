@@ -6,7 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
-include { FILTER_SITES                                              } from '../subworkflows/filter_sites'
+include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 
 //// import modules
@@ -205,7 +205,7 @@ workflow SKIMSEQ {
           ch_mask_bed_vcf = ch_dummy_file
     }
     
-    FILTER_SITES (
+    FILTER_VARIANTS (
         GATK_GENOTYPING.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
@@ -217,9 +217,9 @@ workflow SKIMSEQ {
 
     */
     OUTPUTS (
-        FILTER_SITES.out.filtered_combined,
-        FILTER_SITES.out.filtered_snps,
-        FILTER_SITES.out.filtered_indels,
+        FILTER_VARIANTS.out.filtered_combined,
+        FILTER_VARIANTS.out.filtered_snps,
+        FILTER_VARIANTS.out.filtered_indels,
         ch_genome_indexed,
         ch_sample_pop
     )
@@ -228,7 +228,7 @@ workflow SKIMSEQ {
     ch_reports
         .mix(PROCESS_READS.out.reports)
         .map { sample,path -> [ path ] }
-        .mix(FILTER_SITES.out.reports)
+        .mix(FILTER_VARIANTS.out.reports)
 	    .collect()
         .ifEmpty([])
         .set { multiqc_files }
