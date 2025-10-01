@@ -25,7 +25,13 @@ esac
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
 # Join individual missing data files and output with missing data < missing frac
-# Sum DP per (CHROM, POS) across all files
+awk 'FNR==1 && NR!=1 {next} {print}' *.missing.tsv > missing_summary.tsv
+awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
+  missing_summary.tsv > samples_to_keep.txt
+  
+# Calculate percentile DP filters
+# First sum DP per (CHROM, POS) across all single sample files
+# NOTE: if we want to filter genotype DP by percentile, can just concat not sum.
 zcat *.variant_dp.tsv.gz \
 | awk 'NF>=3 && $1!~/^#/ {print $1, $2, $3+0}' OFS='\t' \
 | LC_ALL=C sort -k1,1 -k2,2n \
