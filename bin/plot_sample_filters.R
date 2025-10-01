@@ -35,20 +35,21 @@ tryCatch(
     ### run code
 
     # List table files
-    table_files <- list.files(pattern = "\\.table.gz$")
+    table_files <- list.files(pattern = "\\.tsv$")
 
     # Read in table file
     df <- read_tsv(table_files) %>%
       dplyr::mutate(
-        label = ifelse(
-          missing >
+        FILTER = ifelse(
+          MISSING_FRACTION >
             as.numeric(params.sample_max_missing %>% str_remove_all("\\[|\\]")),
           "FAIL",
           "PASS"
         )
       )
+
     gg.sample_qc_dist <- df %>%
-      ggplot(aes(x = missing, fill = label)) +
+      ggplot(aes(x = MISSING_FRACTION, fill = FILTER)) +
       geom_histogram() +
       geom_vline(
         xintercept = as.numeric(

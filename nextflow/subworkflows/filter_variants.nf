@@ -115,10 +115,10 @@ workflow FILTER_VARIANTS {
     )
 
     // QC plots for sample missing data
-    //PLOT_SAMPLE_FILTERS (
-    //    FILTER_VCF_SAMPLES.out.tables,
-    //    params.sample_max_missing
-    //)
+    PLOT_SAMPLE_FILTERS (
+        ch_missing_frac.map { sample, f -> f }.collect(),
+        params.sample_max_missing
+    )
 
     // Calculate VCF statistics
    VCF_STATS (
