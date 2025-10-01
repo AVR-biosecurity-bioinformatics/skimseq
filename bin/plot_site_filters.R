@@ -42,7 +42,20 @@ tryCatch(
       dplyr::summarise(COUNT = sum(COUNT)) %>%
       ungroup() %>%
       group_by(VARIANT_TYPE, RULE) %>%
-      mutate(PROP = COUNT / sum(COUNT, na.rm = TRUE))
+      mutate(PROP = COUNT / sum(COUNT, na.rm = TRUE)) %>%
+      mutate(n_grp = dplyr::n()) %>% # Make sure every facet has more than one record to avoid bug with scale_x_binned
+      ungroup() %>%
+      bind_rows(
+        df %>%
+          group_by(VARIANT_TYPE, RULE) %>%
+          filter(dplyr::n() == 1) %>% # singleton facets only
+          slice(1) %>% # duplicate a single row
+          ungroup() %>%
+          mutate(
+            BIN = BIN + 1e-9,
+            PROP = 0 # zero height so it won't change the plot
+          )
+      )
 
     variant_types <- factor(
       unique(df$VARIANT_TYPE),
@@ -69,10 +82,13 @@ tryCatch(
         facet_wrap(VARIANT_TYPE ~ RULE, scales = "free") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_y_continuous(labels = scales::percent) +
-        scale_x_binned(n.breaks = 50) +
+        scale_x_binned(n.breaks = 25) +
         theme_classic() +
         labs(x = NULL, y = "Proportion") +
-        theme(legend.position = "none")
+        theme(
+          legend.position = "none",
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        )
     }
     # Write out plots
     pdf("variant_filter_qc.pdf", width = 11, height = 8)
