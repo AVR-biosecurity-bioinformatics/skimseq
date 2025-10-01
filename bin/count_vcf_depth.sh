@@ -42,8 +42,6 @@ printf "SAMPLE\tPRESENT_BASES\tTARGET_BASES\tMISSING_FRACTION\n" >  "${7}.missin
 printf "%s\t%d\t%d\t%s\n" "${7}" "${PRESENT_BASES}" "${TARGET_BASES}" "${MISSING_FRAC}" >> "${7}.missing.tsv"
 
 # Per-site DP at variant loci (gVCFs don’t store per-base DP for ref blocks)
-bcftools view -i 'TYPE~"snp|indel|mnp|other"' "${3}" \
-| bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t[%DP]\n' \
-| bgzip -c > "${7}.variant_dp.tsv.gz"
-
-tabix -s 1 -b 2 -e 2 "${7}.variant_dp.tsv.gz"
+bcftools view -e 'INFO/END>0' "${3}" \
+| bcftools query -f '[%DP]\n' \
+| bgzip -c > "${7}.variant_dp.txt.gz"

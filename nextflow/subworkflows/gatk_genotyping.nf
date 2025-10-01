@@ -7,10 +7,10 @@ include { CALL_VARIANTS                                          } from '../modu
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
-include { COUNT_READS_BED                                        } from '../modules/count_reads_bed'
+include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
 include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
-include { COUNT_VCF_BED as COUNT_VCF_BED_SHORT                   } from '../modules/count_vcf_bed'
-include { COUNT_VCF_BED as COUNT_VCF_BED_LONG                    } from '../modules/count_vcf_bed'
+include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_SHORT           } from '../modules/count_vcf_records'
+include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_LONG            } from '../modules/count_vcf_records'
 include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
 include { CREATE_INTERVAL_CHUNKS_JC                              } from '../modules/create_interval_chunks_jc'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
@@ -33,7 +33,7 @@ workflow GATK_GENOTYPING {
     */
 
     // Count number of reads in each interval
-    COUNT_READS_BED (
+    COUNT_BAM_READS (
         ch_sample_cram,
         ch_include_bed.first(),
         ch_mask_bed_gatk,
@@ -46,7 +46,7 @@ workflow GATK_GENOTYPING {
 
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
-        COUNT_READS_BED.out.counts,
+        COUNT_BAM_READS.out.counts,
         params.hc_bases_per_chunk
     )
    
@@ -124,7 +124,7 @@ workflow GATK_GENOTYPING {
 
     // Count number of reads contained within each interval, for long contigs (chromosomes)
     // Note: For the long contigs use the mask to split them into smaller genotypable chunks
-    COUNT_VCF_BED_LONG (
+    COUNT_VCF_RECORDS_LONG (
         MERGE_GVCFS.out.vcf,
         ch_long_bed.first(),
         ch_mask_bed_gatk,
@@ -139,7 +139,7 @@ workflow GATK_GENOTYPING {
     // NOTE: For the short contigs use the full contigs with NO MASK, by providing ch_dummy_file
     // This ensures compatibility with --merge-contigs-into-num-partitions in genomicsdbimport
     // Masked regions will still not be included if the mask was used for call_variants
-    COUNT_VCF_BED_SHORT (
+    COUNT_VCF_RECORDS_SHORT (
         MERGE_GVCFS.out.vcf,
         ch_short_bed.first(),
         ch_dummy_file,

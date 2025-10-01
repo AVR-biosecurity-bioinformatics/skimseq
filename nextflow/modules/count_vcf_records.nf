@@ -1,5 +1,5 @@
-process COUNT_VCF_BED {
-    def process_name = "count_vcf_bed"
+process COUNT_VCF_RECORDS {
+    def process_name = "count_vcf_records"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
