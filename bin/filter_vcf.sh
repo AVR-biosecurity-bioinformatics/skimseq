@@ -122,45 +122,65 @@ bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 # We bin the values and create the histogram in awk to avoid parsing massive files to R
 
 # ---- helper functions ----
-# Compute bin width & origin from a bcftools format over SITE values
+# Compute NBINS-bin width & origin (SITE metric format like "%INFO/QD\n")
 fixed_bins_site() {
   local INPUT="$1" FMT="$2" NBINS="${3:-50}"
   (( NBINS < 1 )) && NBINS=1
-  bcftools query -f "$FMT" "$INPUT" \
-  | awk -v NB="$NBINS" '
-      $1!="." && $1!="" {
-        v=$1+0
-        if(++n==1){min=v;max=v}else{if(v<min)min=v;if(v>max)max=v}
-      }
-      END{
-        if(n<2 || max<=min){ print 1, (n?min:0); exit }
-        bw=(max-min)/NB; if(bw<=0)bw=1
-        printf("%.12g %.12g\n", bw, min)
-      }'
+
+  # Emit *something* even if bcftools fails
+  local tmp out rc=0
+  tmp=$(mktemp) || { echo "1 0"; return; }
+
+  # Collect values; ignore missing; compute in awk
+  if ! bcftools query -f "$FMT" "$INPUT" 2>/dev/null \
+      | awk -v NB="$NBINS" '
+          $1!="." && $1!="" { v=$1+0; n++; if(n==1){min=v;max=v}else{if(v<min)min=v;if(v>max)max=v} }
+          END{
+            if(n<2 || max<=min){ print 1, (n?min:0); exit }
+            bw=(max-min)/NB; if(bw<=0)bw=1
+            printf("%.12g %.12g\n", bw, min)
+          }' > "$tmp"; then
+    rc=1
+  fi
+
+  out=$(cat "$tmp"); rm -f "$tmp"
+  if [[ $rc -ne 0 || -z $out ]]; then
+    echo "1 0"    # safe fallback: width=1, origin=0
+  else
+    echo "$out"
+  fi
 }
 
-# Compute NBINS-bin width & origin from per-GENOTYPE values
-# METRIC is a genotype tag like "%DP" or "%GQ" (no newline)
-# Usage: fixed_bins_gt INPUT "%DP" [NBINS]
+# Compute NBINS-bin width & origin (GT metric tag like "%DP" / "%GQ")
 fixed_bins_gt() {
   local INPUT="$1" METRIC="$2" NBINS="${3:-50}"
   (( NBINS < 1 )) && NBINS=1
-  bcftools query -f "[${METRIC}\t]\n" "$INPUT" \
-  | tr '\t' '\n' \
-  | awk -v NB="$NBINS" '
-      $1!="." && $1!="" {
-        v=$1+0
-        if(++n==1){min=v;max=v}else{if(v<min)min=v;if(v>max)max=v}
-      }
-      END{
-        if(n<2 || max<=min){ print 1, (n?min:0); exit }
-        bw=(max-min)/NB; if(bw<=0)bw=1
-        printf("%.12g %.12g\n", bw, min)
-      }'
+
+  local tmp out rc=0
+  tmp=$(mktemp) || { echo "1 0"; return; }
+
+  if ! bcftools query -f "[${METRIC}\t]\n" "$INPUT" 2>/dev/null \
+      | tr '\t' '\n' \
+      | awk -v NB="$NBINS" '
+          $1!="." && $1!="" { v=$1+0; n++; if(n==1){min=v;max=v}else{if(v<min)min=v;if(v>max)max=v} }
+          END{
+            if(n<2 || max<=min){ print 1, (n?min:0); exit }
+            bw=(max-min)/NB; if(bw<=0)bw=1
+            printf("%.12g %.12g\n", bw, min)
+          }' > "$tmp"; then
+    rc=1
+  fi
+
+  out=$(cat "$tmp"); rm -f "$tmp"
+  if [[ $rc -ne 0 || -z $out ]]; then
+    echo "1 0"
+  else
+    echo "$out"
+  fi
 }
 
-# Bin numeric stream using BIN width anchored at ORIGIN (usually min)
-bin_stream() {  # BIN ORIGIN
+# Bin numeric stream using BIN width anchored at ORIGIN
+bin_stream() {
   local BIN="$1" ORG="${2:-0}"
   awk -v BIN="$BIN" -v ORG="$ORG" '
     $1=="." || $1=="" { next }
@@ -176,39 +196,35 @@ emit_counts() {
           for(i=1;i<=n;i++){ b=bins[i]; print rule, status, vt, b+0, h[b] } }'
 }
 
-# create_pf_histogram MODE INPUT FAILSEL METRIC RULELABEL VTYPE
+# create_pf_histogram MODE INPUT FAILSEL METRIC RULELABEL VTYPE [NBINS]
 create_pf_histogram() {
-  local MODE="$1" INPUT="$2" FAILSEL="$3" METRIC="$4" RULE="$5" VTYPE="$6" NBINS="$7"
+  local MODE="$1" INPUT="$2" FAILSEL="$3" METRIC="$4" RULE="$5" VTYPE="$6" NBINS="${7:-50}"
 
   if [[ "$MODE" == "SITE" ]]; then
-    # one grid for PASS & FAIL from site metric
     local BW ORG
-    read BW ORG < <(fixed_bins_site "$INPUT" "$METRIC" "$NBINS")
+    # Protect against empty output from helper under `set -u`
+    read -r BW ORG < <(fixed_bins_site "$INPUT" "$METRIC" "$NBINS")
+    BW=${BW:-1}; ORG=${ORG:-0}
 
-    # FAIL: records whose FILTER matches FAILSEL
     bcftools query -i "FILTER~\"${FAILSEL}\"" -f "$METRIC" "$INPUT" \
       | bin_stream "$BW" "$ORG" \
       | emit_counts "$RULE" "FAIL" "$VTYPE"
 
-    # PASS: records whose FILTER does NOT match FAILSEL
     bcftools query -i "FILTER!~\"${FAILSEL}\"" -f "$METRIC" "$INPUT" \
       | bin_stream "$BW" "$ORG" \
       | emit_counts "$RULE" "PASS" "$VTYPE"
 
   elif [[ "$MODE" == "GT" ]]; then
-    # we assume INPUT is a VCF/BCF that already carries FORMAT/FT (e.g., with_ft.vcf.gz)
-    # build 100-bin grid from the genotype metric values
     local BW ORG
-    read BW ORG < <(fixed_bins_gt "$INPUT" "$METRIC" "$NBINS")
+    read -r BW ORG < <(fixed_bins_gt "$INPUT" "$METRIC" "$NBINS")
+    BW=${BW:-1}; ORG=${ORG:-0}
 
-    # FAIL: FT contains any label matching FAILSEL (whole-token match recommended)
     bcftools query -f "[${METRIC},%FT\t]\n" "$INPUT" \
       | tr '\t' '\n' \
       | awk -F',' -v p="$FAILSEL" '$1!="." && $1!="" && $2 ~ p { print $1 }' \
       | bin_stream "$BW" "$ORG" \
       | emit_counts "$RULE" "FAIL" "$VTYPE"
 
-    # PASS: FT does NOT contain those labels
     bcftools query -f "[${METRIC},%FT\t]\n" "$INPUT" \
       | tr '\t' '\n' \
       | awk -F',' -v p="$FAILSEL" '$1!="." && $1!="" && $2 !~ p { print $1 }' \
@@ -225,7 +241,7 @@ out="${6}_${4}_filter_summary.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant
-NBINS=25
+NBINS=100 # Maximum number of data bins
 
 # Site-level histograms (use tmp.tagged.bcf)
 INPUT_SITE=tmp.tagged.bcf
