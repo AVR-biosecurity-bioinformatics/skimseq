@@ -27,7 +27,7 @@ bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 # Join individual missing data files and output with missing data < missing frac
 awk 'FNR==1 && NR!=1 {next} {print}' *.missing.tsv > missing_summary.tsv
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
-  missing_summary.tsv > sample_to_keep.txt
+  missing_summary.tsv > samples_to_keep.txt
 
 # Calculate percentile DP filters
 zcat *.variant_dp.txt.gz | awk 'NF{print $1+0}' | sort -n > all_dp.sorted
@@ -82,7 +82,7 @@ bcftools annotate \
 # TODO: filter samples using -S samples_to_keep.txt
 # 
 bcftools +setGT -Ou with_ft.vcf.gz -- -t q -n . -i 'FMT/FT!="PASS" && FMT/FT!="."' \
-  | bcftools view -U -S sample_to_keep.txt -Ou \
+  | bcftools view -U -S samples_to_keep.txt -Ou \
   | bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
   | bcftools view -U -Ob -o tmp.bcf
 
