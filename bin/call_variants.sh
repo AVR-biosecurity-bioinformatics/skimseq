@@ -36,11 +36,11 @@ echo ${4} | tr ' ' '\n' > cram.list
 
 # call variants by sample * interval chunk
 # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
+# NOTE: Haplotypecaller ALWAYS outputs intervals in the GVCF, even if there are no reads - so drop these with bcftools
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${1}" HaplotypeCaller \
     -R $5 \
     -I cram.list \
     -L $7 \
-    -O ${3}.${6}.g.vcf.gz \
     --native-pair-hmm-threads ${1} \
     --assembly-region-padding ${8} \
     --exclude-intervals ${9} \
@@ -53,5 +53,12 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     --min-base-quality-score ${15} \
     --minimum-mapping-quality ${16} \
     --mapping-quality-threshold-for-genotyping ${16} \
+    --create-output-variant-index false \
     -ploidy ${17} \
-    -ERC GVCF
+    -ERC GVCF \
+    -O - \
+    | bcftools view \
+        -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
+        -Oz -o ${3}.${6}.g.vcf.gz
+
+bcftools index -t ${3}.${6}.g.vcf.gz

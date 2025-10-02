@@ -19,7 +19,8 @@ bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
 TARGET_BASES=$(awk '{s+=($3-$2)} END{print s+0}' included_intervals.bed )
 
 # Build list of sites which have called genotypes directly from the gVCF (blocks + sites)
-bcftools query -f '%CHROM\t%POS\t%INFO/END\t[%GT]\n' "${3}" \
+bcftools query -f '%CHROM\t%POS\t%INFO/END\t[%GT]\n' \
+        -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)'  "${3}" \
 | awk 'BEGIN{OFS="\t"}
     {
       chr=$1; pos=$2; end=$3; gt=$4;
@@ -28,12 +29,10 @@ bcftools query -f '%CHROM\t%POS\t%INFO/END\t[%GT]\n' "${3}" \
       hasGT = (gt!="./." && gt!="." && gt!="");
       if(hasGT) print chr, pos-1, end, "PRESENT";
     }' \
-| sort -k1,1 -k2,2n \
-| bgzip -c > "${7}.present.bed.gz"
-tabix -p bed "${7}.present.bed.gz"
+| sort -k1,1 -k2,2n > "${7}.present.bed"
 
 # 2) Intersect with targets to count bases with data; compute missing fraction
-PRESENT_BASES=$(bedtools intersect -a "${7}.present.bed.gz" -b included_intervals.bed -wo \
+PRESENT_BASES=$(bedtools intersect -a "${7}.present.bed" -b included_intervals.bed -wo \
   | awk '{s+=$NF} END{print s+0}')
 
 MISSING_FRAC=$(awk -v p="${PRESENT_BASES}" -v t="${TARGET_BASES}" 'BEGIN{printf("%.6f", (t>0?1 - p/t:1))}')
