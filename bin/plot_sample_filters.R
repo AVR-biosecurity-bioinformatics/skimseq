@@ -65,6 +65,8 @@ tryCatch(
       theme_classic() +
       theme(legend.position = "none")
 
+    write_tsv(df, "sample_missing.tsv")
+
     # Write out plots
     pdf("sample_filtering_qc.pdf", width = 11, height = 8)
     plot(gg.sample_qc_dist)

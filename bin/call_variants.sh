@@ -52,7 +52,6 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     --min-base-quality-score ${15} \
     --minimum-mapping-quality ${16} \
     --mapping-quality-threshold-for-genotyping ${16} \
-    --create-output-variant-index false \
     -ploidy ${17} \
     -ERC GVCF \
     -O tmp.g.vcf.gz
@@ -60,7 +59,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
 # NOTE: Haplotypecaller ALWAYS outputs intervals in the GVCF, even if there are no reads - so drop these with bcftools
 bcftools view \
     -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
-    -Oz -o ${3}.${6}.g.vcf.gz
+    -Oz -o ${3}.${6}.g.vcf.gz tmp.g.vcf.gz
 bcftools index -t ${3}.${6}.g.vcf.gz
 
-rm tmp.g.vcf.gz
+rm -f tmp*
