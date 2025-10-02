@@ -89,12 +89,12 @@ bcftools annotate \
   -h ft.hdr \
   -a FT.tsv.gz \
   -c CHROM,POS,FORMAT/FT \
-  -Oz -o with_ft.vcf.gz pre_mask.bcf
+  -Ob -o gt_masked.bcf pre_mask.bcf
 
 # Set failing GTs to missing and re-calculate site tags
 # TODO: filter samples using -S samples_to_keep.txt
 # 
-bcftools +setGT -Ou with_ft.vcf.gz -- -t q -n . -i 'FMT/FT!="PASS" && FMT/FT!="."' \
+bcftools +setGT -Ou gt_masked.bcf -- -t q -n . -i 'FMT/FT="PASS" && FMT/FT="."' \
   | bcftools view -U -S samples_to_keep.txt -Ou \
   | bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
   | bcftools view -U -Ob -o tmp.bcf
@@ -284,8 +284,8 @@ create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcessHet\n"      Exc
 create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "MISS_FAIL"  "%INFO/F_MISSING\n"      F_MISSING   "$VTYPE" "$NBINS" >> "$out"
 
-# Genotype-level histograms (use with_ft.vcf.gz which has FORMAT/FT)
-INPUT_GT=with_ft.vcf.gz
+# Genotype-level histograms (use gt_masked.bcf which has FORMAT/FT)
+INPUT_GT=gt_masked.bcf
 create_pf_histogram GT "$INPUT_GT" '(^|;)GQ_FAIL(;|$)'        "%GQ" GT_GQ "$VTYPE" >> "$out"
 create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "$VTYPE" >> "$out"
 
