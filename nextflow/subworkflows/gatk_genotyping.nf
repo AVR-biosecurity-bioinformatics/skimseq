@@ -97,7 +97,8 @@ workflow GATK_GENOTYPING {
         ch_genome_indexed,
         ch_mask_bed_gatk, 
         params.exclude_padding,
-        ch_hc_params
+        ch_hc_params,
+        params.profile_gatk
     )
 
     // Merge interval GVCFs by sample
