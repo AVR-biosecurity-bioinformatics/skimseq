@@ -105,7 +105,7 @@ workflow GATK_GENOTYPING {
     if( params.profile_gatk ) {
         CALL_VARIANTS.out.profile
             .collectFile(
-                name: 'profiles.tsv',
+                name: 'hc_profiles.tsv',
                 storeDir: "${launchDir}/output/gatk_profiles",
                 skip: 1,
                 keepHeader: true,
