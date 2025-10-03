@@ -2,6 +2,7 @@ process CALL_VARIANTS {
     def process_name = "call_variants"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/gatk_profiles", pattern: '*profile.tsv', mode: 'copy', enabled: "${ params.profile_gatk ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
 
@@ -15,7 +16,8 @@ process CALL_VARIANTS {
 
     output: 
     tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_bed),     emit: gvcf_intervals
-    
+    path("*profile.tsv",  optional: true ),     emit: profile
+
     script:
     def process_script = "${process_name}.sh"
     """
