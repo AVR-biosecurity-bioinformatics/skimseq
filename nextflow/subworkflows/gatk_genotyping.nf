@@ -103,23 +103,15 @@ workflow GATK_GENOTYPING {
 
     // if profiling was rum, merge all *profile.tsv (body-only, no header) into one file
     if( params.profile_gatk ) {
-    CALL_VARIANTS.out.profile
-        .collectFile(
-        name: 'profiles.tsv',
-        storeDir: "${launchDir}/output/gatk_profiles",
-        overwrite: true,
-        newLine: true
-        )
-        .subscribe { Path merged ->
-            // Prepend header
-            def header = 'sample\tinterval_hash\tintervals\tgenomic_bases\taligned_bases\ti_sum\td_sum\ts_sum\tids_sum\tstart_iso8601\tend_iso8601\telapsed_seconds\thc_threads\thc_min_pruning\thc_min_dangling\thc_max_reads_startpos\thc_rmdup\thc_minbq\thc_minmq\tploidy'
-            def f = file(merged)
-            def tmp = f.parent.resolve("${f.baseName}.tmp")
-            tmp.text = header + '\n'
-            tmp.append( f.text )
-            f.delete()
-            tmp.renameTo(f)
-        }
+        CALL_VARIANTS.out.profile
+            .collectFile(
+                name: 'profiles.tsv',
+                storeDir: "${launchDir}/output/gatk_profiles",
+                skip: 1,
+                keepHeader: true,
+                newLine: false,
+                sort: true
+            )
     }
 
     // Merge interval GVCFs by sample

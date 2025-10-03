@@ -125,13 +125,17 @@ if [[ "${DO_PROFILE}" == "true" ]]; then
     END_TS="$(date -u +%FT%TZ)"
     ELAPSED_SEC=$(( (END_NS - START_NS)/1000000000 ))
 
-    # Output profile tsv
+    # Output TSV header 
+    PROFILE_TSV="${3}.${6}.profile.tsv"
+    echo -e "sample\tinterval_hash\tintervals\tgenomic_bases\taligned_bases\ti_sum\td_sum\ts_sum\tids_sum\tstart_iso8601\tend_iso8601\telapsed_seconds\thc_threads\thc_min_pruning\thc_min_dangling\thc_max_reads_startpos\thc_rmdup\thc_minbq\thc_minmq\tploidy" > "${PROFILE_TSV}"
+
+    # Append profiling row
     printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
       "${3}" "${6}" "${INTERVALS_COUNT}" "${GENOMIC_BASES}" "${ALIGNED_BASES}" \
       "${I_SUM}" "${D_SUM}" "${S_SUM}" "${IDS_SUM}" \
       "${START_TS}" "${END_TS}" "${ELAPSED_SEC}" \
       "${1}" "${11}" "${12}" "${13}" "${14}" "${15}" "${16}" "${17}" \
-      >> ${3}.${6}.profile.tsv
+      >> "${PROFILE_TSV}"
 fi
 
 rm -f tmp*
