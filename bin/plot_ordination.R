@@ -49,8 +49,8 @@ tryCatch(
     drop <- rowSums(!is.na(M)) == 1
     M_clean <- M[!drop, !drop, drop = FALSE]
 
-    # Check if matrix still has dimensions
-    if (!any(dim(M_clean) == 0)) {
+    # Check if matrix has enough dimensions
+    if (all(dim(M_clean) > 2)) {
       # Convert matrix to dist matrix
       distmat <- as.dist(M_clean)
 
@@ -104,7 +104,7 @@ tryCatch(
           "text",
           x = .5,
           y = .5,
-          label = "All comparisons are NAN",
+          label = "Insufficient samples to make plot",
           size = 6,
           fontface = "bold"
         ) +

@@ -24,21 +24,25 @@ if (( reader_threads < 1 )); then
     reader_threads=1
 fi
 
-# Check how many chromosomes are in bed file.
-# If there are multiple chromosomes, use --merge-contigs-into-num-partitions 1 to group them together
-# Otherwise parallel processing doesnt work
-num_chroms=$(cut -f1 ${5} | sort -u | wc -l)
-echo "Number of chromosomes: $num_chroms"
+# Check how many contigs are in bed file.
+# If there are multiple full contigs, use --merge-contigs-into-num-partitions 1 to group them together which allows parallel processing
+# If there is only a single contig, or multiple parts of contigs, dont merge them
+num_contigs=$(cut -f1 ${5} | sort -u | wc -l)
+echo "Number of chromosomes: $num_contigs"
 
-if (( num_chroms == 1 )); then
-    # 1 chromosome, run as normal
-    MERGE_CONTIGS=""
+# How many merged BED lines are EXACT full-length matches to the FAI?
+matches=$(
+  awk 'BEGIN{OFS="\t"} {print $1,0,$2}' "${3}.fai" \
+    | grep -Fx -f - "${5}" \
+    | wc -l | awk '{print $1}'
+)
+
+# Decide flag: need >1 contig AND all present contigs full-length
+if (( num_contigs > 1 )) && (( matches == num_contigs )); then
+  MERGE_CONTIGS="--merge-contigs-into-num-partitions 1"
 else
-    MERGE_CONTIGS="--merge-contigs-into-num-partitions 1"
+  MERGE_CONTIGS=""
 fi
-
-
-## NOTE: .g.vcf files and their .tbi indexes are staged 
 
 # Create sample map file
 vcf=$(ls *.g.vcf.gz | sort | uniq )

@@ -11,7 +11,8 @@ process PLOT_SAMPLE_FILTERS {
     val(sample_max_missing)
 
     output: 
-    path("*.pdf"),             emit: plots
+    path("*.pdf"),               emit: plots
+    path("sample_missing.tsv"),  emit: tsv
 
     script:
     def process_script = "${process_name}.R"

@@ -1,5 +1,5 @@
-process COUNT_READS_BED {
-    def process_name = "count_reads_bed"
+process COUNT_BAM_READS {
+    def process_name = "count_bam_reads"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
