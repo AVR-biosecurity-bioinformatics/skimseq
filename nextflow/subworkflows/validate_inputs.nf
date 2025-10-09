@@ -16,8 +16,12 @@ workflow VALIDATE_INPUTS {
     main: 
 
     // TODO: Validate GVCFs
+    ch_existing_cram
+        .set{ ch_existing_gvcf }
 
     // TODO: Validate CRAMS first
+    ch_existing_cram
+        .set{ ch_validated_cram }
 
     // keys for reads
     ch_reads
@@ -25,7 +29,7 @@ workflow VALIDATE_INPUTS {
         .set { ch_reads_by_sample }
 
     // keys for done samples (only if both files exist)
-    ch_existing_cram
+    ch_validated_cram
         .map    { s, cram, crai -> tuple(s, true) }
         .set { ch_done_keys }
 
@@ -76,7 +80,8 @@ workflow VALIDATE_INPUTS {
     
     emit: 
     reads_to_map = ch_all_fixed_fastq
-    validated_cram = ch_existing_cram
+    validated_cram = ch_validated_cram
+    validated_gvcf = ch_validated_gvcf
 
 }
 

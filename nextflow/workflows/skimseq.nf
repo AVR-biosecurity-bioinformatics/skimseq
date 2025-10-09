@@ -4,7 +4,8 @@
 include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
-include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
+include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
+include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
@@ -210,7 +211,7 @@ workflow SKIMSEQ {
     )
     
     /*
-    Call muclear variants per sample, then combine and joint-genotype across genomic intervals
+    Call nuclear variants per sample
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -220,10 +221,23 @@ workflow SKIMSEQ {
             ch_mask_bed_gatk = ch_mito_bed
     }
     
-    GATK_GENOTYPING (
+    GATK_SINGLE (
         ch_sample_cram,
         ch_genome_indexed,
         ch_include_bed,
+        ch_mask_bed_gatk,
+        ch_long_bed,
+        ch_short_bed,
+        ch_dummy_file
+    )
+
+    /*
+    Joint call genotypes
+    */
+    
+    GATK_JOINT (
+        GATK_SINGLE.out.gvcf,
+        ch_genome_indexed,
         ch_mask_bed_gatk,
         ch_long_bed,
         ch_short_bed,
@@ -242,11 +256,11 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        GATK_GENOTYPING.out.vcf,
+        GATK_JOINT.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
-        GATK_GENOTYPING.out.missing_frac,
-        GATK_GENOTYPING.out.variant_dp
+        GATK_JOINT.out.missing_frac,
+        GATK_JOINT.out.variant_dp
     )
 
     /*
