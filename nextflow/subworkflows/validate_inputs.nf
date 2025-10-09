@@ -16,8 +16,8 @@ workflow VALIDATE_INPUTS {
     main: 
 
     // TODO: Validate GVCFs
-    ch_existing_cram
-        .set{ ch_existing_gvcf }
+    ch_existing_gvcf
+        .set{ ch_validated_gvcf }
 
     // TODO: Validate CRAMS first
     ch_existing_cram

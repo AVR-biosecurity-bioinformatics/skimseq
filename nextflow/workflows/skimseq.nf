@@ -234,9 +234,15 @@ workflow SKIMSEQ {
     /*
     Joint call genotypes
     */
+
+    // combine validated existing GVCF with newly created GVCF
+    VALIDATE_INPUTS.out.validated_gvcf
+      .mix( GATK_SINGLE.out.gvcf )
+      .distinct { it[0] }      // dedupe by sample if needed
+      .set{ ch_sample_gvcf }
     
     GATK_JOINT (
-        GATK_SINGLE.out.gvcf,
+        ch_sample_gvcf,
         ch_genome_indexed,
         ch_mask_bed_gatk,
         ch_long_bed,
@@ -259,8 +265,8 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
-        GATK_JOINT.out.missing_frac,
-        GATK_JOINT.out.variant_dp
+        GATK_SINGLE.out.missing_frac,
+        GATK_SINGLE.out.variant_dp
     )
 
     /*
