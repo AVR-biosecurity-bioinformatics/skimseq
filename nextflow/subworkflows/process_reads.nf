@@ -6,15 +6,13 @@
 include { CRAM_STATS                            } from '../modules/cram_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
-include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
-include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
 include { MERGE_CRAM                            } from '../modules/merge_cram'
 
 workflow PROCESS_READS {
 
     take:
-    ch_reads
+    ch_reads_to_map
     ch_genome_indexed
 
     main: 
@@ -39,52 +37,13 @@ workflow PROCESS_READS {
     .collect( sort: false )
     .set { ch_fastp_filters }
     
-
-    /* 
-        Validate fastq and extract read headers
-    */
-    VALIDATE_FASTQ (
-        ch_reads
-    )
-
-    // Convert stdout to a string for status (PASS or FAIL)
-    VALIDATE_FASTQ.out.fastq_with_status
-        .map { sample, lib, read1, read2, stdout -> [ sample, lib, read1, read2, stdout.trim() ] }
-        .branch { sample, lib, read1, read2, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
-        }
-        .set { validation_routes }
-
-    // Print a warning if any samples fail validation and need to be repaired
-    validation_routes.fail
-    .map { sample, lib, read1, read2, _ -> sample } 
-    .unique()
-    .collect()
-    .map { fails ->
-        if (fails && fails.size() > 0)
-        log.warn "Repairing malformed FASTQs for ${fails.size()} sample(s): ${fails.join(', ')}"
-        true
-    }
-    .set { _warn_done }  // force evaluation
-
-    // Repair any fastqs that failed validation 
-    REPAIR_FASTQ(
-        validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
-    )
-
-    // Join repaired fastqs back into validated fastqs
-    validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
-        .mix( REPAIR_FASTQ.out.fastq )
-        .set { ch_all_fixed_fastq }
-
     /* 
         Read splitting
     */
 
     // split paired fastq files into chunks for parallel processing
     SPLIT_FASTQ (
-        ch_all_fixed_fastq,
+        ch_reads_to_map,
         params.fastq_chunk_size
     )
 

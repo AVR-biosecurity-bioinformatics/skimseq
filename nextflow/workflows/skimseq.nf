@@ -1,7 +1,7 @@
 
 
 //// import subworkflows
-// include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
+include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
@@ -66,6 +66,20 @@ workflow SKIMSEQ {
         .map { sample, pop -> sample }
         .unique()
         .set { ch_sample_names }
+
+    // Discover existing CRAM files
+
+
+    // Discover existing gVCFs
+    //def sampleOf = { Path f -> f.getName().replaceAll(/\.g\.vcf\.gz$/, '') }
+
+    //ch_existing_gvcfs = Channel
+    //    .fromPath('results/gvcf/*.g.vcf.gz')
+    //    .map { g -> tuple(sampleOf(g), g, file("${g}.tbi")) }        // [ sample, gvcf, tbi ]
+    //    .set { ch_gvcf_existing }
+
+    //ch_done_samples = ch_existing_gvcfs.map { sample, g, t -> sample }.toList()
+
 
     // Reference genome channel
     if ( params.ref_genome ){
@@ -139,11 +153,22 @@ workflow SKIMSEQ {
     ch_mito_bed = INDEX_MITO.out.bed.first()
     
     /*
+    Validate inputs
+    */
+
+    VALIDATE_INPUTS (
+        ch_reads
+    )
+
+    VALIDATE_INPUTS.out.reads_to_map
+        .set { ch_reads_to_map }
+
+    /*
     Process reads per sample, aligning to the genome, and merging
     */
 
     PROCESS_READS (
-        ch_reads,
+        ch_reads_to_map,
         ch_genome_indexed
     )
     
