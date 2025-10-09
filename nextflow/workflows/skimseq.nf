@@ -68,18 +68,24 @@ workflow SKIMSEQ {
         .set { ch_sample_names }
 
     // Discover existing CRAM files
-
+    ch_sample_names
+        .map { s ->
+            def cram = file("output/results/cram/${s}.cram")
+            def crai = file("${cram}.crai")
+            tuple(s, cram, crai)
+        }
+        .filter { s, cram, crai -> cram.exists() && crai.exists() }
+        .set { ch_existing_cram }
 
     // Discover existing gVCFs
-    //def sampleOf = { Path f -> f.getName().replaceAll(/\.g\.vcf\.gz$/, '') }
-
-    //ch_existing_gvcfs = Channel
-    //    .fromPath('results/gvcf/*.g.vcf.gz')
-    //    .map { g -> tuple(sampleOf(g), g, file("${g}.tbi")) }        // [ sample, gvcf, tbi ]
-    //    .set { ch_gvcf_existing }
-
-    //ch_done_samples = ch_existing_gvcfs.map { sample, g, t -> sample }.toList()
-
+    ch_sample_names
+        .map { s ->
+            def gvcf = file("output/results/vcf/gvcf/${s}.g.vcf")
+            def tbi = file("${gvcf}.tbi")
+            tuple(s, gvcf, tbi)
+        }
+        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+        .set { ch_existing_gvcf }
 
     // Reference genome channel
     if ( params.ref_genome ){
@@ -157,7 +163,9 @@ workflow SKIMSEQ {
     */
 
     VALIDATE_INPUTS (
-        ch_reads
+        ch_reads,
+        ch_existing_cram,
+        ch_existing_gvcf
     )
 
     VALIDATE_INPUTS.out.reads_to_map
@@ -172,7 +180,10 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
     
-    PROCESS_READS.out.cram
+    // combine validated existing CRAMs with newly created CRAMs
+    VALIDATE_INPUTS.out.validated_cram
+      .mix( PROCESS_READS.out.cram )
+      .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 
     /*

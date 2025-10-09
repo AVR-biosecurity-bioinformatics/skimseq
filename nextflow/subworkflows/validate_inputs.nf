@@ -10,14 +10,28 @@ workflow VALIDATE_INPUTS {
 
     take:
     ch_reads
+    ch_existing_cram
+    ch_existing_gvcf
 
     main: 
+
+    // Samples that already have CRAM+CRAI
+    ch_done_cram = ch_existing_cram
+        .map { s, cram, crai -> s }
+        .toList()
+
+     // Keep only reads whose CRAM is NOT done
+    ch_reads
+        .combine(ch_done_cram)  // pairs each read tuple with the done-list
+        .filter { sample, lib, r1, r2, doneList -> !doneList.contains(sample) }
+        .map { sample, lib, r1, r2 }
+        .set { ch_reads_to_validate }
 
     /* 
         Validate fastq and extract read headers
     */
     VALIDATE_FASTQ (
-        ch_reads
+        ch_reads_to_validate
     )
 
     // Convert stdout to a string for status (PASS or FAIL)
@@ -53,5 +67,7 @@ workflow VALIDATE_INPUTS {
     
     emit: 
     reads_to_map = ch_all_fixed_fastq
+    validated_cram = ch_existing_cram
+
 }
 
