@@ -118,16 +118,6 @@ workflow GATK_SINGLE {
         ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample, gvcf, tbi ] }
     )
 
-    // Count missing data in each gvcf - this will be used later for missing data and percentile depth filtering
-    COUNT_VCF_DEPTH (
-        MERGE_GVCFS.out.vcf,
-        ch_long_bed.first(),
-        ch_mask_bed_gatk,
-        ch_genome_indexed
-    )
-
     emit: 
     gvcf = MERGE_GVCFS.out.vcf
-    missing_frac = COUNT_VCF_DEPTH.out.missing_frac
-    variant_dp = COUNT_VCF_DEPTH.out.variant_dp
 }
