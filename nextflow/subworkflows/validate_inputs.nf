@@ -15,17 +15,26 @@ workflow VALIDATE_INPUTS {
 
     main: 
 
-    // Samples that already have CRAM+CRAI
-    ch_done_cram = ch_existing_cram
-        .map { s, cram, crai -> s }
-        .toList()
+    // TODO: Validate GVCFs
 
-     // Keep only reads whose CRAM is NOT done
+    // TODO: Validate CRAMS first
+
+    // keys for reads
     ch_reads
-        .combine(ch_done_cram)  // pairs each read tuple with the done-list
-        .filter { sample, lib, r1, r2, doneList -> !doneList.contains(sample) }
-        .map { sample, lib, r1, r2 }
-        .set { ch_reads_to_validate }
+        .map { s, lib, r1, r2 -> tuple(s, [s, lib, r1, r2]) }
+        .set { ch_reads_by_sample }
+
+    // keys for done samples (only if both files exist)
+    ch_existing_cram
+        .map    { s, cram, crai -> tuple(s, true) }
+        .set { ch_done_keys }
+
+    // left anti-join: keep reads with no match in done keys
+    ch_reads_by_sample
+        .join(ch_done_keys, remainder: true)
+        .filter { sample, payload, doneFlag -> doneFlag == null }
+        .map    { sample, payload, _ -> payload }
+        .set    { ch_reads_to_validate }
 
     /* 
         Validate fastq and extract read headers
