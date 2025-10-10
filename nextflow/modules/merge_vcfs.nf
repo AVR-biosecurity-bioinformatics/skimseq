@@ -7,7 +7,7 @@ process MERGE_VCFS {
     mode: 'copy',
     saveAs: { fname ->
         def flag = params.output_gvcf.toString().toBoolean()
-        def isAlias = (task.process == 'SKIMSEQ:GATK_GENOTYPING:MERGE_GVCFS')
+        def isAlias = (task.process == 'SKIMSEQ:GATK_SINGLE:MERGE_GVCFS')
         (flag && isAlias) ? fname : null
     }
 
@@ -16,7 +16,7 @@ process MERGE_VCFS {
     mode: 'copy',
     saveAs: { fname ->
         def flag = params.output_unfiltered_vcf.toString().toBoolean()
-        def isAlias = (task.process == 'SKIMSEQ:GATK_GENOTYPING:MERGE_UNFILTERED_VCFS')
+        def isAlias = (task.process == 'SKIMSEQ:GATK_JOINT:MERGE_UNFILTERED_VCFS')
         (flag && isAlias) ? fname : null
     }
     
