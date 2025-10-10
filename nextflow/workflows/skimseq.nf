@@ -68,26 +68,6 @@ workflow SKIMSEQ {
         .unique()
         .set { ch_sample_names }
 
-    // Discover existing CRAM files
-    ch_sample_names
-        .map { s ->
-            def cram = file("output/results/cram/${s}.cram")
-            def crai = file("${cram}.crai")
-            tuple(s, cram, crai)
-        }
-        .filter { s, cram, crai -> cram.exists() && crai.exists() }
-        .set { ch_existing_cram }
-
-    // Discover existing gVCFs
-    ch_sample_names
-        .map { s ->
-            def gvcf = file("output/results/vcf/gvcf/${s}.g.vcf.gz")
-            def tbi = file("${gvcf}.tbi")
-            tuple(s, gvcf, tbi)
-        }
-        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
-        .set { ch_existing_gvcf }
-
     // Reference genome channel
     if ( params.ref_genome ){
         ch_genome = Channel
@@ -165,9 +145,7 @@ workflow SKIMSEQ {
 
     VALIDATE_INPUTS (
         ch_sample_names,
-        ch_reads,
-        ch_existing_cram,
-        ch_existing_gvcf
+        ch_reads
     )
 
     /*
@@ -175,7 +153,7 @@ workflow SKIMSEQ {
     */
 
     // Subset the validated fastqs to just those that dont already have a CRAM
-    // keys for samples that already have a usable CRAM OR gVCF
+    // keys for samples that already have a usable CRAM
     VALIDATE_INPUTS.out.validated_cram
         .map { s, cram, crai -> s }
         .map    { s -> tuple(s, true) }

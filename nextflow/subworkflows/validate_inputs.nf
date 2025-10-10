@@ -11,8 +11,6 @@ workflow VALIDATE_INPUTS {
     take:
     ch_sample_names
     ch_reads
-    ch_existing_cram
-    ch_existing_gvcf
 
     main: 
 
@@ -54,10 +52,35 @@ workflow VALIDATE_INPUTS {
         .mix( REPAIR_FASTQ.out.fastq )
         .set { ch_validated_fastq }
 
-    // Validate existing CRAMS
+    /* 
+        Find and validate any pre-existing crams
+    */
+
+    ch_sample_names
+        .map { s ->
+            def cram = file("output/results/cram/${s}.cram")
+            def crai = file("${cram}.crai")
+            tuple(s, cram, crai)
+        }
+        .filter { s, cram, crai -> cram.exists() && crai.exists() }
+        .set { ch_existing_cram }
+
     // TODO:: to pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     ch_existing_cram
         .set{ ch_validated_cram }
+
+    /* 
+        Find and validate any pre-existing GVCFs
+    */
+    
+    ch_sample_names
+        .map { s ->
+            def gvcf = file("output/results/vcf/gvcf/${s}.g.vcf.gz")
+            def tbi = file("${gvcf}.tbi")
+            tuple(s, gvcf, tbi)
+        }
+        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+        .set { ch_existing_gvcf }
 
     // Validate GVCFs
     // TODO:: to pass validation the the comment line must contain all FASTQ readgroups for that sample
