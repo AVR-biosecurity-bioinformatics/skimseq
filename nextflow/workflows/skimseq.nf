@@ -164,17 +164,24 @@ workflow SKIMSEQ {
     */
 
     VALIDATE_INPUTS (
+        ch_sample_names,
         ch_reads,
         ch_existing_cram,
         ch_existing_gvcf
     )
 
-    VALIDATE_INPUTS.out.reads_to_map
-        .set { ch_reads_to_map }
-
     /*
     Process reads per sample, aligning to the genome, and merging
     */
+
+    // Subset the validated fastqs to just those in sample_names_to_map (not already mapped)
+      // single emission
+
+    VALIDATE_INPUTS.out.ch_validated_fastq
+        .combine(VALIDATE_INPUTS.out.sample_names_to_map.toList().map { ids -> ids as Set } )  
+        .filter { s, lib, r1, r2, skipSet -> !(skipSet as Set).contains(s) }
+        .map    { s, lib, r1, r2 }
+        .set { ch_reads_to_map }
 
     PROCESS_READS (
         ch_reads_to_map,
@@ -223,23 +230,12 @@ workflow SKIMSEQ {
     
     // Call variants only for samples that dont have an existing validated gvcf
 
-    // LEFT: key CRAMs by sample -> payload is (sample, cram, crai)
+    // Subset the validated fastqs to just those in sample_names_to_map (not already mapped)
     ch_sample_cram
-        .map { s, cram, crai -> tuple(s, [s, cram, crai]) }
-        .set { ch_cram_by_sample }
-
-    // RIGHT: keys for samples that already have a usable gVCF (+ .tbi)
-    VALIDATE_INPUTS.out.validated_gvcf
-        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
-        .map    { s, gvcf, tbi -> tuple(s, true) }
-        .set { ch_done_gvcf_keys }
-
-    // Anti-join: keep only CRAMs whose sample is NOT in done-gVCF keys
-    ch_cram_by_sample
-        .join(ch_done_gvcf_keys, remainder: true)
-        .filter { sample, payload, doneFlag -> doneFlag == null }
-        .map    { sample, payload, _ -> payload }      // -> (sample, cram, crai)
-        .set    { ch_cram_for_hc }
+        .combine(VALIDATE_INPUTS.out.sample_names_to_hc.toList().map { ids -> ids as Set } )  
+        .filter { s, cram, crai, skipSet -> !(skipSet as Set).contains(s) }
+        .map    { s, cram, crai }
+        .set { ch_cram_for_hc }
 
     GATK_SINGLE (
         ch_cram_for_hc,

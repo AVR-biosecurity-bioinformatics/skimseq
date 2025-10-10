@@ -9,42 +9,18 @@ include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
 workflow VALIDATE_INPUTS {
 
     take:
+    ch_sample_names
     ch_reads
     ch_existing_cram
     ch_existing_gvcf
 
     main: 
 
-    // TODO: Validate GVCFs
-    ch_existing_gvcf
-        .set{ ch_validated_gvcf }
-
-    // TODO: Validate CRAMS first
-    ch_existing_cram
-        .set{ ch_validated_cram }
-
-    // keys for reads
-    ch_reads
-        .map { s, lib, r1, r2 -> tuple(s, [s, lib, r1, r2]) }
-        .set { ch_reads_by_sample }
-
-    // keys for done samples (only if both files exist)
-    ch_validated_cram
-        .map    { s, cram, crai -> tuple(s, true) }
-        .set { ch_done_keys }
-
-    // left anti-join: keep reads with no match in done keys
-    ch_reads_by_sample
-        .join(ch_done_keys, remainder: true)
-        .filter { sample, payload, doneFlag -> doneFlag == null }
-        .map    { sample, payload, _ -> payload }
-        .set    { ch_reads_to_validate }
-
     /* 
-        Validate fastq and extract read headers
+        Validate fastq and extract read groups
     */
     VALIDATE_FASTQ (
-        ch_reads_to_validate
+        ch_reads
     )
 
     // Convert stdout to a string for status (PASS or FAIL)
@@ -76,12 +52,61 @@ workflow VALIDATE_INPUTS {
     // Join repaired fastqs back into validated fastqs
     validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
         .mix( REPAIR_FASTQ.out.fastq )
-        .set { ch_all_fixed_fastq }
+        .set { ch_validated_fastq }
+
+    // Validate existing CRAMS
+    // TODO:: to pass validation the .cram and .crai must exist AND the readgroups must contain all FASTQ readgroups for that sample
+    ch_existing_cram
+        .set{ ch_validated_cram }
+
+    // Validate GVCFs
+    // TODO:: to pass validation the .gvcf and tbi must exist AND the comment line must contain all FASTQ readgroups for that sample
+    ch_existing_gvcf
+        .set{ ch_validated_gvcf }
+
+    // Setup channel to map
+    // ch_to_map = fastqs - (names(validated_crams) + names(validated_gvcf)
+
+    // Done set: samples that already have CRAM or gVCF
+    ch_validated_cram
+        .map { s, cram, crai -> s }
+        .concat( ch_validated_gvcf.map { s, gvcf, tbi -> s } )
+        .unique()
+        .toList()
+        .map { ids -> ids as Set }     // single emission: Set<String>
+        .set { ch_mapped_set }
+
+    // Complement: samples in reads NOT in done set
+    ch_sample_names
+        .combine(ch_mapped_set)          // (s, doneSet)
+        .filter { s, doneSet -> !(doneSet as Set).contains(s) }
+        .map { s }
+        .set { sample_names_to_map }
+
+    // Setup channel to hc
+    // ch_cram_to_hc = new_crams + (names(validated_crams) - names(validated_gvcf)
+
+    ch_validated_gvcf
+        .map { s, gvcf, tbi -> s } 
+        .unique()
+        .toList()
+        .map { ids -> ids as Set }     // single emission: Set<String>
+        .set { ch_called_set }
+
+    // Complement: samples in reads NOT in done set
+    ch_sample_names
+        .combine(ch_called_set)          // (s, doneSet)
+        .filter { s, doneSet -> !(doneSet as Set).contains(s) }
+        .map { s }
+        .set { sample_names_to_hc }
+
     
     emit: 
-    reads_to_map = ch_all_fixed_fastq
+    validated_fastq = ch_validated_fastq
     validated_cram = ch_validated_cram
     validated_gvcf = ch_validated_gvcf
+    sample_names_to_map = sample_names_to_map
+    sample_names_to_hc = sample_names_to_hc
 
 }
 
