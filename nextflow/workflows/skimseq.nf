@@ -162,7 +162,7 @@ workflow SKIMSEQ {
     // left anti-join: keep reads with no match in done keys
     VALIDATE_INPUTS.out.validated_fastq
         .map { s, lib, r1, r2 -> tuple(s, [s, lib, r1, r2]) }
-        .join(ch_done_keys, remainder: true)
+        .combine(ch_done_keys, by: 0)
         .filter { sample, payload, doneFlag -> doneFlag == null }
         .map    { sample, payload, _ -> payload }
         .set    { ch_reads_to_map }
@@ -223,7 +223,7 @@ workflow SKIMSEQ {
     // Anti-join: keep only CRAMs whose sample is NOT in done-gVCF keys
     ch_sample_cram
         .map { s, cram, crai -> tuple(s, [s, cram, crai]) }
-        .join(ch_done_gvcf_keys, remainder: true)
+        .combine(ch_done_gvcf_keys, by: 0)
         .filter { sample, payload, doneFlag -> doneFlag == null }
         .map    { sample, payload, _ -> payload }      // -> (sample, cram, crai)
         .set    { ch_cram_for_hc }
