@@ -220,9 +220,24 @@ workflow SKIMSEQ {
          } else {
             ch_mask_bed_gatk = ch_mito_bed
     }
-    
+
+    // --- build a DONE list for gVCFs (requires both .g.vcf.gz and .tbi) ---
+    VALIDATE_INPUTS.out.validated_gvcf
+        .filter { s, g, t -> g.exists() && t.exists() }
+        .map    { s, g, t -> s }
+        .toList()
+        .map    { ids -> [ids] }
+        .set { ch_done_gvcf_wrapped }
+
+    // --- keep only CRAMs whose sample is NOT in the gVCF done list ---
+    ch_sample_cram
+        .combine(ch_done_gvcf_wrapped)
+        .filter { s, cram, crai, wrapped -> !(wrapped[0] as List).contains(s) }
+        .map    { s, cram, crai }
+        .set { ch_cram_for_hc }
+   
     GATK_SINGLE (
-        ch_sample_cram,
+        ch_cram_for_hc,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
