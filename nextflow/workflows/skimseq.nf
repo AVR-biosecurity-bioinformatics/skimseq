@@ -81,7 +81,7 @@ workflow SKIMSEQ {
     // Discover existing gVCFs
     ch_sample_names
         .map { s ->
-            def gvcf = file("output/results/vcf/gvcf/${s}.g.vcf")
+            def gvcf = file("output/results/vcf/gvcf/${s}.g.vcf.gz")
             def tbi = file("${gvcf}.tbi")
             tuple(s, gvcf, tbi)
         }
@@ -220,22 +220,27 @@ workflow SKIMSEQ {
          } else {
             ch_mask_bed_gatk = ch_mito_bed
     }
+    
+    // Call variants only for samples that dont have an existing validated gvcf
 
-    // --- build a DONE list for gVCFs (requires both .g.vcf.gz and .tbi) ---
-    VALIDATE_INPUTS.out.validated_gvcf
-        .filter { s, g, t -> g.exists() && t.exists() }
-        .map    { s, g, t -> s }
-        .toList()
-        .map    { ids -> [ids] }
-        .set { ch_done_gvcf_wrapped }
-
-    // --- keep only CRAMs whose sample is NOT in the gVCF done list ---
+    // LEFT: key CRAMs by sample -> payload is (sample, cram, crai)
     ch_sample_cram
-        .combine(ch_done_gvcf_wrapped)
-        .filter { s, cram, crai, wrapped -> !(wrapped[0] as List).contains(s) }
-        .map    { s, cram, crai }
-        .set { ch_cram_for_hc }
-   
+        .map { s, cram, crai -> tuple(s, [s, cram, crai]) }
+        .set { ch_cram_by_sample }
+
+    // RIGHT: keys for samples that already have a usable gVCF (+ .tbi)
+    VALIDATE_INPUTS.out.validated_gvcf
+        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+        .map    { s, gvcf, tbi -> tuple(s, true) }
+        .set { ch_done_gvcf_keys }
+
+    // Anti-join: keep only CRAMs whose sample is NOT in done-gVCF keys
+    ch_cram_by_sample
+        .join(ch_done_gvcf_keys, remainder: true)
+        .filter { sample, payload, doneFlag -> doneFlag == null }
+        .map    { sample, payload, _ -> payload }      // -> (sample, cram, crai)
+        .set    { ch_cram_for_hc }
+
     GATK_SINGLE (
         ch_cram_for_hc,
         ch_genome_indexed,
