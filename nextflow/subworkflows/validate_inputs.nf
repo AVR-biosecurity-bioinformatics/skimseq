@@ -55,12 +55,12 @@ workflow VALIDATE_INPUTS {
         .set { ch_validated_fastq }
 
     // Validate existing CRAMS
-    // TODO:: to pass validation the .cram and .crai must exist AND the readgroups must contain all FASTQ readgroups for that sample
+    // TODO:: to pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     ch_existing_cram
         .set{ ch_validated_cram }
 
     // Validate GVCFs
-    // TODO:: to pass validation the .gvcf and tbi must exist AND the comment line must contain all FASTQ readgroups for that sample
+    // TODO:: to pass validation the the comment line must contain all FASTQ readgroups for that sample
     ch_existing_gvcf
         .set{ ch_validated_gvcf }
     

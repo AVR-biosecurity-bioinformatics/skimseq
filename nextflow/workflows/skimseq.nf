@@ -174,22 +174,16 @@ workflow SKIMSEQ {
     Process reads per sample, aligning to the genome, and merging
     */
 
-    // Subset the validated fastqs to just those in sample_names_to_map (not already mapped)
-
-    // keys for reads
-    VALIDATE_INPUTS.out.validated_fastq
-        .map { s, lib, r1, r2 -> tuple(s, [s, lib, r1, r2]) }
-        .set { ch_reads_by_sample }
-
-    // keys for done samples (only if both files exist)
-    ch_validated_cram
+    // Subset the validated fastqs to just those that dont already have a CRAM
+    // keys for samples that already have a usable CRAM OR gVCF
+    VALIDATE_INPUTS.out.validated_cram
         .map { s, cram, crai -> s }
-        .concat( ch_validated_gvcf.map { s, gvcf, tbi -> s } )
         .map    { s -> tuple(s, true) }
         .set { ch_done_keys }
 
     // left anti-join: keep reads with no match in done keys
-    ch_reads_by_sample
+    VALIDATE_INPUTS.out.validated_fastq
+        .map { s, lib, r1, r2 -> tuple(s, [s, lib, r1, r2]) }
         .join(ch_done_keys, remainder: true)
         .filter { sample, payload, doneFlag -> doneFlag == null }
         .map    { sample, payload, _ -> payload }
@@ -240,21 +234,17 @@ workflow SKIMSEQ {
             ch_mask_bed_gatk = ch_mito_bed
     }
     
-    // Call variants only for samples that dont have an existing validated gvcf
+    // Subset the crams to just those that dont already have a GVCF for single sample calling
 
-    // LEFT: key CRAMs by sample -> payload is (sample, cram, crai)
-    ch_sample_cram
-        .map { s, cram, crai -> tuple(s, [s, cram, crai]) }
-        .set { ch_cram_by_sample }
-
-    // RIGHT: keys for samples that already have a usable gVCF (+ .tbi)
+    // keys for samples that already have a usable gVCF (+ .tbi)
     VALIDATE_INPUTS.out.validated_gvcf
         .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
         .map    { s, gvcf, tbi -> tuple(s, true) }
         .set { ch_done_gvcf_keys }
 
     // Anti-join: keep only CRAMs whose sample is NOT in done-gVCF keys
-    ch_cram_by_sample
+    ch_sample_cram
+        .map { s, cram, crai -> tuple(s, [s, cram, crai]) }
         .join(ch_done_gvcf_keys, remainder: true)
         .filter { sample, payload, doneFlag -> doneFlag == null }
         .map    { sample, payload, _ -> payload }      // -> (sample, cram, crai)
@@ -274,7 +264,7 @@ workflow SKIMSEQ {
     Joint call genotypes
     */
 
-    // combine validated existing GVCF with newly created GVCF
+    // combine validated existing GVCs with newly created GVCFs for joint calling
     VALIDATE_INPUTS.out.validated_gvcf
       .mix( GATK_SINGLE.out.gvcf )
       .distinct { it[0] }      // dedupe by sample if needed
