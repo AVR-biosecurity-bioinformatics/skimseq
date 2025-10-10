@@ -63,50 +63,11 @@ workflow VALIDATE_INPUTS {
     // TODO:: to pass validation the .gvcf and tbi must exist AND the comment line must contain all FASTQ readgroups for that sample
     ch_existing_gvcf
         .set{ ch_validated_gvcf }
-
-    // Setup channel to map
-    // ch_to_map = fastqs - (names(validated_crams) + names(validated_gvcf)
-
-    // Done set: samples that already have CRAM or gVCF
-    ch_validated_cram
-        .map { s, cram, crai -> s }
-        .concat( ch_validated_gvcf.map { s, gvcf, tbi -> s } )
-        .unique()
-        .toList()
-        .map { ids -> ids as Set }     // single emission: Set<String>
-        .set { ch_mapped_set }
-
-    // Complement: samples in reads NOT in done set
-    ch_sample_names
-        .combine(ch_mapped_set)          // (s, doneSet)
-        .filter { s, doneSet -> !(doneSet as Set).contains(s) }
-        .map { s }
-        .set { sample_names_to_map }
-
-    // Setup channel to hc
-    // ch_cram_to_hc = new_crams + (names(validated_crams) - names(validated_gvcf)
-
-    ch_validated_gvcf
-        .map { s, gvcf, tbi -> s } 
-        .unique()
-        .toList()
-        .map { ids -> ids as Set }     // single emission: Set<String>
-        .set { ch_called_set }
-
-    // Complement: samples in reads NOT in done set
-    ch_sample_names
-        .combine(ch_called_set)          // (s, doneSet)
-        .filter { s, doneSet -> !(doneSet as Set).contains(s) }
-        .map { s }
-        .set { sample_names_to_hc }
-
     
     emit: 
     validated_fastq = ch_validated_fastq
     validated_cram = ch_validated_cram
     validated_gvcf = ch_validated_gvcf
-    sample_names_to_map = sample_names_to_map
-    sample_names_to_hc = sample_names_to_hc
 
 }
 
