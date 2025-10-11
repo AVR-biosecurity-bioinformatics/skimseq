@@ -36,40 +36,40 @@ workflow MASK_GENOME {
     */
     
     // First divide the genome into bins for calculating coverage
-    CREATE_GENOME_BINS (
-        ch_genome_indexed,
-        ch_include_bed,
-        params.bin_size
-    )
+    //CREATE_GENOME_BINS (
+    //    ch_genome_indexed,
+    //    ch_include_bed,
+    //    params.bin_size
+    //)
 
-    ch_binned_bed = CREATE_GENOME_BINS.out.binned_bed.first()
-    ch_annot_bins = CREATE_GENOME_BINS.out.annotated_bins.first()
+    //ch_binned_bed = CREATE_GENOME_BINS.out.binned_bed.first()
+    //ch_annot_bins = CREATE_GENOME_BINS.out.annotated_bins.first()
 
     // Count reads in each group of binned intervals
-    COUNT_READS_BINS (
-          ch_sample_cram,
-          ch_binned_bed,
-          ch_genome_indexed
-    ) 
+    //COUNT_READS_BINS (
+    //      ch_sample_cram,
+    //      ch_binned_bed,
+    //      ch_genome_indexed
+    //) 
 
     // collect counts.tsvs into a single element
-    COUNT_READS_BINS.out.counts
-        .collect()
-        .set { ch_bin_counts }
+    //COUNT_READS_BINS.out.counts
+    //    .collect()
+    //   .set { ch_bin_counts }
         
     // Run filter counts module
-    CREATE_MASKS_BINS (
-          ch_bin_counts,
-          ch_binned_bed,
-          ch_annot_bins,
-          ch_genome_indexed,
-          params.bin_gc_lower,
-          params.bin_gc_upper,
-          params.bin_min_reads,
-          params.bin_lower_read_perc,
-          params.bin_upper_read_perc,
-          params.bin_filter_perc_samples
-    )   
+    //CREATE_MASKS_BINS (
+    //      ch_bin_counts,
+    //      ch_binned_bed,
+    //      ch_annot_bins,
+    //      ch_genome_indexed,
+    //      params.bin_gc_lower,
+    //      params.bin_gc_upper,
+    //      params.bin_min_reads,
+    //      params.bin_lower_read_perc,
+    //      params.bin_upper_read_perc,
+    //      params.bin_filter_perc_samples
+    //)   
 
     /*
     Create mask file and summarise
@@ -77,7 +77,7 @@ workflow MASK_GENOME {
 
     //Concatenate multiple masks together intp a list
     CREATE_GENOME_MASKS.out.mask_bed
-      .concat(ch_mito_bed, CREATE_MASKS_BINS.out.bin_masked)
+      .concat(ch_mito_bed)
       .collect()
       .set{ ch_mask_bed }
 
@@ -95,6 +95,5 @@ workflow MASK_GENOME {
     
     emit: 
     mask_bed = MERGE_MASKS.out.merged_masks
-
 
 }
