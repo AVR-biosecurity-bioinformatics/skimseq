@@ -186,8 +186,8 @@ workflow SKIMSEQ {
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
-        ch_mito_bed,
-        ch_sample_cram
+        ch_mito_bed
+        //ch_sample_cram
       )
     
     /*

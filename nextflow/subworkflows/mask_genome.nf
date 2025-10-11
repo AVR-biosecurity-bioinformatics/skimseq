@@ -17,7 +17,7 @@ workflow MASK_GENOME {
     ch_include_bed
     ch_exclude_bed
     ch_mito_bed
-    ch_sample_cram
+    //ch_sample_cram
 
     main: 
 
