@@ -17,6 +17,7 @@ workflow GATK_JOINT {
     take:
     ch_sample_gvcf
     ch_genome_indexed
+    ch_include_bed
     ch_mask_bed_gatk
     ch_long_bed
     ch_short_bed
@@ -27,7 +28,7 @@ workflow GATK_JOINT {
     // Count missing data in each gvcf - this will be used later for missing data and percentile depth filtering
     COUNT_VCF_DEPTH (
         ch_sample_gvcf,
-        ch_long_bed.first(),
+        ch_include_bed.first(),
         ch_mask_bed_gatk,
         ch_genome_indexed
     )

@@ -251,6 +251,7 @@ workflow SKIMSEQ {
     GATK_JOINT (
         ch_sample_gvcf,
         ch_genome_indexed,
+        ch_include_bed,
         ch_mask_bed_gatk,
         ch_long_bed,
         ch_short_bed,
