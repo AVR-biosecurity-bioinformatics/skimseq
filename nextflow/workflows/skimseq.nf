@@ -153,19 +153,17 @@ workflow SKIMSEQ {
     */
 
     // Subset the validated fastqs to just those that dont already have a CRAM
-    // keys for samples that already have a usable CRAM
     VALIDATE_INPUTS.out.validated_cram
         .map { s, cram, crai -> s }
-        .map    { s -> tuple(s, true) }
-        .set { ch_done_keys }
+        .toList()
+        .map { ids -> ids as Set } 
+        .set { ch_cram_done }
 
-    // left anti-join: keep reads with no match in done keys
     VALIDATE_INPUTS.out.validated_fastq
-        .map { s, lib, r1, r2 -> tuple(s, [s, lib, r1, r2]) }
-        .combine(ch_done_keys, by: 0)
-        .filter { sample, payload, doneFlag -> doneFlag == null }
-        .map    { sample, payload, _ -> payload }
-        .set    { ch_reads_to_map }
+        .combine(ch_cram_done)  
+        .filter { s, lib, r1, r2, doneSet -> !(doneSet as Set).contains(s) }
+        .map { s, lib, r1, r2, doneSet -> tuple(s, lib, r1, r2) }
+        .set { ch_reads_to_map }
 
     PROCESS_READS (
         ch_reads_to_map,
@@ -213,20 +211,17 @@ workflow SKIMSEQ {
     }
     
     // Subset the crams to just those that dont already have a GVCF for single sample calling
+     VALIDATE_INPUTS.out.validated_gvcf
+        .map { s, gvcf, tbi -> s }
+        .toList()
+        .map { ids -> ids as Set } 
+        .set { ch_gvcf_done }
 
-    // keys for samples that already have a usable gVCF (+ .tbi)
-    VALIDATE_INPUTS.out.validated_gvcf
-        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
-        .map    { s, gvcf, tbi -> tuple(s, true) }
-        .set { ch_done_gvcf_keys }
-
-    // Anti-join: keep only CRAMs whose sample is NOT in done-gVCF keys
     ch_sample_cram
-        .map { s, cram, crai -> tuple(s, [s, cram, crai]) }
-        .combine(ch_done_gvcf_keys, by: 0)
-        .filter { sample, payload, doneFlag -> doneFlag == null }
-        .map    { sample, payload, _ -> payload }      // -> (sample, cram, crai)
-        .set    { ch_cram_for_hc }
+        .combine(ch_gvcf_done)  
+        .filter { s, gvcf, tbi, doneSet -> !(doneSet as Set).contains(s) }
+        .map {  s, gvcf, tbi, doneSet -> tuple( s, gvcf, tbi) }
+        .set { ch_cram_for_hc }
 
     GATK_SINGLE (
         ch_cram_for_hc,
