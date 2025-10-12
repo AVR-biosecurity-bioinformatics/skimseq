@@ -8,7 +8,11 @@ process GENOMICSDB_IMPORT {
     input:
     tuple val(interval_hash), path(interval_list), path(gvcf), path(tbi)
     tuple path(ref_genome), path(genome_index_files)
+    val(cohort_size)
 
+    // Dynamic label from cohort size to define memory requirements of job
+    label { cohortLabel(cohort_size) }
+    
     output: 
     tuple val(interval_hash), path(interval_list), path("$interval_hash"),      emit: genomicsdb
     

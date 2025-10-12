@@ -22,6 +22,7 @@ workflow GATK_JOINT {
     ch_long_bed
     ch_short_bed
     ch_dummy_file
+    ch_sample_names
 
     main: 
 
@@ -99,10 +100,25 @@ workflow GATK_JOINT {
         .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
+
+    // Helper for defining cohort size, this is used to scale memory requirements of genomicsdbimport and joint_genotype
+    def cohortLabel = { n ->
+        (n <= 50) ? 'cohort_small' :
+        (n <= 500) ? 'cohort_medium' :
+        (n <= 1000) ? 'cohort_large' : 'cohort_massive'
+    }
+
+    // Calculate cohort size from sample names
+    ch_sample_names
+        .unique()
+        .count()
+        .set{ ch_cohort_size }
+
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (
         ch_gvcf_interval,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_cohort_size
     )
 
     // joint-call genotypes across all samples per Interval
@@ -111,7 +127,8 @@ workflow GATK_JOINT {
         ch_genome_indexed,
         ch_mask_bed_gatk, 
         params.exclude_padding,
-        params.output_invariant
+        params.output_invariant,
+        ch_cohort_size
     )
 
     if( params.output_unfiltered_vcf ) {

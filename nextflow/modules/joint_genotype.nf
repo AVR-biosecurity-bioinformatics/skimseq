@@ -10,6 +10,10 @@ process JOINT_GENOTYPE {
     path(exclude_bed)
     val(exclude_padding)
     val(output_invariant)
+    val(cohort_size)
+
+    // Dynamic label from cohort size to define memory requirements of job
+    label { cohortLabel(cohort_size) }
 
     output: 
     tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
