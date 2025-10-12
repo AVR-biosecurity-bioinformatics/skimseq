@@ -15,7 +15,7 @@ process JOINT_GENOTYPE {
     // Scale memory based on cohort size
     memory {
         def n = cohort_size as int
-        //Pick a base memory “tier” from the cohort size
+        //Pick a base memory tier from the cohort size
         def tier = (n<=50 ? 24.GB : n<=500 ? 48.GB : n<=1000 ? 64.GB : 128.GB)
         // Scale that tier by the retry number (task.attempt) - mimics mem_scale function in config file
         def need = (tier.toBytes() * task.attempt) as long
