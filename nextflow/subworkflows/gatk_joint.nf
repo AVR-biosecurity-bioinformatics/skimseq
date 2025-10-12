@@ -101,18 +101,8 @@ workflow GATK_JOINT {
         .set { ch_gvcf_interval }
 
 
-    // Helper for defining cohort size, this is used to scale memory requirements of genomicsdbimport and joint_genotype
-    def cohortLabel = { n ->
-        (n <= 50) ? 'cohort_small' :
-        (n <= 500) ? 'cohort_medium' :
-        (n <= 1000) ? 'cohort_large' : 'cohort_massive'
-    }
-
-    // Calculate cohort size from sample names
-    ch_sample_names
-        .unique()
-        .count()
-        .set{ ch_cohort_size }
+    // Calculate cohort size from sample names - This is ued for memory scaling of next 2 steps
+    ch_cohort_size = ch_sample_names.unique().count()
 
     // Import GVCFs into a genomicsDB per Interval
     GENOMICSDB_IMPORT (

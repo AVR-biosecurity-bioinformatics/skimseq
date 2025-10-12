@@ -12,8 +12,17 @@ process JOINT_GENOTYPE {
     val(output_invariant)
     val(cohort_size)
 
-    // Dynamic label from cohort size to define memory requirements of job
-    label { cohortLabel(cohort_size) }
+    // Scale memory based on cohort size
+    memory {
+        def n = cohort_size as int
+        //Pick a base memory “tier” from the cohort size
+        def tier = (n<=50 ? 24.GB : n<=500 ? 48.GB : n<=1000 ? 64.GB : 128.GB)
+        // Scale that tier by the retry number (task.attempt) - mimics mem_scale function in config file
+        def need = (tier.toBytes() * task.attempt) as long
+        def mem  = need.B
+        //  Optional cap: if --max_memory was provided, return the smaller of (mem, max)
+        params.max_memory ? [mem, (params.max_memory as MemoryUnit)].min() : mem
+    }
 
     output: 
     tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),       emit: vcf
