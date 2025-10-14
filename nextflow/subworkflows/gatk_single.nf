@@ -98,19 +98,19 @@ workflow GATK_SINGLE {
     if( params.profile_gatk ) {
         
         PROFILE_HC (
-            CALL_VARIANTS.out.log.map { sample, interval_hash, log -> log}.collect()
+            CALL_VARIANTS.out.log
         )
-        // TODO: Merge and output HC profiles
 
-        //CALL_VARIANTS.out.profile
-        //    .collectFile(
-        //        name: 'hc_profiles.tsv',
-        //        storeDir: "${launchDir}/output/gatk_profiles",
-        //        skip: 1,
-        //        keepHeader: true,
-        //        newLine: false,
-        //        sort: true
-        //    )
+        // Merge and output HC profiles
+        PROFILE_HC.out.tsv
+            .collectFile(
+                name: 'hc_profiles.tsv',
+                storeDir: "${launchDir}/output/gatk_profiles",
+                skip: 1,
+                keepHeader: true,
+                newLine: false,
+                sort: true
+            )
     }
 
     // Merge interval GVCFs by sample

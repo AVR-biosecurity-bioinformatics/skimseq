@@ -4,7 +4,7 @@ process PROFILE_HC {
     // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
-    path(logfile)
+    tuple val(sample), val(interval_hash), path(logfile)
 
     output: 
     path("*.tsv"),                                                                    emit: tsv
@@ -18,6 +18,8 @@ process PROFILE_HC {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${sample} \
+        ${interval_hash} \
         ${logfile}
 
     """
