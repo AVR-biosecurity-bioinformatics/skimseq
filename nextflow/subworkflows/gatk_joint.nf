@@ -123,7 +123,7 @@ workflow GATK_JOINT {
     )
 
     if( params.profile_gatk ) {
-        JOINT_GENOTYPE.out.log.map { interval_hash, log -> log}.collect().view()
+        // TODO: if extra covariates are calculated for these intervals, run separately and then merge output TSV in nextflow
         PROFILE_JC (
             JOINT_GENOTYPE.out.log.map { interval_hash, log -> log}.collect()
         )

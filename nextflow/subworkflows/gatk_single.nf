@@ -91,21 +91,25 @@ workflow GATK_SINGLE {
         ch_genome_indexed,
         ch_mask_bed_gatk, 
         params.exclude_padding,
-        ch_hc_params,
-        params.profile_gatk
+        ch_hc_params
     )
 
     // if profiling was rum, merge all *profile.tsv (body-only, no header) into one file
     if( params.profile_gatk ) {
-        CALL_VARIANTS.out.profile
-            .collectFile(
-                name: 'hc_profiles.tsv',
-                storeDir: "${launchDir}/output/gatk_profiles",
-                skip: 1,
-                keepHeader: true,
-                newLine: false,
-                sort: true
-            )
+        
+        // TODO: Run profile HC
+
+        // TODO: Merge and output HC profiles
+
+        //CALL_VARIANTS.out.profile
+        //    .collectFile(
+        //        name: 'hc_profiles.tsv',
+        //        storeDir: "${launchDir}/output/gatk_profiles",
+        //        skip: 1,
+        //        keepHeader: true,
+        //        newLine: false,
+        //        sort: true
+        //    )
     }
 
     // Merge interval GVCFs by sample

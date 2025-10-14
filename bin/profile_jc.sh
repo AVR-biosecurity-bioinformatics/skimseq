@@ -24,7 +24,7 @@ for log in "${LOGS[@]}"; do
   src="${base#_}"              # remove leading '_' if present; delete this line to keep it
   src="${src%.stderr.log}"
 
-  # Progress lines → merged TSV
+  # Progress lines
   grep -F 'ProgressMeter -' "$log" 2>/dev/null | \
   awk -v src="$src" '
     /ProgressMeter -/ {
@@ -34,7 +34,7 @@ for log in "${LOGS[@]}"; do
         printf("%s\t%s\t%s\t%.3f\t%d\t%.1f\n", src, chrom, pos, elapsed, nvar, rate)
     }' >> "$PROG_OUT" || true
 
-  # Too-many-alleles positions → merged TSV
+  # Too-many-alleles positions
   grep -F 'has too many alleles in the combined VCF record' "$log" 2>/dev/null | \
   awk -v src="$src" '{
     chrom=""; pos=""
@@ -46,7 +46,7 @@ for log in "${LOGS[@]}"; do
     if(chrom!="" && pos!="") printf("%s\t%s\t%s\n", src, chrom, pos)
   }' >> "$ALLELE_OUT" || true
 
-  # Skipped sites (insufficient data) → merged TSV
+  # Skipped sites (insufficient data)
   grep -F 'MinimalGenotypingEngine - Some genotypes contained insufficient data' "$log" 2>/dev/null | \
   awk -v src="$src" -F'location ' '
     NF>1 {
