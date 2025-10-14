@@ -130,7 +130,6 @@ workflow GATK_JOINT {
     }
 
     if( params.output_unfiltered_vcf ) {
-
         JOINT_GENOTYPE.out.vcf
             .map { interval_hash, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
             .map { type, vcf, tbi -> tuple('all', vcf, tbi) }

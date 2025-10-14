@@ -8,6 +8,7 @@ include { MERGE_VCFS as MERGE_GVCFS                              } from '../modu
 include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
 include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
 include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
+include { PROFILE_HC                                             } from '../modules/profile_hc'
 
 workflow GATK_SINGLE {
 
@@ -94,11 +95,11 @@ workflow GATK_SINGLE {
         ch_hc_params
     )
 
-    // if profiling was rum, merge all *profile.tsv (body-only, no header) into one file
     if( params.profile_gatk ) {
         
-        // TODO: Run profile HC
-
+        PROFILE_HC (
+            CALL_VARIANTS.out.log.map { sample, interval_hash, log -> log}.collect()
+        )
         // TODO: Merge and output HC profiles
 
         //CALL_VARIANTS.out.profile
