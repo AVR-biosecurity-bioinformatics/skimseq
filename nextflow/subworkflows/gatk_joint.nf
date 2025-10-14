@@ -11,6 +11,7 @@ include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_LONG            } from '../modu
 include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
 include { CREATE_INTERVAL_CHUNKS_JC                              } from '../modules/create_interval_chunks_jc'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
+include { PROFILE_JC                                             } from '../modules/profile_jc' 
 
 workflow GATK_JOINT {
 
@@ -120,6 +121,13 @@ workflow GATK_JOINT {
         params.output_invariant,
         ch_cohort_size
     )
+
+    if( params.profile_gatk ) 
+        JOINT_GENOTYPE.out.log.collect().view()
+        PROFILE_JC (
+            JOINT_GENOTYPE.out.log.collect()
+        )
+    }
 
     if( params.output_unfiltered_vcf ) {
 

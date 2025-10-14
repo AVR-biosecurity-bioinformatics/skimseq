@@ -26,7 +26,7 @@ process JOINT_GENOTYPE {
 
     output: 
     tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
-    output path("*.stderr.log"),                                                             emit: log
+    tuple val(interval_hash), path("*.stderr.log"),                                          emit: log
 
     script:
     def process_script = "${process_name}.sh"
