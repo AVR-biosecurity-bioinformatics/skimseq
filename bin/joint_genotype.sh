@@ -32,7 +32,7 @@ if [[ "${9}" == "false" ]]; then
         --interval-exclusion-padding ${8} \
         --interval-merging-rule ALL \
         --merge-input-intervals \
-        --only-output-calls-starting-in-intervals \
+        --variant-output-filtering STARTS_IN \
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \
         --tmp-dir /tmp \
@@ -52,7 +52,7 @@ elif [[ "${9}" == "true" ]]; then
         --interval-exclusion-padding ${8} \
         --interval-merging-rule ALL \
         --merge-input-intervals true \
-        --only-output-calls-starting-in-intervals \
+        --variant-output-filtering STARTS_IN \
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \
         --tmp-dir /tmp \
