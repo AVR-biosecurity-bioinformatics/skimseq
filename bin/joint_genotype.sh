@@ -23,6 +23,7 @@ fi
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
 if [[ "${9}" == "false" ]]; then
     # joint genotype variant sites only
+    # Send stderr to log file for profiling
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
         -R ${4} \
         -V gendb://${3} \
@@ -36,13 +37,15 @@ if [[ "${9}" == "false" ]]; then
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \
         --tmp-dir /tmp \
-        --genomicsdb-shared-posixfs-optimizations true
+        --genomicsdb-shared-posixfs-optimizations true \
+        2> >(tee -a ${5}.stderr.log >&2)
 
 elif [[ "${9}" == "true" ]]; then
     # Joint genotype both variant and invariant
     # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
 
     # genotype both variant and invariant sites 
+    # Send stderr to log file for profiling
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G"  GenotypeGVCFs \
         -R ${4} \
         -V gendb://${3} \
@@ -56,7 +59,8 @@ elif [[ "${9}" == "true" ]]; then
         --max-alternate-alleles 6 \
         --genomicsdb-max-alternate-alleles 10 \
         --tmp-dir /tmp \
-        --genomicsdb-shared-posixfs-optimizations true
+        --genomicsdb-shared-posixfs-optimizations true \
+        2> >(tee -a ${5}.stderr.log >&2)
 
     # Get the sites as a GVCF as well to transfer the annotations over
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  SelectVariants \
