@@ -4,7 +4,7 @@ process PROFILE_JC {
     // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
-    tuple val(interval_hash), path(logfile)
+    path(logfile)
 
     output: 
     path("*.tsv"),                                                                    emit: tsv

@@ -122,10 +122,10 @@ workflow GATK_JOINT {
         ch_cohort_size
     )
 
-    if( params.profile_gatk ) 
-        JOINT_GENOTYPE.out.log.collect().view()
+    if( params.profile_gatk ) {
+        JOINT_GENOTYPE.out.log.map { interval_hash, log -> log}.collect().view()
         PROFILE_JC (
-            JOINT_GENOTYPE.out.log.collect()
+            JOINT_GENOTYPE.out.log.map { interval_hash, log -> log}.collect()
         )
     }
 
