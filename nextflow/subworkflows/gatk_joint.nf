@@ -128,7 +128,7 @@ workflow GATK_JOINT {
             JOINT_GENOTYPE.out.log
         )        
         // Merge and output JC profiles
-        PROFILE_JC.out.tsv
+        PROFILE_JC.out.summary
             .collectFile(
                 name: 'jc_profiles.tsv',
                 storeDir: "${launchDir}/output/gatk_profiles",
