@@ -14,7 +14,7 @@ process CALL_VARIANTS {
 
     output: 
     tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_bed),     emit: gvcf_intervals
-    tuple val(sample), val(interval_hash), path("*.stderr.log"),                                               emit: log
+    tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),                       emit: log
 
     script:
     def process_script = "${process_name}.sh"

@@ -4,10 +4,10 @@ process PROFILE_HC {
     // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
-    tuple val(sample), val(interval_hash), path(logfile)
+    tuple val(sample), val(interval_hash), path(logfile), path(assembly_regions)
 
     output: 
-    path("*.tsv"),                                                                    emit: tsv
+    path("*.progress_summary.tsv"),                                             emit: summary
 
     script:
     def process_script = "${process_name}.sh"

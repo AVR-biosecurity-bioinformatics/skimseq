@@ -52,6 +52,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     --min-base-quality-score ${15} \
     --minimum-mapping-quality ${16} \
     --mapping-quality-threshold-for-genotyping ${16} \
+    --assembly-region-out ${3}.${6}.assembly.tsv \
     -ploidy ${17} \
     -ERC GVCF \
     -O tmp.g.vcf.gz \

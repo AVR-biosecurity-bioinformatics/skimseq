@@ -21,6 +21,77 @@ grep -F 'ProgressMeter -' "${5}" \
     } ' >> progress_summary.tsv
 
 
+# Transform assembly regions output into a bed file
+awk -F'\t' 'BEGIN{OFS="\t"}
+    NR==1 || $1 ~ /^#/ { next }             # skip track/header
+    $4 == "end-marker" { next }             # drop 0-length markers
+    $4 ~ /^size=/ {
+    size = $4; sub(/^size=/,"",size)
+    v = $5 + 0
+    active = (v > 0 ? 1 : 0)              # +1 active, -1 inactive in GATK IGV track
+    print $1, $2, $3, active, size
+    }' activity_regions.tsv \
+    | sort -k1,1 -k2,2n > hc_ar.bed
+
+
+# Turn ticks into spans between consecutive ticks
+awk -F'\t' 'BEGIN{OFS="\t"}
+NR==1 { next }  # skip header
+{
+  s=$1; h=$2; c=$3; p=$4+0; em=$5+0; r=$6+0; rpm=$7+0
+  key=s"|"h"|"c
+  if(!(key in seen)) {
+    # seed a tiny 1bp stub for the first tick per (sample,hash,chrom)
+    start0=(p>0?p-1:0); end=p; if(end<=start0){end=start0+1}
+    seglen=end-start0
+    d_em=em; d_r=r
+    print c,start0,end,s,h,p,em,d_em,r,d_r,rpm,seglen,(d_em*60.0)/(seglen/1000.0),(d_r)/(seglen/1000.0)
+    seen[key]=1; P[key]=p; EM[key]=em; R[key]=r
+    next
+  }
+  start0=(P[key]>0?P[key]-1:0); end=p; if(end<=start0){end=start0+1}
+  seglen=end-start0
+  d_em=em-EM[key]; if(d_em<0)d_em=0
+  d_r=r-R[key];   if(d_r<0)d_r=0
+  print c,start0,end,s,h,p,em,d_em,r,d_r,rpm,seglen,(d_em*60.0)/(seglen/1000.0),(d_r)/(seglen/1000.0)
+  P[key]=p; EM[key]=em; R[key]=r
+}' progress_summary.tsv \
+| awk 'BEGIN{OFS="\t"} $3>$2' \
+| sort -k1,1 -k2,2n \
+> hc_ticks.bed
+
+
+# Attribute runtime to assembly regions
+# Intersect; -wo appends overlap length as last field
+bedtools intersect -a hc_ar.bed -b hc_ticks.bed -wo \
+> ar_x_ticks.tmp
+
+# Scale each tick delta to the overlapped fraction of the tick span
+awk -F'\t' -v OFS='\t' '
+{
+  # a: hc_ar.bed -> $1..$5   (chrom,start,end,active,size)
+  # b: hc_ticks.bed -> $6..$19
+  chrom=$1; astart=$2; aend=$3; active=$4; asize=$5
+  bchrom=$6; bstart=$7; bend=$8
+  sample=$9; hash=$10
+  end_pos=$11; end_em=$12; d_em=$13; end_r=$14; d_r=$15; end_rpm=$16
+  seg_len=$17; sec_per_kb=$18; reg_per_kb=$19
+  ov=$20
+
+  if (ov<=0 || seg_len<=0) next
+
+  frac = ov / seg_len
+  d_em_clip = d_em * frac
+  d_r_clip  = d_r  * frac
+
+  # Emit per-overlap row (can aggregate later)
+  print chrom, astart, aend, active, asize, sample, hash, ov, d_em_clip, d_r_clip
+}' ar_x_ticks.tmp \
+> ar_alloc.tsv
+
+# Calculate covariates for assembly regions
+
+
 # # ------------- PROFILING CODE  -------------
 #    # Build bed for profiling if provided
 #    if [[ -n "${9}" && "${9}" != "none" && -s "${9}" ]]; then
@@ -66,16 +137,3 @@ grep -F 'ProgressMeter -' "${5}" \
 #    fi
 #
 #    IDS_SUM=$(( I_SUM + D_SUM + S_SUM ))
-
-    # Output TSV header 
-#    PROFILE_TSV="${3}.${6}.profile.tsv"
-#    echo -e "sample\tinterval_hash\tintervals\tgenomic_bases\taligned_bases\ti_sum\td_sum\ts_sum\tids_sum\tstart_iso8601\tend_iso8601\telapsed_seconds\thc_threads\thc_min_pruning\thc_min_dangling\thc_max_reads_startpos\thc_rmdup\thc_minbq\thc_minmq\tploidy" > "${PROFILE_TSV}"
-
-    # Append profiling row
-#    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
-#      "${3}" "${6}" "${INTERVALS_COUNT}" "${GENOMIC_BASES}" "${ALIGNED_BASES}" \
-#      "${I_SUM}" "${D_SUM}" "${S_SUM}" "${IDS_SUM}" \
-#      "${START_TS}" "${END_TS}" "${ELAPSED_SEC}" \
-#      "${1}" "${11}" "${12}" "${13}" "${14}" "${15}" "${16}" "${17}" \
-#      >> "${PROFILE_TSV}"
-#fi
