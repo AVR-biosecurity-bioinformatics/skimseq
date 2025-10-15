@@ -2,12 +2,13 @@ process PROFILE_HC {
     def process_name = "profile_hc"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
+    module "BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
     tuple val(sample), val(interval_hash), path(logfile), path(assembly_regions)
 
     output: 
-    path("*.progress_summary.tsv"),                                             emit: summary
+    path("*.profile.tsv"),                                             emit: summary
 
     script:
     def process_script = "${process_name}.sh"
@@ -20,7 +21,8 @@ process PROFILE_HC {
         ${task.memory.giga} \
         ${sample} \
         ${interval_hash} \
-        ${logfile}
+        ${logfile} \
+        ${assembly_regions}
 
     """
 }
