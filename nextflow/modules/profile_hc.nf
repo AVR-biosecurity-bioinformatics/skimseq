@@ -5,7 +5,7 @@ process PROFILE_HC {
     module "BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), val(interval_hash), path(logfile), path(assembly_regions)
+    tuple val(sample), val(interval_hash), path(cram), path(cram_index), path(gvcf), path(gvcf_index), path(logfile), path(assembly_regions)
 
     output: 
     path("*.profile.tsv"),                                             emit: summary
@@ -22,7 +22,9 @@ process PROFILE_HC {
         ${sample} \
         ${interval_hash} \
         ${logfile} \
-        ${assembly_regions}
+        ${assembly_regions} \
+        ${cram} \
+        ${gvcf}
 
     """
 }

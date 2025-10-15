@@ -6,7 +6,7 @@ process CALL_VARIANTS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(cram, name: '*sorted.cram'), path(cram_index, name: '*sorted.cram.crai'), val(interval_hash), path(interval_bed)
+    tuple val(sample), path(cram), path(cram_index), val(interval_hash), path(interval_bed)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
     val(exclude_padding)
@@ -14,7 +14,7 @@ process CALL_VARIANTS {
 
     output: 
     tuple val(sample), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), val(interval_hash), path(interval_bed),     emit: gvcf_intervals
-    tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),                       emit: log
+    tuple val(sample), val(interval_hash), path(cram), path(cram_index), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"), path("*.stderr.log"), path("*.assembly.tsv"),                       emit: log
 
     script:
     def process_script = "${process_name}.sh"
