@@ -11,7 +11,7 @@ set -euo pipefail
 printf "interval_hash\tchrom\tpos\telapsed_min\tvariants\tvariants_per_min\n" > progress_summary.tsv
 
 # Stream: grep only ProgressMeter lines, awk extracts data rows and prefixes sample/hash
-grep -F 'ProgressMeter -' "${5}" \
+grep -F 'ProgressMeter -' "${4}" \
     | awk -v h="${3}" '
     # match data rows like:
     # ... ProgressMeter -   CM028320.1:49552   0.0   24   534.1
