@@ -102,7 +102,7 @@ workflow GATK_SINGLE {
         )
 
         // Merge and output HC profiles
-        PROFILE_HC.out.tsv
+        PROFILE_HC.out.summary
             .collectFile(
                 name: 'hc_profiles.tsv',
                 storeDir: "${launchDir}/output/gatk_profiles",
