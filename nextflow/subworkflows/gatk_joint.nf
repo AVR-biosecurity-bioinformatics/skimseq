@@ -123,10 +123,20 @@ workflow GATK_JOINT {
     )
 
     if( params.profile_gatk ) {
-        // TODO: if extra covariates are calculated for these intervals, run separately and then merge output TSV in nextflow
+        // Profile JC runtimes per interval
         PROFILE_JC (
-            JOINT_GENOTYPE.out.log.map { interval_hash, log -> log}.collect()
-        )
+            JOINT_GENOTYPE.out.log
+        )        
+        // Merge and output JC profiles
+        PROFILE_JC.out.tsv
+            .collectFile(
+                name: 'jc_profiles.tsv',
+                storeDir: "${launchDir}/output/gatk_profiles",
+                skip: 1,
+                keepHeader: true,
+                newLine: false,
+                sort: true
+            )
     }
 
     if( params.output_unfiltered_vcf ) {
