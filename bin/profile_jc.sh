@@ -69,7 +69,7 @@ bcftools view -H -v indels "$vcf" \
 
 # Ensure INFO/NS exists; then extract per-site NS and number of alleles
 # sum_alleles per site = 1 (REF) + #ALTs (count commas in ALT; ALT=="." → 1)
-bcftools +fill-tags -Ou -t NS "$vcf" \
+bcftools +fill-tags "$vcf" -Ou -- -t NS  \
 | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT\t%INFO/NS\n' \
 | awk -v OFS='\t' '
   {
@@ -115,4 +115,6 @@ BEGIN{
   # counts: 1 chrom 2 start 3 end 4 ihash 5 d_elapsed 6 d_variants_PM 7 win_id 8 n_variants 9 n_snps 10 n_indels
   # alleles/ns: appended as 11 sum_n_alleles 12 sum_NS
   print $4,$7,$1,$2,$3,$5, $6,$8,$9,$10, $11,$12
-}' > {3}.profile.tsv
+}' > ${3}.profile.tsv
+
+rm -rf $tmpdir
