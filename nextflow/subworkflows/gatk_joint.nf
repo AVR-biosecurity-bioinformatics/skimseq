@@ -125,7 +125,8 @@ workflow GATK_JOINT {
     if( params.profile_gatk ) {
         // Profile JC runtimes per interval
         PROFILE_JC (
-            JOINT_GENOTYPE.out.log
+            JOINT_GENOTYPE.out.log,
+            ch_genome_indexed
         )        
         // Merge and output JC profiles
         PROFILE_JC.out.summary

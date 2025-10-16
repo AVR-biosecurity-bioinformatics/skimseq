@@ -6,6 +6,7 @@ process PROFILE_JC {
 
     input:
     tuple val(interval_hash), path(vcf), path(vcf_index), path(logfile)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     path("*.profile.tsv"),                                             emit: summary

@@ -98,7 +98,8 @@ workflow GATK_SINGLE {
     if( params.profile_gatk ) {
         // Profile HC runtimes per Sample x Interval
         PROFILE_HC (
-            CALL_VARIANTS.out.log
+            CALL_VARIANTS.out.log,
+            ch_genome_indexed
         )
 
         // Merge and output HC profiles

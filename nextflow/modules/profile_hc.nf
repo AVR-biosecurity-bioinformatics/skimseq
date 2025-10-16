@@ -6,6 +6,7 @@ process PROFILE_HC {
 
     input:
     tuple val(sample), val(interval_hash), path(cram), path(cram_index), path(gvcf), path(gvcf_index), path(logfile), path(assembly_regions)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     path("*.profile.tsv"),                                             emit: summary
