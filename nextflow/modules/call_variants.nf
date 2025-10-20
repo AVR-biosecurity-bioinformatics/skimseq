@@ -13,8 +13,8 @@ process CALL_VARIANTS {
     tuple val(hc_interval_padding), val(hc_min_pruning), val(hc_min_dangling_length), val(hc_max_reads_startpos), val(hc_rmdup), val(hc_minbq), val(hc_minmq), val(ploidy)
 
     output: 
-    tuple val(sample), val(interval_hash), path(interval_bed), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
-    tuple val(sample), val(interval_hash), path(interval_bed), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
+    tuple val(sample), val(interval_hash), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
+    tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
 
     script:
     def process_script = "${process_name}.sh"

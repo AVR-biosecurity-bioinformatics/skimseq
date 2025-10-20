@@ -100,10 +100,11 @@ workflow GATK_SINGLE {
 
         // Join back onto cram and gvcf based on first 3 columns
         CALL_VARIANTS.out.log
-             .combine( ch_sample_intervals,              by:[0,1,2] )
-             .combine( CALL_VARIANTS.out.gvcf_intervals, by:[0,1,2] )
+             .combine( ch_sample_intervals,              by:[0,1] )
+             .combine( CALL_VARIANTS.out.gvcf_intervals, by:[0,1] )
             .set { ch_for_profile }
 
+        ch_for_profile.view()
         //   tuple val(sample), val(interval_hash), path(cram), path(cram_index), path(gvcf), path(gvcf_index), path(logfile), path(assembly_regions)
 
 
@@ -133,7 +134,7 @@ workflow GATK_SINGLE {
         .set { ch_gvcf_to_merge }
 
     MERGE_GVCFS (
-        ch_gvcf_to_merge.map { sample, gvcf, tbi, interval_hash, interval_bed -> [ sample, gvcf, tbi ] }
+        ch_gvcf_to_merge.map { sample, interval_hash, interval_bed, gvcf, tbi -> [ sample, gvcf, tbi ] }
     )
 
     emit: 
