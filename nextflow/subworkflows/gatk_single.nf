@@ -64,8 +64,8 @@ workflow GATK_SINGLE {
     // Combine intervals with cram files for genotyping
     ch_interval_bed_hc 
 	.combine( ch_sample_cram, by: [0, 0] )
-        .map { sample, hash, interval_bed,cram, crai -> tuple(sample,cram, crai, hash, interval_bed)
-        }
+    //    .map { sample, hash, interval_bed,cram, crai -> tuple(sample,cram, crai, hash, interval_bed)
+    //    }
     .set { ch_sample_intervals }
 
     /* 
@@ -96,9 +96,21 @@ workflow GATK_SINGLE {
     )
 
     if( params.profile_gatk ) {
+
+
+        // Join back onto cram and gvcf based on first 3 columns
+        CALL_VARIANTS.out.log
+             .combine( ch_sample_intervals,              by:[0,1,2] )
+             .combine( CALL_VARIANTS.out.gvcf_intervals, by:[0,1,2] )
+            .set { ch_for_profile }
+
+        //   tuple val(sample), val(interval_hash), path(cram), path(cram_index), path(gvcf), path(gvcf_index), path(logfile), path(assembly_regions)
+
+
+        
         // Profile HC runtimes per Sample x Interval
         PROFILE_HC (
-            CALL_VARIANTS.out.log,
+            ch_for_profile,
             ch_genome_indexed
         )
 

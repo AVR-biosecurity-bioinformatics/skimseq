@@ -294,4 +294,4 @@ create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "$VTYP
 pigz -p ${1} $out
 
 # Remove temporary vcf files
-rm -f tmp* MAC.tsv.gz* *.hdr
+rm -f tmp* MAC.tsv.gz* *.hdr *.bcf

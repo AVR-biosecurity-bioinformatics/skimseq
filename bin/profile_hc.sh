@@ -207,4 +207,4 @@ NR==1{ print $0"\tgenomic_bases\taligned_bases\tI_sum\tD_sum\tS_sum\tIDS_sum"; n
   } else {
     print $0"\t0\t0\t0\t0\t0\t0"
   }
-}' "$tmpdir/window_cov.tsv" "$tmpdir/window_summary.tsv" > {3}.${6}.profile.tsv
+}' "$tmpdir/window_cov.tsv" "$tmpdir/window_summary.tsv" > ${3}.${6}.profile.tsv
