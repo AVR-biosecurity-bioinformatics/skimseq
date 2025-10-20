@@ -64,8 +64,6 @@ workflow GATK_SINGLE {
     // Combine intervals with cram files for genotyping
     ch_interval_bed_hc 
 	.combine( ch_sample_cram, by: [0, 0] )
-    //    .map { sample, hash, interval_bed,cram, crai -> tuple(sample,cram, crai, hash, interval_bed)
-    //    }
     .set { ch_sample_intervals }
 
     /* 
@@ -97,18 +95,13 @@ workflow GATK_SINGLE {
 
     if( params.profile_gatk ) {
 
-
         // Join back onto cram and gvcf based on first 3 columns
         CALL_VARIANTS.out.log
-             .combine( ch_sample_intervals,              by:[0,1] )
-             .combine( CALL_VARIANTS.out.gvcf_intervals, by:[0,1] )
+            .join( ch_sample_intervals.map { sample, hash, interval_bed,cram, crai -> tuple(sample,hash, cram, crai) }, by:[0,1] )
+            .join( CALL_VARIANTS.out.gvcf_intervals, by:[0,1] )
+            .map { sample, interval_hash, logfile, assembly_regions, cram, crai, gvcf, tbi -> tuple(sample, interval_hash, cram, crai, gvcf, tbi, logfile, assembly_regions ) }
             .set { ch_for_profile }
 
-        ch_for_profile.view()
-        //   tuple val(sample), val(interval_hash), path(cram), path(cram_index), path(gvcf), path(gvcf_index), path(logfile), path(assembly_regions)
-
-
-        
         // Profile HC runtimes per Sample x Interval
         PROFILE_HC (
             ch_for_profile,
@@ -134,7 +127,7 @@ workflow GATK_SINGLE {
         .set { ch_gvcf_to_merge }
 
     MERGE_GVCFS (
-        ch_gvcf_to_merge.map { sample, interval_hash, interval_bed, gvcf, tbi -> [ sample, gvcf, tbi ] }
+        ch_gvcf_to_merge.map { sample, interval_hash, gvcf, tbi -> [ sample, gvcf, tbi ] }
     )
 
     emit: 
