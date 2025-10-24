@@ -3,8 +3,6 @@
 */
 
 //// import modules
-include { CRAM_STATS                            } from '../modules/cram_stats'
-include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 include { MERGE_CRAM                            } from '../modules/merge_cram'
@@ -69,27 +67,7 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
 
-    // extract unmapped reads
-    // TODO: Make this optional
-    if( params.output_unmapped_reads ) {
-        EXTRACT_UNMAPPED (
-            MERGE_CRAM.out.cram,
-            ch_genome_indexed
-        )
-    }
-
     // TODO: base quality score recalibration (if a list of known variants are provided)
-
-    // generate QC statistics for the merged .cram files
-    CRAM_STATS (
-        MERGE_CRAM.out.cram,
-        ch_genome_indexed
-    )
-
-    // Create reports channel for multiqc
-    MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
-        .mix(CRAM_STATS.out.stats, CRAM_STATS.out.flagstats, CRAM_STATS.out.coverage, MERGE_CRAM.out.markdup)
-        .set { ch_reports}
 
     // Create sample renaming table to handle chunks in multiqc report
     MAP_TO_GENOME.out.json
@@ -101,7 +79,7 @@ workflow PROCESS_READS {
     
     emit: 
     cram = MERGE_CRAM.out.cram
-    reports = ch_reports
+    reports = MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
     renaming_table = renaming_table
 }
 

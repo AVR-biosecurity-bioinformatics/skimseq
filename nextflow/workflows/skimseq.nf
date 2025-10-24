@@ -9,11 +9,11 @@ include { GATK_JOINT                                                } from '../s
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
+include { QC                                                        } from '../subworkflows/qc'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-include { MULTIQC                                                   } from '../modules/multiqc'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -185,7 +185,6 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_exclude_bed,
         ch_mito_bed
-        //ch_sample_cram
       )
     
     /*
@@ -275,8 +274,8 @@ workflow SKIMSEQ {
 
     /*
    Create extra outputs and visualisations
-
     */
+
     OUTPUTS (
         FILTER_VARIANTS.out.filtered_combined,
         FILTER_VARIANTS.out.filtered_snps,
@@ -285,28 +284,19 @@ workflow SKIMSEQ {
         ch_sample_pop
     )
 
-    // Merge all reports for multiqc
-    ch_reports
-        .mix(PROCESS_READS.out.reports)
-        .map { sample,path -> [ path ] }
-        .mix(FILTER_VARIANTS.out.reports)
-	    .collect()
-        .ifEmpty([])
-        .set { multiqc_files }
+    /*
+    QC
+    */
 
-    // Create CSV table for renaming multiqc samples
-    PROCESS_READS.out.renaming_table
-        .map { cols -> tuple('renaming_table.csv', cols.join(',') + '\n') }
-        .collectFile(
-        name: 'renaming_table.csv', sort: true
-        )
-        .set { ch_renaming_csv }                 // optional handle to the written file
-
-    // Create Multiqc reports
-    MULTIQC (
-        multiqc_files,
-        ch_renaming_csv,
-        ch_multiqc_config.toList()
+    // TODO: Pass in fastqs and run FASTQC
+    // TODO: run VCF stats in here?
+    QC (
+        ch_reports.mix(FILTER_VARIANTS.out.reports),
+        ch_sample_cram,
+        ch_genome_indexed,
+        ch_multiqc_config
     )
+
+
 
 }
