@@ -9,8 +9,9 @@ process FASTQC {
     tuple val(sample), val(lib), path(fastq1), path(fastq2)
 
     output: 
-    path("*.zip"),             emit: results
-    
+    path("*fastqc_data.txt"),             emit: results
+    path("*.html"),                       emit: reports
+
     script:
     def process_script = "${process_name}.sh"
     """
@@ -21,7 +22,7 @@ process FASTQC {
         ${task.cpus} \
         ${fastq1} \
         ${fastq2} \
-        ${sample} 
-
+        ${sample} \
+        ${lib}
     """
 }

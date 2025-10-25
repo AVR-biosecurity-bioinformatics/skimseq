@@ -24,7 +24,7 @@ module_order:
 table_sample_merge:
   "R1": "_R1"
   "R2": "_R2"
-  
+
 fn_clean_exts:
   - ".markdup.json"
   - ".stats.txt"
@@ -32,3 +32,9 @@ fn_clean_exts:
   - ".F"
   - ".flagstats.txt"
   - ".vcf.gz"
+
+sp:
+  fastqc/data:
+    fn: "*fastqc_data.txt"
+  fastqc/zip:
+    fn: "*_fastqc.zip"
