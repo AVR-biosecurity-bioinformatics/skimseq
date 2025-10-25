@@ -10,7 +10,7 @@ process FASTQC {
     val(type)
 
     output: 
-    path("*.html"),             emit: results
+    path("*.zip"),             emit: results
     
     script:
     def process_script = "${process_name}.sh"

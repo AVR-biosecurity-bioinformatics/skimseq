@@ -11,19 +11,29 @@ workflow QC {
 
     take:
     ch_reports
+    ch_fastq
     ch_sample_cram
     ch_genome_indexed
     ch_multiqc_config
 
     main: 
 
+    // TODO: Generate QC statistics for fastq files
+    FASTQC (
+        ch_fastq
+    )
+
+    FASTQC.out.results.view()
+    
     // generate QC statistics for the merged .cram files
     CRAM_STATS (
         ch_sample_cram,
         ch_genome_indexed
     )
 
-    // extract unmapped reads
+    // TODO: Generate QC statistics for vcf files
+
+    // Optional: extract unmapped reads 
     if( params.output_unmapped_reads ) {
         EXTRACT_UNMAPPED (
            ch_sample_cram,
@@ -33,33 +43,16 @@ workflow QC {
 
     // Create reports channel for multiqc
     ch_reports
-        .mix(CRAM_STATS.out.stats, CRAM_STATS.out.flagstats, CRAM_STATS.out.coverage)
-        .set { ch_reports}
-    // , MERGE_CRAM.out.markdup
-    
-    // Merge all reports for multiqc
-    ch_reports
-        .mix(PROCESS_READS.out.reports)
-        .map { sample,path -> [ path ] }
-        .mix(FILTER_VARIANTS.out.reports)
-	    .collect()
+        .mix(CRAM_STATS.out.stats.map { sample,path -> [ path ] }, CRAM_STATS.out.flagstats.map { sample,path -> [ path ] }, CRAM_STATS.out.coverage.map { sample,path -> [ path ] })
+        .collect()
         .ifEmpty([])
-        .set { multiqc_files }
-
-    // Create CSV table for renaming multiqc samples
-    //renaming_table
-    //    .map { cols -> tuple('renaming_table.csv', cols.join(',') + '\n') }
-    //  .collectFile(
-    //    name: 'renaming_table.csv', sort: true
-    //    )
-    //    .set { ch_renaming_csv }                 // optional handle to the written file
+        .set { multiqc_files }    
 
     // Create Multiqc reports
     MULTIQC (
         multiqc_files,
         ch_multiqc_config.toList()
     )
-    // ch_renaming_csv,
 
 }
 

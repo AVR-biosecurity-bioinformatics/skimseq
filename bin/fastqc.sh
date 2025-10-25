@@ -9,12 +9,12 @@ set -u
 
 fastqc -t $1 $2 $3
 
-if [[ $4 = "pretrim" ]]; then 
-    for i in *.html; do
-        mv $i $( echo $i | sed -r "s/^(.+).html/\1.pretrim.html/" )
-    done
-else 
-    for i in *.html; do
-        mv $i $( echo $i | sed -r "s/^(.+).html/\1.posttrim.html/" )
-    done
-fi
+#if [[ $4 = "pretrim" ]]; then 
+#    for i in *.html; do
+#        mv $i $( echo $i | sed -r "s/^(.+).html/\1.pretrim.html/" )
+#    done
+#else 
+#    for i in *.html; do
+#        mv $i $( echo $i | sed -r "s/^(.+).html/\1.posttrim.html/" )
+#    done
+#fi
