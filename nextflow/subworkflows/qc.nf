@@ -3,6 +3,7 @@
 */
 
 //// import modules
+include { FASTQC                                } from '../modules/fastqc'
 include { CRAM_STATS                            } from '../modules/cram_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { MULTIQC                               } from '../modules/multiqc'
@@ -23,8 +24,7 @@ workflow QC {
         ch_fastq
     )
 
-    FASTQC.out.results.view()
-    
+
     // generate QC statistics for the merged .cram files
     CRAM_STATS (
         ch_sample_cram,
@@ -43,7 +43,12 @@ workflow QC {
 
     // Create reports channel for multiqc
     ch_reports
-        .mix(CRAM_STATS.out.stats.map { sample,path -> [ path ] }, CRAM_STATS.out.flagstats.map { sample,path -> [ path ] }, CRAM_STATS.out.coverage.map { sample,path -> [ path ] })
+        .mix(
+            CRAM_STATS.out.stats.map { sample,path -> [ path ] }, 
+            CRAM_STATS.out.flagstats.map { sample,path -> [ path ] }, 
+            CRAM_STATS.out.coverage.map { sample,path -> [ path ] },  
+            FASTQC.out.results.collect()
+            )
         .collect()
         .ifEmpty([])
         .set { multiqc_files }    

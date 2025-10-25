@@ -9,18 +9,22 @@ disable_version_detection: true
 
 # Run only these modules
 run_modules:
-  - fastp
+  - fastqc
   - samtools
   - bcftools
 
 module_order:
-  - fastp:
-      name: "FastP (Read preprocessing)"
+  - fastqc:
+      name: "FastQC (Read Quality)"
   - samtools:
       name: "Samtools Flagstat"
   - bcftools:
       name: "Bcftools"
 
+table_sample_merge:
+  "R1": "_R1"
+  "R2": "_R2"
+  
 fn_clean_exts:
   - ".markdup.json"
   - ".stats.txt"

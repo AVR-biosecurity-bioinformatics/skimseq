@@ -5,16 +5,11 @@ set -u
 # $1 = cpus 
 # $2 = fastq file 1
 # $3 = fastq file 2
-# $4 = type (pretrim or posttrim)
+# $4 = sample
+# $5 = lib
 
 fastqc -t $1 $2 $3
 
-#if [[ $4 = "pretrim" ]]; then 
-#    for i in *.html; do
-#        mv $i $( echo $i | sed -r "s/^(.+).html/\1.pretrim.html/" )
-#    done
-#else 
-#    for i in *.html; do
-#        mv $i $( echo $i | sed -r "s/^(.+).html/\1.posttrim.html/" )
-#    done
-#fi
+# Rename to sample rather than lib to match outputs
+mv ${2/.fastq.gz/_fastqc.zip} ${4}_R1_fastqc.zip} 
+mv ${3/.fastq.gz/_fastqc.zip} ${4}_R1_fastqc.zip} 

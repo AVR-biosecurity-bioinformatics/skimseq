@@ -6,8 +6,7 @@ process FASTQC {
     module "FastQC/0.12.1-Java-11"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
-    val(type)
+    tuple val(sample), val(lib), path(fastq1), path(fastq2)
 
     output: 
     path("*.zip"),             emit: results
@@ -22,7 +21,8 @@ process FASTQC {
         ${task.cpus} \
         ${fastq1} \
         ${fastq2} \
-        ${type}
+        ${sample} \
+        ${lib}
 
     """
 }
