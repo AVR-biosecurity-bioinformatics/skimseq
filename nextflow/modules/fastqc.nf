@@ -21,8 +21,7 @@ process FASTQC {
         ${task.cpus} \
         ${fastq1} \
         ${fastq2} \
-        ${sample} \
-        ${lib}
+        ${sample} 
 
     """
 }
