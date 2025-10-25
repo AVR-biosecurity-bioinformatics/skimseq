@@ -21,9 +21,11 @@ workflow VALIDATE_INPUTS {
         ch_reads
     )
 
-    // Convert stdout to a string for status (PASS or FAIL)
-    VALIDATE_FASTQ.out.fastq_with_status
-        .map { sample, lib, read1, read2, stdout -> [ sample, lib, read1, read2, stdout.trim() ] }
+    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+    VALIDATE_FASTQ.out.status
+        .map { sample, lib, stdout -> [ sample, lib, stdout.trim() ] }
+        .join( ch_reads, by:[0,1] )
+        .map { sample, lib, status, read1, read2 -> [ sample, lib, read1, read2, status ] }
         .branch { sample, lib, read1, read2, status ->
             fail: status == 'FAIL'
             pass: status == 'PASS'
