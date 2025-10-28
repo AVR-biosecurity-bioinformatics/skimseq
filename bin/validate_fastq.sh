@@ -7,16 +7,28 @@ set -u
 # $3 = file1
 # $4 = file2
 
-# Calculate number of reads in forward and reverse fastqs
-N_READS_F=$( seqtk size $3 | cut -f1 )
-N_READS_R=$( seqtk size $4 | cut -f1 )
+# Returns 0 (true) if gzip is valid AND does NOT have trailing garbage
+check_trailing() {
+  local out
+  if out=$(gzip -t -- "$1" 2>&1); then
+    ! grep -qi 'trailing garbage' <<<"$out"
+  else
+    return 1
+  fi
+}
 
-if [[ "$N_READS_F" == "$N_READS_R" ]]; then
-    # If number of forward and reverse reads match, status = PASS
-    STATUS=PASS
+okF=false; okR=false
+check_trailing "$3" && okF=true
+check_trailing "$4" && okR=true
+
+# Ensure number of lines are equal
+NL_F=$(zcat "$3" | wc -l | awk '{print $1}' )
+NL_R=$(zcat "$4" | wc -l | awk '{print $1}' )
+
+if $okF && $okR && [[ "$NL_F" -eq "$NL_R" ]]; then
+  STATUS=PASS
 else
-    # If number of forward and reverse reads dont match, status = FAIL
-    STATUS=FAIL
+  STATUS=FAIL
 fi
 
 # Print ONLY the status to STDOUT (captured by Nextflow as `stdout`)
