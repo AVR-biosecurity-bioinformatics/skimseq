@@ -48,10 +48,10 @@ workflow PROCESS_READS {
     // Create new channel with each fastq chunk
     SPLIT_FASTQ.out.fastq_interval
         .splitCsv ( by: 1, elem: 2, sep: "," )
-	    .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
-        .join( ch_reads, by:[0,1] )
+        .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
+        .join(ch_reads_to_map, by:[0,1] )
         .map { sample, lib, int1, int2, read1, read2 -> [ sample, lib, read1, read2, int1, int2 ] }
-	    .set { ch_fastq_split }
+        .set { ch_fastq_split }
 
     /* 
         Read filtering and alignments
