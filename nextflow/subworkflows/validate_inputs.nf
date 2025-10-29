@@ -34,12 +34,12 @@ workflow VALIDATE_INPUTS {
 
     // Print a warning if any samples fail validation and need to be repaired
     validation_routes.fail
-    .map { sample, lib, read1, read2, _ -> sample } 
+    .map { sample, lib, read1, read2, _ -> lib } 
     .unique()
     .collect()
     .map { fails ->
         if (fails && fails.size() > 0)
-        log.warn "Repairing malformed FASTQs for ${fails.size()} sample(s): ${fails.join(', ')}"
+        log.warn "Repairing malformed FASTQs for ${fails.size()} libraries(s): ${fails.join(', ')}"
         true
     }
     .set { _warn_done }  // force evaluation
