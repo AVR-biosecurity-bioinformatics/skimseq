@@ -94,7 +94,7 @@ bcftools annotate \
 # Set failing GTs to missing and re-calculate site tags
 # TODO: filter samples using -S samples_to_keep.txt
 # 
-bcftools +setGT -Ou gt_masked.bcf -- -t q -n . -i 'FMT/FT="PASS" && FMT/FT="."' \
+bcftools +setGT -Ou gt_masked.bcf -- -t q -n . -e 'FMT/FT="PASS" && FMT/FT="."' \
   | bcftools view -U -S samples_to_keep.txt -Ou \
   | bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
   | bcftools view -U -Ob -o tmp.bcf
