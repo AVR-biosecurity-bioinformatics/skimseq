@@ -186,6 +186,7 @@ module load HTSlib/1.21-GCC-13.3.0
 module load SAMtools/1.21-GCC-13.3.0
 module load BCFtools/1.21-GCC-13.3.0
 module load parallel/20240722-GCCcore-13.3.0
+module load BEDTools/2.31.1-GCC-13.3.0
 
 #--------------------------------------------------------------------------------
 #-                          Copy and subset bam files                           -
@@ -205,15 +206,25 @@ if [[ $sitelist ]]; then
 	fi
 
 	# Check if the file matches BED or Sites format
-	if grep -P '^[A-Za-z0-9\.]+:\d+$' "sitelist.txt" > /dev/null; then
+	if grep -qE '^[^[:space:]:#][^:\t#]*:[0-9]+(\r)?$' sitelist.txt; then
 		echo "Sites file"
-		# Processing Sites format assuming each line is like CM028320.1:2010752
-		awk -F':' '{print $1, $2-1, $2}' sitelist.txt > sites.bed
-	# Check if the file matches BED format
-	elif awk -F'\t' 'NF == 3' sitelist.txt > /dev/null; then
+		awk -F':' -v OFS='\t' '
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }          # skip comments/blank
+			{ sub(/\r$/, "", $0) }                                  # strip CR if CRLF
+			NF==2 && $2 ~ /^[0-9]+$/ { print $1, $2-1, $2 }         # 0-based half-open bed
+		' sitelist.txt > sites.bed
+	# Else, check for 3-column BED (and make awk fail if none)
+	elif awk -F'\t' '
+			BEGIN{ ok=0 }
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+			NF==3 { ok=1 }
+			END{ exit ok?0:1 }
+		' sitelist.txt
+	then
 		echo "BED file sitelist"
-		# Assuming sitelist.txt is already in BED format with 3 fields
-		cp sitelist.txt sites.bed
+		# If CRLF is possible, normalize while copying
+		awk '{ sub(/\r$/, "", $0); print }' sitelist.txt > sites.bed
+
 	else
 		echo "Unknown format"
 	fi

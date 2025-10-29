@@ -7,11 +7,12 @@ set -u
 # $3 = config file
 # $4 = renaming_csv
 
-awk -F, 'BEGIN{OFS="\t"} NF{print $1, $2}' ${4} > sample_names.csv
+#awk -F, 'BEGIN{OFS="\t"} NF{print $1, $2}' ${4} > sample_names.csv
 
 multiqc . \
     --force \
     ${3} \
     --filename multiqc_report.html \
-    --replace-names sample_names.csv \
     --clean-up
+
+#--replace-names sample_names.csv \

@@ -20,6 +20,7 @@ samtools merge --threads ${1} -b cram.list --reference ${4} -u -o - \
         -d 2500 \
         -S --include-fails \
         -O CRAM \
+        --use-read-groups \
         --reference ${4} \
         - ${2}.cram 
 

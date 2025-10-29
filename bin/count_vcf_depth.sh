@@ -18,20 +18,16 @@ bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
 # Denominator = total target bases in genotypable intervals
 TARGET_BASES=$(awk '{s+=($3-$2)} END{print s+0}' included_intervals.bed )
 
-# Build list of sites which have called genotypes directly from the gVCF (blocks + sites)
-bcftools query -f '%CHROM\t%POS\t%INFO/END\t[%GT]\n' \
-        -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)'  "${3}" \
-| awk 'BEGIN{OFS="\t"}
-    {
-      chr=$1; pos=$2; end=$3; gt=$4;
-      is_block = (end!="." && end!="" && end>pos)?1:0;
-      if(!is_block) end=pos;          # single site -> one-base interval
-      hasGT = (gt!="./." && gt!="." && gt!="");
-      if(hasGT) print chr, pos-1, end, "PRESENT";
-    }' \
-| sort -k1,1 -k2,2n > "${7}.present.bed"
+# Build list of sites covered by data directly from the gVCF (blocks + sites)
+bcftools query -f '%CHROM\t%POS\t%INFO/END\n' \
+  -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' "${3}" \
+| awk 'BEGIN{OFS="\t"}{
+    chr=$1; pos=$2; end=$3;
+    if(end=="." || end=="" || end<=pos) end=pos;   # site -> one base
+    print chr, pos-1, end;
+}' > "${7}.present.bed"
 
-# 2) Intersect with targets to count bases with data; compute missing fraction
+# Intersect with targets to count bases with data; compute missing fraction
 PRESENT_BASES=$(bedtools intersect -a "${7}.present.bed" -b included_intervals.bed -wo \
   | awk '{s+=$NF} END{print s+0}')
 
@@ -41,6 +37,5 @@ printf "SAMPLE\tPRESENT_BASES\tTARGET_BASES\tMISSING_FRACTION\n" >  "${7}.missin
 printf "%s\t%d\t%d\t%s\n" "${7}" "${PRESENT_BASES}" "${TARGET_BASES}" "${MISSING_FRAC}" >> "${7}.missing.tsv"
 
 # Per-site DP at variant loci (gVCFs don’t store per-base DP for ref blocks)
-bcftools view -e 'INFO/END>0' "${3}" \
-| bcftools query -f '%CHROM\t%POS\t[%DP]\n' \
+bcftools query -s "${7}" -e 'INFO/END>0' "${3}" -f '%CHROM\t%POS\t[%DP]\n' \
 | bgzip -c > "${7}.variant_dp.tsv.gz"

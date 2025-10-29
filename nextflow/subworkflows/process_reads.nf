@@ -3,18 +3,14 @@
 */
 
 //// import modules
-include { CRAM_STATS                            } from '../modules/cram_stats'
-include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
-include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
-include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
 include { MERGE_CRAM                            } from '../modules/merge_cram'
 
 workflow PROCESS_READS {
 
     take:
-    ch_reads
+    ch_reads_to_map
     ch_genome_indexed
 
     main: 
@@ -39,60 +35,23 @@ workflow PROCESS_READS {
     .collect( sort: false )
     .set { ch_fastp_filters }
     
-
-    /* 
-        Validate fastq and extract read headers
-    */
-    VALIDATE_FASTQ (
-        ch_reads
-    )
-
-    // Convert stdout to a string for status (PASS or FAIL)
-    VALIDATE_FASTQ.out.fastq_with_status
-        .map { sample, lib, read1, read2, stdout -> [ sample, lib, read1, read2, stdout.trim() ] }
-        .branch { sample, lib, read1, read2, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
-        }
-        .set { validation_routes }
-
-    // Print a warning if any samples fail validation and need to be repaired
-    validation_routes.fail
-    .map { sample, lib, read1, read2, _ -> sample } 
-    .unique()
-    .collect()
-    .map { fails ->
-        if (fails && fails.size() > 0)
-        log.warn "Repairing malformed FASTQs for ${fails.size()} sample(s): ${fails.join(', ')}"
-        true
-    }
-    .set { _warn_done }  // force evaluation
-
-    // Repair any fastqs that failed validation 
-    REPAIR_FASTQ(
-        validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
-    )
-
-    // Join repaired fastqs back into validated fastqs
-    validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
-        .mix( REPAIR_FASTQ.out.fastq )
-        .set { ch_all_fixed_fastq }
-
     /* 
         Read splitting
     */
 
     // split paired fastq files into chunks for parallel processing
     SPLIT_FASTQ (
-        ch_all_fixed_fastq,
+        ch_reads_to_map,
         params.fastq_chunk_size
     )
 
     // Create new channel with each fastq chunk
     SPLIT_FASTQ.out.fastq_interval
-        .splitCsv ( by: 1, elem: 4, sep: "," )
-	    .map { sample, lib, read1, read2, intervals -> [ sample, lib, read1, read2, intervals[0], intervals[1] ] }
-	    .set { ch_fastq_split }
+        .splitCsv ( by: 1, elem: 2, sep: "," )
+        .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
+        .join(ch_reads_to_map, by:[0,1] )
+        .map { sample, lib, int1, int2, read1, read2 -> [ sample, lib, read1, read2, int1, int2 ] }
+        .set { ch_fastq_split }
 
     /* 
         Read filtering and alignments
@@ -110,27 +69,7 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
 
-    // extract unmapped reads
-    // TODO: Make this optional
-    if( params.output_unmapped_reads ) {
-        EXTRACT_UNMAPPED (
-            MERGE_CRAM.out.cram,
-            ch_genome_indexed
-        )
-    }
-
     // TODO: base quality score recalibration (if a list of known variants are provided)
-
-    // generate QC statistics for the merged .cram files
-    CRAM_STATS (
-        MERGE_CRAM.out.cram,
-        ch_genome_indexed
-    )
-
-    // Create reports channel for multiqc
-    MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
-        .mix(CRAM_STATS.out.stats, CRAM_STATS.out.flagstats, CRAM_STATS.out.coverage, MERGE_CRAM.out.markdup)
-        .set { ch_reports}
 
     // Create sample renaming table to handle chunks in multiqc report
     MAP_TO_GENOME.out.json
@@ -142,7 +81,7 @@ workflow PROCESS_READS {
     
     emit: 
     cram = MERGE_CRAM.out.cram
-    reports = ch_reports
+    reports = MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
     renaming_table = renaming_table
 }
 

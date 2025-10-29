@@ -1,18 +1,19 @@
 
 
 //// import subworkflows
-// include { PROCESS_GENOME                                         } from '../subworkflows/process_genome'
+include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
 include { PROCESS_READS                                             } from '../subworkflows/process_reads'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
-include { GATK_GENOTYPING                                           } from '../subworkflows/gatk_genotyping'
+include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
+include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
+include { QC                                                        } from '../subworkflows/qc'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-include { MULTIQC                                                   } from '../modules/multiqc'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -139,15 +140,40 @@ workflow SKIMSEQ {
     ch_mito_bed = INDEX_MITO.out.bed.first()
     
     /*
+    Validate inputs
+    */
+
+    VALIDATE_INPUTS (
+        ch_sample_names,
+        ch_reads
+    )
+
+    /*
     Process reads per sample, aligning to the genome, and merging
     */
 
+    // Subset the validated fastqs to just those that dont already have a CRAM
+    VALIDATE_INPUTS.out.validated_cram
+        .map { s, cram, crai -> s }
+        .toList()
+        .map { ids -> ids as Set } 
+        .set { ch_cram_done }
+
+    VALIDATE_INPUTS.out.validated_fastq
+        .combine(ch_cram_done)  
+        .filter { s, lib, r1, r2, doneSet -> !(doneSet as Set).contains(s) }
+        .map { s, lib, r1, r2, doneSet -> tuple(s, lib, r1, r2) }
+        .set { ch_reads_to_map }
+
     PROCESS_READS (
-        ch_reads,
+        ch_reads_to_map,
         ch_genome_indexed
     )
     
-    PROCESS_READS.out.cram
+    // combine validated existing CRAMs with newly created CRAMs
+    VALIDATE_INPUTS.out.validated_cram
+      .mix( PROCESS_READS.out.cram )
+      .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 
     /*
@@ -158,8 +184,7 @@ workflow SKIMSEQ {
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
-        ch_mito_bed,
-        ch_sample_cram
+        ch_mito_bed
       )
     
     /*
@@ -174,7 +199,7 @@ workflow SKIMSEQ {
     )
     
     /*
-    Call muclear variants per sample, then combine and joint-genotype across genomic intervals
+    Call nuclear variants per sample
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -184,14 +209,48 @@ workflow SKIMSEQ {
             ch_mask_bed_gatk = ch_mito_bed
     }
     
-    GATK_GENOTYPING (
-        ch_sample_cram,
+    // Subset the crams to just those that dont already have a GVCF for single sample calling
+     VALIDATE_INPUTS.out.validated_gvcf
+        .map { s, gvcf, tbi -> s }
+        .toList()
+        .map { ids -> ids as Set } 
+        .set { ch_gvcf_done }
+
+    ch_sample_cram
+        .combine(ch_gvcf_done)  
+        .filter { s, gvcf, tbi, doneSet -> !(doneSet as Set).contains(s) }
+        .map {  s, gvcf, tbi, doneSet -> tuple( s, gvcf, tbi) }
+        .set { ch_cram_for_hc }
+
+    GATK_SINGLE (
+        ch_cram_for_hc,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
         ch_long_bed,
         ch_short_bed,
         ch_dummy_file
+    )
+
+    /*
+    Joint call genotypes
+    */
+
+    // combine validated existing GVCs with newly created GVCFs for joint calling
+    VALIDATE_INPUTS.out.validated_gvcf
+      .mix( GATK_SINGLE.out.gvcf )
+      .distinct { it[0] }      // dedupe by sample if needed
+      .set{ ch_sample_gvcf }
+    
+    GATK_JOINT (
+        ch_sample_gvcf,
+        ch_genome_indexed,
+        ch_include_bed,
+        ch_mask_bed_gatk,
+        ch_long_bed,
+        ch_short_bed,
+        ch_dummy_file,
+        ch_sample_names
     )
 
     /*
@@ -206,17 +265,17 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        GATK_GENOTYPING.out.vcf,
+        GATK_JOINT.out.vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf,
-        GATK_GENOTYPING.out.missing_frac,
-        GATK_GENOTYPING.out.variant_dp
+        GATK_JOINT.out.missing_frac,
+        GATK_JOINT.out.variant_dp
     )
 
     /*
    Create extra outputs and visualisations
-
     */
+
     OUTPUTS (
         FILTER_VARIANTS.out.filtered_combined,
         FILTER_VARIANTS.out.filtered_snps,
@@ -225,28 +284,20 @@ workflow SKIMSEQ {
         ch_sample_pop
     )
 
-    // Merge all reports for multiqc
-    ch_reports
-        .mix(PROCESS_READS.out.reports)
-        .map { sample,path -> [ path ] }
-        .mix(FILTER_VARIANTS.out.reports)
-	    .collect()
-        .ifEmpty([])
-        .set { multiqc_files }
+    /*
+    QC
+    */
 
-    // Create CSV table for renaming multiqc samples
-    PROCESS_READS.out.renaming_table
-        .map { cols -> tuple('renaming_table.csv', cols.join(',') + '\n') }
-        .collectFile(
-        name: 'renaming_table.csv', sort: true
-        )
-        .set { ch_renaming_csv }                 // optional handle to the written file
-
-    // Create Multiqc reports
-    MULTIQC (
-        multiqc_files,
-        ch_renaming_csv,
-        ch_multiqc_config.toList()
+    // TODO: Pass in fastqs and run FASTQC
+    // TODO: run VCF stats in here?
+    QC (
+        ch_reports.mix(FILTER_VARIANTS.out.reports),
+        VALIDATE_INPUTS.out.validated_fastq,
+        ch_sample_cram,
+        ch_genome_indexed,
+        ch_multiqc_config
     )
+
+
 
 }

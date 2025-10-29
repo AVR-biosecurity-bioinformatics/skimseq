@@ -25,16 +25,11 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # $21 = params.rf_overlap_diff_pc,
 # $22 = params.rf_custom_flags
 
-
 # parse filtering options as flags
 if [[ ${12} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
 if [[ ${13} == "true" ]];   then CUT_RIGHT="--cut_right";                         else CUT_RIGHT=""; fi
 if [[ ${16} == "true" ]];   then LOW_COMPLEXITY_FILTER="--low_complexity_filter"; else LOW_COMPLEXITY_FILTER=""; fi
 if [[ ${18} == "true" ]];   then CORRECTION="--correction";                       else CORRECTION=""; fi
-
-# Handle MGI stype read name ends if present
-zcat ${6} > seqids_F.txt
-sed 's#/1$#/2#' seqids_F.txt > seqids_R.txt
 
 # create hash of read 1 name for output
 CHUNK_NAME=$(echo "${6}-${7}")
