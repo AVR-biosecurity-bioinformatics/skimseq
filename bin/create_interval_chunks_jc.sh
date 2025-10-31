@@ -37,15 +37,18 @@ awk -v target="$COUNTS_PER_CHUNK" -v outdir="$OUTDIR" '
    sum+=weighted
 }' intervals_with_counts.bed
    
-# Rename each output to a hash
+# Rename each output file
 for i in *chunk_*.bed;do
-  # Hashed output name
-  HASH=$( md5sum "$i" | awk '{print $1}' ) 
+  # Pad output chunk names
+  n=$(basename "$i" | sed -E 's/^chunk_([0-9]+)\.bed/\1/')
+  pad=$(printf "%05d" "$n")
 
   #adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
-  cut -f1-4 "$i" > _${HASH}.bed
+  cut -f1-4 "$i" > "_${pad}.bed"
 
-  sum=$(awk '{sum+=$3-$2} END{print sum}' "$i")
-  echo "$HASH: $sum bases"
+  # report size
+  bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")
+  echo "_${pad}.bed: ${bases} bases"
+
   rm $i
 done

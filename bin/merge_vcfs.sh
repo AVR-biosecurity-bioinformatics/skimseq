@@ -1,29 +1,37 @@
 #!/bin/bash
-set -e
-set -u
-## args are the following:
-# $1 = cpus 
-# $2 = mem
+set -euo pipefail
+## args:
+# $1 = cpus
+# $2 = mem (GB)
 # $3 = outname
 
-# get list of .vcf files in directory
-ls *.vcf.gz > vcf.list
+# Collect and sort files in the new numbered format (this assumes files are like _00001.vcf.gz or _00001.g.vcf.gz)
+ls _*.vcf.gz | sort -V > vcf.list
 
-# Check if files to be merged are gvcf or regular vcf
-if [[ $(head -1 vcf.list) == *.g.vcf.gz ]]; then
-  extension=".g.vcf.gz"
-elif [[ $(head -1 vcf.list) == *.vcf.gz ]]; then
-  extension=".vcf.gz"
-else
-  echo "file extension not recognised"
-  exit 1
+# 2. detect type from the first file
+first=$(head -n1 vcf.list || true)
+if [[ -z "$first" ]]; then
+    echo "No VCFs found (expected _*.vcf.gz)" >&2
+    exit 1
 fi
 
-# merge all .vcfs together
-gatk --java-options "-Xmx${2}G" MergeVcfs \
-    -I vcf.list \
-    -O ${3}$extension
+if [[ "$first" == *.g.vcf.gz ]]; then
+    ext=".g.vcf.gz"
+elif [[ "$first" == *.vcf.gz ]]; then
+    ext=".vcf.gz"
+else
+    echo "File extension not recognised: $first" >&2
+    exit 1
+fi
 
-# reindex the output file
-gatk --java-options "-Xmx${2}G" IndexFeatureFile \
-    -I ${3}$extension
+# Run bcftools concat in naive mode, --naive because the chunks are already in global genomic order
+# Use z9 for maximum compression, as these files will be stored long term
+bcftools concat \
+    --naive \
+    --threads ${1} \
+    -f vcf.list \
+    -O z9 \
+    -o "${3}${ext}"
+
+# index the output (tabix)
+bcftools index -t --threads "$CPUS" "${3}${ext}"
