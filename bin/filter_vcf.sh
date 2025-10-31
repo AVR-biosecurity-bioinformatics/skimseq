@@ -8,6 +8,8 @@ set -uoe pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
 # $6 = interval_hash
+# $7 = missing_summary
+# $8 = DP summary
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
@@ -24,35 +26,18 @@ esac
 # Subset to target variant class
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
-# Join individual missing data files and output with missing data < missing frac
-awk 'FNR==1 && NR!=1 {next} {print}' *.missing.tsv > missing_summary.tsv
+# Find samples above the missing fraction filter
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
-  missing_summary.tsv > samples_to_keep.txt
+  ${7} > samples_to_keep.txt
   
-# Calculate percentile DP filters
-# First sum DP per (CHROM, POS) across all single sample files
-# NOTE: if we want to filter genotype DP by percentile, can just concat not sum.
-zcat *.variant_dp.tsv.gz \
-| awk 'NF>=3 && $1!~/^#/ {print $1, $2, $3+0}' OFS='\t' \
-| LC_ALL=C sort -k1,1 -k2,2n \
-| awk 'BEGIN{OFS="\t"}
-       NR==1 {c=$1; p=$2; s=$3; next}
-       { if($1==c && $2==p) s+=$3;
-         else {print c,p,s; c=$1; p=$2; s=$3} }
-       END{ if(NR>0) print c,p,s }' \
-> summed_dp.tsv
-
-# Pull summed DP column and sort
-cut -f3 summed_dp.tsv | sort -n > summed_dp.sorted
-N=$(wc -l < summed_dp.sorted)
-
-# Find line index of record nearest to percentile
+# Calculate percentile filters
+N=$(wc -l < ${8})
 LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
 UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
 
 # Get percentile values for filters
-DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
-DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
+DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' ${8})
+DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' ${8})
 
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
