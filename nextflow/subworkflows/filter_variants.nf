@@ -120,7 +120,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
-        ch_missing_frac.map { sample, f -> f }.collect(),
+        CALC_DATASET_FILTERS.out.missing_summary.first(),
         params.sample_max_missing
     )
 
