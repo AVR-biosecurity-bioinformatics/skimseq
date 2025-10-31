@@ -34,8 +34,6 @@ fi
 
 # Extract lane, fcid, and platform information from header of first read for read group setup
 READ_HEADER=$(zcat ${4} | head -n 1 | sed 's#/1$##' )
-SAMPLE=${2}
-LIB=${3}
 
 # Check if its SRA format data - which doesnt contain FCID and LANE
 if [[ $READ_HEADER == @SRR* ]]; then

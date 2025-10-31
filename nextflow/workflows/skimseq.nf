@@ -161,7 +161,7 @@ workflow SKIMSEQ {
 
     VALIDATE_INPUTS.out.validated_fastq
         .combine(ch_cram_done)  
-        .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(s) }
+        .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
         .map { sample, lib, fcid, lane, platform, read1, read2, doneSet -> tuple(sample, lib, fcid, lane, platform, read1, read2) }
         .set { ch_reads_to_map }
 

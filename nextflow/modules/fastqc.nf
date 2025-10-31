@@ -6,7 +6,7 @@ process FASTQC {
     module "FastQC/0.12.1-Java-11"
 
     input:
-    tuple val(sample), val(lib), path(fastq1), path(fastq2)
+    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2)
 
     output: 
     path("*fastqc_data.txt"),             emit: results
