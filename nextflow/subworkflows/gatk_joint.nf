@@ -140,18 +140,15 @@ workflow GATK_JOINT {
             )
     }
 
-    if( params.output_unfiltered_vcf ) {
-        JOINT_GENOTYPE.out.vcf
-            .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
-            .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
-            .groupTuple(by: 0)
-            .set { ch_vcf_to_merge }
+    JOINT_GENOTYPE.out.vcf
+        .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+        .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
+        .groupTuple(by: 0)
+        .set { ch_vcf_to_merge }
 
-        MERGE_UNFILTERED_VCFS (
-            ch_vcf_to_merge
-        )
-        
-    }
+    MERGE_UNFILTERED_VCFS (
+        ch_vcf_to_merge
+    )
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf

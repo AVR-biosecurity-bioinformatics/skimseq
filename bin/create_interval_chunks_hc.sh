@@ -39,7 +39,7 @@ for i in *chunk_*.bed;do
   # compute hash of this chunk’s contents
   hash=$(md5sum "$i" | awk '{print $1}')
 
-  out="${pad}_${hash}.bed"
+  out="_${pad}${hash}.bed"
   cut -f1-4 "$i" > "$out"
 
   # report size

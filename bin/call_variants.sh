@@ -56,12 +56,12 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     -ploidy ${17} \
     -ERC GVCF \
     -O tmp.g.vcf.gz \
-    2> >(tee -a ${3}.${6}.stderr.log >&2)
+    2> >(tee -a ${6}.${3}.stderr.log >&2)
 
 # NOTE: Haplotypecaller ALWAYS outputs intervals in the GVCF, even if there are no reads - so drop these with bcftools
 bcftools view \
     -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
-    -Oz -o ${3}.${6}.g.vcf.gz tmp.g.vcf.gz
-bcftools index -t ${3}.${6}.g.vcf.gz
+    -Oz -o ${6}.${3}.g.vcf.gz tmp.g.vcf.gz
+bcftools index -t ${6}.${3}.g.vcf.gz
 
 rm -f tmp*
