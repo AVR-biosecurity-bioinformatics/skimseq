@@ -6,7 +6,7 @@ set -euo pipefail
 # $3 = outname
 
 # Collect and sort files in the new numbered format (this assumes files are like _00001.vcf.gz or _00001.g.vcf.gz)
-ls *.vcf.gz | sort -V > vcf.list
+ls *.vcf.gz | sort -> vcf.list
 
 # Detect vcf type (.g.vcf.gz or .vcf.gz) from the first file
 first=$(head -n1 vcf.list || true)
@@ -33,10 +33,5 @@ bcftools concat \
     -O z9 \
     -o "${3}${ext}"
 
-# Index, fail if vcf is not properly sorted so indexing fails
-if bcftools index -t --threads ${1} "${3}${ext}" >/dev/null 2>&1; then
-    echo "OK: VCF is sorted and indexable"
-else
-    echo "NOT OK: VCF is not sorted (or has other issues)"
-    exit 1
-fi
+# Index output
+bcftools index -t --threads ${1} "${3}${ext}"
