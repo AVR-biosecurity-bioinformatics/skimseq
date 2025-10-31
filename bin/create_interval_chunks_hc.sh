@@ -36,12 +36,15 @@ for i in *chunk_*.bed;do
   n=$(basename "$i" | sed -E 's/^chunk_([0-9]+)\.bed/\1/')
   pad=$(printf "%05d" "$n")
 
-  #adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
-  cut -f1-4 "$i" > "_${pad}.bed"
+  # compute hash of this chunk’s contents
+  hash=$(md5sum "$i" | awk '{print $1}')
+
+  out="${pad}_${hash}.bed"
+  cut -f1-4 "$i" > "$out"
 
   # report size
   bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")
-  echo "_${pad}.bed: ${bases} bases"
+  echo "${out}: ${bases} bases"
 
   rm $i
 done

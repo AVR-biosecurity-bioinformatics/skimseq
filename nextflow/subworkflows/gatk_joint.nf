@@ -102,7 +102,7 @@ workflow GATK_JOINT {
         .set { ch_gvcf_interval }
 
 
-    // Calculate cohort size from sample names - This is ued for memory scaling of next 2 steps
+    // Calculate cohort size from sample names - This is used for memory scaling of next 2 steps
     ch_cohort_size = ch_sample_names.unique().count()
 
     // Import GVCFs into a genomicsDB per Interval

@@ -6,12 +6,12 @@ set -euo pipefail
 # $3 = outname
 
 # Collect and sort files in the new numbered format (this assumes files are like _00001.vcf.gz or _00001.g.vcf.gz)
-ls _*.vcf.gz | sort -V > vcf.list
+ls *.vcf.gz | sort -V > vcf.list
 
-# 2. detect type from the first file
+# Detect vcf type (.g.vcf.gz or .vcf.gz) from the first file
 first=$(head -n1 vcf.list || true)
 if [[ -z "$first" ]]; then
-    echo "No VCFs found (expected _*.vcf.gz)" >&2
+    echo "No VCFs found (expected *.vcf.gz)" >&2
     exit 1
 fi
 
@@ -24,7 +24,7 @@ else
     exit 1
 fi
 
-# Run bcftools concat in naive mode, --naive because the chunks are already in global genomic order
+# Run bcftools concat in --naive mode which is much faster when the chunks are already in global genomic order
 # Use z9 for maximum compression, as these files will be stored long term
 bcftools concat \
     --naive \
@@ -33,5 +33,10 @@ bcftools concat \
     -O z9 \
     -o "${3}${ext}"
 
-# index the output (tabix)
-bcftools index -t --threads "$CPUS" "${3}${ext}"
+# Index, fail if vcf is not properly sorted so indexing fails
+if bcftools index -t --threads ${1} "${3}${ext}" >/dev/null 2>&1; then
+    echo "OK: VCF is sorted and indexable"
+else
+    echo "NOT OK: VCF is not sorted (or has other issues)"
+    exit 1
+fi
