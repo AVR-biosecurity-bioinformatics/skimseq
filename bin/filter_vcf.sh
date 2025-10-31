@@ -30,14 +30,17 @@ bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
   ${7} > samples_to_keep.txt
   
-# Calculate percentile filters
-N=$(wc -l < ${8})
+# Calculate percentile DP filters
+cut -f3 ${8} | sort -n > summed_dp.sorted
+N=$(wc -l < summed_dp.sorted)
+
+# Find line index of record nearest to percentile
 LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
 UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
 
 # Get percentile values for filters
-DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' ${8})
-DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' ${8})
+DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
+DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
 
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
@@ -65,13 +68,13 @@ bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
 tabix -s1 -b2 -e2 FT.tsv.gz
 
 # add header + inject FORMAT/FT
-cat > ft.hdr <<'EOF'
+cat > FT.hdr <<'EOF'
 ##FORMAT=<ID=FT,Number=.,Type=String,Description="Genotype-level filters (per-sample) from GQ/DP thresholds">
 EOF
 
 # Annotate filter column in vcf
 bcftools annotate \
-  -h ft.hdr \
+  -h FT.hdr \
   -a FT.tsv.gz \
   -c CHROM,POS,FORMAT/FT \
   -Ob -o gt_masked.bcf pre_mask.bcf
@@ -83,7 +86,6 @@ bcftools +setGT -Ou gt_masked.bcf -- -t q -n . -e 'FMT/FT="PASS" && FMT/FT="."' 
   | bcftools view -U -Ob -o tmp.bcf
 
 # Add minor alelle count (MAC) info tag
-
 # First create an annotation table with minor allele count
 bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp.bcf \
 | awk 'BEGIN{OFS="\t"}
@@ -99,13 +101,13 @@ bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp.bcf \
 tabix -s1 -b2 -e2 MAC.tsv.gz
 
 # Create VCF header line for MAC filter
-cat > add_MAC.hdr <<'EOF'
+cat > MAC.hdr <<'EOF'
 ##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
 EOF
 
 # Annotate the vcf with INFO/MAC
 # Then do Site-level soft filtering (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
-bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
+bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
   | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD < ${QD:-0}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR > ${SOR:-1e9}" \

@@ -92,8 +92,8 @@ workflow FILTER_VARIANTS {
     FILTER_VCF (
         ch_vcfs.combine( ch_type_filters ),
 	    ch_mask_bed_vcf,
-        CALC_DATASET_FILTERS.out.missing_summary,
-        CALC_DATASET_FILTERS.out.dp_summary
+        CALC_DATASET_FILTERS.out.missing_summary.first(),
+        CALC_DATASET_FILTERS.out.dp_summary.first()
     )
 
     // Create a channel of all 3 variant types + all together for merging

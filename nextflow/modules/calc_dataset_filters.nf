@@ -9,8 +9,8 @@ process CALC_DATASET_FILTERS {
     tuple val(sample), path(gvcf), path(tbi)
 
     output: 
-    tuple val(sample), path("missing_summary.tsv"),         emit: missing_summary
-    tuple val(sample), path("dp_summary.tsv"),              emit: dp_summary
+    path("missing_summary.tsv"),         emit: missing_summary
+    path("dp_summary.tsv"),              emit: dp_summary
 
     script:
     def process_script = "${process_name}.sh"
