@@ -6,8 +6,6 @@ set -u
 # $2 = memory
 # $3 = vcf file
 
-vcf=${3}
-
 # Calculate per_sample missing data
 bcftools stats -s - "${3}" \
   | awk '
