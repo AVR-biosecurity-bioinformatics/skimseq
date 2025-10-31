@@ -3,20 +3,20 @@
 */
 
 //// import modules
+include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_filters'
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
-include { PLOT_VCF_FILTERS                            } from '../modules/plot_vcf_filters'
+include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
 workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
+    ch_merged_vcf
     ch_genome_indexed
     ch_mask_bed_vcf
-    ch_missing_frac
-    ch_variant_dp
 
     main: 
 
@@ -82,13 +82,18 @@ workflow FILTER_VARIANTS {
         .from(SNP_FILTERS, INDEL_FILTERS, INV_FILTERS)
         .map { f -> tuple(f.type as String, f) }
         .set { ch_type_filters }
+
+    // Caclulate dataset-wide filters
+    CALC_DATASET_FILTERS (
+        ch_merged_vcf
+    )
     
     // For each input VCF, combine with type_filters and run FILTER_VCF for each type
     FILTER_VCF (
         ch_vcfs.combine( ch_type_filters ),
 	    ch_mask_bed_vcf,
-        ch_missing_frac.map { sample, f -> f }.collect(),
-        ch_variant_dp.map { sample, f -> f }.collect()
+        CALC_DATASET_FILTERS.out.missing_summary,
+        CALC_DATASET_FILTERS.out.dp_summary
     )
 
     // Create a channel of all 3 variant types + all together for merging

@@ -266,10 +266,9 @@ workflow SKIMSEQ {
     
     FILTER_VARIANTS (
         GATK_JOINT.out.vcf,
+        GATK_JOINT.out.merged_vcf,
         ch_genome_indexed,
-        ch_mask_bed_vcf,
-        GATK_JOINT.out.missing_frac,
-        GATK_JOINT.out.variant_dp
+        ch_mask_bed_vcf
     )
 
     /*

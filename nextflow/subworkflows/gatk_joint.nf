@@ -8,7 +8,6 @@ include { MERGE_VCFS as MERGE_GVCFS                              } from '../modu
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
 include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_SHORT           } from '../modules/count_vcf_records'
 include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_LONG            } from '../modules/count_vcf_records'
-include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
 include { CREATE_INTERVAL_CHUNKS_JC                              } from '../modules/create_interval_chunks_jc'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
 include { PROFILE_JC                                             } from '../modules/profile_jc' 
@@ -26,14 +25,6 @@ workflow GATK_JOINT {
     ch_sample_names
 
     main: 
-
-    // Count missing data in each gvcf - this will be used later for missing data and percentile depth filtering
-    COUNT_VCF_DEPTH (
-        ch_sample_gvcf,
-        ch_include_bed.first(),
-        ch_mask_bed_gatk,
-        ch_genome_indexed
-    )
 
     /* 
        Create groups of genomic intervals for parallel joint calling
@@ -152,6 +143,5 @@ workflow GATK_JOINT {
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
-    missing_frac = COUNT_VCF_DEPTH.out.missing_frac
-    variant_dp = COUNT_VCF_DEPTH.out.variant_dp
+    merged_vcf = MERGE_UNFILTERED_VCFS.out.vcf
 }
