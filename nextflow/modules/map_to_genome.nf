@@ -6,7 +6,7 @@ process MAP_TO_GENOME {
     module "fastp/0.23.4-GCC-13.3.0:bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
-    tuple val(sample), val(lib), path(fastq1), path(fastq2), val(start), val(end)
+    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2), val(start), val(end)
     tuple val(rf_quality), val(rf_length), val(rf_n_bases), val(rf_trim_polyg), val(rf_cut_right), val(rf_cut_window_size), val(rf_cut_mean_quality), val(rf_lc_filter), val(rf_lc_threshold), val(rf_correction), val(rf_overlap_length), val(rf_overlap_diff), val(rf_overlap_diff_pc), val(rf_custom_flags)
     tuple path(ref_genome), path(genome_index_files)
 
@@ -43,7 +43,10 @@ process MAP_TO_GENOME {
         ${rf_overlap_length} \
         ${rf_overlap_diff} \
         ${rf_overlap_diff_pc} \
-        "${rf_custom_flags}"
-
+        "${rf_custom_flags}" \
+        ${fcid} \
+        ${lane} \
+        ${platform}
+        
     """
 }

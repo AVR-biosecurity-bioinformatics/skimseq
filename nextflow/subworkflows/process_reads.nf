@@ -41,7 +41,7 @@ workflow PROCESS_READS {
 
     // split paired fastq files into chunks for parallel processing
     SPLIT_FASTQ (
-        ch_reads_to_map,
+        ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> [ sample, lib, read1, read2 ] },
         params.fastq_chunk_size
     )
 
@@ -50,7 +50,7 @@ workflow PROCESS_READS {
         .splitCsv ( by: 1, elem: 2, sep: "," )
         .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
         .join(ch_reads_to_map, by:[0,1] )
-        .map { sample, lib, int1, int2, read1, read2 -> [ sample, lib, read1, read2, int1, int2 ] }
+        .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 -> [ sample, lib, fcid, lane, platform, read1, read2, int1, int2 ] }
         .set { ch_fastq_split }
 
     /* 

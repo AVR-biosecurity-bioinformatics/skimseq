@@ -19,6 +19,7 @@ process VALIDATE_FASTQ {
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
+        ${lib} \
         ${fastq1} \
         ${fastq2}
 

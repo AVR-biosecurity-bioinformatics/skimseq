@@ -23,10 +23,14 @@ workflow VALIDATE_INPUTS {
 
     // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
     VALIDATE_FASTQ.out.status
-        .map { sample, lib, stdout -> [ sample, lib, stdout.trim() ] }
+        .map { sample, lib, stdout ->
+            def (fcid, lane, platform, status) = stdout.trim().tokenize('\t')
+            tuple(sample, lib, fcid, lane, platform, status)
+        }
+        //.map { sample, lib, stdout -> [ sample, lib, stdout.trim() ] }
         .join( ch_reads, by:[0,1] )
-        .map { sample, lib, status, read1, read2 -> [ sample, lib, read1, read2, status ] }
-        .branch { sample, lib, read1, read2, status ->
+        .map { sample, lib, fcid, lane, platform, status, read1, read2 -> [ sample, lib, fcid, lane, platform, read1, read2, status ] }
+        .branch { sample, lib, fcid, lane, platform, read1, read2, status ->
             fail: status == 'FAIL'
             pass: status == 'PASS'
         }
@@ -34,7 +38,7 @@ workflow VALIDATE_INPUTS {
 
     // Print a warning if any samples fail validation and need to be repaired
     validation_routes.fail
-    .map { sample, lib, read1, read2, _ -> lib } 
+    .map { sample, lib, fcid, lane, platform, read1, read2, _ -> lib } 
     .unique()
     .collect()
     .map { fails ->
@@ -46,11 +50,11 @@ workflow VALIDATE_INPUTS {
 
     // Repair any fastqs that failed validation 
     REPAIR_FASTQ(
-        validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
+        validation_routes.fail.map { sample, lib, fcid, lane, platform, read1, read2, _ -> [sample, lib, fcid, lane, platform, read1, read2] }
     )
 
     // Join repaired fastqs back into validated fastqs
-    validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
+    validation_routes.pass.map { sample, lib, fcid, lane, platform, read1, read2, _ -> [sample, lib, fcid, lane, platform, read1, read2] }
         .mix( REPAIR_FASTQ.out.fastq )
         .set { ch_validated_fastq }
 

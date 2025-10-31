@@ -24,6 +24,9 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # $20 = params.rf_overlap_diff,
 # $21 = params.rf_overlap_diff_pc,
 # $22 = params.rf_custom_flags
+# $23 = fcid
+# $24 = lane
+# $25 = platform
 
 # parse filtering options as flags
 if [[ ${12} == "true" ]];   then TRIM_POLY_G="--trim_poly_g";                     else TRIM_POLY_G=""; fi
@@ -38,28 +41,13 @@ CHUNK_NAME=$(echo "${6}-${7}")
 seqkit range --threads ${1} -r ${6}:${7} ${4} > ${3}.${CHUNK_NAME}.F.fq
 seqkit range --threads ${1} -r ${6}:${7} ${5} > ${3}.${CHUNK_NAME}.R.fq
 
-# Extract information from header of first read for reda group setup
-READ_HEADER=$(zcat ${4} | head -n 1 | sed 's#/1$##' )
-SAMPLE=${2}
-LIB=${3}
-
-# Check if its SRA format data - which doesnt contain FCID and LANE
-if [[ $READ_HEADER == @SRR* ]]; then
-    # SRA data - Use placeholder FCID and LANE
-    FCID=SRA
-    LANE=SRA
-else
-    FCID=$(echo ${READ_HEADER} | cut -d ':' -f 3) #Read flow cell ID
-    LANE=$(echo ${READ_HEADER} | cut -d ':' -f 4) #Read lane number 
-fi
-
 # Setup read group headers for BAM, these are necessary for GATK merging and duplicate detection
 # See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
-RG_ID="${FCID}.${LANE}"
-RG_PU="${FCID}.${LANE}.${SAMPLE}"
-RG_SM="${SAMPLE}"
-RG_LB="${LIB}"
-RG_PL=ILLUMINA #Note should use "DNBSEQ (MGI/BGI)" for MGI
+RG_ID="${23}.${24}"
+RG_PU="${23}.${24}.${2}"
+RG_SM="${2}"
+RG_LB="${3}"
+RG_PL="${25}" 
 
 READ_GROUP=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
 
