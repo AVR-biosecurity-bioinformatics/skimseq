@@ -84,21 +84,21 @@ workflow GATK_JOINT {
     CREATE_INTERVAL_CHUNKS_JC.out.interval_bed
         .collect()
         .flatten()
-        // get hash from interval_bed name as element to identify intervals
+        // get interval_chunk from interval_bed name as element to identify intervals
         .map { interval_bed ->
-            def interval_hash = interval_bed.getFileName().toString().split("\\.")[0]
-            [ interval_hash, interval_bed ] }
+            def interval_chunk = interval_bed.getFileName().toString().split("\\.")[0]
+            [ interval_chunk, interval_bed ] }
         .set { ch_interval_bed_jc }
 
-    // combine sample-level gvcf with each interval_bed file and interval hash
+    // combine sample-level gvcf with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_gvcf 
         .combine ( ch_interval_bed_jc )
-        .map { sample, gvcf, tbi, interval_hash, interval_bed -> [ interval_hash, gvcf, tbi ] }
+        .map { sample, gvcf, tbi, interval_chunk, interval_bed -> [ interval_chunk, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_jc, by: 0 )
-        .map { interval_hash, gvcf, tbi, interval_bed -> [ interval_hash, interval_bed, gvcf, tbi ] }
+        .map { interval_chunk, gvcf, tbi, interval_bed -> [ interval_chunk, interval_bed, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
 
@@ -142,7 +142,7 @@ workflow GATK_JOINT {
 
     if( params.output_unfiltered_vcf ) {
         JOINT_GENOTYPE.out.vcf
-            .map { interval_hash, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+            .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
             .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
