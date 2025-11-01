@@ -49,7 +49,7 @@ workflow PROCESS_READS {
     SPLIT_FASTQ.out.fastq_interval
         .splitCsv ( by: 1, elem: 2, sep: "," )
         .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
-        .join(ch_reads_to_map, by:[0,1] )
+        .combine(ch_reads_to_map, by:[0,1] )
         .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 -> [ sample, lib, fcid, lane, platform, read1, read2, int1, int2 ] }
         .set { ch_fastq_split }
 
