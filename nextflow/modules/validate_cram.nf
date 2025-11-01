@@ -4,6 +4,7 @@ process VALIDATE_CRAM {
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     module "SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
+    storeDir "cache/validate_cram"
 
     input:
     tuple val(sample), val(rg_list), path(cram), path(crai)

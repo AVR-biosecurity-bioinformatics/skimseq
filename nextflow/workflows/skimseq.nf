@@ -173,7 +173,7 @@ workflow SKIMSEQ {
     
     // combine validated existing CRAMs with newly created CRAMs
     VALIDATE_INPUTS.out.validated_cram
-      .mix( PROCESS_READS.out.cram )
+      //.mix( PROCESS_READS.out.cram )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 

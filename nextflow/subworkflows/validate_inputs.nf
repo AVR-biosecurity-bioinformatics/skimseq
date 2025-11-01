@@ -64,6 +64,7 @@ workflow VALIDATE_INPUTS {
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
 
+    // Find CRAMs that already exist when the run started
     ch_sample_names
         .map { s ->
             def cram = file("output/results/cram/${s}.cram")
@@ -73,6 +74,18 @@ workflow VALIDATE_INPUTS {
         .filter { s, cram, crai -> cram.exists() && crai.exists() }
         .set { ch_existing_cram }
 
+    // Watch for new CRAMS, a new item every time a new .cram appears
+    ch_cram_watch = Channel
+        .watchPath('output/results/cram/*.cram')
+        .map { f ->
+            def s = f.baseName
+            tuple(s, f, file("${f}.crai"))
+        }
+        // tiny guard because the .crai may arrive a moment later
+        .filter { s, cram, crai -> crai.exists() }
+
+    // Combine existing and new
+    ch_all_crams = ch_existing_cram.mix(ch_cram_watch)
 
     ch_validated_fastq
         .map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
@@ -84,7 +97,7 @@ workflow VALIDATE_INPUTS {
             }
             tuple(s, rg_list)
         }
-        .join(ch_existing_cram, by: 0)
+        .join(ch_all_crams, by: 0)
         .set { ch_cram_to_validate }
 
     VALIDATE_CRAM (
@@ -103,6 +116,7 @@ workflow VALIDATE_INPUTS {
         }
         .set { cram_validation_routes }
 
+    // CRAMs that passed validation
     cram_validation_routes.pass
         .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
         .set { ch_validated_cram }
