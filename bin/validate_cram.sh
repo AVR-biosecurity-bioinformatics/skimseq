@@ -8,17 +8,16 @@ set -u
 # $4 = cram
 # $5 = expected.rg
 
-cat expected.rg
-
 samtools view --threads ${1} --reference ${3} -H ${4} | grep '^@RG' > actual.rg
 
-# TODO: Check that CRAM contains all of these unique readgroups and no more
+sort expected.rg > expected.sorted.rg
+sort actual.rg > actual.sorted.rg
 
-#if $CRAM_OK; then
-#  STATUS=PASS
-#else
-#  STATUS=FAIL
-#fi
+# compare actual to expected readgroups
+if diff -q expected.sorted.rg actual.sorted.rg >/dev/null 2>&1; then
+    STATUS=PASS
+else
+    STATUS=FAIL
+fi
 
-# Print status to STDOUT to be handled by 
-#echo "${STATUS}"
+echo "$STATUS"

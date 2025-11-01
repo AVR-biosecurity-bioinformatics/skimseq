@@ -19,16 +19,19 @@ process VALIDATE_CRAM {
     // @RG\tID:FCID.LANE\tLB:LIB\tPL:PLAT\tPU:FCID.LANE.SAMPLE\tSM:SAMPLE
     def rgLines = rg_list.collect { rg ->
         def (s, lib, fcid, lane, plat) = rg
-        "@RG\\tID:${fcid}.${lane}\\tLB:${lib}\\tPL:${plat}\\tPU:${fcid}.${lane}.${s}\\tSM:${s}"
+        // build the line with literal \t in Groovy
+        "@RG\tID:${fcid}.${lane}\tLB:${lib}\tPL:${plat}\tPU:${fcid}.${lane}.${s}\tSM:${s}"
     }.join('\n')
+
 
     """
     #!/usr/bin/env bash
     
     # write expected RGs to a file in the work dir
-    cat > expected.rg <<'EOF'
+    cat > expected.rg <<EOF
     ${rgLines}
     EOF
+
     
     ### run process script
     bash ${process_script} \

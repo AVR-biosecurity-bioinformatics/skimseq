@@ -4,6 +4,7 @@
 
 //// import modules
 include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
+include { VALIDATE_CRAM                        } from '../modules/validate_cram'
 include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
 
 workflow VALIDATE_INPUTS {
@@ -28,7 +29,6 @@ workflow VALIDATE_INPUTS {
             def (fcid, lane, platform, status) = stdout.trim().tokenize('\t')
             tuple(sample, lib, fcid, lane, platform, status)
         }
-        //.map { sample, lib, stdout -> [ sample, lib, stdout.trim() ] }
         .join( ch_reads, by:[0,1] )
         .map { sample, lib, fcid, lane, platform, status, read1, read2 -> [ sample, lib, fcid, lane, platform, read1, read2, status ] }
         .branch { sample, lib, fcid, lane, platform, read1, read2, status ->
@@ -77,18 +77,30 @@ workflow VALIDATE_INPUTS {
     ch_validated_fastq
         .map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
         .groupTuple(by: 0)
+        .map { s, libs, fcids, lanes, plats ->
+            // turn column lists into row lists
+            def rg_list = (0..<libs.size()).collect { i ->
+                [ s, libs[i], fcids[i], lanes[i], plats[i] ]
+            }
+            tuple(s, rg_list)
+        }
         .join(ch_existing_cram, by: 0)
         .set { ch_cram_to_validate }
-
-    ch_cram_to_validate.view()
 
     VALIDATE_CRAM (
         ch_cram_to_validate,
         ch_genome_indexed
     )
 
-    ch_existing_cram
-        .set{ ch_validated_cram }
+    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+    VALIDATE_CRAM.out.status
+        .map { sample, stdout -> [ sample, stdout.trim() ] }
+        .filter { sample, status -> status == 'PASS' }
+        .join( ch_existing_cram, by: 0 )
+        .map { sample, status, cram, crai -> [ sample, cram, crai ] }
+        .set { ch_validated_cram }
+
+    ch_validated_cram.view()
 
     /* 
         Find and validate any pre-existing GVCFs
