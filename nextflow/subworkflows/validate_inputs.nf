@@ -11,6 +11,7 @@ workflow VALIDATE_INPUTS {
     take:
     ch_sample_names
     ch_reads
+    ch_genome_indexed
 
     main: 
 
@@ -72,6 +73,20 @@ workflow VALIDATE_INPUTS {
         .set { ch_existing_cram }
 
     // TODO:: to pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
+
+    ch_validated_fastq
+        .map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
+        .groupTuple(by: 0)
+        .join(ch_existing_cram, by: 0)
+        .set { ch_cram_to_validate }
+
+    ch_cram_to_validate.view()
+
+    VALIDATE_CRAM (
+        ch_cram_to_validate,
+        ch_genome_indexed
+    )
+
     ch_existing_cram
         .set{ ch_validated_cram }
 

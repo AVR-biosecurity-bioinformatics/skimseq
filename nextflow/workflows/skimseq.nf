@@ -145,7 +145,8 @@ workflow SKIMSEQ {
 
     VALIDATE_INPUTS (
         ch_sample_names,
-        ch_reads
+        ch_reads,
+        ch_genome_indexed
     )
 
     /*
