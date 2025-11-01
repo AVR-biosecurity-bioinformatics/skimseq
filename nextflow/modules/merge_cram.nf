@@ -7,7 +7,7 @@ process MERGE_CRAM {
     module "SAMtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), val(lib), path(cram, name: 'temp*.cram') 
+    tuple val(sample), val(lib), path(cram) 
     tuple path(ref_genome), path(genome_index_files)
 
     output: 

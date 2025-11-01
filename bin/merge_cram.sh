@@ -8,7 +8,7 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # $4 = ref_genome fasta
 
 # Create list of crams to be processed
-echo ${3} | tr ' ' '\n' > cram.list
+ls *.cram | grep -v '.crai' | sort > cram.list
 
 samtools merge --threads ${1} -b cram.list --reference ${4} -u -o - \
     | samtools collate --threads ${1} -O -u - - \
