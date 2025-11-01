@@ -35,11 +35,11 @@ workflow VALIDATE_INPUTS {
             fail: status == 'FAIL'
             pass: status == 'PASS'
         }
-        .set { validation_routes }
+        .set { fastq_validation_routes }
 
     // Print a warning if any samples fail validation and need to be repaired
-    validation_routes.fail
-    .map { sample, lib, fcid, lane, platform, read1, read2, _ -> lib } 
+    fastq_validation_routes.fail
+    .map { sample, lib, fcid, lane, platform, read1, read2, status -> lib } 
     .unique()
     .collect()
     .map { fails ->
@@ -51,16 +51,17 @@ workflow VALIDATE_INPUTS {
 
     // Repair any fastqs that failed validation 
     REPAIR_FASTQ(
-        validation_routes.fail.map { sample, lib, fcid, lane, platform, read1, read2, _ -> [sample, lib, fcid, lane, platform, read1, read2] }
+        fastq_validation_routes.fail.map { sample, lib, fcid, lane, platform, read1, read2, status -> [sample, lib, fcid, lane, platform, read1, read2] }
     )
 
     // Join repaired fastqs back into validated fastqs
-    validation_routes.pass.map { sample, lib, fcid, lane, platform, read1, read2, _ -> [sample, lib, fcid, lane, platform, read1, read2] }
+    fastq_validation_routes.pass.map { sample, lib, fcid, lane, platform, read1, read2, status -> [sample, lib, fcid, lane, platform, read1, read2] }
         .mix( REPAIR_FASTQ.out.fastq )
         .set { ch_validated_fastq }
 
     /* 
         Find and validate any pre-existing crams
+        To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
 
     ch_sample_names
@@ -72,7 +73,6 @@ workflow VALIDATE_INPUTS {
         .filter { s, cram, crai -> cram.exists() && crai.exists() }
         .set { ch_existing_cram }
 
-    // TODO:: to pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
 
     ch_validated_fastq
         .map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
@@ -95,12 +95,29 @@ workflow VALIDATE_INPUTS {
     // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
     VALIDATE_CRAM.out.status
         .map { sample, stdout -> [ sample, stdout.trim() ] }
-        .filter { sample, status -> status == 'PASS' }
         .join( ch_existing_cram, by: 0 )
-        .map { sample, status, cram, crai -> [ sample, cram, crai ] }
-        .set { ch_validated_cram }
+        .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
+        .branch {  sample, cram, crai, status ->
+            fail: status == 'FAIL'
+            pass: status == 'PASS'
+        }
+        .set { cram_validation_routes }
 
-    ch_validated_cram.view()
+    cram_validation_routes.pass
+        .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
+        .set { ch_validated_cram }
+        
+    // Print warning if any cram files exist but fail validation
+    cram_validation_routes.fail
+        .map {  sample, cram, crai, status -> sample } 
+        .unique()
+        .collect()
+        .map { fails ->
+            if (fails && fails.size() > 0)
+            log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
+            true
+        }
+        .set { _warn_cram_done }  // force evaluation
 
     /* 
         Find and validate any pre-existing GVCFs
