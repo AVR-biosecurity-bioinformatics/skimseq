@@ -105,33 +105,48 @@ workflow VALIDATE_INPUTS {
         ch_genome_indexed
     )
 
-    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+   // 4. normalise status and fork into 3 branches
     VALIDATE_CRAM.out.status
-        .map { sample, stdout -> [ sample, stdout.trim() ] }
-        .join( ch_existing_cram, by: 0 )
-        .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
-        .branch {  sample, cram, crai, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
-        }
-        .set { cram_validation_routes }
+        .map { sample, stdout -> tuple(sample, stdout.trim()) }
+        .into { ch_cram_status_all; ch_cram_status_warn; ch_cram_status_count }
 
-    // CRAMs that passed validation
-    cram_validation_routes.pass
-        .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
-        .set { ch_validated_cram }
+    // 4a. PASS branch → reattach CRAM (use ALL crams, not just existing-at-start)
+    ch_validated_cram =
+        ch_cram_status_all
+            .filter { s, st -> st == 'PASS' }
+            .join(ch_all_crams, by: 0)
+            .map { s, st, cram, crai -> tuple(s, cram, crai) }
+            .set { ch_validated_cram }
         
-    // Print warning if any cram files exist but fail validation
-    cram_validation_routes.fail
-        .map {  sample, cram, crai, status -> sample } 
+    // 4b. warn if any failed
+    ch_cram_status_warn
+        .filter { s, st -> st != 'PASS' }
+        .map    { s, st -> s }
         .unique()
         .collect()
         .map { fails ->
             if (fails && fails.size() > 0)
-            log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
+                log.warn "CRAM file failed validation for ${fails.size()} sample(s): ${fails.join(', ')}"
             true
         }
-        .set { _warn_cram_done }  // force evaluation
+        .set { _warn_cram_done }
+
+
+    // how many samples did we intend to have?
+    ch_expected_n = ch_sample_names.count()
+
+    // count validated samples as they arrive (dedupe!)
+    ch_all_crams_ready =
+        ch_cram_status_count
+            .filter { s, st -> st == 'PASS' }
+            .map    { s, st -> s }
+            .unique()
+            .scan(0) { acc, s -> acc + 1 }      // 1,2,3,...
+            .combine(ch_expected_n)
+            .filter { got, exp -> got == exp }
+            .map { true }
+            .set { ch_all_crams_ready }
+
 
     /* 
         Find and validate any pre-existing GVCFs
