@@ -153,13 +153,13 @@ workflow SKIMSEQ {
     Process reads per sample, aligning to the genome, and merging
     */
 
-    // Subset the validated fastqs to just those that dont already have a CRAM
+    // set of samples that already have a good CRAM (existing + watched)
     VALIDATE_INPUTS.out.validated_cram
         .map { s, cram, crai -> s }
         .toList()
         .map { ids -> ids as Set } 
         .set { ch_cram_done }
-
+        
     VALIDATE_INPUTS.out.validated_fastq
         .combine(ch_cram_done)  
         .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
@@ -171,9 +171,18 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
     
+    // Update the newly created cram path to the canonical publishdir path to ensure that resume works for further steps
+    PROCESS_READS.out.cram
+        .map { sample, cram, crai ->
+            def realCram = file("output/results/cram/${sample}.cram")
+            def realCrai = file("output/results/cram/${sample}.cram.crai")
+            tuple(sample, realCram, realCrai)
+        }
+        .set { ch_new_crams_canonical }
+
     // combine validated existing CRAMs with newly created CRAMs
     VALIDATE_INPUTS.out.validated_cram
-      //.mix( PROCESS_READS.out.cram )
+      .mix( ch_new_crams_canonical )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 
@@ -233,15 +242,24 @@ workflow SKIMSEQ {
         ch_dummy_file
     )
 
-    /*
-    Joint call genotypes
-    */
+    // Update the newly created gvcf path to the canonical publishdir path to ensure that resume works for further steps
+    GATK_SINGLE.out.gvcf
+        .map { sample, gvcf, tbi ->
+            def realgvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
+            def realtbi = file("output/results/vcf/gvcf/${sample}.g.vcf.gz.tbi")
+            tuple(sample, realgvcf, realtbi)
+        }
+        .set { ch_new_gvcf_canonical }
 
     // combine validated existing GVCs with newly created GVCFs for joint calling
     VALIDATE_INPUTS.out.validated_gvcf
-      .mix( GATK_SINGLE.out.gvcf )
+      .mix( ch_new_gvcf_canonical )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_gvcf }
+
+    /*
+    Joint call genotypes
+    */
     
     GATK_JOINT (
         ch_sample_gvcf,

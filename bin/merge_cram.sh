@@ -10,7 +10,7 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # Create list of crams to be processed
 ls *.cram | grep -v '.crai' | sort > cram.list
 
-samtools merge --threads ${1} -b cram.list --reference ${4} -u -o - \
+samtools merge --threads ${1} -b cram.list -c -p --reference ${4} -u -o - \
     | samtools collate --threads ${1} -O -u - - \
     | samtools fixmate --threads ${1} -m -u - - \
     | samtools sort -M --threads ${1} -o - - \

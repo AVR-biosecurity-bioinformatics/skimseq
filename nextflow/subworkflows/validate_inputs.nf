@@ -64,8 +64,7 @@ workflow VALIDATE_INPUTS {
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
 
-    // Find CRAMs that already exist when the run started
-    ch_sample_names
+         ch_sample_names
         .map { s ->
             def cram = file("output/results/cram/${s}.cram")
             def crai = file("${cram}.crai")
@@ -74,18 +73,6 @@ workflow VALIDATE_INPUTS {
         .filter { s, cram, crai -> cram.exists() && crai.exists() }
         .set { ch_existing_cram }
 
-    // Watch for new CRAMS, a new item every time a new .cram appears
-    ch_cram_watch = Channel
-        .watchPath('output/results/cram/*.cram')
-        .map { f ->
-            def s = f.baseName
-            tuple(s, f, file("${f}.crai"))
-        }
-        // tiny guard because the .crai may arrive a moment later
-        .filter { s, cram, crai -> crai.exists() }
-
-    // Combine existing and new
-    ch_all_crams = ch_existing_cram.mix(ch_cram_watch)
 
     ch_validated_fastq
         .map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
@@ -97,7 +84,7 @@ workflow VALIDATE_INPUTS {
             }
             tuple(s, rg_list)
         }
-        .join(ch_all_crams, by: 0)
+        .join(ch_existing_cram, by: 0)
         .set { ch_cram_to_validate }
 
     VALIDATE_CRAM (
@@ -105,47 +92,32 @@ workflow VALIDATE_INPUTS {
         ch_genome_indexed
     )
 
-   // 4. normalise status and fork into 3 branches
+    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
     VALIDATE_CRAM.out.status
-        .map { sample, stdout -> tuple(sample, stdout.trim()) }
-        .into { ch_cram_status_all; ch_cram_status_warn; ch_cram_status_count }
+        .map { sample, stdout -> [ sample, stdout.trim() ] }
+        .join( ch_existing_cram, by: 0 )
+        .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
+        .branch {  sample, cram, crai, status ->
+            fail: status == 'FAIL'
+            pass: status == 'PASS'
+        }
+        .set { cram_validation_routes }
 
-    // 4a. PASS branch → reattach CRAM (use ALL crams, not just existing-at-start)
-    ch_validated_cram =
-        ch_cram_status_all
-            .filter { s, st -> st == 'PASS' }
-            .join(ch_all_crams, by: 0)
-            .map { s, st, cram, crai -> tuple(s, cram, crai) }
-            .set { ch_validated_cram }
+    cram_validation_routes.pass
+        .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
+        .set { ch_validated_cram }
         
-    // 4b. warn if any failed
-    ch_cram_status_warn
-        .filter { s, st -> st != 'PASS' }
-        .map    { s, st -> s }
+    // Print warning if any cram files exist but fail validation
+    cram_validation_routes.fail
+        .map {  sample, cram, crai, status -> sample } 
         .unique()
         .collect()
         .map { fails ->
             if (fails && fails.size() > 0)
-                log.warn "CRAM file failed validation for ${fails.size()} sample(s): ${fails.join(', ')}"
+            log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
             true
         }
-        .set { _warn_cram_done }
-
-
-    // how many samples did we intend to have?
-    ch_expected_n = ch_sample_names.count()
-
-    // count validated samples as they arrive (dedupe!)
-    ch_all_crams_ready =
-        ch_cram_status_count
-            .filter { s, st -> st == 'PASS' }
-            .map    { s, st -> s }
-            .unique()
-            .scan(0) { acc, s -> acc + 1 }      // 1,2,3,...
-            .combine(ch_expected_n)
-            .filter { got, exp -> got == exp }
-            .map { true }
-            .set { ch_all_crams_ready }
+        .set { _warn_cram_done }  // force evaluation
 
 
     /* 
