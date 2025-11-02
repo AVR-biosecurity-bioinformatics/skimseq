@@ -10,6 +10,7 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # Create list of crams to be processed
 ls *.cram | grep -v '.crai' | sort > cram.list
 
+# With samtools merge, use -c and -p to ensure duplicate RG and PG tags arent made for the chunked input samples, which will violate cram validation
 samtools merge --threads ${1} -b cram.list -c -p --reference ${4} -u -o - \
     | samtools collate --threads ${1} -O -u - - \
     | samtools fixmate --threads ${1} -m -u - - \
