@@ -3,14 +3,15 @@
 */
 
 //// import modules
-include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype' 
-include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
-include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
-include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_SHORT           } from '../modules/count_vcf_records'
-include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_LONG            } from '../modules/count_vcf_records'
-include { CREATE_INTERVAL_CHUNKS_JC                              } from '../modules/create_interval_chunks_jc'
-include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import' 
-include { PROFILE_JC                                             } from '../modules/profile_jc' 
+include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype' 
+include { MERGE_VCFS as MERGE_GVCFS                                      } from '../modules/merge_vcfs' 
+include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                            } from '../modules/merge_vcfs' 
+include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_SHORT                   } from '../modules/count_vcf_records'
+include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_LONG                    } from '../modules/count_vcf_records'
+include { CREATE_INTERVAL_CHUNKS_JC as CREATE_INTERVAL_CHUNKS_JC_LONG    } from '../modules/create_interval_chunks_jc'
+include { CREATE_INTERVAL_CHUNKS_JC as CREATE_INTERVAL_CHUNKS_JC_SHORT   } from '../modules/create_interval_chunks_jc'
+include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
+include { PROFILE_JC                                                     } from '../modules/profile_jc' 
 
 workflow GATK_JOINT {
 
@@ -46,7 +47,7 @@ workflow GATK_JOINT {
     // Create joint calling intervals for long beds
     // Takes the sum of counts * samples - i.e. number of genotypes
     // NOTE: allow further splitting over overweight chunks
-    CREATE_INTERVAL_CHUNKS_JC (
+    CREATE_INTERVAL_CHUNKS_JC_LONG (
         counts_long,
         params.jc_genotypes_per_chunk,
         "true"

@@ -21,7 +21,7 @@ awk '{print $1"\t"$2"\t"$3"\t"$4}' "${5}" > intervals_with_counts.bed
 # Assumes counts are roughly uniform across the interval length.
 # WARNING: Makes more even intervals at risk of artefacts near interval end.
 
-if [[ "$SPLIT_OVERWEIGHT" -eq 1 ]]; then
+if [[ "$SPLIT_OVERWEIGHT"  == "true" ]]; then
   awk -v target="$COUNTS_PER_CHUNK" '
   BEGIN{OFS="\t"}
   {

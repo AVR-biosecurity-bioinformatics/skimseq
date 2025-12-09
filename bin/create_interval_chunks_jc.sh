@@ -24,7 +24,7 @@ awk 'BEGIN{OFS="\t"} {
 
 # Split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
-if [[ "$SPLIT_OVERWEIGHT" -eq 1 ]]; then
+if [[ "$SPLIT_OVERWEIGHT" == "true" ]]; then
   awk -v target="$COUNTS_PER_CHUNK" '
   BEGIN{OFS="\t"}
   {
