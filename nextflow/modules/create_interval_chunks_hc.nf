@@ -8,6 +8,7 @@ process CREATE_INTERVAL_CHUNKS_HC {
     input:
     tuple val(sample), path(counts_files)
     val(counts_per_chunk)
+    val(hc_split_over_target)
 
     output: 
     tuple val(sample), path("_*.bed"),              emit: interval_bed
@@ -22,7 +23,9 @@ process CREATE_INTERVAL_CHUNKS_HC {
         ${task.cpus} \
         ${task.memory.giga} \
         ${counts_per_chunk} \
-        "${counts_files}"
+        ${hc_split_over_target} \
+        "${counts_files}" \
+
 
     """
   

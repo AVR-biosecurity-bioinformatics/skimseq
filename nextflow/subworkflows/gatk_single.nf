@@ -42,7 +42,8 @@ workflow GATK_SINGLE {
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
         COUNT_BAM_READS.out.counts,
-        params.hc_bases_per_chunk
+        params.hc_bases_per_chunk,
+        params.hc_split_over_target
     )
    
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
