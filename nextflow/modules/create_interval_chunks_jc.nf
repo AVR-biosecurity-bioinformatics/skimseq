@@ -8,6 +8,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
     input:
     path(counts_files)
     val(counts_per_chunk)
+    val(split_overweight)
 
     output: 
     path("_*.bed"),              emit: interval_bed
@@ -22,6 +23,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
         ${task.cpus} \
         ${task.memory.giga} \
         ${counts_per_chunk} \
+        ${split_overweight} \
         "${counts_files}" 
 
     """

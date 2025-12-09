@@ -5,7 +5,7 @@ set -u
 # $1 = cpus 
 # $2 = mem
 # $3 = counts_per_chunk
-# $4 = hc_split_over_target
+# $4 = split_overweight
 # $5 = counts_file
 
 COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
