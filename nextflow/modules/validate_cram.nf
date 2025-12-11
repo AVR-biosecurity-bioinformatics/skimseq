@@ -6,7 +6,7 @@ process VALIDATE_CRAM {
     module "SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
-    tuple val(sample), val(rg_list), path(cram), path(crai)
+    tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(cram), path(crai)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
