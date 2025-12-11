@@ -51,8 +51,6 @@ if [ ${6} == "true" ] ; then
 
 fi
 
-# Restrict masks to included intervals, then sort+merge with labels
-bedtools intersect -wa -a concat_masks.bed -b included_intervals.bed \
-  | bedtools sort -i - \
-  | bedtools merge -i - -c 4 -o distinct \
-  > genome_masks.bed
+# Sort and merge any overlapping intervals
+bedtools sort -i concat_masks.bed \
+  | bedtools merge -i stdin -c 4 -o distinct > genome_masks.bed
