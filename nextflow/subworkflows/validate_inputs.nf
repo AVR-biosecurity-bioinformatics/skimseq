@@ -75,14 +75,26 @@ workflow VALIDATE_INPUTS {
 
 
     ch_validated_fastq
-        .map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
+        //.map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
         .groupTuple(by: 0)
-        .map { s, libs, fcids, lanes, plats ->
-            // turn column lists into row lists
-            def rg_list = (0..<libs.size()).collect { i ->
-                [ s, libs[i], fcids[i], lanes[i], plats[i] ]
-            }
-            tuple(s, rg_list)
+        .map {sample, lib, fcid, lane, platform, read1, read2 ->
+                // nested list of RG metadata per library
+                def rg_list = (0..<lib.size()).collect { i ->
+                    [ sample, lib[i], fcid[i], lane[i], platform[i] ]
+                }
+
+                // nested list of read1 fastqs (one per library)
+                def r1_list = (0..<lib.size()).collect { i ->
+                    read1[i]
+                }
+
+                // nested list of read2 fastqs (one per library)
+                def r2_list = (0..<lib.size()).collect { i ->
+                    read2[i]
+                }
+
+                // emit sample with all three nested lists
+                tuple(sample, rg_list, r1_list, r2_list)
         }
         .join(ch_existing_cram, by: 0)
         .set { ch_cram_to_validate }
@@ -144,4 +156,3 @@ workflow VALIDATE_INPUTS {
     validated_gvcf = ch_validated_gvcf
 
 }
-

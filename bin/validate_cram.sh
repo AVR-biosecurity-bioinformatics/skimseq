@@ -46,7 +46,7 @@ if ! diff -q "${tmp_fastq_ids}" "${tmp_cram_ids}" >/dev/null 2>&1; then
     STATUS=FAIL
 fi
 
-if ! samtools quickcheck -v "${cram}"; then
+if ! samtools quickcheck -v "${4}"; then
     STATUS=FAIL
 fi
 
