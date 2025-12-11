@@ -39,7 +39,10 @@ process VALIDATE_CRAM {
         ${sample} \
         ${ref_genome} \
         ${cram} \
+        ${fastq1} \
+        ${fastq2} \
         expected.rg
+
 
     """
 }

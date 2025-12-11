@@ -17,10 +17,6 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 # create hash of read 1 name for output
 CHUNK_NAME=$(echo "${6}-${7}")
 
-# create temporary fastq of just the reads in the interval
-#seqkit range --threads ${1} -r ${6}:${7} ${4} > ${3}.${CHUNK_NAME}.F.fq
-#seqkit range --threads ${1} -r ${6}:${7} ${5} > ${3}.${CHUNK_NAME}.R.fq
-
 # Setup read group headers for BAM, these are necessary for GATK merging and duplicate detection
 # See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
 RG_ID="${9}.${10}"

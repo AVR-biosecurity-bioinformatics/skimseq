@@ -14,27 +14,7 @@ workflow PROCESS_READS {
     ch_genome_indexed
 
     main: 
-
-    // collect FASTP filtering parameters into a single list
-    //Channel.of(
-    //    params.rf_quality,
-    //    params.rf_length,
-    //    params.rf_n_bases,
-    //    params.rf_trim_polyg,
-    //    params.rf_cut_right,
-    //    params.rf_cut_window_size,
-    //    params.rf_cut_mean_quality,
-    //    params.rf_lc_filter,
-    //    params.rf_lc_threshold,
-    //    params.rf_correction,
-    //    params.rf_overlap_length,
-    //    params.rf_overlap_diff,
-    //    params.rf_overlap_diff_pc,
-    //    params.rf_custom_flags
-    //)
-    //.collect( sort: false )
-    //.set { ch_fastp_filters }
-    
+   
     /* 
         Read splitting
     */
@@ -59,7 +39,6 @@ workflow PROCESS_READS {
 
     MAP_TO_GENOME (
         ch_fastq_split,
-        //ch_fastp_filters,
         ch_genome_indexed
     )
     
@@ -71,19 +50,7 @@ workflow PROCESS_READS {
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // Create sample renaming table to handle chunks in multiqc report
-
-    // TODO: NEED TO REMOVE THIS WITH NO FASTP
-    //MAP_TO_GENOME.out.json
-    //.map { sample, lib, start, end, json ->
-    //    def unit = "${lib}.${start}-${end}"
-    //    [ unit, sample ]
-    //}
-    //.set { renaming_table }
-    
     emit: 
     cram = MERGE_CRAM.out.cram
-    //reports = MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
-    //renaming_table = renaming_table
 }
 
