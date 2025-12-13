@@ -25,7 +25,7 @@ process PROFILE_HC {
         ${logfile} \
         ${assembly_regions} \
         ${cram} \
-        ${gvcf} \ 
+        ${gvcf} \
         ${ref_genome}
 
     """
