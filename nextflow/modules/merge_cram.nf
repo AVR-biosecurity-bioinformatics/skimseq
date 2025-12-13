@@ -11,8 +11,8 @@ process MERGE_CRAM {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("*.cram"), path("*.cram.crai"),     emit: cram
-    tuple val(sample), path("*.markdup.json"),                  emit: markdup
+    tuple val(sample), path("${sample}.cram"), path("${sample}.cram.crai"),   emit: cram
+    tuple val(sample), path("*.markdup.json"),                                emit: markdup
 
     script:
     def process_script = "${process_name}.sh"
