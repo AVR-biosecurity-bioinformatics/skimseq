@@ -19,6 +19,7 @@ logfile="$5"
 assembly_tsv="$6"
 bam="$7"
 vcf="$8"
+ref="${9}"
 
 # Optional: set dedup handling to mirror NotDuplicateReadFilter (default: true)
 dedup="${DEDUP:-true}"   # export DEDUP=false to allow duplicates
@@ -169,12 +170,12 @@ while IFS=$'\t' read -r chrom ws we wid sample ihash wmins wregs; do
   # aligned_bases
   if [[ -s "$tmpdir/_profile.bed" ]]; then
     ALIGNED_BASES=$(
-      samtools depth -@ "$cpus" -a -b "$tmpdir/_profile.bed" "$bam" \
+      samtools depth -@ "$cpus" --reference "$ref" -a -b "$tmpdir/_profile.bed" "$bam" \
       | awk '{sum+=$3} END{print (sum?sum:0)}'
     )
     # I/D/S from CIGAR
     read I_SUM D_SUM S_SUM < <(
-      samtools view -@ "$cpus" -F "$SAMTOOLS_FFLAG" -L "$tmpdir/_profile.bed" "$bam" \
+      samtools view -@ "$cpus" --reference "$ref" -F "$SAMTOOLS_FFLAG" -L "$tmpdir/_profile.bed" "$bam" \
       | awk '{
           cig=$6;
           while (match(cig, /([0-9]+)([MIDNSHP=X])/, m)) {
