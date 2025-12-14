@@ -14,8 +14,8 @@ SPLIT_OVERWEIGHT=${4}
 
 # HC interval chunks operate on a single sample counts file only 
 
-# Ensure exactly 4 columns (chr, start, end, count)
-awk '{print $1"\t"$2"\t"$3"\t"$4}' "${5}" > intervals_with_counts.bed
+# Ensure exactly 4 columns (chr, start, end, count) and drop count==0
+awk 'NF>=4 && $4+0 != 0 {print $1"\t"$2"\t"$3"\t"$4}' "${5}" > intervals_with_counts.bed
 
 # Optionally Split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
