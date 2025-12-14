@@ -13,39 +13,38 @@ set -u
 # Set status to pass by defualt
 STATUS=PASS
 
-# Check if readgroups match
+# Check if expected readgroups from FASTQ match actual readgroups in CRAM
 samtools view --threads ${1} --reference ${3} -H ${4} \
-| grep '^@RG' > actual.rg
+ | grep '^@RG' \
+ |sort > actual.rg
 
 sort ${7} > expected.sorted.rg
-sort actual.rg > actual.sorted.rg
 
-if ! diff -q expected.sorted.rg actual.sorted.rg >/dev/null 2>&1; then
+if ! diff -q expected.sorted.rg actual.rg >/dev/null 2>&1; then
     STATUS=FAIL
 fi
 
 # Check if all reads matchs between FASTQs and CRAM
-#    (collapse /1 /2 and strip trailing annotations)
-
 tmp_fastq_ids=$(mktemp fastq_ids.XXXXXX)
 tmp_cram_ids=$(mktemp cram_ids.XXXXXX)
 
-zcat "${5}" "${6}" \
-  | sed -n '1~4s/^@//p' \
-  | sed 's/[ \t].*$//' \
-  | sed 's/\/[12]$//' \
-  | sort -u > "${tmp_fastq_ids}"
+# Get sequence IDs from forward and reverse fastqq
+seqkit seq -n -i "${5}" "${6}" \
+ | sort -u > "${tmp_fastq_ids}"
 
-samtools view "${4}" \
+# Get sequence IDs from CRAM
+samtools view --threads ${1} --reference ${3} "${4}" \
   | cut -f1 \
   | sed 's/[ \t].*$//' \
   | sed 's/\/[12]$//' \
   | sort -u > "${tmp_cram_ids}"
 
+# Check that sequence IDs are identical between fastqs and CRAM
 if ! diff -q "${tmp_fastq_ids}" "${tmp_cram_ids}" >/dev/null 2>&1; then
     STATUS=FAIL
 fi
 
+# Check that CRAM is properly formed
 if ! samtools quickcheck -v "${4}"; then
     STATUS=FAIL
 fi
