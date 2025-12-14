@@ -89,9 +89,11 @@ for i in *chunk_*.bed;do
   # compute hash of this chunk’s contents
   hash=$(md5sum "$i" | awk '{print $1}')
 
+  # merge any abutting intervals
   out="_${pad}${hash}.bed"
-  cut -f1-4 "$i" > "$out"
-
+  cut -f1-4 "$i" \
+  | bedtools merge -i stdin > "$out"
+  
   # report size
   bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")
   echo "${out}: ${bases} bases"
