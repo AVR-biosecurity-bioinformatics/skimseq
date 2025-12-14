@@ -30,6 +30,8 @@ tmp_cram_ids=$(mktemp cram_ids.XXXXXX)
 
 # Get sequence IDs from forward and reverse fastqq
 seqkit seq -n -i "${5}" "${6}" \
+ | sed 's/[ \t].*$//' \
+ | sed 's/\/[12]$//' \
  | sort -u > "${tmp_fastq_ids}"
 
 # Get sequence IDs from CRAM
