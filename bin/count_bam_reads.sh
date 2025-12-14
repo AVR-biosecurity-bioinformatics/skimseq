@@ -38,7 +38,7 @@ mkdir -p contig_beds out
 # one BED per contig
 awk '{print > ("contig_beds/"$1".bed")}' windowed.bed
 
-parallel --jobs 8 --halt soon,fail=1 \
+parallel --jobs ${1} --halt soon,fail=1 \
   'samtools bedcov --min-MQ '"${10}"' --reference '"${4}"' '"$FLAGS"' {} '"${3}"' -c > out/{/.}.out' \
   ::: contig_beds/*.bed
   
