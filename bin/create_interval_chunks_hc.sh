@@ -75,7 +75,7 @@ if [ "$K" -lt 1 ]; then K=1; fi
 if [ "$K" -gt "$N_INTERVALS" ]; then K="$N_INTERVALS"; fi
 
 # Assign intervals to chunks, keep it contiguous so they are in sorted order
-awk -v outdir="$OUTDIR" -v tot="$TOTAL_COUNTS" -v n="$N" -v K="$K" '
+awk -v outdir="$OUTDIR" -v tot="$TOTAL_COUNTS" -v n="$N_INTERVALS" -v K="$K" '
 function abs(x){ return x<0 ? -x : x }
 
 BEGIN{
