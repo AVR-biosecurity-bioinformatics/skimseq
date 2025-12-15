@@ -8,7 +8,7 @@ set -u
 # $4 = split_overweight
 # $5 = counts_file
 
-COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+TARGET_COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT=${4}
 
@@ -22,7 +22,7 @@ awk 'NF>=4 && $4+0 != 0 {print $1"\t"$2"\t"$3"\t"$4}' "${5}" > intervals_with_co
 # WARNING: Makes more even intervals at risk of artefacts near interval end.
 
 if [[ "$SPLIT_OVERWEIGHT"  == "true" ]]; then
-  awk -v target="$COUNTS_PER_CHUNK" '
+  awk -v target="$TARGET_COUNTS_PER_CHUNK" '
   BEGIN{OFS="\t"}
   {
     chrom=$1; start=$2; end=$3; w=$4
@@ -65,20 +65,50 @@ else
   cat intervals_with_counts.bed > intervals_split.bed
 fi
 
-# Use greedy algorithm to assign intervals to chunks.
-# Once they reach COUNTS_PER_CHUNK, begin a new chunk.
-awk -v target="$COUNTS_PER_CHUNK" -v outdir="$OUTDIR" '
-    BEGIN{chunk=1; sum=0; fname=sprintf("%s/chunk_%d.bed", outdir, chunk)}
-    {
-    chrom=$1; start=$2; end=$3; weighted=$4
-    if(sum+weighted>target && sum>0){
-        chunk++
-        fname=sprintf("%s/chunk_%d.bed", outdir, chunk)
-        sum=0
+# Calculate total counts and number of intervals
+TOTAL_COUNTS=$( awk '{s+=$4} END{print s+0}' intervals_split.bed )
+N_INTERVALS=$(cat intervals_split.bed | wc -l)
+
+# Decide number of file splits (chunks) to keep counts balanced.
+K=$(( (TOTAL_COUNTS + TARGET_COUNTS_PER_CHUNK - 1) / TARGET_COUNTS_PER_CHUNK )) 
+if [ "$K" -lt 1 ]; then K=1; fi
+if [ "$K" -gt "$N_INTERVALS" ]; then K="$N_INTERVALS"; fi
+
+# Assign intervals to chunks, keep it contiguous so they are in sorted order
+awk -v outdir="$OUTDIR" -v tot="$TOT" -v n="$N" -v K="$K" '
+function abs(x){ return x<0 ? -x : x }
+
+BEGIN{
+  chunk=1
+  remK=K
+  remW=tot
+  sum=0
+  ideal = remW / remK
+  fname = sprintf("%s/chunk_%d.bed", outdir, chunk)
+}
+
+{
+  chrom=$1; start=$2; end=$3; w=$4+0
+  lines_after = n - FNR
+
+  if (sum>0 && remK>1) {
+    stop_now_better = (abs(sum-ideal) <= abs((sum+w)-ideal))
+    enough_left     = (lines_after >= (remK-2))
+
+    if (stop_now_better && enough_left) {
+      chunk++
+      remK--
+      sum=0
+      ideal = remW / remK
+      fname = sprintf("%s/chunk_%d.bed", outdir, chunk)
     }
-    print chrom"\t"start"\t"end > fname
-   sum+=weighted
-}' intervals_split.bed
+  }
+
+  print chrom"\t"start"\t"end"\t"w > fname
+  sum  += w
+  remW -= w
+}
+' intervals_split.bed
    
 # Rename each output file
 for i in *chunk_*.bed;do
@@ -96,7 +126,8 @@ for i in *chunk_*.bed;do
   
   # report size
   bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")
-  echo "${out}: ${bases} bases"
+  counts=$(awk '{s+=$4} END{print s+0}' "$i")
+  echo "${out}: ${bases} genomic bases, ${counts} summed counts"
 
   rm $i
 done
