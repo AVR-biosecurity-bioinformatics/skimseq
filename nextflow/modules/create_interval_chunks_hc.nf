@@ -6,9 +6,15 @@ process CREATE_INTERVAL_CHUNKS_HC {
     module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(counts_files)
+    tuple val(sample), path(cram), path(cram_index)
+    tuple path(ref_genome), path(genome_index_files)
+    path(interval_bed)
+    path(exclude_bed)
     val(counts_per_chunk)
     val(split_overweight)
+    val(hc_rmdup)
+    val(hc_minbq)
+    val(hc_minmq)
 
     output: 
     tuple val(sample), path("_*.bed"),              emit: interval_bed
@@ -22,10 +28,16 @@ process CREATE_INTERVAL_CHUNKS_HC {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${sample} \
+        ${cram} \
+        ${ref_genome} \
+        ${interval_bed} \
+        ${exclude_bed} \
         ${counts_per_chunk} \
         ${split_overweight} \
-        "${counts_files}" \
-
+        ${hc_rmdup} \
+        ${hc_minbq} \
+        ${hc_minmq}
 
     """
   

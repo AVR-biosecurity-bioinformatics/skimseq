@@ -5,7 +5,6 @@
 //// import modules
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
-include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
 include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
 include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
 include { PROFILE_HC                                             } from '../modules/profile_hc'
@@ -27,23 +26,17 @@ workflow GATK_SINGLE {
        Create groups of genomic intervals for parallel haplotypecaller
     */
 
-    // Count number of reads in each interval
-    COUNT_BAM_READS (
-        ch_sample_cram,
-        ch_include_bed.first(),
-        ch_mask_bed_gatk,
-        ch_genome_indexed,
-        "bases",
-        params.hc_rmdup,
-        params.hc_minmq
-
-    )
-
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
-        COUNT_BAM_READS.out.counts,
+        ch_sample_cram,
+        ch_genome_indexed,
+        ch_include_bed.first(),
+        ch_mask_bed_gatk,
         params.hc_bases_per_chunk,
-        params.hc_split_over_target
+        params.hc_split_over_target,
+        params.hc_rmdup,
+        params.hc_minbq,
+        params.hc_minmq
     )
    
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)

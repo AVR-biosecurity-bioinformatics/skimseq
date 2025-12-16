@@ -4,20 +4,58 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = counts_per_chunk
-# $4 = split_overweight
-# $5 = counts_file
+# $3 = sample name
+# $4 = bam file
+# $5 = ref genome
+# $6 = include_bed     
+# $7 = exclude_bed
+# $8 = counts_per_chunk
+# $9 = split_overweight
+# $10 = hc_rmdup
+# $11 = hc_minbq
+# $12 = hc_minmq
 
+# Set up variables
 TARGET_COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT=${4}
+GAP_BP=100
 
-# HC interval chunks operate on a single sample counts file only 
+# Set up samtools flags
+if [[ ${9} == "false" ]]; then
+    # if duplicates are not removed, include them in counts
+    FLAGS="-g DUP -G UNMAP,SECONDARY,QCFAIL"
+else 
+    FLAGS="-G UNMAP,SECONDARY,QCFAIL,DUP"
+fi
+
+bedtools subtract \
+    -a <(cut -f1-3 ${6} ) \
+    -b <(cut -f1-3 ${7} ) > included_intervals.bed
+
+# Create per-base depths
+# Then exclude any zero counts with awk and create bed
+# Then remove masked bases
+# Then merge and summarise any blocks less than <GAP_BP apart
+samtools depth \
+	-@ ${1} \
+  -aa \
+  -q ${11} \
+  -Q ${11} \
+  ${FLAGS} \
+  --reference ${5} \
+  ${4} \
+  |	awk 'BEGIN{OFS="\t"} $3>0 {print $1, $2-1, $2, $3}' \
+	| bedtools subtract \
+    -a stdin \
+    -b included_intervals.bed  \
+	| bedtools merge -i stdin -d "$GAP_BP" -c 4 -o sum \
+	> block_counts.bed
 
 # Ensure exactly 4 columns (chr, start, end, count) and drop count==0
-awk 'NF>=4 && $4+0 != 0 {print $1"\t"$2"\t"$3"\t"$4}' "${5}" > intervals_with_counts.bed
+awk 'NF>=4 && $4+0 != 0 {print $1"\t"$2"\t"$3"\t"$4}' block_counts.bed > intervals_with_counts.bed
 
-# Optionally Split intervals that individually exceed the target counts.
+# Optionally split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
 # WARNING: Makes more even intervals at risk of artefacts near interval end.
 
