@@ -11,11 +11,11 @@ process CREATE_INTERVAL_CHUNKS_HC {
     path(interval_bed)
     path(exclude_bed)
     val(counts_per_chunk)
-    val(split_overweight)
+    val(split_large_intervals)
     val(hc_rmdup)
     val(hc_minbq)
     val(hc_minmq)
-    val(hc_interval_padding)
+    val(min_interval_gap)
 
     output: 
     tuple val(sample), path("_*.bed"),              emit: interval_bed
@@ -35,11 +35,11 @@ process CREATE_INTERVAL_CHUNKS_HC {
         ${interval_bed} \
         ${exclude_bed} \
         ${counts_per_chunk} \
-        ${split_overweight} \
+        ${split_large_intervals} \
         ${hc_rmdup} \
         ${hc_minbq} \
         ${hc_minmq} \
-        ${hc_interval_padding}
+        ${min_interval_gap}
 
     """
   

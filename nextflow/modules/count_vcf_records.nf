@@ -3,13 +3,14 @@ process COUNT_VCF_RECORDS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0"
+    module "BCFtools/1.22-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     tuple val(sample), path(gvcf), path(tbi)
     path(interval_bed)
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
+    val(min_interval_gap)
 
     output: 
     tuple val(sample), path("*counts.bed"),                 emit: counts
@@ -27,7 +28,8 @@ process COUNT_VCF_RECORDS {
         ${ref_genome} \
         ${interval_bed} \
         ${exclude_bed} \
-        ${sample}
+        ${sample} \
+        ${min_interval_gap}
         
     """
 }

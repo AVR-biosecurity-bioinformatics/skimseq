@@ -10,11 +10,11 @@ set -u
 # $6 = include_bed     
 # $7 = exclude_bed
 # $8 = counts_per_chunk
-# $9 = split_overweight
+# $9 = split_large_intervals
 # $10 = hc_rmdup
 # $11 = hc_minbq
 # $12 = hc_minmq
-# $13 = hc_interval_padding
+# $13 = min_interval_gap
 
 # Set up variables
 TARGET_COUNTS_PER_CHUNK=$(awk -v x="${8}" 'BEGIN {printf("%d\n",x)}')

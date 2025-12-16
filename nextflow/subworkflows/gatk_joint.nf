@@ -31,13 +31,14 @@ workflow GATK_JOINT {
        Create groups of genomic intervals for parallel joint calling
     */
 
-    // Count number of reads contained within each interval, for long contigs (chromosomes)
-    // Note: For the long contigs use the mask to split them into smaller genotypable chunks
+    // Count number of VCF records contained within each interval, for long contigs (chromosomes)
+    // Note: For the long contigs use the mask and min_interval_gap to ensure there are many smaller intervals which will be assigned to parallel chunks in next step
     COUNT_VCF_RECORDS_LONG (
         ch_sample_gvcf,
         ch_long_bed.first(),
         ch_mask_bed_gatk,
-        ch_genome_indexed
+        ch_genome_indexed,
+        min_interval_gap
     )
     .map { sample, counts -> counts }
     .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
@@ -45,23 +46,23 @@ workflow GATK_JOINT {
     .set { counts_long }
 
     // Create joint calling intervals for long beds
-    // Takes the sum of counts * samples - i.e. number of genotypes
-    // NOTE: allow further splitting over overweight chunks
+    // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
+    // NOTE: split_large_intervals is used here to allow further splitting of intervals that are over params.jc_genotypes_per_chunk
     CREATE_INTERVAL_CHUNKS_JC_LONG (
         counts_long,
         params.jc_genotypes_per_chunk,
-        "true"
+        params.split_large_intervals
     )
 
     // Count number of vcf records contained within each interval, for short contigs (scaffolds)
-    // NOTE: For the short contigs use the full contigs with NO MASK, by providing ch_dummy_file and DO NOT allow further splitting of overweight chunks
+    // NOTE: For short use the full contig length without splitting, by providing ch_dummy_file as mask, and min_chr_length as the min interval split size
     // This ensures compatibility with --merge-contigs-into-num-partitions in genomicsdbimport
-    // Masked regions will still not be included if the mask was used for call_variants
     COUNT_VCF_RECORDS_SHORT (
         ch_sample_gvcf,
         ch_short_bed.first(),
         ch_dummy_file,
-        ch_genome_indexed
+        ch_genome_indexed,
+        params.min_chr_length
     )
     .map { sample, counts -> counts }
     .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
@@ -69,8 +70,8 @@ workflow GATK_JOINT {
     .set { counts_short }
 
     // Create joint calling intervals for short chunks
-    // NOTE: DO NOT allow further splitting of overweight chunks as --merge-contigs-into-num-partitions 1 requires full contigs
-    // Takes the sum of counts * samples - i.e. number of genotypes
+    // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
+    // NOTE: set split_large_intervals to FALSE here as --merge-contigs-into-num-partitions 1 requires full contigs
     CREATE_INTERVAL_CHUNKS_JC_SHORT (
         counts_short,
         params.jc_genotypes_per_chunk,
@@ -78,6 +79,7 @@ workflow GATK_JOINT {
     )
 
     // create intervals channel, with one interval_bed file per element
+    // Mix the long contig chunk channels with the short ones - split long and whole short contigs should never be together
     CREATE_INTERVAL_CHUNKS_JC_LONG.out.interval_bed
         .mix(CREATE_INTERVAL_CHUNKS_JC_SHORT.out.interval_bed)
         .collect()
@@ -100,7 +102,8 @@ workflow GATK_JOINT {
         .set { ch_gvcf_interval }
 
 
-    // Calculate cohort size from sample names - This is used for memory scaling of next 2 steps
+    // Calculate cohort size from sample names
+    // NOTE: This is used for memory scaling of GENOMICSDB_IMPORT and JOINT_GENOTYPE which are primarily driven by sample size
     ch_cohort_size = ch_sample_names.unique().count()
 
     // Import GVCFs into a genomicsDB per Interval

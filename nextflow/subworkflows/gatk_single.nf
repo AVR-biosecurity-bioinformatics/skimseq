@@ -33,11 +33,11 @@ workflow GATK_SINGLE {
         ch_include_bed.first(),
         ch_mask_bed_gatk,
         params.hc_bases_per_chunk,
-        params.hc_split_over_target,
+        params.split_large_intervals,
         params.hc_rmdup,
         params.hc_minbq,
         params.hc_minmq,
-        params.hc_interval_padding
+        params.min_interval_gap
     )
    
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
