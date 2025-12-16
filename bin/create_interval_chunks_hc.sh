@@ -40,13 +40,12 @@ bedtools subtract \
 samtools depth \
   -b included_intervals.bed \
 	-@ ${1} \
-  -aa \
   -q ${11} \
   -Q ${11} \
   ${FLAGS} \
   --reference ${5} \
   ${4} \
-  |	awk 'BEGIN{OFS="\t"} $3>0 {print $1, $2-1, $2, $3}' \
+  |	awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' \
 	| bedtools merge -i stdin -d "$GAP_BP" -c 4 -o sum > intervals_with_counts.bed
 
 # Optionally split intervals that individually exceed the target counts.
