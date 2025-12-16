@@ -15,9 +15,8 @@ process CREATE_INTERVAL_CHUNKS_HC {
     val(hc_rmdup)
     val(hc_minbq)
     val(hc_minmq)
-    val(hc_minmq)
     val(hc_interval_padding)
-    
+
     output: 
     tuple val(sample), path("_*.bed"),              emit: interval_bed
     
@@ -39,7 +38,8 @@ process CREATE_INTERVAL_CHUNKS_HC {
         ${split_overweight} \
         ${hc_rmdup} \
         ${hc_minbq} \
-        ${hc_minmq}
+        ${hc_minmq} \
+        ${hc_interval_padding}
 
     """
   

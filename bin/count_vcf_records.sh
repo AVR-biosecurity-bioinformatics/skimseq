@@ -15,9 +15,10 @@ set -u
 bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
  | bedtools sort -i stdin -g ${4}.fai > included_intervals.bed
 
-bedtools intersect \
-    -a included_intervals.bed \
-    -b ${3} \
-    -sorted \
-    -g ${4}.fai \
-    -c > ${7}.counts.bed
+# expand gvcf blocks to contained intervals and create bed file
+# Then merge and sum number of records
+# then keep only those in included intervals
+bcftools view -R included_intervals.bed -Ou ${3} \
+| bcftools convert --gvcf2vcf --fasta-ref ${4} -Ou \
+| bcftools query -f '%CHROM\t%POS0\t%POS\t1\n' \
+| bedtools merge -i stdin -c 4 -o sum > ${7}.counts.bed
