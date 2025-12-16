@@ -36,7 +36,8 @@ workflow GATK_SINGLE {
         params.hc_split_over_target,
         params.hc_rmdup,
         params.hc_minbq,
-        params.hc_minmq
+        params.hc_minmq,
+        params.hc_interval_padding
     )
    
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
@@ -115,7 +116,6 @@ workflow GATK_SINGLE {
     }
 
     // Merge interval GVCFs by sample
-    // TODO: This would be faster using GatherGVCFs, but need to make sure the intervals are ordered
     CALL_VARIANTS.out.gvcf_intervals
         .groupTuple ( by: 0 )
         .set { ch_gvcf_to_merge }

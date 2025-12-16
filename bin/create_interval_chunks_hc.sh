@@ -14,12 +14,13 @@ set -u
 # $10 = hc_rmdup
 # $11 = hc_minbq
 # $12 = hc_minmq
+# $13 = hc_interval_padding
 
 # Set up variables
-TARGET_COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+TARGET_COUNTS_PER_CHUNK=$(awk -v x="${8}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
-SPLIT_OVERWEIGHT=${4}
-GAP_BP=100
+SPLIT_OVERWEIGHT=${9}
+GAP_BP=${13}
 
 # Set up samtools flags
 if [[ ${9} == "false" ]]; then
@@ -50,10 +51,7 @@ samtools depth \
     -a stdin \
     -b included_intervals.bed  \
 	| bedtools merge -i stdin -d "$GAP_BP" -c 4 -o sum \
-	> block_counts.bed
-
-# Ensure exactly 4 columns (chr, start, end, count) and drop count==0
-awk 'NF>=4 && $4+0 != 0 {print $1"\t"$2"\t"$3"\t"$4}' block_counts.bed > intervals_with_counts.bed
+	> intervals_with_counts.bed
 
 # Optionally split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
