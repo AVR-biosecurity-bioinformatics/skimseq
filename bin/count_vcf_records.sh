@@ -15,18 +15,27 @@ set -u
 bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
  | bedtools sort -i stdin -g ${4}.fai > included_intervals.bed
 
-# Find bases with a callable genotype, expanding gvcf blocks
-bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' ${3} \
-	  | awk -v OFS="\t" '
-		  {
-			chrom=$1; start=$2; pos=$3; endtag=$4
+tmp_bed="${7}.counts.bed"
 
-			# BED end: use END if present else POS (single base)
-			end = (endtag=="." ? pos : endtag)
-			print chrom, start, end
-		  }' \
-	  | bedtools merge -i - \
-      | bgzip > ${7}.counts.bed.gz
+# NOTE because the output is bgzipped, standard nextflow file size checks wont work for filtering.
+# So need to record the number of lines in the bed as a 'flag' for whether it should be filtered
 
-tabix -f -p bed ${7}.counts.bed.gz
+# If no intervals after subtract, produce empty outputs + flag
+if [ ! -s included_intervals.bed ]; then
+  : > "$tmp_bed"
+else
+  bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' "$3" \
+    | awk -v OFS="\t" '{ end = ($4=="." ? $3 : $4); print $1,$2,end }' \
+    | bedtools merge -i - \
+    > "$tmp_bed"
+fi
+
+# record count for filtering flag
+nlines=$(wc -l < "$tmp_bed" | awk "{print \$1}")
+echo "$nlines" > "${7}.counts.nlines"
+
+# bgzip and create  tabix index
+bgzip -c "$tmp_bed" > "${7}.counts.bed.gz"
+tabix -f -p bed "${7}.counts.bed.gz"
+
 # TODO: Could add callability filter here, to keep sites that are covered by N reads etc

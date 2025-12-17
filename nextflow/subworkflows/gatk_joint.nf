@@ -39,10 +39,19 @@ workflow GATK_JOINT {
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
-    .map { sample, bed, tbi -> tuple(bed, tbi) }
-    .filter { bt -> bt[0] && bt[0].exists() && bt[0].toFile().length() > 0 }
+
+COUNT_VCF_RECORDS_LONG.out.counts
+    .filter { sample, bed, tbi, nlines ->
+        (nlines.text.trim() as Integer) > 0
+    }
+    .map { sample, bed, tbi, nlines -> tuple(bed, tbi) }   // keep bed+tbi pairs
     .toList()
     .filter { lst -> lst && !lst.isEmpty() }
+    .map { pairs ->
+        def beds = pairs.collect { it[0] }
+        def tbis = pairs.collect { it[1] }
+        tuple(beds, tbis)
+    }
     .set { counts_long }
 
     // Create joint calling intervals for long beds
@@ -65,10 +74,19 @@ workflow GATK_JOINT {
         ch_dummy_file,
         ch_genome_indexed
     )
-    .map { sample, bed, tbi -> tuple(bed, tbi) }
-    .filter { bt -> bt[0] && bt[0].exists() && bt[0].toFile().length() > 0 }
+
+COUNT_VCF_RECORDS_SHORT.out.counts
+    .filter { sample, bed, tbi, nlines ->
+        (nlines.text.trim() as Integer) > 0
+    }
+    .map { sample, bed, tbi, nlines -> tuple(bed, tbi) }   // keep bed+tbi pairs
     .toList()
     .filter { lst -> lst && !lst.isEmpty() }
+    .map { pairs ->
+        def beds = pairs.collect { it[0] }
+        def tbis = pairs.collect { it[1] }
+        tuple(beds, tbis)
+    }
     .set { counts_short }
 
     // Create joint calling intervals for short chunks

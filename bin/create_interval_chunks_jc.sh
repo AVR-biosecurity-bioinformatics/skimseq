@@ -15,14 +15,7 @@ OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT=${5}
 GAP_BP="${6}"
 
-# Combine counts files for all samples and create new bed with the number overlapping reference
-#zcat *counts.bed.gz \
-#  | bedtools sort -g ${3}.fai -i - \
-#  | bedtools genomecov -bg -i - -g ${3}.fai \
-#  > combined_counts.bed
-
 # Combine counts in parallel
-
 # contig list in reference order, with lengths
 cut -f1,2 ${3}.fai > contigs.tsv
 
@@ -31,25 +24,37 @@ mkdir -p per_contig
 process_contig() {
   chr="$1"
   len="$2"
+  out="per_contig/${chr}.bed"
+  tmp="per_contig/${chr}.bg.tmp"
 
   # genome file for this contig only
   genome_line=$(printf "%s\t%s\n" "$chr" "$len")
 
-  # pull intervals for this contig from every sample then genomecov
+  # build bedGraph (chr start end depth) for this contig
   for f in *counts.bed.gz; do
     tabix "$f" "$chr" 2>/dev/null || true
   done \
   | bedtools genomecov -bg -i - -g <(printf "%s" "$genome_line") \
-  | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum \
-  > "per_contig/${chr}.bed"
+  > "$tmp"
+
+  # If no coverage anywhere on this contig, emit an empty file and skip merge
+  if [ ! -s "$tmp" ]; then
+    : > "$out"
+    rm -f "$tmp"
+    return 0
+  fi
+
+  # Otherwise merge + sum depth column
+  bedtools merge -i "$tmp" -d "$GAP_BP" -c 4 -o sum > "$out"
+  rm -f "$tmp"
 }
 export -f process_contig
 export GAP_BP
 
-# parallel across contigs (tune jobs as you like)
+# parallel across contigs
 parallel --colsep '\t' --jobs ${1} process_contig {1} {2} :::: contigs.tsv
 
-# Merge contigs
+# Merge contig counts
 : > combined_counts.bed
 while IFS=$'\t' read -r chr len; do
   cat "per_contig/${chr}.bed" >> combined_counts.bed
