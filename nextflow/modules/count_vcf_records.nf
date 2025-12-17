@@ -10,7 +10,6 @@ process COUNT_VCF_RECORDS {
     path(interval_bed)
     path(exclude_bed)
     tuple path(ref_genome), path(genome_index_files)
-    val(min_interval_gap)
 
     output: 
     tuple val(sample), path("*counts.bed"),                 emit: counts
@@ -28,8 +27,7 @@ process COUNT_VCF_RECORDS {
         ${ref_genome} \
         ${interval_bed} \
         ${exclude_bed} \
-        ${sample} \
-        ${min_interval_gap}
+        ${sample} 
         
     """
 }

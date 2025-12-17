@@ -37,8 +37,7 @@ workflow GATK_JOINT {
         ch_sample_gvcf,
         ch_long_bed.first(),
         ch_mask_bed_gatk,
-        ch_genome_indexed,
-        params.min_interval_gap
+        ch_genome_indexed
     )
     .map { sample, counts -> counts }
     .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
@@ -58,14 +57,13 @@ workflow GATK_JOINT {
     )
 
     // Count number of vcf records contained within each interval, for short contigs (scaffolds)
-    // NOTE: For short use the full contig length without splitting, by providing ch_dummy_file as mask, and min_chr_length as the min interval split size
+    // NOTE: For short use the full contig length without splitting, by providing ch_dummy_file as mask
     // This ensures compatibility with --merge-contigs-into-num-partitions in genomicsdbimport
     COUNT_VCF_RECORDS_SHORT (
         ch_sample_gvcf,
         ch_short_bed.first(),
         ch_dummy_file,
-        ch_genome_indexed,
-        params.min_chr_length
+        ch_genome_indexed
     )
     .map { sample, counts -> counts }
     .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
@@ -75,12 +73,13 @@ workflow GATK_JOINT {
 
     // Create joint calling intervals for short chunks
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
-    // NOTE: set split_large_intervals to FALSE here as --merge-contigs-into-num-partitions 1 requires full contigs
+    // NOTE: set split_large_intervals to FALSE, and min_chr_length as the min interval split size 
+    // this is because --merge-contigs-into-num-partitions 1 requires full contigs
     CREATE_INTERVAL_CHUNKS_JC_SHORT (
         counts_short,
         params.jc_genotypes_per_chunk,
         "false",
-        params.min_interval_gap,
+        params.min_chr_length,
         ch_genome_indexed
     )
 

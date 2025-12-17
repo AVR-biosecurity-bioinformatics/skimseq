@@ -27,7 +27,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
         ${ref_genome} \
         ${counts_per_chunk} \
         ${split_large_intervals} \
-        ${min_interval_gap}
+        ${min_interval_gap} \
         "${counts_files}" 
 
     """

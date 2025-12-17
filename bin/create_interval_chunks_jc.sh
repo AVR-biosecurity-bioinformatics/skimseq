@@ -26,13 +26,6 @@ cat *counts.bed \
 # Merge intervals within gap_BP to produce file for chunking
 bedtools merge -i combined_counts.bed -d "$GAP_BP" -c 4 -o sum > intervals_with_counts.bed
 
-# Take the sum of feature counts across windows
-#awk 'BEGIN{OFS="\t"} {
-#  sum = 0
-#  for (i = 4; i <= NF; i++) sum += $i
-#  print $1, $2, $3, sum
-#}' combined_counts.bed > intervals_with_counts.bed
-
 # Split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
 if [[ "$SPLIT_OVERWEIGHT" == "true" ]]; then
