@@ -16,10 +16,44 @@ SPLIT_OVERWEIGHT=${5}
 GAP_BP="${6}"
 
 # Combine counts files for all samples and create new bed with the number overlapping reference
-cat *counts.bed \
-  | bedtools sort -g ${3}.fai -i - \
-  | bedtools genomecov -bg -i - -g ${3}.fai \
-  > combined_counts.bed
+#zcat *counts.bed.gz \
+#  | bedtools sort -g ${3}.fai -i - \
+#  | bedtools genomecov -bg -i - -g ${3}.fai \
+#  > combined_counts.bed
+
+# Combine counts in parallel
+
+# contig list in reference order, with lengths
+cut -f1,2 ${3}.fai > contigs.tsv
+
+mkdir -p per_contig
+
+process_contig() {
+  chr="$1"
+  len="$2"
+
+  # genome file for this contig only
+  genome_line=$(printf "%s\t%s\n" "$chr" "$len")
+
+  # pull intervals for this contig from every sample then genomecov
+  for f in *counts.bed.gz; do
+    tabix "$f" "$chr" 2>/dev/null || true
+  done \
+  | bedtools genomecov -bg -i - -g <(printf "%s" "$genome_line") \
+  | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum \
+  > "per_contig/${chr}.bed"
+}
+export -f process_contig
+export GAP_BP
+
+# parallel across contigs (tune jobs as you like)
+parallel --colsep '\t' --jobs ${1} process_contig {1} {2} :::: contigs.tsv
+
+# Merge contigs
+: > combined_counts.bed
+while IFS=$'\t' read -r chr len; do
+  cat "per_contig/${chr}.bed" >> combined_counts.bed
+done < contigs.tsv
 
 # TODO: Could add filter to remove chunks with not many samples called before merging intervals
 

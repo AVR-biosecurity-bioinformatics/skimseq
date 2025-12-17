@@ -26,6 +26,7 @@ bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' $
 			print chrom, start, end
 		  }' \
 	  | bedtools merge -i - \
-      > ${7}.counts.bed
+      | bgzip > ${7}.counts.bed.gz
 
+tabix -f -p bed ${7}.counts.bed.gz
 # TODO: Could add callability filter here, to keep sites that are covered by N reads etc

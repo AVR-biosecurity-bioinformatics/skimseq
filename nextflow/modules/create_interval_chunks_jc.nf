@@ -6,7 +6,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
     module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    path(counts_files)
+    tuple path(counts_bed), path(counts_tbi)
     val(counts_per_chunk)
     val(split_large_intervals)
     val(min_interval_gap)
@@ -28,7 +28,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
         ${counts_per_chunk} \
         ${split_large_intervals} \
         ${min_interval_gap} \
-        "${counts_files}" 
+        "${counts_bed}" 
 
     """
   
