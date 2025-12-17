@@ -52,7 +52,9 @@ workflow GATK_JOINT {
     CREATE_INTERVAL_CHUNKS_JC_LONG (
         counts_long,
         params.jc_genotypes_per_chunk,
-        params.split_large_intervals
+        params.split_large_intervals,
+        params.min_interval_gap,
+        ch_genome_indexed
     )
 
     // Count number of vcf records contained within each interval, for short contigs (scaffolds)
@@ -77,7 +79,9 @@ workflow GATK_JOINT {
     CREATE_INTERVAL_CHUNKS_JC_SHORT (
         counts_short,
         params.jc_genotypes_per_chunk,
-        "false"
+        "false",
+        params.min_interval_gap,
+        ch_genome_indexed
     )
 
     // create intervals channel, with one interval_bed file per element

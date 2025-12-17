@@ -64,4 +64,4 @@ bcftools view \
     -Oz -o ${6}.${3}.g.vcf.gz tmp.g.vcf.gz
 bcftools index -t ${6}.${3}.g.vcf.gz
 
-rm -f tmp*
+rm -f tmp.g.vcf.gz*

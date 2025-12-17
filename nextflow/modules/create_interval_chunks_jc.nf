@@ -9,6 +9,8 @@ process CREATE_INTERVAL_CHUNKS_JC {
     path(counts_files)
     val(counts_per_chunk)
     val(split_large_intervals)
+    val(min_interval_gap)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     path("_*.bed"),              emit: interval_bed
@@ -22,8 +24,10 @@ process CREATE_INTERVAL_CHUNKS_JC {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${ref_genome} \
         ${counts_per_chunk} \
         ${split_large_intervals} \
+        ${min_interval_gap}
         "${counts_files}" 
 
     """

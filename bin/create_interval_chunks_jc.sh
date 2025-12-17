@@ -4,38 +4,34 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = counts_per_chunk
-# $4 = split_overweight
-# $5 = counts_file
+# $3 = ref_genome
+# $4 = counts_per_chunk
+# $5 = split_overweight
+# $6 = min_interval_gap
+# $7 = counts_file
 
-TARGET_COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
-SPLIT_OVERWEIGHT=${4}
+SPLIT_OVERWEIGHT=${5}
+GAP_BP="${6}"
 
-# Combine counts files for all samples, if there is only one use that instead to avoid error in unionbedg
-# NOTE the nullgrob option prevents no matches being emitted as literal text, rather than nothing
-shopt -s nullglob
-count_files=( *counts.bed )
-shopt -u nullglob
+# Combine counts files for all samples and create new bed with the number overlapping reference
+cat *counts.bed \
+  | bedtools sort -g ${3}.fai -i - \
+  | bedtools genomecov -bg -i - -g ${3}.fai \
+  > combined_counts.bed
 
-# Check what is in array
-printf '%s\n' "${count_files[@]}"
+# TODO: Could add filter to remove chunks with not many samples called before merging intervals
 
-if (( ${#count_files[@]} == 0 )); then
-  echo "No *counts.bed files found" >&2
-  exit 1
-elif (( ${#count_files[@]} == 1 )); then
-  cp "${count_files[0]}" combined_counts.bed
-else
-  bedtools unionbedg -i "${count_files[@]}" -filler 0 > combined_counts.bed
-fi
+# Merge intervals within gap_BP to produce file for chunking
+bedtools merge -i combined_counts.bed -d "$GAP_BP" -c 4 -o sum > intervals_with_counts.bed
 
 # Take the sum of feature counts across windows
-awk 'BEGIN{OFS="\t"} {
-  sum = 0
-  for (i = 4; i <= NF; i++) sum += $i
-  print $1, $2, $3, sum
-}' combined_counts.bed > intervals_with_counts.bed
+#awk 'BEGIN{OFS="\t"} {
+#  sum = 0
+#  for (i = 4; i <= NF; i++) sum += $i
+#  print $1, $2, $3, sum
+#}' combined_counts.bed > intervals_with_counts.bed
 
 # Split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
