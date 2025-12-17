@@ -5,15 +5,30 @@ set -u
 # $1 = cpus 
 # $2 = mem
 # $3 = counts_per_chunk
-# $4 = split_large_intervals
+# $4 = split_overweight
 # $5 = counts_file
 
 TARGET_COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT=${4}
 
-# counts files for all samples
-bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
+# Combine counts files for all samples, if there is only one use that instead to avoid error in unionbedg
+# NOTE the nullgrob option prevents no matches being emitted as literal text, rather than nothing
+shopt -s nullglob
+count_files=( *counts.bed )
+shopt -u nullglob
+
+# Check what is in array
+printf '%s\n' "${count_files[@]}"
+
+if (( ${#count_files[@]} == 0 )); then
+  echo "No *counts.bed files found" >&2
+  exit 1
+elif (( ${#count_files[@]} == 1 )); then
+  cp "${count_files[0]}" combined_counts.bed
+else
+  bedtools unionbedg -i "${count_files[@]}" -filler 0 > combined_counts.bed
+fi
 
 # Take the sum of feature counts across windows
 awk 'BEGIN{OFS="\t"} {

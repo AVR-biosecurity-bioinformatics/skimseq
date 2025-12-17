@@ -38,11 +38,12 @@ workflow GATK_JOINT {
         ch_long_bed.first(),
         ch_mask_bed_gatk,
         ch_genome_indexed,
-        min_interval_gap
+        params.min_interval_gap
     )
     .map { sample, counts -> counts }
     .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
     .toList()        
+    .filter { lst -> lst && !lst.isEmpty() }     // prevent empty-list emission
     .set { counts_long }
 
     // Create joint calling intervals for long beds
@@ -67,6 +68,7 @@ workflow GATK_JOINT {
     .map { sample, counts -> counts }
     .filter { f -> f && f.exists() && f.toFile().length() > 0 } // Filter any empty bed files
     .toList()        
+    .filter { lst -> lst && !lst.isEmpty() }     // prevent empty-list emission
     .set { counts_short }
 
     // Create joint calling intervals for short chunks

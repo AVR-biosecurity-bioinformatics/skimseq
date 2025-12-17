@@ -24,4 +24,12 @@ bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
 bcftools view -R included_intervals.bed -Ou ${3} \
 | bcftools convert --gvcf2vcf --fasta-ref ${4} -Ou \
 | bcftools query -f '%CHROM\t%POS0\t%POS\t1\n' \
-| bedtools merge -i stdin -d "$GAP_BP" -c 4 -o sum > ${7}.counts.bed
+| {
+    IFS= read -r first || true
+    if [[ -z "${first:-}" ]]; then
+      : > ${7}.counts.bed   # no records = empty output (avoid merge error)
+    else
+      { printf '%s\n' "$first"; cat; } \
+      | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum > ${7}.counts.bed
+    fi
+  }
