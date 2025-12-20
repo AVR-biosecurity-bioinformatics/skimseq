@@ -9,11 +9,19 @@ set -u
 # $5 = interval hash
 # $6 = interval_bed
 # $7 = exclude_bed
-# $8 = exclude_padding
-# $9 = output_invariant
+
+## Parse positional input args, the rest are xported
+CPUS="${1}"
+MEM_GB="${2}"
+GENOMICSDB="${3}"
+REF="${4}"
+IHASH="${5}"
+INTERVAL_BED="${6}"
+EXCLUDE_BED="${7}"
+
 
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
-java_mem=$(( ( ${2} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
+java_mem=$(( ( ${MEM_GB} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
 
 # Clamp to at least 1 GB so Java has something to start with
 if (( java_mem < 1 )); then
@@ -21,52 +29,60 @@ if (( java_mem < 1 )); then
 fi
 
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
-if [[ "${9}" == "false" ]]; then
+if [[ "${OUTPUT_INVARIANT}" == "false" ]]; then
     # joint genotype variant sites only
     # Send stderr to log file for profiling
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
-        -R ${4} \
-        -V gendb://${3} \
-        -L ${6} \
+        -R "${REF}" \
+        -V gendb://${GENOMICSDB} \
+        -L "${INTERVAL_BED}" \
         -O joint_called.vcf.gz \
-        --exclude-intervals ${7} \
-        --interval-exclusion-padding ${8} \
+        --exclude-intervals "${EXCLUDE_BED}" \
+        --interval-exclusion-padding "${EXCLUDE_PAD}" \
         --interval-merging-rule ALL \
         --merge-input-intervals \
         --variant-output-filtering STARTS_IN \
-        --max-alternate-alleles 6 \
-        --genomicsdb-max-alternate-alleles 10 \
+        --max-alternate-alleles "${MAX_ALTERNATE}" \
+        --genomicsdb-max-alternate-alleles "${GENOMICSDB_MAX_ALTERNATE}" \
+        -ploidy "${PLOIDY}" \
+        --heterozygosity "${HET}" \
+        --heterozygosity-stdev "${HET_SD}" \
+        --indel-heterozygosity "${INDEL_HET}" \
         --tmp-dir /tmp \
         --genomicsdb-shared-posixfs-optimizations true \
-        2> >(tee -a ${5}.stderr.log >&2)
+        2> >(tee -a ${IHASH}.stderr.log >&2)
 
-elif [[ "${9}" == "true" ]]; then
+elif [[ "${OUTPUT_INVARIANT}" == "true" ]]; then
     # Joint genotype both variant and invariant
     # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
 
     # genotype both variant and invariant sites 
     # Send stderr to log file for profiling
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G"  GenotypeGVCFs \
-        -R ${4} \
-        -V gendb://${3} \
-        -L ${6} \
+        -R "${REF}" \
+        -V gendb://${GENOMICSDB} \
+        -L "${INTERVAL_BED}" \
         -O calls.vcf.gz \
-        --exclude-intervals ${7} \
-        --interval-exclusion-padding ${8} \
+        --exclude-intervals "${EXCLUDE_BED}" \
+        --interval-exclusion-padding "${EXCLUDE_PAD}" \
         --interval-merging-rule ALL \
         --merge-input-intervals true \
         --variant-output-filtering STARTS_IN \
-        --max-alternate-alleles 6 \
-        --genomicsdb-max-alternate-alleles 10 \
+        --max-alternate-alleles "${MAX_ALTERNATE}" \
+        --genomicsdb-max-alternate-alleles "${GENOMICSDB_MAX_ALTERNATE}" \
+        -ploidy "${PLOIDY}" \
+        --heterozygosity "${HET}" \
+        --heterozygosity-stdev "${HET_SD}" \
+        --indel-heterozygosity "${INDEL_HET}" \
         --tmp-dir /tmp \
         --genomicsdb-shared-posixfs-optimizations true \
-        2> >(tee -a ${5}.stderr.log >&2)
+        2> >(tee -a ${IHASH}.stderr.log >&2)
 
     # Get the sites as a GVCF as well to transfer the annotations over
     gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  SelectVariants \
-        -R ${4} \
-        -V gendb://${3} \
-        -L ${6} \
+        -R ${REF} \
+        -V gendb://${GENOMICSDB} \
+        -L ${INTERVAL_BED} \
         -O source.g.vcf.gz 
 
      # Prepare annotation files for re-adding specific genotype fields to invariant sites
@@ -74,7 +90,7 @@ elif [[ "${9}" == "true" ]]; then
      # Subset gVCF to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, PL tags
      # NOTE any invariant sites with multiple alleles will be missed
     bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
-        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref  ${4} \
+        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref  ${REF} \
         | bcftools query -f '%CHROM\t%POS\t[%PL\t]\n' \
         | sed 's/\t$//' \
         | bgzip > source_PL.tsv.gz
@@ -83,7 +99,7 @@ elif [[ "${9}" == "true" ]]; then
      # Subset gVCF to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, GQ tags
      # NOTE any invariant sites with multiple alleles will be missed
 	bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
-        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref ${4} \
+        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref ${REF} \
         | bcftools query -f '%CHROM\t%POS\t[%GQ\t]\n' \
         | sed 's/\t$//' \
         | bgzip > source_GQ.tsv.gz
@@ -114,7 +130,7 @@ fi
 # Calculate genotype posteriors over genomic intervals
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" CalculateGenotypePosteriors \
     -V joint_called.vcf.gz \
-    -L ${6} \
+    -L ${INTERVAL_BED} \
     -O joint_called_posterior.vcf.gz \
     --interval-merging-rule ALL \
     --tmp-dir /tmp
@@ -124,10 +140,10 @@ bcftools view joint_called_posterior.vcf.gz -Ov \
     | awk 'BEGIN{OFS="\t"}
         /^#/ {print; next}
         { if($5=="<NON_REF>") $5="."; print }' \
-    | bgzip > ${5}.vcf.gz
+    | bgzip > ${IHASH}.vcf.gz
 
 # reindex the output file
-bcftools index -t --threads ${1} ${5}.vcf.gz
+bcftools index -t --threads ${CPUS} ${IHASH}.vcf.gz
 
 # Remove temporary files
 rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz* 

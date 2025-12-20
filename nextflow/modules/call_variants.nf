@@ -14,8 +14,12 @@ process CALL_VARIANTS {
     tuple val(sample), val(interval_hash), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
     tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
 
-    script:
-    // Export filtering parameters
+    script: 
+    def process_script = "${process_name}.sh"
+    """
+    #!/usr/bin/env bash
+
+    // Export haplotypecaller parameters
     export INTERVAL_PAD='${params.hc_interval_padding}'
     export EXCLUDE_PAD='${params.exclude_padding}'
     export MIN_PRUNING='${params.hc_min_pruning}'
@@ -35,10 +39,6 @@ process CALL_VARIANTS {
     export HET='${params.heterozygosity}'
     export HET_SD='${params.heterozygosity_stdev}'
     export INDEL_HET='${params.indel_heterozygosity}'
-    
-    def process_script = "${process_name}.sh"
-    """
-    #!/usr/bin/env bash
 
     ### run process script
     bash ${process_script} \

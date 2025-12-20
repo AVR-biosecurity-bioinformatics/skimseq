@@ -8,7 +8,6 @@ process JOINT_GENOTYPE {
     tuple val(interval_hash), path(interval_bed), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
-    val(exclude_padding)
     val(output_invariant)
     val(cohort_size)
 
@@ -32,7 +31,17 @@ process JOINT_GENOTYPE {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
-      
+    
+    // Export haplotypecaller parameters
+    export EXCLUDE_PAD='${params.exclude_padding}'
+    export OUTPUT_INVARIANT='${params.output_invariant}'
+    export PLOIDY='${params.ploidy}'
+    export HET='${params.heterozygosity}'
+    export HET_SD='${params.heterozygosity_stdev}'
+    export INDEL_HET='${params.indel_heterozygosity}'
+    export MAX_ALTERNATE='${params.jc_max_alternate_alleles}'
+    export GENOMICSDB_MAX_ALTERNATE='${params.jc_max_alternate_to_import}'
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
@@ -41,9 +50,7 @@ process JOINT_GENOTYPE {
         ${ref_genome} \
         ${interval_hash} \
         ${interval_bed} \
-        ${exclude_bed} \
-        ${exclude_padding} \
-        ${output_invariant}
+        ${exclude_bed} 
 
     """
 }

@@ -6,7 +6,7 @@ set -u
 CPUS="${1}"
 MEM_GB="${2}"
 SAMPLE="${3}"
-CRAMS="${4}"
+CRAM="${4}"
 REF="${5}"
 IHASH="${6}"
 INTERVAL_BED="${7}"
@@ -39,14 +39,11 @@ else
   DONT_USE_SOFTCLIPPED="true"
 fi
 
-# Create list of crams to be processed
-echo ${4} | tr ' ' '\n' > cram.list
-
 # call variants by sample * interval chunk
 # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
 gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${CPUS}" HaplotypeCaller \
     -R "${REF}" \
-    -I cram.list \
+    -I ${CRAM} \
     -L "${INTERVAL_BED}" \
     --native-pair-hmm-threads "${CPUS}" \
     --assembly-region-padding "${INTERVAL_PAD}" \
@@ -60,11 +57,15 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     ${PCR_FREE} \
     --min-base-quality-score "${MINBQ}" \
     --minimum-mapping-quality "${MINMQ}" \
+    --read-filter AmbiguousBaseReadFilter \
     --ambig-filter-bases "${MAX_AMBIG_BASES}" \
+    --read-filter FragmentLengthReadFilter \
     --min-fragment-length "${MIN_FRAGMENT_LENGTH}" \
     --max-fragment-length "${MAX_FRAGMENT_LENGTH}" \
+    --read-filter MateDistantReadFilter \
     --mate-too-distant-length "${MATE_TOO_DISTANT_LENGTH}" \
     --dont-use-soft-clipped-bases "${DONT_USE_SOFTCLIPPED}" \
+    --read-filter OverclippedReadFilter \
     --filter-too-short "${MIN_ALIGNED_LENGTH}" \
     --mapping-quality-threshold-for-genotyping "${MINMQ}" \
     --assembly-region-out "${SAMPLE}.${IHASH}.assembly.tsv" \
@@ -80,6 +81,6 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
 bcftools view \
     -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
     -Oz -o "${IHASH}.${SAMPLE}.g.vcf.gz" tmp.g.vcf.gz
-bcftools index -t"${IHASH}.${SAMPLE}.g.vcf.gz" tmp.g.vcf.gz
+bcftools index -t "${IHASH}.${SAMPLE}.g.vcf.gz" tmp.g.vcf.gz
 
 rm -f tmp.g.vcf.gz tmp.g.vcf.gz.tbi
