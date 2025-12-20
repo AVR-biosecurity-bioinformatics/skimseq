@@ -62,8 +62,6 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     --read-filter FragmentLengthReadFilter \
     --min-fragment-length "${MIN_FRAGMENT_LENGTH}" \
     --max-fragment-length "${MAX_FRAGMENT_LENGTH}" \
-    --read-filter MateDistantReadFilter \
-    --mate-too-distant-length "${MATE_TOO_DISTANT_LENGTH}" \
     --dont-use-soft-clipped-bases "${DONT_USE_SOFTCLIPPED}" \
     --read-filter OverclippedReadFilter \
     --filter-too-short "${MIN_ALIGNED_LENGTH}" \

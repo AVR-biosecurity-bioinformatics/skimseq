@@ -34,7 +34,6 @@ process CALL_VARIANTS {
     export MIN_FRAGMENT_LENGTH='${params.hc_min_fragment_length}'
     export MAX_FRAGMENT_LENGTH='${params.hc_max_fragment_length}'
     export MIN_ALIGNED_LENGTH='${params.hc_min_aligned_length}'
-    export MATE_TOO_DISTANT_LENGTH='${params.hc_mate_too_distant_length}'
     export PLOIDY='${params.ploidy}'
     export HET='${params.heterozygosity}'
     export HET_SD='${params.heterozygosity_stdev}'

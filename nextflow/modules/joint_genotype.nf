@@ -8,7 +8,6 @@ process JOINT_GENOTYPE {
     tuple val(interval_hash), path(interval_bed), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
-    val(output_invariant)
     val(cohort_size)
 
     // Scale memory based on cohort size

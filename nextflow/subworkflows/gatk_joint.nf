@@ -141,8 +141,6 @@ COUNT_VCF_RECORDS_SHORT.out.counts
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
         ch_mask_bed_gatk, 
-        params.exclude_padding,
-        params.output_invariant,
         ch_cohort_size
     )
 
