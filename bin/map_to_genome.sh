@@ -28,11 +28,12 @@ RG_PL="${11}"
 READ_GROUP=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
 
 # Align to genome
-bwa-mem2 mem ${8} \
+bwa-mem2 mem \
         	-t ${1} \
         	-R $READ_GROUP \
         	-K 100000000 \
-       	-Y \
+       	-Y 
+        ${8} \
 	<(seqkit range --threads "${1}" -r "${6}:${7}" "${4}") \
   <(seqkit range --threads "${1}" -r "${6}:${7}" "${5}") \
 	| samtools sort \

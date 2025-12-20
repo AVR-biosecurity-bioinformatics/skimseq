@@ -65,27 +65,11 @@ workflow GATK_SINGLE {
        Call variants per sample
     */
 
-    // collect haplotypecaller parameters into a single list
-    Channel.of(
-        params.hc_interval_padding,
-        params.hc_min_pruning,
-        params.hc_min_dangling_length,
-        params.hc_max_reads_startpos,
-        params.hc_rmdup,
-        params.hc_minbq,
-        params.hc_minmq,
-        params.ploidy,
-    )
-    .collect( sort: false )
-    .set { ch_hc_params }
-
     // call variants for single samples across intervals
     CALL_VARIANTS (
         ch_sample_intervals,
         ch_genome_indexed,
-        ch_mask_bed_gatk, 
-        params.exclude_padding,
-        ch_hc_params
+        ch_mask_bed_gatk
     )
 
     if( params.profile_gatk ) {

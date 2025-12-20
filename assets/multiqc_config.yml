@@ -16,8 +16,10 @@ run_modules:
 module_order:
   - fastqc:
       name: "FastQC (Read Quality)"
-  - samtools:
+  - samtools/flagstat:
       name: "Samtools Flagstat"
+  - samtools/coverage:
+      name: "Samtools coverage"
   - bcftools:
       name: "Bcftools"
 
