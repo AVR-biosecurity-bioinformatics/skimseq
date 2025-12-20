@@ -20,77 +20,14 @@ workflow FILTER_VARIANTS {
 
     main: 
 
-    // collect SNP filtering parameters into a map
-    // TODO: how to handle custom flags?
-    def SNP_FILTERS = [
-        type: 'snp',
-        qd: params.snp_qd,
-        qual: params.snp_qual,
-        sor: params.snp_sor,
-        fs: params.snp_fs,
-        mq: params.snp_mq,
-        mqrs: params.snp_mqrs,
-        rprs: params.snp_rprs,
-        maf: params.snp_maf,
-        mac: params.snp_mac,
-        eh: params.snp_eh,
-        dp_min: params.snp_dp_min,
-        dp_lower_perc: params.snp_dp_lower_perc,
-        dp_upper_perc: params.snp_dp_upper_perc,
-        max_missing: params.snp_max_missing,
-        gq: params.gt_qual,
-        gt_dp_min: params.gt_dp_min,
-        gt_dp_max: params.gt_dp_max,
-        sample_max_missing : params.sample_max_missing
-    ]
-
-    // collect indel filtering parameters into a map
-    def INDEL_FILTERS = [
-        type: 'indel',
-        qd: params.indel_qd,
-        qual: params.indel_qual,
-        fs: params.indel_fs,
-        rprs: params.indel_rprs,
-        maf: params.indel_maf,
-        mac: params.indel_mac,
-        eh: params.indel_eh,
-        dp_min: params.indel_dp_min,
-        dp_lower_perc: params.indel_dp_lower_perc,
-        dp_upper_perc: params.indel_dp_upper_perc,
-        max_missing: params.indel_max_missing,
-        gq: params.gt_qual,
-        gt_dp_min: params.gt_dp_min,
-        gt_dp_max: params.gt_dp_max,
-        sample_max_missing : params.sample_max_missing
-    ]
-
-    // collect invariant filtering parameters into a single list
-    def INV_FILTERS = [
-        type: 'invariant',
-        dp_min: params.inv_dp_min,
-        dp_lower_perc: params.inv_dp_lower_perc,
-        dp_upper_perc: params.inv_dp_upper_perc,
-        max_missing: params.inv_max_missing,
-        gq: params.gt_qual,
-        gt_dp_min: params.gt_dp_min,
-        gt_dp_max: params.gt_dp_max,
-        sample_max_missing : params.sample_max_missing
-    ]
-
-    // Create joint of all 3 variant type filters
-    Channel
-        .from(SNP_FILTERS, INDEL_FILTERS, INV_FILTERS)
-        .map { f -> tuple(f.type as String, f) }
-        .set { ch_type_filters }
-
     // Caclulate dataset-wide filters
     CALC_DATASET_FILTERS (
         ch_merged_vcf
     )
-    
-    // For each input VCF, combine with type_filters and run FILTER_VCF for each type
+
+    // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF for each type
     FILTER_VCF (
-        ch_vcfs.combine( ch_type_filters ),
+        ch_vcfs.combine( channel.of("snp", "indel", "invariant") ),
 	    ch_mask_bed_vcf,
         CALC_DATASET_FILTERS.out.missing_summary.first(),
         CALC_DATASET_FILTERS.out.dp_summary.first()
