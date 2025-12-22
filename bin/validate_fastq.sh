@@ -22,11 +22,19 @@ okF=false; okR=false
 check_trailing "${4}" && okF=true
 check_trailing "${5}" && okR=true
 
-# Ensure number of lines are equal
-NL_F=$(zcat "${4}" | wc -l | awk '{print $1}' )
-NL_R=$(zcat "${5}" | wc -l | awk '{print $1}' )
+# Compare read ids between files to make sure they are identical (properly paired) and same length
+# diff -q breaks early at first mismatch, setting okPaired to false
+okPaired=true
+if ! diff -q \
+  <(seqkit seq -n -i "${4}" \
+      | sed -E 's/(\/[12])$//') \
+  <(seqkit seq -n -i "${5}" \
+      | sed -E 's/(\/[12])$//') \
+  >/dev/null; then
+  okPaired=false
+fi
 
-if $okF && $okR && [[ "$NL_F" -eq "$NL_R" ]]; then
+if $okF && $okR && $okPaired; then
   STATUS=PASS
 else
   STATUS=FAIL
