@@ -15,7 +15,7 @@ STATUS=PASS
 
 # Check if expected readgroups from gvcf match actual readgroups in CRAM
 bcftools view -h "${4}" \
-| awk -F= '$1=="##READGROUP"{print substr($0, index($0,"=")+1)}' \
+| awk -F= '$1=="##RG"{print substr($0, index($0,"=")+1)}' \
 | sed -e 's/\\t/\t/g' -e 's/\\\\/\\/g' \
 | sort > actual.rg
 

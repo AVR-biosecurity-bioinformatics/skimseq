@@ -141,7 +141,7 @@ workflow VALIDATE_INPUTS {
         .map { sample ->
             def gvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
             def tbi = file("${gvcf}.tbi")
-            tuple(s, gvcf, tbi)
+            tuple(sample, gvcf, tbi)
         }
         .filter { sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
         .set { ch_existing_gvcf }
