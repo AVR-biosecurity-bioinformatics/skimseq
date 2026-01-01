@@ -75,10 +75,28 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     -O tmp.g.vcf.gz \
     2> >(tee -a "${IHASH}.${SAMPLE}.stderr.log" >&2)
 
+
+# Extract readgroups from cram for embedding in VCF header
+samtools view -H "${CRAM}"  \
+| grep '^@RG'  \
+| awk '
+{
+  line=$0
+  gsub(/\\/,"\\\\",line)   # escape backslashes first
+  gsub(/\t/,"\\t",line)    # escape literal tabs
+  print "##RG=" line
+}' > readgroups.vcf.hdr
+
+
+# Inject RG header lines into gvcf
 # NOTE: Haplotypecaller ALWAYS outputs intervals in the GVCF, even if there are no reads - so drop these with bcftools
-bcftools view \
+bcftools annotate \
+  --header-lines readgroups.vcf.hdr \
+  tmp.g.vcf.gz \
+  | bcftools view \
     -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
-    -Oz -o "${IHASH}.${SAMPLE}.g.vcf.gz" tmp.g.vcf.gz
-bcftools index -t "${IHASH}.${SAMPLE}.g.vcf.gz" tmp.g.vcf.gz
+    -Oz -o "${IHASH}.${SAMPLE}.g.vcf.gz" 
+
+bcftools index -t "${IHASH}.${SAMPLE}.g.vcf.gz" 
 
 rm -f tmp.g.vcf.gz tmp.g.vcf.gz.tbi

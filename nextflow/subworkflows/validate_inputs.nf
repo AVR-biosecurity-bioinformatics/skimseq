@@ -3,9 +3,10 @@
 */
 
 //// import modules
-include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
+include { VALIDATE_FASTQ                       } from '../modules/validate_fastq'
 include { VALIDATE_CRAM                        } from '../modules/validate_cram'
-include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
+include { VALIDATE_GVCF                        } from '../modules/validate_gvcf'
+include { REPAIR_FASTQ                         } from '../modules/repair_fastq'
 
 workflow VALIDATE_INPUTS {
 
@@ -59,21 +60,7 @@ workflow VALIDATE_INPUTS {
         .mix( REPAIR_FASTQ.out.fastq )
         .set { ch_validated_fastq }
 
-    /* 
-        Find and validate any pre-existing crams
-        To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
-    */
-
-         ch_sample_names
-        .map { s ->
-            def cram = file("output/results/cram/${s}.cram")
-            def crai = file("${cram}.crai")
-            tuple(s, cram, crai)
-        }
-        .filter { s, cram, crai -> cram.exists() && crai.exists() }
-        .set { ch_existing_cram }
-
-
+    // Create a rg to validate channel to be used for cram and gvcf validateion
     ch_validated_fastq
         //.map { sample, lib, fcid, lane, platform, read1, read2 -> [sample, lib, fcid, lane, platform] }
         .groupTuple(by: 0)
@@ -96,11 +83,25 @@ workflow VALIDATE_INPUTS {
                 // emit sample with all three nested lists
                 tuple(sample, rg_list, r1_list, r2_list)
         }
-        .join(ch_existing_cram, by: 0)
-        .set { ch_cram_to_validate }
+        .set { ch_rg_to_validate }
 
+    /* 
+        Find and validate any pre-existing crams
+        To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
+    */
+
+         ch_sample_names
+        .map { sample ->
+            def cram = file("output/results/cram/${sample}.cram")
+            def crai = file("${cram}.crai")
+            tuple(sample, cram, crai)
+        }
+        .filter { sample, cram, crai -> cram.exists() && crai.exists() }
+        .set { ch_existing_cram }
+
+    // Validate cram files
     VALIDATE_CRAM (
-        ch_cram_to_validate,
+        ch_rg_to_validate.join(ch_existing_cram, by: 0),
         ch_genome_indexed
     )
 
@@ -137,18 +138,50 @@ workflow VALIDATE_INPUTS {
     */
     
     ch_sample_names
-        .map { s ->
-            def gvcf = file("output/results/vcf/gvcf/${s}.g.vcf.gz")
+        .map { sample ->
+            def gvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
             def tbi = file("${gvcf}.tbi")
             tuple(s, gvcf, tbi)
         }
-        .filter { s, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+        .filter { sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
         .set { ch_existing_gvcf }
 
     // Validate GVCFs
+    VALIDATE_GVCF (
+        ch_rg_to_validate.join(ch_existing_gvcf, by: 0),
+        ch_genome_indexed
+    )
+
+    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+    VALIDATE_GVCF.out.status
+        .map { sample, stdout -> [ sample, stdout.trim() ] }
+        .join( ch_existing_gvcf, by: 0 )
+        .map { sample, status, gvcf, tbi -> [ sample, gvcf, tbi, status ] }
+        .branch {  sample, gvcf, tbi, status ->
+            fail: status == 'FAIL'
+            pass: status == 'PASS'
+        }
+        .set { gvcf_validation_routes }
+
+    gvcf_validation_routes.pass
+        .map { sample, gvcf, tbi, status -> [ sample, gvcf, tbi ] } 
+        .set { ch_validated_gvcf }
+        
+    // Print warning if any gvcf files exist but fail validation
+    gvcf_validation_routes.fail
+        .map {  sample, gvcf, tbi, status -> sample } 
+        .unique()
+        .collect()
+        .map { fails ->
+            if (fails && fails.size() > 0)
+            log.warn "GVCF file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
+            true
+        }
+        .set { _warn_gvcf_done }  // force evaluation
+
     // TODO:: to pass validation the the comment line must contain all FASTQ readgroups for that sample
-    ch_existing_gvcf
-        .set{ ch_validated_gvcf }
+    //ch_existing_gvcf
+    //    .set{ ch_validated_gvcf }
     
     emit: 
     validated_fastq = ch_validated_fastq

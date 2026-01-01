@@ -16,7 +16,7 @@ STATUS=PASS
 # Check if expected readgroups from FASTQ match actual readgroups in CRAM
 samtools view --threads ${1} --reference ${3} -H ${4} \
  | grep '^@RG' \
- |sort > actual.rg
+ | sort > actual.rg
 
 sort ${7} > expected.sorted.rg
 
