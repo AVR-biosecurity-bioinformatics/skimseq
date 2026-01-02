@@ -3,6 +3,7 @@
 */
 
 //// import modules
+include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
@@ -12,7 +13,9 @@ include { PROFILE_HC                                             } from '../modu
 workflow GATK_SINGLE {
 
     take:
+    ch_sample_names
     ch_sample_cram
+    ch_rg_to_validate
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_gatk
@@ -23,12 +26,71 @@ workflow GATK_SINGLE {
     main: 
 
     /* 
+        Find and validate any pre-existing GVCFs
+    */
+    
+    ch_sample_names
+        .map { sample ->
+            def gvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
+            def tbi = file("${gvcf}.tbi")
+            tuple(sample, gvcf, tbi)
+        }
+        .filter { sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+        .set { ch_existing_gvcf }
+
+    // Validate GVCFs
+    VALIDATE_GVCF (
+        ch_rg_to_validate.join(ch_existing_gvcf, by: 0),
+        ch_genome_indexed
+    )
+
+    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+    VALIDATE_GVCF.out.status
+        .map { sample, stdout -> [ sample, stdout.trim() ] }
+        .join( ch_existing_gvcf, by: 0 )
+        .map { sample, status, gvcf, tbi -> [ sample, gvcf, tbi, status ] }
+        .branch {  sample, gvcf, tbi, status ->
+            fail: status == 'FAIL'
+            pass: status == 'PASS'
+        }
+        .set { gvcf_validation_routes }
+
+    gvcf_validation_routes.pass
+        .map { sample, gvcf, tbi, status -> [ sample, gvcf, tbi ] } 
+        .set { ch_validated_gvcf }
+        
+    // Print warning if any gvcf files exist but fail validation
+    gvcf_validation_routes.fail
+        .map {  sample, gvcf, tbi, status -> sample } 
+        .unique()
+        .collect()
+        .map { fails ->
+            if (fails && fails.size() > 0)
+            log.warn "GVCF file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
+            true
+        }
+        .set { _warn_gvcf_done }  // force evaluation
+
+    // Subset the crams to just those that dont already have a GVCF for single sample calling
+    ch_validated_gvcf
+        .map { sample, gvcf, tbi -> sample}
+        .toList()
+        .map { ids -> ids as Set } 
+        .set { ch_gvcf_done }
+
+    ch_sample_cram
+        .combine(ch_gvcf_done)  
+        .filter { sample, gvcf, tbi, doneSet -> !(doneSet as Set).contains(sample) }
+        .map {  sample, gvcf, tbi, doneSet -> tuple( sample, gvcf, tbi) }
+        .set { ch_cram_for_hc }
+
+    /* 
        Create groups of genomic intervals for parallel haplotypecaller
     */
 
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
-        ch_sample_cram,
+        ch_cram_for_hc,
         ch_genome_indexed,
         ch_include_bed.first(),
         ch_mask_bed_gatk,
@@ -58,7 +120,7 @@ workflow GATK_SINGLE {
 
     // Combine intervals with cram files for genotyping
     ch_interval_bed_hc 
-	.combine( ch_sample_cram, by: [0, 0] )
+	.combine( ch_cram_for_hc, by: [0, 0] )
     .set { ch_sample_intervals }
 
     /* 
@@ -108,6 +170,21 @@ workflow GATK_SINGLE {
         ch_gvcf_to_merge.map { sample, interval_chunk, gvcf, tbi -> [ sample, gvcf, tbi ] }
     )
 
+    // Update the newly created gvcf path to the canonical publishdir path to ensure that resume works for further steps
+    MERGE_GVCFS.out.vcf
+        .map { sample, gvcf, tbi ->
+            def realgvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
+            def realtbi = file("output/results/vcf/gvcf/${sample}.g.vcf.gz.tbi")
+            tuple(sample, realgvcf, realtbi)
+        }
+        .set { ch_new_gvcf_canonical }
+
+    // combine validated existing GVCs with newly created GVCFs for joint calling
+    ch_validated_gvcf
+      .mix( ch_new_gvcf_canonical )
+      .distinct { it[0] }      // dedupe by sample if needed
+      .set{ ch_sample_gvcf }
+
     emit: 
-    gvcf = MERGE_GVCFS.out.vcf
+    gvcf = ch_sample_gvcf
 }

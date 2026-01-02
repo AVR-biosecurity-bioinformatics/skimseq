@@ -4,8 +4,6 @@
 
 //// import modules
 include { VALIDATE_FASTQ                       } from '../modules/validate_fastq'
-include { VALIDATE_CRAM                        } from '../modules/validate_cram'
-include { VALIDATE_GVCF                        } from '../modules/validate_gvcf'
 include { REPAIR_FASTQ                         } from '../modules/repair_fastq'
 
 workflow VALIDATE_INPUTS {
@@ -85,107 +83,8 @@ workflow VALIDATE_INPUTS {
         }
         .set { ch_rg_to_validate }
 
-    /* 
-        Find and validate any pre-existing crams
-        To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
-    */
-
-         ch_sample_names
-        .map { sample ->
-            def cram = file("output/results/cram/${sample}.cram")
-            def crai = file("${cram}.crai")
-            tuple(sample, cram, crai)
-        }
-        .filter { sample, cram, crai -> cram.exists() && crai.exists() }
-        .set { ch_existing_cram }
-
-    // Validate cram files
-    VALIDATE_CRAM (
-        ch_rg_to_validate.join(ch_existing_cram, by: 0),
-        ch_genome_indexed
-    )
-
-    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
-    VALIDATE_CRAM.out.status
-        .map { sample, stdout -> [ sample, stdout.trim() ] }
-        .join( ch_existing_cram, by: 0 )
-        .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
-        .branch {  sample, cram, crai, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
-        }
-        .set { cram_validation_routes }
-
-    cram_validation_routes.pass
-        .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
-        .set { ch_validated_cram }
-        
-    // Print warning if any cram files exist but fail validation
-    cram_validation_routes.fail
-        .map {  sample, cram, crai, status -> sample } 
-        .unique()
-        .collect()
-        .map { fails ->
-            if (fails && fails.size() > 0)
-            log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-            true
-        }
-        .set { _warn_cram_done }  // force evaluation
-
-
-    /* 
-        Find and validate any pre-existing GVCFs
-    */
-    
-    ch_sample_names
-        .map { sample ->
-            def gvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
-            def tbi = file("${gvcf}.tbi")
-            tuple(sample, gvcf, tbi)
-        }
-        .filter { sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
-        .set { ch_existing_gvcf }
-
-    // Validate GVCFs
-    VALIDATE_GVCF (
-        ch_rg_to_validate.join(ch_existing_gvcf, by: 0),
-        ch_genome_indexed
-    )
-
-    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
-    VALIDATE_GVCF.out.status
-        .map { sample, stdout -> [ sample, stdout.trim() ] }
-        .join( ch_existing_gvcf, by: 0 )
-        .map { sample, status, gvcf, tbi -> [ sample, gvcf, tbi, status ] }
-        .branch {  sample, gvcf, tbi, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
-        }
-        .set { gvcf_validation_routes }
-
-    gvcf_validation_routes.pass
-        .map { sample, gvcf, tbi, status -> [ sample, gvcf, tbi ] } 
-        .set { ch_validated_gvcf }
-        
-    // Print warning if any gvcf files exist but fail validation
-    gvcf_validation_routes.fail
-        .map {  sample, gvcf, tbi, status -> sample } 
-        .unique()
-        .collect()
-        .map { fails ->
-            if (fails && fails.size() > 0)
-            log.warn "GVCF file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-            true
-        }
-        .set { _warn_gvcf_done }  // force evaluation
-
-    // TODO:: to pass validation the the comment line must contain all FASTQ readgroups for that sample
-    //ch_existing_gvcf
-    //    .set{ ch_validated_gvcf }
-    
     emit: 
     validated_fastq = ch_validated_fastq
-    validated_cram = ch_validated_cram
-    validated_gvcf = ch_validated_gvcf
+    rg_to_validate = ch_rg_to_validate
 
 }

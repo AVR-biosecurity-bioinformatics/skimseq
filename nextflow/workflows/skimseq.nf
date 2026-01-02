@@ -153,41 +153,15 @@ workflow SKIMSEQ {
     Process reads per sample, aligning to the genome, and merging
     */
 
-    // set of samples that already have a good CRAM (existing + watched)
-    VALIDATE_INPUTS.out.validated_cram
-        .map { s, cram, crai -> s }
-        .toList()
-        .map { ids -> ids as Set } 
-        .set { ch_cram_done }
-        
-    VALIDATE_INPUTS.out.validated_fastq
-        .combine(ch_cram_done)  
-        .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
-        .map { sample, lib, fcid, lane, platform, read1, read2, doneSet -> tuple(sample, lib, fcid, lane, platform, read1, read2) }
-        .set { ch_reads_to_map }
-
     PROCESS_READS (
-        ch_reads_to_map,
+        ch_sample_names,
+        VALIDATE_INPUTS.out.validated_fastq,
+        VALIDATE_INPUTS.out.rg_to_validate,
         ch_genome_indexed
     )
     
-    // Update the newly created cram path to the canonical publishdir path to ensure that resume works for further steps
-    PROCESS_READS.out.cram
-        .map { sample, cram, crai ->
-            def realCram = file("output/results/cram/${sample}.cram")
-            def realCrai = file("output/results/cram/${sample}.cram.crai")
-            tuple(sample, realCram, realCrai)
-        }
-        .set { ch_new_crams_canonical }
-
-    // combine validated existing CRAMs with newly created CRAMs
-    VALIDATE_INPUTS.out.validated_cram
-      .mix( ch_new_crams_canonical )
-      .distinct { it[0] }      // dedupe by sample if needed
-      .set{ ch_sample_cram }
-
     /*
-    Create genomic masks
+    Create genomic masks used to exclude regions from variant calling
     */
 
     MASK_GENOME(
@@ -202,7 +176,7 @@ workflow SKIMSEQ {
     */
 
     MITO_GENOTYPING (
-        ch_sample_cram,
+        PROCESS_READS.out.cram,
         ch_mito_indexed,
         ch_mito_bed,
         ch_genome_indexed
@@ -219,21 +193,10 @@ workflow SKIMSEQ {
             ch_mask_bed_gatk = ch_mito_bed
     }
     
-    // Subset the crams to just those that dont already have a GVCF for single sample calling
-     VALIDATE_INPUTS.out.validated_gvcf
-        .map { s, gvcf, tbi -> s }
-        .toList()
-        .map { ids -> ids as Set } 
-        .set { ch_gvcf_done }
-
-    ch_sample_cram
-        .combine(ch_gvcf_done)  
-        .filter { s, gvcf, tbi, doneSet -> !(doneSet as Set).contains(s) }
-        .map {  s, gvcf, tbi, doneSet -> tuple( s, gvcf, tbi) }
-        .set { ch_cram_for_hc }
-
     GATK_SINGLE (
-        ch_cram_for_hc,
+        ch_sample_names,
+        PROCESS_READS.out.cram,
+        VALIDATE_INPUTS.out.rg_to_validate,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
@@ -241,21 +204,6 @@ workflow SKIMSEQ {
         ch_short_bed,
         ch_dummy_file
     )
-
-    // Update the newly created gvcf path to the canonical publishdir path to ensure that resume works for further steps
-    GATK_SINGLE.out.gvcf
-        .map { sample, gvcf, tbi ->
-            def realgvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
-            def realtbi = file("output/results/vcf/gvcf/${sample}.g.vcf.gz.tbi")
-            tuple(sample, realgvcf, realtbi)
-        }
-        .set { ch_new_gvcf_canonical }
-
-    // combine validated existing GVCs with newly created GVCFs for joint calling
-    VALIDATE_INPUTS.out.validated_gvcf
-      .mix( ch_new_gvcf_canonical )
-      .distinct { it[0] }      // dedupe by sample if needed
-      .set{ ch_sample_gvcf }
 
     /*
     Joint call genotypes
@@ -303,7 +251,7 @@ workflow SKIMSEQ {
     )
 
     /*
-    QC
+    Quality control plots
     */
 
     // TODO: Pass in fastqs and run FASTQC
