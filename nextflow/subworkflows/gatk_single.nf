@@ -171,15 +171,6 @@ workflow GATK_SINGLE {
         ch_gvcf_to_merge.map { sample, interval_chunk, gvcf, tbi -> [ sample, gvcf, tbi ] }
     )
 
-    // Update the newly created gvcf path to the canonical publishdir path to ensure that resume works for further steps
-    //MERGE_GVCFS.out.vcf
-    //    .map { sample, gvcf, tbi ->
-    //        def realgvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
-    //        def realtbi = file("output/results/vcf/gvcf/${sample}.g.vcf.gz.tbi")
-    //        tuple(sample, realgvcf, realtbi)
-    //    }
-    //    .set { ch_new_gvcf_canonical }
-
     // combine validated existing GVCs with newly created GVCFs for joint calling
     ch_validated_gvcf
       .mix( MERGE_GVCFS.out.vcf )
