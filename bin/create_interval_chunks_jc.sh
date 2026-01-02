@@ -4,48 +4,186 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
-# $3 = counts_per_chunk
-# $4 = counts_files
+# $3 = ref_genome
+# $4 = counts_per_chunk
+# $5 = split_overweight
+# $6 = min_interval_gap
+# $7 = included_contigs
+# $8 = counts_file
 
-COUNTS_PER_CHUNK=$(awk -v x="${3}" 'BEGIN {printf("%d\n",x)}')
+TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
+SPLIT_OVERWEIGHT=${5}
+GAP_BP="${6}"
 
-# HC interval chunks takes multiple files
+# Create contig list in reference order with lengths, including just those in the included intervals file
+awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
+| cut -f1,2 > contigs.tsv
 
-# counts files for all samples
-bedtools unionbedg -i *counts.bed -filler 0 > combined_counts.bed
+# Function for determining how many bed files (samples) overlap each position of the reference genome
+process_contig() {
+  chr="$1"
+  len="$2"
+  out="per_contig/${chr}.bed"
+  tmp="per_contig/${chr}.bg.tmp"
 
-# Take the sum of feature counts across windows
-awk 'BEGIN{OFS="\t"} {
-  sum = 0
-  for (i = 4; i <= NF; i++) sum += $i
-  print $1, $2, $3, sum
-}' combined_counts.bed > intervals_with_counts.bed
+  # genome file for this contig only
+  genome_line=$(printf "%s\t%s\n" "$chr" "$len")
 
-# Use greedy algorithm to assign intervals to chunks.
-# Once they reach COUNTS_PER_CHUNK, begin a new chunk.
-awk -v target="$COUNTS_PER_CHUNK" -v outdir="$OUTDIR" '
-    BEGIN{chunk=1; sum=0; fname=sprintf("%s/chunk_%d.bed", outdir, chunk)}
-    {
-    chrom=$1; start=$2; end=$3; weighted=$4
-    if(sum+weighted>target && sum>0){
-        chunk++
-        fname=sprintf("%s/chunk_%d.bed", outdir, chunk)
-        sum=0
+  # build bedGraph (chr start end depth) for this contig
+  for f in *counts.bed.gz; do
+    tabix "$f" "$chr" 2>/dev/null || true
+  done \
+  | bedtools genomecov -bg -i - -g <(printf "%s" "$genome_line") \
+  > "$tmp"
+
+  # If no coverage anywhere on this contig, emit an empty file and skip merge
+  if [ ! -s "$tmp" ]; then
+    : > "$out"
+    rm -f "$tmp"
+    return 0
+  fi
+
+  # Otherwise merge + sum depth column
+  bedtools merge -i "$tmp" -d "$GAP_BP" -c 4 -o sum > "$out"
+  rm -f "$tmp"
+}
+
+# Run function in parallel
+mkdir -p per_contig
+
+export -f process_contig
+export GAP_BP
+
+# parallel across contigs
+parallel --colsep '\t' --jobs ${1} process_contig {1} {2} :::: contigs.tsv
+
+# Merge contig counts
+: > combined_counts.bed
+while IFS=$'\t' read -r chr len; do
+  cat "per_contig/${chr}.bed" >> combined_counts.bed
+done < contigs.tsv
+
+# TODO: Could add filter to remove chunks with not many samples called before merging intervals
+
+# Exit early if combined_counts.bed is empty
+if [[ ! -s combined_counts.bed ]]; then
+  : > "_empty.bed"          # create empty output file
+  exit 0
+fi
+
+# Merge intervals within gap_BP to produce file for chunking
+bedtools merge -i combined_counts.bed -d "$GAP_BP" -c 4 -o sum > intervals_with_counts.bed
+
+# Split intervals that individually exceed the target counts.
+# Assumes counts are roughly uniform across the interval length.
+if [[ "$SPLIT_OVERWEIGHT" == "true" ]]; then
+  awk -v target="$TARGET_COUNTS_PER_CHUNK" '
+  BEGIN{OFS="\t"}
+  {
+    chrom=$1; start=$2; end=$3; w=$4
+    len=end-start
+
+    # guard against weird zero/negative lengths
+    if (len <= 0) next
+
+    # if not overweight, keep as-is
+    if (w <= target) {
+      print chrom, start, end, w
+      next
     }
-    print chrom"\t"start"\t"end > fname
-   sum+=weighted
-}' intervals_with_counts.bed
+
+    # number of pieces needed (ceil)
+    n = int((w + target - 1) / target)
+
+    # don’t create more pieces than bases
+    if (n > len) n = len
+
+    base = int(len / n)
+    rem  = len - base * n
+
+    substart = start
+    for (i=1; i<=n; i++) {
+      sz = base + (i <= rem ? 1 : 0)
+      subend = substart + sz
+
+      # proportional weight by length to preserve density
+      subw = w * sz / len
+
+      # round to integer
+      subw = int(subw + 0.5)
+      print chrom, substart, subend, subw
+      substart = subend
+    }
+  }
+  ' intervals_with_counts.bed > intervals_split.bed
+else
+  cat intervals_with_counts.bed > intervals_split.bed
+fi
+
+# Calculate total counts and number of intervals
+TOTAL_COUNTS=$( awk '{s+=$4} END{print s+0}' intervals_split.bed )
+N_INTERVALS=$(cat intervals_split.bed | wc -l)
+
+# Decide number of file splits (chunks) to keep counts balanced.
+K=$(( (TOTAL_COUNTS + TARGET_COUNTS_PER_CHUNK - 1) / TARGET_COUNTS_PER_CHUNK )) 
+if [ "$K" -lt 1 ]; then K=1; fi
+if [ "$K" -gt "$N_INTERVALS" ]; then K="$N_INTERVALS"; fi
+
+# Assign intervals to chunks, keep it contiguous so they are in sorted order
+awk -v outdir="$OUTDIR" -v tot="$TOTAL_COUNTS" -v n="$N_INTERVALS" -v K="$K" '
+function abs(x){ return x<0 ? -x : x }
+
+BEGIN{
+  chunk=1
+  remK=K
+  remW=tot
+  sum=0
+  ideal = remW / remK
+  fname = sprintf("%s/chunk_%d.bed", outdir, chunk)
+}
+
+{
+  chrom=$1; start=$2; end=$3; w=$4+0
+  lines_after = n - FNR
+
+  if (sum>0 && remK>1) {
+    stop_now_better = (abs(sum-ideal) <= abs((sum+w)-ideal))
+    enough_left     = (lines_after >= (remK-2))
+
+    if (stop_now_better && enough_left) {
+      chunk++
+      remK--
+      sum=0
+      ideal = remW / remK
+      fname = sprintf("%s/chunk_%d.bed", outdir, chunk)
+    }
+  }
+
+  print chrom"\t"start"\t"end"\t"w > fname
+  sum  += w
+  remW -= w
+}
+' intervals_split.bed
    
-# Rename each output to a hash
+# Rename each output file
 for i in *chunk_*.bed;do
-  # Hashed output name
-  HASH=$( md5sum "$i" | awk '{print $1}' ) 
+  # Pad output chunk names
+  n=$(basename "$i" | sed -E 's/^chunk_([0-9]+)\.bed/\1/')
+  pad=$(printf "%05d" "$n")
 
-  #adding extra character at start to ensure that other temp beds dont accidentally get passed to next process
-  cut -f1-4 "$i" > _${HASH}.bed
+  # compute hash of this chunk’s contents
+  hash=$(md5sum "$i" | awk '{print $1}')
 
-  sum=$(awk '{sum+=$3-$2} END{print sum}' "$i")
-  echo "$HASH: $sum bases"
+  # merge any abutting intervals
+  out="_${pad}${hash}.bed"
+  cut -f1-4 "$i" \
+  | bedtools merge -i stdin > "$out"
+  
+  # report size
+  bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")
+  counts=$(awk '{s+=$4} END{print s+0}' "$i")
+  echo "${out}: ${bases} genomic bases, ${counts} summed counts"
+
   rm $i
 done

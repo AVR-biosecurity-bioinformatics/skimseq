@@ -8,6 +8,8 @@ set -uoe pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
 # $6 = interval_hash
+# $7 = missing_summary
+# $8 = DP summary
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
@@ -24,26 +26,13 @@ esac
 # Subset to target variant class
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
-# Join individual missing data files and output with missing data < missing frac
-awk 'FNR==1 && NR!=1 {next} {print}' *.missing.tsv > missing_summary.tsv
+# Find samples above the missing fraction filter
+awk 'FNR==1 && NR>1{next} {print}' *.missing.tsv > all.missing.tsv
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
-  missing_summary.tsv > samples_to_keep.txt
+ all.missing.tsv > samples_to_keep.txt
   
 # Calculate percentile DP filters
-# First sum DP per (CHROM, POS) across all single sample files
-# NOTE: if we want to filter genotype DP by percentile, can just concat not sum.
-zcat *.variant_dp.tsv.gz \
-| awk 'NF>=3 && $1!~/^#/ {print $1, $2, $3+0}' OFS='\t' \
-| LC_ALL=C sort -k1,1 -k2,2n \
-| awk 'BEGIN{OFS="\t"}
-       NR==1 {c=$1; p=$2; s=$3; next}
-       { if($1==c && $2==p) s+=$3;
-         else {print c,p,s; c=$1; p=$2; s=$3} }
-       END{ if(NR>0) print c,p,s }' \
-> summed_dp.tsv
-
-# Pull summed DP column and sort
-cut -f3 summed_dp.tsv | sort -n > summed_dp.sorted
+zcat *.variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
 N=$(wc -l < summed_dp.sorted)
 
 # Find line index of record nearest to percentile
@@ -80,27 +69,24 @@ bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
 tabix -s1 -b2 -e2 FT.tsv.gz
 
 # add header + inject FORMAT/FT
-cat > ft.hdr <<'EOF'
+cat > FT.hdr <<'EOF'
 ##FORMAT=<ID=FT,Number=.,Type=String,Description="Genotype-level filters (per-sample) from GQ/DP thresholds">
 EOF
 
 # Annotate filter column in vcf
 bcftools annotate \
-  -h ft.hdr \
+  -h FT.hdr \
   -a FT.tsv.gz \
   -c CHROM,POS,FORMAT/FT \
   -Ob -o gt_masked.bcf pre_mask.bcf
 
 # Set failing GTs to missing and re-calculate site tags
-# TODO: filter samples using -S samples_to_keep.txt
-# 
 bcftools +setGT -Ou gt_masked.bcf -- -t q -n . -e 'FMT/FT="PASS" && FMT/FT="."' \
   | bcftools view -U -S samples_to_keep.txt -Ou \
   | bcftools +fill-tags -Ou - -- -t AC,AN,MAF,F_MISSING,NS,'DP:1=int(sum(FORMAT/DP))' \
   | bcftools view -U -Ob -o tmp.bcf
 
 # Add minor alelle count (MAC) info tag
-
 # First create an annotation table with minor allele count
 bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp.bcf \
 | awk 'BEGIN{OFS="\t"}
@@ -116,13 +102,13 @@ bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp.bcf \
 tabix -s1 -b2 -e2 MAC.tsv.gz
 
 # Create VCF header line for MAC filter
-cat > add_MAC.hdr <<'EOF'
+cat > MAC.hdr <<'EOF'
 ##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
 EOF
 
 # Annotate the vcf with INFO/MAC
 # Then do Site-level soft filtering (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
-bcftools annotate -h add_MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
+bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
   | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD < ${QD:-0}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR > ${SOR:-1e9}" \
@@ -294,4 +280,4 @@ create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "$VTYP
 pigz -p ${1} $out
 
 # Remove temporary vcf files
-rm -f tmp* MAC.tsv.gz* *.hdr
+rm -f tmp* MAC.tsv.gz* *.hdr *.bcf

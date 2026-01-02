@@ -26,14 +26,24 @@ bedtools subtract \
     -a <(cut -f1-3 "${5}") \
     -b <(cut -f1-3 "${6}") > included_intervals.bed
 
+# Create 100kb windows for counting
+# NOTE: Bedcov runtime depends on the number of bed records, so shorter window is much longer
+bedtools makewindows -b included_intervals.bed -w 10000 \
+| bedtools sort -i - > windowed.bed
+
 # Count number of aligned reads and aligned bases overlapping intervals
-# Exclude by the same mapping quality and duplicate removal that will be used for gatk
-samtools bedcov \
-    --min-MQ ${10} \
-    --reference ${4} \
-    $FLAGS \
-    included_intervals.bed \
-    "${3}" -c > counts.bed.tmp
+# Run bedcov in parallel by contig
+mkdir -p contig_beds out
+
+# one BED per contig
+awk '{print > ("contig_beds/"$1".bed")}' windowed.bed
+
+parallel --jobs ${1} --halt soon,fail=1 \
+  'samtools bedcov --min-MQ '"${10}"' --reference '"${4}"' '"$FLAGS"' {} '"${3}"' -c > out/{/.}.out' \
+  ::: contig_beds/*.bed
+  
+# merge - Make sure its sorted same as reference genome
+cat out/*.out | bedtools sort -g "${4}".fai > counts.bed.tmp
 
 # Select columns based on mode
 awk -v mode="${8}" 'BEGIN{OFS="\t"} 

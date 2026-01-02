@@ -3,7 +3,7 @@ process COUNT_BAM_READS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
+    module "BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0:parallel/20240722-GCCcore-13.3.0"
 
     input:
     tuple val(sample), path(cram), path(cram_index)

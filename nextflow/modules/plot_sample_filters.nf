@@ -7,7 +7,7 @@ process PLOT_SAMPLE_FILTERS {
     module "shifter/22.02.1"
 
     input:
-    path(gt_filter_table)
+    path(missing_summary)
     val(sample_max_missing)
 
     output: 

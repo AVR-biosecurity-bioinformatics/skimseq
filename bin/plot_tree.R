@@ -45,11 +45,56 @@ tryCatch(
       col_types = c("cc")
     )
 
-    # Mat is square (samples x samples)
-    drop <- rowSums(!is.na(M)) == 1
-    M_clean <- M[!drop, !drop, drop = FALSE]
+    # Create function that drops sample with most missing data until matrix is complete
+    drop_until_complete <- function(M, verbose = TRUE) {
+      M <- as.matrix(M)
+      M[is.nan(M)] <- NA # normalise NaN to NA
 
-    M_clean <- M[!drop, !drop, drop = FALSE]
+      dropped <- character(0)
+
+      repeat {
+        # how many NA per row/col
+        na_r <- rowSums(is.na(M))
+        na_c <- colSums(is.na(M))
+
+        # max NA across rows/cols
+        max_na <- max(c(na_r, na_c), na.rm = TRUE)
+
+        # Break if no NA left
+        if (max_na == 0) {
+          break
+        }
+
+        # pick the worst sample
+        worst <- names(which.max(na_r))
+
+        if (verbose) {
+          message("Dropping: ", worst, " (", max_na, " NA)")
+        }
+
+        # drop that row & col
+        M <- M[
+          setdiff(rownames(M), worst),
+          setdiff(colnames(M), worst),
+          drop = FALSE
+        ]
+        dropped <- c(dropped, worst)
+
+        # safety: if we fall below 2 samples, stop
+        if (nrow(M) < 2) break
+      }
+
+      # clean up: enforce symmetry & 0 diagonal
+      if (nrow(M) > 1) {
+        M[is.na(M)] <- 0
+        M <- (M + t(M)) / 2
+        diag(M) <- 0
+      }
+
+      return(M)
+    }
+
+    M_clean <- drop_until_complete(M)
 
     # Check if matrix has enough dimensions
     if (all(dim(M_clean) > 2)) {

@@ -8,10 +8,13 @@ set -u
 # $4 = ref_genome fasta
 
 # Output sample coverage statistics
-samtools coverage --reference ${4} ${3} > ${2}.coverage.txt
+samtools coverage -Q1 -q1 --reference ${4} ${3} > ${2}.coverage.txt
+# Add mapping quality, duplicate, 
 
 # Output flag statistics
-samtools flagstats ${3} > ${2}.flagstats.txt
+samtools flagstats --threads ${1} ${3} > ${2}.flagstats.txt
 
 # Output comprehensive statistics
-samtools stats --reference ${4} ${3} > ${2}.stats.txt
+samtools stats --threads ${1} --reference ${4} ${3} > ${2}.stats.txt
+
+#-d = remove_dups

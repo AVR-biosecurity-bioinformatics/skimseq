@@ -6,10 +6,10 @@ process REPAIR_FASTQ {
     module "SeqKit/2.8.2"
 
     input:
-    tuple val(sample), val(lib), path(fastq1), path(fastq2)
+    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2)
 
     output: 
-    tuple val(sample), val(lib), path("${lib}_R1.repaired.fastq.gz"), path("${lib}_R2.repaired.fastq.gz"), emit: fastq
+    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path("${lib}_R1.repaired.fastq.gz"), path("${lib}_R2.repaired.fastq.gz"), emit: fastq
     
     script:
     def process_script = "${process_name}.sh"

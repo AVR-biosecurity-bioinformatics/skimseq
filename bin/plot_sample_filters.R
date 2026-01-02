@@ -38,7 +38,9 @@ tryCatch(
     table_files <- list.files(pattern = "\\.tsv$")
 
     # Read in table file
-    df <- read_tsv(table_files) %>%
+    df <- read_tsv(
+      table_files
+    ) %>%
       dplyr::mutate(
         FILTER = ifelse(
           MISSING_FRACTION >

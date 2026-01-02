@@ -6,12 +6,12 @@ process FASTQC {
     module "FastQC/0.12.1-Java-11"
 
     input:
-    tuple val(sample), path(fastq1), path(fastq2)
-    val(type)
+    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2)
 
     output: 
-    path("*.html"),             emit: results
-    
+    path("*fastqc_data.txt"),             emit: results
+    path("*.html"),                       emit: reports
+
     script:
     def process_script = "${process_name}.sh"
     """
@@ -22,7 +22,7 @@ process FASTQC {
         ${task.cpus} \
         ${fastq1} \
         ${fastq2} \
-        ${type}
-
+        ${sample} \
+        ${lib}
     """
 }

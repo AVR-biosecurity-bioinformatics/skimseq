@@ -10,7 +10,7 @@ process INDEX_GENOME {
     val(min_chr_length)
     
     output: 
-    tuple path(ref_genome), path("*.{fa.*,fna.*,dict}"),             emit: fasta_indexed
+    tuple path(ref_genome), path("*.{fa.*,fna.*,fasta.*,dict}"),     emit: fasta_indexed
     path("genome.bed"),                                              emit: genome_bed
     path("long.bed"),                                                emit: long_bed
     path("short.bed"),                                               emit: short_bed

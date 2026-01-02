@@ -3,104 +3,121 @@
 */
 
 //// import modules
-include { CRAM_STATS                            } from '../modules/cram_stats'
-include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
+include { VALIDATE_CRAM                        } from '../modules/validate_cram'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
-include { VALIDATE_FASTQ                        } from '../modules/validate_fastq'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
-include { REPAIR_FASTQ                          } from '../modules/repair_fastq'
 include { MERGE_CRAM                            } from '../modules/merge_cram'
+include { STAGE_CRAM                            } from '../modules/stage_cram'
 
 workflow PROCESS_READS {
 
     take:
+    ch_sample_names
     ch_reads
-    ch_genome_indexed
+    ch_rg_to_validate
+    ch_genome_indexed    
 
     main: 
-
-    // collect FASTP filtering parameters into a single list
-    Channel.of(
-        params.rf_quality,
-        params.rf_length,
-        params.rf_n_bases,
-        params.rf_trim_polyg,
-        params.rf_cut_right,
-        params.rf_cut_window_size,
-        params.rf_cut_mean_quality,
-        params.rf_lc_filter,
-        params.rf_lc_threshold,
-        params.rf_correction,
-        params.rf_overlap_length,
-        params.rf_overlap_diff,
-        params.rf_overlap_diff_pc,
-        params.rf_custom_flags
-    )
-    .collect( sort: false )
-    .set { ch_fastp_filters }
     
-
     /* 
-        Validate fastq and extract read headers
+        Find and validate any pre-existing crams, these will be skipped
+        To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
-    VALIDATE_FASTQ (
-        ch_reads
-    )
 
-    // Convert stdout to a string for status (PASS or FAIL)
-    VALIDATE_FASTQ.out.fastq_with_status
-        .map { sample, lib, read1, read2, stdout -> [ sample, lib, read1, read2, stdout.trim() ] }
-        .branch { sample, lib, read1, read2, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
+    // Use existing crams if they are present and the option is set
+    if( params.use_existing_cram ) {
+        ch_sample_names
+            .map { sample ->
+                def cram = file("output/results/cram/${sample}.cram")
+                def crai = file("${cram}.crai")
+                tuple(sample, cram, crai)
+            }
+            .filter { sample, cram, crai -> cram.exists() && crai.exists() }
+            .set { ch_existing_cram }
+
+        // Validate cram files by default
+        if( !params.skip_cram_validation ) {
+            VALIDATE_CRAM (
+                ch_rg_to_validate.join(ch_existing_cram, by: 0),
+                ch_genome_indexed
+            )
+
+            // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+            VALIDATE_CRAM.out.status
+                .map { sample, stdout -> [ sample, stdout.trim() ] }
+                .join( ch_existing_cram, by: 0 )
+                .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
+                .branch {  sample, cram, crai, status ->
+                    fail: status == 'FAIL'
+                    pass: status == 'PASS'
+                }
+                .set { cram_validation_routes }
+
+            // Channel with just passing crams
+            cram_validation_routes.pass
+                .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
+                .set { ch_validated_cram }
+                
+            // Print warning if any cram files exist but fail validation
+            cram_validation_routes.fail
+                .map {  sample, cram, crai, status -> sample } 
+                .unique()
+                .collect()
+                .map { fails ->
+                    if (fails && fails.size() > 0)
+                    log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
+                    true
+                }
+                .set { _warn_cram_done }  // force evaluation
+
+        } else {
+          // Skip validation, assume all existing crams are good
+          ch_validated_cram = ch_existing_cram 
         }
-        .set { validation_routes }
 
-    // Print a warning if any samples fail validation and need to be repaired
-    validation_routes.fail
-    .map { sample, lib, read1, read2, _ -> sample } 
-    .unique()
-    .collect()
-    .map { fails ->
-        if (fails && fails.size() > 0)
-        log.warn "Repairing malformed FASTQs for ${fails.size()} sample(s): ${fails.join(', ')}"
-        true
+        // Sample ids that already have a good CRAM
+        ch_validated_cram
+            .map { sample, cram, crai -> sample }
+            .toList()
+            .map { ids -> ids as Set } 
+            .set { ch_cram_done }
+    } else{
+        ch_cram_done = Channel.value([] as Set)
+        ch_validated_cram = channel.empty()
     }
-    .set { _warn_done }  // force evaluation
 
-    // Repair any fastqs that failed validation 
-    REPAIR_FASTQ(
-        validation_routes.fail.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
-    )
-
-    // Join repaired fastqs back into validated fastqs
-    validation_routes.pass.map { sample, lib, read1, read2, _ -> [sample, lib, read1, read2] }
-        .mix( REPAIR_FASTQ.out.fastq )
-        .set { ch_all_fixed_fastq }
+    // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
+    ch_reads
+        .combine(ch_cram_done)  
+        .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
+        .map { sample, lib, fcid, lane, platform, read1, read2, doneSet -> tuple(sample, lib, fcid, lane, platform, read1, read2) }
+        .set { ch_reads_to_map }
 
     /* 
         Read splitting
     */
 
-    // split paired fastq files into chunks for parallel processing
+    // Split paired fastq files into even chunks for parallel processing
     SPLIT_FASTQ (
-        ch_all_fixed_fastq,
+        ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> [ sample, lib, read1, read2 ] },
         params.fastq_chunk_size
     )
 
     // Create new channel with each fastq chunk
     SPLIT_FASTQ.out.fastq_interval
-        .splitCsv ( by: 1, elem: 4, sep: "," )
-	    .map { sample, lib, read1, read2, intervals -> [ sample, lib, read1, read2, intervals[0], intervals[1] ] }
-	    .set { ch_fastq_split }
+        .splitCsv ( by: 1, elem: 2, sep: "," )
+        .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
+        .combine(ch_reads_to_map, by:[0,1] )
+        .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 -> [ sample, lib, fcid, lane, platform, read1, read2, int1, int2 ] }
+        .set { ch_fastq_split }
 
     /* 
-        Read filtering and alignments
+        Read mapping
     */
 
+    // Align reads to genome
     MAP_TO_GENOME (
         ch_fastq_split,
-        ch_fastp_filters,
         ch_genome_indexed
     )
     
@@ -110,39 +127,21 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
 
-    // extract unmapped reads
-    // TODO: Make this optional
-    if( params.output_unmapped_reads ) {
-        EXTRACT_UNMAPPED (
-            MERGE_CRAM.out.cram,
-            ch_genome_indexed
-        )
-    }
-
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // generate QC statistics for the merged .cram files
-    CRAM_STATS (
-        MERGE_CRAM.out.cram,
-        ch_genome_indexed
+    // combine validated existing CRAMs with newly created CRAMs
+    ch_validated_cram
+      .mix( MERGE_CRAM.out.cram )
+      .distinct { it[0] }      // dedupe by sample if needed
+      .set{ ch_sample_cram }
+
+    // Helper process to publish CRAMs to output directory. 
+    // NOTE: This process (using deep caching) is necessary to avoid violating cache of later steps when inputs switch to existing cram on resume
+    STAGE_CRAM(
+        ch_sample_cram
     )
 
-    // Create reports channel for multiqc
-    MAP_TO_GENOME.out.json.map { sample, lib, start, end, json -> [ sample, json ] }
-        .mix(CRAM_STATS.out.stats, CRAM_STATS.out.flagstats, CRAM_STATS.out.coverage, MERGE_CRAM.out.markdup)
-        .set { ch_reports}
-
-    // Create sample renaming table to handle chunks in multiqc report
-    MAP_TO_GENOME.out.json
-    .map { sample, lib, start, end, json ->
-        def unit = "${lib}.${start}-${end}"
-        [ unit, sample ]
-    }
-    .set { renaming_table }
-    
     emit: 
-    cram = MERGE_CRAM.out.cram
-    reports = ch_reports
-    renaming_table = renaming_table
+    cram = STAGE_CRAM.out.cram
 }
 
