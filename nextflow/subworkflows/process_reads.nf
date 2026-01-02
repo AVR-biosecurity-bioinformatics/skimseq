@@ -116,21 +116,14 @@ workflow PROCESS_READS {
 
     // TODO: base quality score recalibration (if a list of known variants are provided)
 
-    // Update the newly created cram path to the canonical publishdir path to ensure that resume works for further steps
-    //MERGE_CRAM.out.cram
-    //    .map { sample, cram, crai ->
-    //        def realCram = file("output/results/cram/${sample}.cram")
-    //        def realCrai = file("output/results/cram/${sample}.cram.crai")
-    //        tuple(sample, realCram, realCrai)
-    //    }
-    //    .set { ch_new_crams_canonical }
-
     // combine validated existing CRAMs with newly created CRAMs
     ch_validated_cram
       .mix( MERGE_CRAM.out.cram )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 
+    // Helper process to publish to output directory. 
+    // NOTE: This process (using deep caching) is necessary to avoid violating cache of later steps when inputs switch to existing cram on resume
     STAGE_CRAM(
         ch_sample_cram
     )

@@ -3,6 +3,7 @@ process STAGE_CRAM {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/cram", mode: 'copy', pattern: "*.cram*", enabled: "${ params.output_cram ? true : false }"
+    cache 'deep'
 
     input:
     tuple val(sample), path(cram), path(crai)
@@ -12,7 +13,6 @@ process STAGE_CRAM {
 
     script:
     """
-    ln -s ${cram} ${sample}.cram
-    ln -s ${crai} ${sample}.cram.crai
+    # No script as this process is just used for publishing
     """
 }

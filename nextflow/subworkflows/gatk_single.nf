@@ -9,6 +9,7 @@ include { MERGE_VCFS as MERGE_GVCFS                              } from '../modu
 include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
 include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
 include { PROFILE_HC                                             } from '../modules/profile_hc'
+include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
 
 workflow GATK_SINGLE {
 
@@ -171,20 +172,26 @@ workflow GATK_SINGLE {
     )
 
     // Update the newly created gvcf path to the canonical publishdir path to ensure that resume works for further steps
-    MERGE_GVCFS.out.vcf
-        .map { sample, gvcf, tbi ->
-            def realgvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
-            def realtbi = file("output/results/vcf/gvcf/${sample}.g.vcf.gz.tbi")
-            tuple(sample, realgvcf, realtbi)
-        }
-        .set { ch_new_gvcf_canonical }
+    //MERGE_GVCFS.out.vcf
+    //    .map { sample, gvcf, tbi ->
+    //        def realgvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
+    //        def realtbi = file("output/results/vcf/gvcf/${sample}.g.vcf.gz.tbi")
+    //        tuple(sample, realgvcf, realtbi)
+    //    }
+    //    .set { ch_new_gvcf_canonical }
 
     // combine validated existing GVCs with newly created GVCFs for joint calling
     ch_validated_gvcf
-      .mix( ch_new_gvcf_canonical )
+      .mix( MERGE_GVCFS.out.vcf )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_gvcf }
 
+    // Helper process to publish to output directory. 
+    // NOTE: This process (using deep caching) is necessary to avoid violating cache of later steps when inputs switch to existing gvcf on resume
+    STAGE_GVCF(
+        ch_sample_gvcf
+    )
+
     emit: 
-    gvcf = ch_sample_gvcf
+    gvcf = STAGE_GVCF.out.gvcf
 }
