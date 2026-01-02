@@ -210,7 +210,7 @@ workflow SKIMSEQ {
     */
     
     GATK_JOINT (
-        ch_sample_gvcf,
+        GATK_SINGLE.out.gvcf,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_gatk,
@@ -259,7 +259,7 @@ workflow SKIMSEQ {
     QC (
         ch_reports.mix(FILTER_VARIANTS.out.reports),
         VALIDATE_INPUTS.out.validated_fastq,
-        ch_sample_cram,
+        PROCESS_READS.out.cram,
         ch_genome_indexed,
         ch_multiqc_config
     )
