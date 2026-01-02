@@ -53,6 +53,7 @@ workflow PROCESS_READS {
                 }
                 .set { cram_validation_routes }
 
+            // Channel with just passing crams
             cram_validation_routes.pass
                 .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
                 .set { ch_validated_cram }
@@ -71,8 +72,7 @@ workflow PROCESS_READS {
 
         } else {
           // Skip validation, assume all existing crams are good
-          ch_existing_cram 
-            .set { ch_validated_cram }
+          ch_validated_cram = ch_existing_cram 
         }
 
         // Sample ids that already have a good CRAM
@@ -82,8 +82,8 @@ workflow PROCESS_READS {
             .map { ids -> ids as Set } 
             .set { ch_cram_done }
     } else{
-        channel.empty()
-        .set { ch_cram_done }
+        ch_cram_done = Channel.value([] as Set)
+        ch_validated_cram = channel.empty()
     }
 
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
