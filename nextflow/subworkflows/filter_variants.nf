@@ -14,23 +14,19 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_merged_vcf
+    ch_missing_frac
+    ch_variant_dp    
     ch_genome_indexed
     ch_mask_bed_vcf
 
     main: 
 
-    // Caclulate dataset-wide filters
-    CALC_DATASET_FILTERS (
-        ch_merged_vcf
-    )
-
     // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF for each type
     FILTER_VCF (
         ch_vcfs.combine( channel.of("snp", "indel", "invariant") ),
 	    ch_mask_bed_vcf,
-        CALC_DATASET_FILTERS.out.missing_summary.first(),
-        CALC_DATASET_FILTERS.out.dp_summary.first()
+        ch_missing_frac,
+        ch_variant_dp
     )
 
     // Create a channel of all 3 variant types + all together for merging
@@ -57,7 +53,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
-        CALC_DATASET_FILTERS.out.missing_summary.first(),
+        ch_missing_frac,
         params.sample_max_missing
     )
 

@@ -12,7 +12,9 @@ process COUNT_VCF_RECORDS {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"), path("${sample}.counts.nlines"),   emit: counts
+    tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"),   emit: counts
+    tuple val(sample), path("*.missing.tsv"),                                                   emit: missing_frac
+    tuple val(sample), path("*variant_dp.tsv.gz"),                                              emit: variant_dp
 
     script:
     def process_script = "${process_name}.sh"

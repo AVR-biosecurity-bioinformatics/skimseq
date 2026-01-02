@@ -11,6 +11,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
     val(split_large_intervals)
     val(min_interval_gap)
     tuple path(ref_genome), path(genome_index_files)
+    path(contig_bed)
 
     output: 
     path("_*.bed"),              emit: interval_bed
@@ -28,6 +29,7 @@ process CREATE_INTERVAL_CHUNKS_JC {
         ${counts_per_chunk} \
         ${split_large_intervals} \
         ${min_interval_gap} \
+        ${contig_bed} \
         "${counts_bed}" 
 
     """

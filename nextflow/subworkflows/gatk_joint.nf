@@ -6,8 +6,7 @@
 include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype' 
 include { MERGE_VCFS as MERGE_GVCFS                                      } from '../modules/merge_vcfs' 
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                            } from '../modules/merge_vcfs' 
-include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_SHORT                   } from '../modules/count_vcf_records'
-include { COUNT_VCF_RECORDS as COUNT_VCF_RECORDS_LONG                    } from '../modules/count_vcf_records'
+include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records'
 include { CREATE_INTERVAL_CHUNKS_JC as CREATE_INTERVAL_CHUNKS_JC_LONG    } from '../modules/create_interval_chunks_jc'
 include { CREATE_INTERVAL_CHUNKS_JC as CREATE_INTERVAL_CHUNKS_JC_SHORT   } from '../modules/create_interval_chunks_jc'
 include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
@@ -31,74 +30,37 @@ workflow GATK_JOINT {
        Create groups of genomic intervals for parallel joint calling
     */
 
-    // Count number of VCF records contained within each interval, for long contigs (chromosomes)
-    // Note: For the long contigs use the mask and min_interval_gap to ensure there are many smaller intervals which will be assigned to parallel chunks in next step
-    COUNT_VCF_RECORDS_LONG (
+    // Find genomic regions with coverage and calculate missing proportion and DP for the whole genome
+    COUNT_VCF_RECORDS (
         ch_sample_gvcf,
-        ch_long_bed.first(),
+        ch_include_bed,
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
-
-COUNT_VCF_RECORDS_LONG.out.counts
-    .filter { sample, bed, tbi, nlines ->
-        (nlines.text.trim() as Integer) > 0
-    }
-    .map { sample, bed, tbi, nlines -> tuple(bed, tbi) }   // keep bed+tbi pairs
-    .toList()
-    .filter { lst -> lst && !lst.isEmpty() }
-    .map { pairs ->
-        def beds = pairs.collect { it[0] }
-        def tbis = pairs.collect { it[1] }
-        tuple(beds, tbis)
-    }
-    .set { counts_long }
 
     // Create joint calling intervals for long beds
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
     // NOTE: split_large_intervals is used here to allow further splitting of intervals that are over params.jc_genotypes_per_chunk
     CREATE_INTERVAL_CHUNKS_JC_LONG (
-        counts_long,
+        COUNT_VCF_RECORDS.out.counts,
         params.jc_genotypes_per_chunk,
         params.split_large_intervals,
         params.min_interval_gap,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_long_bed.first()
     )
-
-    // Count number of vcf records contained within each interval, for short contigs (scaffolds)
-    // NOTE: For short use the full contig length without splitting, by providing ch_dummy_file as mask
-    // This ensures compatibility with --merge-contigs-into-num-partitions in genomicsdbimport
-    COUNT_VCF_RECORDS_SHORT (
-        ch_sample_gvcf,
-        ch_short_bed.first(),
-        ch_dummy_file,
-        ch_genome_indexed
-    )
-
-    COUNT_VCF_RECORDS_SHORT.out.counts
-        .filter { sample, bed, tbi, nlines ->
-            (nlines.text.trim() as Integer) > 0
-        }
-        .map { sample, bed, tbi, nlines -> tuple(bed, tbi) }   // keep bed+tbi pairs
-        .toList()
-        .filter { lst -> lst && !lst.isEmpty() }
-        .map { pairs ->
-            def beds = pairs.collect { it[0] }
-            def tbis = pairs.collect { it[1] }
-            tuple(beds, tbis)
-        }
-        .set { counts_short }
-
+   
     // Create joint calling intervals for short chunks
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
     // NOTE: set split_large_intervals to FALSE, and min_chr_length as the min interval split size 
     // this is because --merge-contigs-into-num-partitions 1 requires full contigs
     CREATE_INTERVAL_CHUNKS_JC_SHORT (
-        counts_short,
+        COUNT_VCF_RECORDS.out.counts,
         params.jc_genotypes_per_chunk,
         "false",
         params.min_chr_length,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_short_bed.first()
     )
 
     // create intervals channel, with one interval_bed file per element
@@ -175,4 +137,6 @@ COUNT_VCF_RECORDS_LONG.out.counts
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
     merged_vcf = MERGE_UNFILTERED_VCFS.out.vcf
+    missing_frac = COUNT_VCF_RECORDS.out.missing_frac
+    variant_dp = COUNT_VCF_RECORDS.out.variant_dp
 }

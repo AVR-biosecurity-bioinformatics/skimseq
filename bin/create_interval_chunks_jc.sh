@@ -8,19 +8,19 @@ set -u
 # $4 = counts_per_chunk
 # $5 = split_overweight
 # $6 = min_interval_gap
-# $7 = counts_file
+# $7 = included_contigs
+# $8 = counts_file
 
 TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT=${5}
 GAP_BP="${6}"
 
-# Combine counts in parallel
-# contig list in reference order, with lengths
-cut -f1,2 ${3}.fai > contigs.tsv
+# Create contig list in reference order with lengths, including just those in the included intervals file
+awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
+| cut -f1,2 > contigs.tsv
 
-mkdir -p per_contig
-
+# Function for determining how many bed files (samples) overlap each position of the reference genome
 process_contig() {
   chr="$1"
   len="$2"
@@ -48,6 +48,10 @@ process_contig() {
   bedtools merge -i "$tmp" -d "$GAP_BP" -c 4 -o sum > "$out"
   rm -f "$tmp"
 }
+
+# Run function in parallel
+mkdir -p per_contig
+
 export -f process_contig
 export GAP_BP
 
