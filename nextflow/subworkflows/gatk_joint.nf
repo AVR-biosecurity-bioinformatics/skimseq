@@ -33,16 +33,27 @@ workflow GATK_JOINT {
     // Find genomic regions with coverage and calculate missing proportion and DP for the whole genome
     COUNT_VCF_RECORDS (
         ch_sample_gvcf,
-        ch_include_bed,
+        ch_include_bed.first(),
         ch_mask_bed_gatk,
         ch_genome_indexed
     )
+
+    COUNT_VCF_RECORDS.out.counts
+            .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+            .toList()
+            .filter { lst -> lst && !lst.isEmpty() }
+            .map { pairs ->
+                def beds = pairs.collect { it[0] }
+                def tbis = pairs.collect { it[1] }
+                tuple(beds, tbis)
+            }
+            .set { ch_counts }
 
     // Create joint calling intervals for long beds
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
     // NOTE: split_large_intervals is used here to allow further splitting of intervals that are over params.jc_genotypes_per_chunk
     CREATE_INTERVAL_CHUNKS_JC_LONG (
-        COUNT_VCF_RECORDS.out.counts,
+        ch_counts,
         params.jc_genotypes_per_chunk,
         params.split_large_intervals,
         params.min_interval_gap,
@@ -55,7 +66,7 @@ workflow GATK_JOINT {
     // NOTE: set split_large_intervals to FALSE, and min_chr_length as the min interval split size 
     // this is because --merge-contigs-into-num-partitions 1 requires full contigs
     CREATE_INTERVAL_CHUNKS_JC_SHORT (
-        COUNT_VCF_RECORDS.out.counts,
+        ch_counts,
         params.jc_genotypes_per_chunk,
         "false",
         params.min_chr_length,
@@ -67,6 +78,7 @@ workflow GATK_JOINT {
     // Mix the long contig chunk channels with the short ones - split long and whole short contigs should never be together
     CREATE_INTERVAL_CHUNKS_JC_LONG.out.interval_bed
         .mix(CREATE_INTERVAL_CHUNKS_JC_SHORT.out.interval_bed)
+        .filter { interval_bed -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .collect()
         .flatten()
         // get interval_chunk from interval_bed name as element to identify intervals

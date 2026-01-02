@@ -66,6 +66,12 @@ done < contigs.tsv
 
 # TODO: Could add filter to remove chunks with not many samples called before merging intervals
 
+# Exit early if combined_counts.bed is empty
+if [[ ! -s combined_counts.bed ]]; then
+  : > "_empty.bed"          # create empty output file
+  exit 0
+fi
+
 # Merge intervals within gap_BP to produce file for chunking
 bedtools merge -i combined_counts.bed -d "$GAP_BP" -c 4 -o sum > intervals_with_counts.bed
 
