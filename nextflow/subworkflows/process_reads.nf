@@ -24,56 +24,69 @@ workflow PROCESS_READS {
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
 
-    ch_sample_names
-        .map { sample ->
-            def cram = file("output/results/cram/${sample}.cram")
-            def crai = file("${cram}.crai")
-            tuple(sample, cram, crai)
+    // Use existing crams if they are present and the option is set
+    if( params.use_existing_cram ) {
+        ch_sample_names
+            .map { sample ->
+                def cram = file("output/results/cram/${sample}.cram")
+                def crai = file("${cram}.crai")
+                tuple(sample, cram, crai)
+            }
+            .filter { sample, cram, crai -> cram.exists() && crai.exists() }
+            .set { ch_existing_cram }
+
+        // Validate cram files by default
+        if( !params.skip_cram_validation ) {
+            VALIDATE_CRAM (
+                ch_rg_to_validate.join(ch_existing_cram, by: 0),
+                ch_genome_indexed
+            )
+
+            // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+            VALIDATE_CRAM.out.status
+                .map { sample, stdout -> [ sample, stdout.trim() ] }
+                .join( ch_existing_cram, by: 0 )
+                .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
+                .branch {  sample, cram, crai, status ->
+                    fail: status == 'FAIL'
+                    pass: status == 'PASS'
+                }
+                .set { cram_validation_routes }
+
+            cram_validation_routes.pass
+                .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
+                .set { ch_validated_cram }
+                
+            // Print warning if any cram files exist but fail validation
+            cram_validation_routes.fail
+                .map {  sample, cram, crai, status -> sample } 
+                .unique()
+                .collect()
+                .map { fails ->
+                    if (fails && fails.size() > 0)
+                    log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
+                    true
+                }
+                .set { _warn_cram_done }  // force evaluation
+
+        } else {
+          // Skip validation, assume all existing crams are good
+          ch_existing_cram 
+            .set { ch_validated_cram }
         }
-        .filter { sample, cram, crai -> cram.exists() && crai.exists() }
-        .set { ch_existing_cram }
 
-    // Validate cram files
-    VALIDATE_CRAM (
-        ch_rg_to_validate.join(ch_existing_cram, by: 0),
-        ch_genome_indexed
-    )
-
-    // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
-    VALIDATE_CRAM.out.status
-        .map { sample, stdout -> [ sample, stdout.trim() ] }
-        .join( ch_existing_cram, by: 0 )
-        .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
-        .branch {  sample, cram, crai, status ->
-            fail: status == 'FAIL'
-            pass: status == 'PASS'
-        }
-        .set { cram_validation_routes }
-
-    cram_validation_routes.pass
-        .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
-        .set { ch_validated_cram }
-        
-    // Print warning if any cram files exist but fail validation
-    cram_validation_routes.fail
-        .map {  sample, cram, crai, status -> sample } 
-        .unique()
-        .collect()
-        .map { fails ->
-            if (fails && fails.size() > 0)
-            log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-            true
-        }
-        .set { _warn_cram_done }  // force evaluation
-
-   
-    // set of samples that already have a good CRAM
-    ch_validated_cram
-        .map { sample, cram, crai -> sample }
-        .toList()
-        .map { ids -> ids as Set } 
+        // Sample ids that already have a good CRAM
+        ch_validated_cram
+            .map { sample, cram, crai -> sample }
+            .toList()
+            .map { ids -> ids as Set } 
+            .set { ch_cram_done }
+    } else{
+        channel.empty()
         .set { ch_cram_done }
-        
+    }
+
+    // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
     ch_reads
         .combine(ch_cram_done)  
         .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
@@ -84,7 +97,7 @@ workflow PROCESS_READS {
         Read splitting
     */
 
-    // split paired fastq files into chunks for parallel processing
+    // Split paired fastq files into even chunks for parallel processing
     SPLIT_FASTQ (
         ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> [ sample, lib, read1, read2 ] },
         params.fastq_chunk_size
@@ -122,7 +135,7 @@ workflow PROCESS_READS {
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 
-    // Helper process to publish to output directory. 
+    // Helper process to publish CRAMs to output directory. 
     // NOTE: This process (using deep caching) is necessary to avoid violating cache of later steps when inputs switch to existing cram on resume
     STAGE_CRAM(
         ch_sample_cram
