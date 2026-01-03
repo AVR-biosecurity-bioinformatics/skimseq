@@ -18,7 +18,7 @@ workflow GATK_JOINT {
     ch_sample_gvcf
     ch_genome_indexed
     ch_include_bed
-    ch_mask_bed_gatk
+    ch_mask_bed_genotype
     ch_long_bed
     ch_short_bed
     ch_dummy_file
@@ -35,7 +35,7 @@ workflow GATK_JOINT {
         ch_sample_gvcf,
         ch_genome_indexed,
         ch_include_bed.first(),
-        ch_mask_bed_gatk
+        ch_mask_bed_genotype
     )
 
     COUNT_VCF_RECORDS.out.counts
@@ -117,7 +117,7 @@ workflow GATK_JOINT {
     JOINT_GENOTYPE (
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
-        ch_mask_bed_gatk, 
+        ch_mask_bed_genotype, 
         ch_cohort_size
     )
 

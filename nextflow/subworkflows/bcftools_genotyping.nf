@@ -1,0 +1,112 @@
+/*
+    Genotype samples using GATK
+*/
+
+//// import modules
+include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
+include { CALL_VARIANTS                                          } from '../modules/call_variants'
+include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
+include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
+include { PROFILE_HC                                             } from '../modules/profile_hc'
+include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
+
+workflow BCFTOOLS_GENOTYPING {
+
+    take:
+    ch_sample_names
+    ch_sample_cram
+    ch_genome_indexed
+    ch_include_bed
+    ch_mask_bed_genotype
+
+    main: 
+
+   /* 
+       Create groups of genomic intervals for parallel genotyping
+    */
+
+    // Count per-base depths in bam, used for creating interval chunks
+    COUNT_BAM_READS (
+        ch_sample_cram,
+        ch_genome_indexed,
+        ch_include_bed.first(),
+        ch_mask_bed_genotype,
+        params.hc_rmdup,
+        params.hc_minbq,
+        params.hc_minmq
+    )
+
+     COUNT_BAM_READS.out.counts
+        .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+        .toList()
+        .filter { lst -> lst && !lst.isEmpty() }
+        .map { pairs ->
+            def beds = pairs.collect { it[0] }
+            def tbis = pairs.collect { it[1] }
+            tuple("joint", beds, tbis)
+        }
+        .set { ch_counts }
+
+    // Create haplotypecaller intervals on per sample basis
+    CREATE_INTERVAL_CHUNKS_MP (
+        COUNT_BAM_READS.out.counts,
+        ch_genome_indexed,
+        ch_include_bed.first(),
+        params.hc_bases_per_chunk,
+        params.min_interval_gap,
+        params.split_large_intervals,
+        "false"
+    )
+
+    CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
+	    .map { sample,interval_bed -> interval_bed }
+        .filter { interval_bed -> interval_bed && interval_bed.size() > 0 }   // drop empty
+        .collect()
+        .flatten()
+        // get interval_chunk from interval_bed name as element to identify intervals
+        .map { interval_bed ->
+            def interval_chunk = interval_bed.getFileName().toString().split("\\.")[0]
+            [ interval_chunk, interval_bed ] }
+        .set { ch_interval_bed_mp }
+
+    // combine sample-level gvcf with each interval_bed file and interval chunk
+    // Then group by interval for joint genotyping
+    ch_sample_cram 
+        .combine ( ch_interval_bed_mp )
+        .map { sample, cram, crai, interval_chunk, interval_bed -> [ interval_chunk, cram, crai ] }
+        .groupTuple ( by: 0 )
+        // join to get back interval_file
+        .join ( ch_interval_bed_mp, by: 0 )
+        .map { interval_chunk, cram, crai, interval_bed -> [ interval_chunk, interval_bed, cram, crai ] }
+        .set { ch_cram_interval }
+
+    /* 
+       Call variants per sample
+    */
+
+    // call variants for single samples across intervals
+    MPILEUP (
+        ch_sample_intervals,
+        ch_genome_indexed,
+        ch_mask_bed_genotype
+    )
+
+    MPILEUP.out.vcf
+        .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+        .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
+        .groupTuple(by: 0)
+        .set { ch_vcf_to_merge }
+
+    MERGE_UNFILTERED_VCFS (
+        ch_vcf_to_merge
+    )
+
+    // How to set up count_vcf_records in a way thats flexible to mpileup as well?
+    
+    emit: 
+    vcf = MPILEUP.out.vcf
+    merged_vcf = MERGE_UNFILTERED_VCFS.out.vcf
+    //missing_frac = COUNT_VCF_RECORDS.out.missing_frac
+    //variant_dp = COUNT_VCF_RECORDS.out.variant_dp
+}

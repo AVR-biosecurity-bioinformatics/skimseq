@@ -19,7 +19,7 @@ workflow GATK_SINGLE {
     ch_rg_to_validate
     ch_genome_indexed
     ch_include_bed
-    ch_mask_bed_gatk
+    ch_mask_bed_genotype
     ch_long_bed
     ch_short_bed
     ch_dummy_file
@@ -109,7 +109,7 @@ workflow GATK_SINGLE {
         ch_cram_for_hc,
         ch_genome_indexed,
         ch_include_bed.first(),
-        ch_mask_bed_gatk,
+        ch_mask_bed_genotype,
         params.hc_rmdup,
         params.hc_minbq,
         params.hc_minmq
@@ -155,7 +155,7 @@ workflow GATK_SINGLE {
     CALL_VARIANTS (
         ch_sample_intervals,
         ch_genome_indexed,
-        ch_mask_bed_gatk
+        ch_mask_bed_genotype
     )
 
     if( params.profile_gatk ) {

@@ -188,9 +188,9 @@ workflow SKIMSEQ {
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
     if ( !params.genotype_masked_bases ){
-            ch_mask_bed_gatk = MASK_GENOME.out.mask_bed
+            ch_mask_bed_genotype = MASK_GENOME.out.mask_bed
          } else {
-            ch_mask_bed_gatk = ch_mito_bed
+            ch_mask_bed_genotype = ch_mito_bed
     }
     
 
@@ -203,7 +203,7 @@ workflow SKIMSEQ {
             VALIDATE_INPUTS.out.rg_to_validate,
             ch_genome_indexed,
             ch_include_bed,
-            ch_mask_bed_gatk,
+            ch_mask_bed_genotype,
             ch_long_bed,
             ch_short_bed,
             ch_dummy_file
@@ -214,7 +214,7 @@ workflow SKIMSEQ {
             GATK_SINGLE.out.gvcf,
             ch_genome_indexed,
             ch_include_bed,
-            ch_mask_bed_gatk,
+            ch_mask_bed_genotype,
             ch_long_bed,
             ch_short_bed,
             ch_dummy_file,
@@ -235,6 +235,14 @@ workflow SKIMSEQ {
         // TODO: Mpileup subworkflow goes here
         // Single step mpileup and call on all samples at once
         // Re-use create_chunks_hc with option for summed counts
+
+        //BCFTOOLS_GENOTYPING (
+        //    ch_sample_names,
+        //    PROCESS_READS.out.cram,
+        //    ch_genome_indexed,
+        //    ch_include_bed,
+        //    ch_mask_bed_genotype
+        //)
     }
 
     /*
