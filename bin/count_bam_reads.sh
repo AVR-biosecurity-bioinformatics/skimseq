@@ -4,7 +4,7 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = memory
-# $3 = bam file
+# $3 = cram file
 # $4 = sample
 # $5 = ref genome
 # $6 = include_bed     
@@ -23,10 +23,10 @@ fi
 
 # Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
 bedtools subtract \
-    -a <(cut -f1-3 "${5}") \
-    -b <(cut -f1-3 "${6}") > included_intervals.bed
+    -a <(cut -f1-3 "${6}") \
+    -b <(cut -f1-3 "${7}") > included_intervals.bed
 
-tmp_bed="${7}.counts.bed"
+tmp_bed="${4}.counts.bed"
 
 # count per-base depths
 # Then exclude any zero counts with awk and create bed
@@ -38,12 +38,12 @@ samtools depth \
   -Q ${10} \
   ${FLAGS} \
   --reference ${5} \
-  ${4} \
+  ${3} \
   |	awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' > "$tmp_bed"
 
 # bgzip output and create  tabix index
-bgzip -c "$tmp_bed" > "${7}.counts.bed.gz"
-tabix -f -p bed "${7}.counts.bed.gz"
+bgzip -c "$tmp_bed" > "${4}.counts.bed.gz"
+tabix -f -p bed "${4}.counts.bed.gz"
 
 # Cleanup
 rm "$tmp_bed"
