@@ -194,7 +194,7 @@ workflow SKIMSEQ {
     }
     
 
-    if ( params.genotype_caller == "gatk" ){
+    if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
@@ -230,13 +230,11 @@ workflow SKIMSEQ {
         GATK_JOINT.out.variant_dp
             .set{ ch_variant_dp }
 
-    } else if (params.genotype_caller == "mpileup"){
+    } else if (params.variant_caller == "mpileup"){
 
         // TODO: Mpileup subworkflow goes here
         // Single step mpileup and call on all samples at once
         // Re-use create_chunks_hc with option for summed counts
-
-
     }
 
     /*
