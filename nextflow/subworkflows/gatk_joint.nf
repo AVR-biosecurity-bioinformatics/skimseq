@@ -7,8 +7,8 @@ include { JOINT_GENOTYPE                                                 } from 
 include { MERGE_VCFS as MERGE_GVCFS                                      } from '../modules/merge_vcfs' 
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                            } from '../modules/merge_vcfs' 
 include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records'
-include { CREATE_INTERVAL_CHUNKS_JC as CREATE_INTERVAL_CHUNKS_JC_LONG    } from '../modules/create_interval_chunks_jc'
-include { CREATE_INTERVAL_CHUNKS_JC as CREATE_INTERVAL_CHUNKS_JC_SHORT   } from '../modules/create_interval_chunks_jc'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks'
 include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
 include { PROFILE_JC                                                     } from '../modules/profile_jc' 
 
@@ -32,10 +32,10 @@ workflow GATK_JOINT {
 
     // Find genomic regions with coverage and calculate missing proportion and DP for the whole genome
     COUNT_VCF_RECORDS (
+        ch_genome_indexed
         ch_sample_gvcf,
         ch_include_bed.first(),
-        ch_mask_bed_gatk,
-        ch_genome_indexed
+        ch_mask_bed_gatk
     )
 
     COUNT_VCF_RECORDS.out.counts
@@ -54,24 +54,26 @@ workflow GATK_JOINT {
     // NOTE: split_large_intervals is used here to allow further splitting of intervals that are over params.jc_genotypes_per_chunk
     CREATE_INTERVAL_CHUNKS_JC_LONG (
         ch_counts,
-        params.jc_genotypes_per_chunk,
-        params.split_large_intervals,
-        params.min_interval_gap,
         ch_genome_indexed,
         ch_long_bed.first()
+        params.jc_genotypes_per_chunk,
+        params.min_interval_gap,
+        params.split_large_intervals,
+        "false"
     )
-   
+
     // Create joint calling intervals for short chunks
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
     // NOTE: set split_large_intervals to FALSE, and min_chr_length as the min interval split size 
     // this is because --merge-contigs-into-num-partitions 1 requires full contigs
     CREATE_INTERVAL_CHUNKS_JC_SHORT (
         ch_counts,
-        params.jc_genotypes_per_chunk,
-        "false",
-        params.min_chr_length,
         ch_genome_indexed,
-        ch_short_bed.first()
+        ch_short_bed.first(),
+        params.jc_genotypes_per_chunk,
+        params.min_chr_length,
+        "false",
+        "true"
     )
 
     // create intervals channel, with one interval_bed file per element

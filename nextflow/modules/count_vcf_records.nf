@@ -7,9 +7,9 @@ process COUNT_VCF_RECORDS {
 
     input:
     tuple val(sample), path(gvcf), path(tbi)
+    tuple path(ref_genome), path(genome_index_files)
     path(interval_bed)
     path(exclude_bed)
-    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"),   emit: counts

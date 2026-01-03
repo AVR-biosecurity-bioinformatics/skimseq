@@ -41,7 +41,7 @@ samtools depth \
   -b included_intervals.bed \
 	-@ ${1} \
   -q ${11} \
-  -Q ${11} \
+  -Q ${12} \
   ${FLAGS} \
   --reference ${5} \
   ${4} \
