@@ -20,7 +20,8 @@ workflow QC {
 
     // Run FASTQ on merged cram files
     FASTQC (
-        ch_sample_cram
+        ch_sample_cram,
+        ch_genome_indexed
     )
 
 
