@@ -32,8 +32,8 @@ workflow GATK_JOINT {
 
     // Find genomic regions with coverage and calculate missing proportion and DP for the whole genome
     COUNT_VCF_RECORDS (
-        ch_genome_indexed,
         ch_sample_gvcf,
+        ch_genome_indexed,
         ch_include_bed.first(),
         ch_mask_bed_gatk
     )
@@ -78,8 +78,9 @@ workflow GATK_JOINT {
 
     // create intervals channel, with one interval_bed file per element
     // Mix the long contig chunk channels with the short ones - split long and whole short contigs should never be together
-    CREATE_INTERVAL_CHUNKS_JC_LONG.out.interval_bed.map { sample,interval_bed -> [ interval_bed ] }
-        .mix(CREATE_INTERVAL_CHUNKS_JC_SHORT.out.interval_bed.map { sample,interval_bed -> [ interval_bed ] })
+    CREATE_INTERVAL_CHUNKS_JC_LONG.out.interval_bed
+	    .map { sample,interval_bed -> interval_bed }
+        .mix(CREATE_INTERVAL_CHUNKS_JC_SHORT.out.interval_bed.map { sample,interval_bed -> interval_bed })
         .filter { interval_bed -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .collect()
         .flatten()
