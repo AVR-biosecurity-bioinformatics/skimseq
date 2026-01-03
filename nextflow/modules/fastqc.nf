@@ -6,7 +6,8 @@ process FASTQC {
     module "FastQC/0.12.1-Java-11"
 
     input:
-    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2)
+    tuple val(sample), path(cram), path(cram_index)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     path("*fastqc_data.txt"),             emit: results
@@ -20,9 +21,9 @@ process FASTQC {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${fastq1} \
-        ${fastq2} \
+        ${task.memory.giga} \
+        ${cram} \
         ${sample} \
-        ${lib}
+        ${ref_genome}
     """
 }

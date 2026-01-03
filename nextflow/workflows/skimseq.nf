@@ -276,7 +276,6 @@ workflow SKIMSEQ {
     // TODO: run VCF stats in here?
     QC (
         ch_reports.mix(FILTER_VARIANTS.out.reports),
-        VALIDATE_INPUTS.out.validated_fastq,
         PROCESS_READS.out.cram,
         ch_genome_indexed,
         ch_multiqc_config

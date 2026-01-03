@@ -12,16 +12,15 @@ workflow QC {
 
     take:
     ch_reports
-    ch_fastq
     ch_sample_cram
     ch_genome_indexed
     ch_multiqc_config
 
     main: 
 
-    // TODO: Generate QC statistics for fastq files
+    // Run FASTQ on merged cram files
     FASTQC (
-        ch_fastq
+        ch_sample_cram
     )
 
 
