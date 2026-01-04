@@ -17,13 +17,14 @@ bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
 
 tmp_bed="${7}.counts.bed"
 
-# Find bases that are covered by reads
 if [ ! -s included_intervals.bed ]; then
   # If no intervals after subtract, produce empty outputs + flag
   : > "$tmp_bed"
 else
+  # Find bases that are covered by reads, merge abutting intervals
   bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' "$3" \
-    | awk -v OFS="\t" '{ end = ($4=="." ? $3 : $4); print $1,$2,end,1}' > "$tmp_bed"
+    | awk -v OFS="\t" '{ end = ($4=="." ? $3 : $4); print $1,$2,end,1}' 
+    | bedtools merge -i - > "$tmp_bed"
 fi
 
 # TODO: Could add callability filter here, to keep sites that are covered by N reads etc

@@ -21,14 +21,7 @@ TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT=${5}
 GAP_BP="${6}"
-
-
-# Flag to include zero counts (keeps entire contigs, used for short contig chunking for genotypegvcfs) or exclude
-if [[ ${8} == "false" ]]; then
-    BG="-bg"
-else 
-    BG="-bga"
-fi
+ALL_BASES=${8}
 
 # Create contig list in reference order with lengths, including just those in the included intervals file
 awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
@@ -40,48 +33,45 @@ process_contig() {
   len="$2"
 
   out="per_contig/${chr}.bed"
-  tmp_bg="per_contig/${chr}.bg.tmp"
-  all_bg="per_contig/${chr}.all_intervals.bg"
+  btmp="per_contig/${chr}.B.tmp"
   all_bed="per_contig/${chr}.all_intervals.bed"
 
   genome_line=$(printf "%s\t%s\n" "$chr" "$len")
 
-  # Build bedGraph of intervals from the counts files that overlap positions of the genome
-  # BG toggles whether intervals with no bases should be inclucded
+  # Concatenate all counts beds for that chromosome
   for f in *counts.bed.gz; do
     tabix "$f" "$chr" 2>/dev/null || true
-  done \
-  | bedtools genomecov $BG -i - -g <(printf "%s" "$genome_line") \
-  > "$tmp_bg"
+  done > "$btmp"
 
-  # No records on this contig -> emit empty and stop
-  if [ ! -s "$tmp_bg" ]; then
+  # If no data, 
+  if [ ! -s "$btmp" ]; then
     : > "$out"
-    rm -f "$tmp_bg"
+    rm -f "$btmp"
     return 0
   fi
 
-  # Merge adjacent/nearby segments and sum the depth column
-  bedtools merge -i "$tmp_bg" -d "$GAP_BP" -c 4 -o sum > "$all_bg"
+  # Create new bedfile which contains all bases with bed records
+  if [[ "$ALL_BASES" == "false" ]]; then
+    bedtools genomecov $BG -i "$btmp" -g <(printf "%s" "$genome_line") \
+      | cut -f1-3 \
+      | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
+  else 
+    # if all bases is set (for short contigs) count across entire contig
+    printf "%s\t0\t%s\n" "$chr" "$len" > "$all_bed"
+  fi
 
-  # Map the original count values (col 4) from ALL counts files onto the intervals
-  cut -f1-3 "$all_bg" > "$all_bed"
+  # Map column 4 (counts column) back to data
+  bedtools map -a "$all_bed" -b "$btmp" -g <(printf "%s" "$genome_line") -c 4 -o sum -null 0 > "$out"
 
-  for f in *counts.bed.gz; do
-    tabix "$f" "$chr" 2>/dev/null || true
-  done \
-  | bedtools sort -i - \
-  | bedtools map -a "$all_bed" -b - -c 4 -o sum -null 0 \
-  > "$out"
-
-  rm -f "$tmp_bg" "$all_bg" "$all_bed"
+  # Clean up
+  rm -f "$btmp" "$all_bed"
 }
 
 mkdir -p per_contig
 export -f process_contig
 export GAP_BP
 export MODE
-export BG
+export ALL_BASES
 
 parallel --colsep '\t' --jobs "${1}" process_contig {1} {2} :::: contigs.tsv
 

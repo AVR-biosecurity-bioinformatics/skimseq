@@ -29,8 +29,7 @@ bedtools subtract \
 tmp_bed="${4}.counts.bed"
 
 # count per-base depths
-# Then exclude any zero counts with awk and create bed
-# Then merge any blocks less than GAP_BP apart and sum counts
+# Then exclude any zero counts with awk and create bed, merging abutting intervals
 samtools depth \
   -b included_intervals.bed \
   -@ ${1} \
@@ -39,7 +38,8 @@ samtools depth \
   ${FLAGS} \
   --reference ${5} \
   ${3} \
-  |	awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' > "$tmp_bed"
+  |	awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' \
+  | bedtools merge -i - > "$tmp_bed"
 
 # bgzip output and create  tabix index
 bgzip -c "$tmp_bed" > "${4}.counts.bed.gz"
