@@ -39,7 +39,7 @@ samtools depth \
   --reference ${5} \
   ${3} \
   |	awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' \
-  | bedtools merge -i - > "$tmp_bed"
+  | bedtools merge -i -  -c 4 -o sum > "$tmp_bed"
 
 # bgzip output and create  tabix index
 bgzip -c "$tmp_bed" > "${4}.counts.bed.gz"

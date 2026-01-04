@@ -19,9 +19,9 @@ set -u
 
 TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
-SPLIT_OVERWEIGHT=${5}
+SPLIT_OVERWEIGHT="${5}"
 GAP_BP="${6}"
-ALL_BASES=${8}
+ALL_BASES="${8}"
 
 # Create contig list in reference order with lengths, including just those in the included intervals file
 awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
@@ -41,7 +41,8 @@ process_contig() {
   # Concatenate all counts beds for that chromosome
   for f in *counts.bed.gz; do
     tabix "$f" "$chr" 2>/dev/null || true
-  done > "$btmp"
+  done \
+  | bedtools sort -i - -g <(printf "%s" "$genome_line") > "$btmp"
 
   # If no data, 
   if [ ! -s "$btmp" ]; then
@@ -52,7 +53,7 @@ process_contig() {
 
   # Create new bedfile which contains all bases with bed records
   if [[ "$ALL_BASES" == "false" ]]; then
-    bedtools genomecov $BG -i "$btmp" -g <(printf "%s" "$genome_line") \
+    bedtools genomecov -bg -i "$btmp" -g <(printf "%s" "$genome_line") \
       | cut -f1-3 \
       | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
   else 
@@ -61,7 +62,7 @@ process_contig() {
   fi
 
   # Map column 4 (counts column) back to data
-  bedtools map -a "$all_bed" -b "$btmp" -g <(printf "%s" "$genome_line") -c 4 -o sum -null 0 > "$out"
+  bedtools map -sorted -a "$all_bed" -b "$btmp" -g <(printf "%s" "$genome_line") -c 4 -o sum -null 0 > "$out"
 
   # Clean up
   rm -f "$btmp" "$all_bed"

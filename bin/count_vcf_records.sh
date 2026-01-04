@@ -23,8 +23,8 @@ if [ ! -s included_intervals.bed ]; then
 else
   # Find bases that are covered by reads, merge abutting intervals
   bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' "$3" \
-    | awk -v OFS="\t" '{ end = ($4=="." ? $3 : $4); print $1,$2,end,1}' 
-    | bedtools merge -i - > "$tmp_bed"
+    | awk -v OFS="\t" '{ end = ($4=="." ? $3 : $4); print $1,$2,end,1}' \
+    | bedtools merge -i - -c 4 -o sum > "$tmp_bed"
 fi
 
 # TODO: Could add callability filter here, to keep sites that are covered by N reads etc
