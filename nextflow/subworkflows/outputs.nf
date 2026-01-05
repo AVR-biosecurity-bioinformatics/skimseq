@@ -42,15 +42,15 @@ workflow OUTPUTS {
     }
 
     // Create beagle GP file
-    def ch_beagle_gp_out = Channel.empty()
-    if (params.output_beagle_gp) {
-        CREATE_BEAGLE_GP (
-            ch_vcfs,
-            ch_genome_indexed,
-            true
-        )
-        ch_beagle_gl_out = CREATE_BEAGLE_GP.out.beagle
-    }
+    //def ch_beagle_gp_out = Channel.empty()
+    //if (params.output_beagle_gp) {
+    //    CREATE_BEAGLE_GP (
+    //        ch_vcfs,
+    //        ch_genome_indexed,
+    //        true
+    //    )
+    //    ch_beagle_gp_out = CREATE_BEAGLE_GP.out.beagle
+    // }
 
     // Create pseudohaploid vcf file
     def ch_pseudohap_out = Channel.empty()

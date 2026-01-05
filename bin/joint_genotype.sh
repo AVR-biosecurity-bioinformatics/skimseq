@@ -19,7 +19,6 @@ IHASH="${5}"
 INTERVAL_BED="${6}"
 EXCLUDE_BED="${7}"
 
-
 # Mem for java should be 80% of assigned mem ($3) to leave room for C++ libraries
 java_mem=$(( ( ${MEM_GB} * 80 ) / 100 ))   # 80% of assigned mem (integer floor)
 
@@ -50,14 +49,3 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
     --tmp-dir /tmp \
     --genomicsdb-shared-posixfs-optimizations true \
     2> >(tee -a ${IHASH}.stderr.log >&2)
-
-# Calculate genotype posteriors over genomic intervals
-#gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" CalculateGenotypePosteriors \
-#    -V joint_called.vcf.gz \
-#    -L ${INTERVAL_BED} \
-#    -O joint_called_posterior.vcf.gz \
-#    --interval-merging-rule ALL \
-#    --tmp-dir /tmp
-
-# index the output file
-bcftools index -t --threads ${CPUS} ${IHASH}.vcf.gz
