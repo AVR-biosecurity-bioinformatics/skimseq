@@ -48,7 +48,7 @@ all_bed="${TMPDIR}/all_intervals.bed"
 
 while IFS=$'\t' read -r chr len; do
   while read -r f; do
-    tabix --threads "$TOTAL_CPUS"  "$f" "$chr" 2>/dev/null
+    tabix "$f" "$chr" 2>/dev/null
   done < counts_files.list
 done < contigs.tsv \
   | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "${SORT_MEM_GB}G" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \

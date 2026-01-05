@@ -183,7 +183,11 @@ workflow SKIMSEQ {
     )
     
     /*
-    Call nuclear variants per sample
+    Discover nuclear variants per sample
+    This first step uses more strict filters to find just the reliable sites
+    Options for variant discovery are:
+    - GATK Haplotypecaller + GenotypeGVCFs
+    - BCFtools mpileup + call
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -194,7 +198,7 @@ workflow SKIMSEQ {
     }
     
 
-    if ( params.variant_caller == "gatk" ){
+    if ( params.variant_discovery == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
@@ -230,7 +234,7 @@ workflow SKIMSEQ {
         GATK_JOINT.out.variant_dp
             .set{ ch_variant_dp }
 
-    } else if (params.variant_caller == "mpileup"){
+    } else if (params.variant_discovery == "mpileup"){
 
         // TODO: Mpileup subworkflow goes here
         // Single step mpileup and call on all samples at once
@@ -266,13 +270,41 @@ workflow SKIMSEQ {
     )
 
     /*
+   Genotype individuals at filtered sites
+
+   Here we re-genotype from the original bams at only the high quality sites. 
+   This makes the resulting 
+   Options for genotyping are:
+    - using genotypes directly from variant discovery
+    - re-genotyping with bcftools mpileup
+    - TODO: Imputation with STITCH etc
+    - TODO: PCA based genotype calling using pcangsd
+    */
+    
+    if ( params.genotyping == "use_existing" ){
+        ch_genotyped_all = FILTER_VARIANTS.out.filtered_combined
+        ch_genotyped_snps = FILTER_VARIANTS.out.filtered_snps
+        ch_genotyped_indels = FILTER_VARIANTS.out.filtered_indels
+
+    } else if (params.variant_discovery == "mpileup"){
+
+
+    }
+
+    /*
+    Filter genotypes and samples
+    */
+
+
+
+    /*
    Create extra outputs and visualisations
     */
 
     OUTPUTS (
-        FILTER_VARIANTS.out.filtered_combined,
-        FILTER_VARIANTS.out.filtered_snps,
-        FILTER_VARIANTS.out.filtered_indels,
+        ch_genotyped_all,
+        ch_genotyped_snps,
+        ch_genotyped_indels,
         ch_genome_indexed,
         ch_sample_pop
     )
