@@ -46,10 +46,12 @@ ls -1 *.counts.bed.gz > counts_files.list
 btmp="${TMPDIR}/tmp.bed"
 all_bed="${TMPDIR}/all_intervals.bed"
 
-while read -r f; do
-    tabix --threads "$TOTAL_CPUS" "$f" -R contigs.tsv 2>/dev/null 
-done < counts_files.list \
-  | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "$SORT_MEM_GB" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
+while IFS=$'\t' read -r chr len; do
+  while read -r f; do
+    tabix --threads "$TOTAL_CPUS"  "$f" "$chr" 2>/dev/null
+  done < counts_files.list
+done < contigs.tsv \
+  | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "${SORT_MEM_GB}G" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
   | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum > "$btmp"
 
 # Create new bedfile which contains all bases with bed records
@@ -59,7 +61,7 @@ if [[ "$ALL_BASES" == "false" ]]; then
     | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
 else 
   # if all bases is set (for short contigs) count across entire contig
-  awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > contigs.bed > "$all_bed"
+  awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
 fi
 
 # Map column 4 (counts column) back to data
