@@ -3,8 +3,7 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = sample name
-# $3 = bed file
+# $2 = bed file
 
 awk '
   BEGIN { OFS="\\t"; prev=""; out="" }
@@ -21,4 +20,4 @@ awk '
     }
     print $0 >> out
   }
-' "${bed}"
+' "${2}"

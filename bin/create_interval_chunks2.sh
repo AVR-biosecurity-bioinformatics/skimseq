@@ -23,50 +23,89 @@ SPLIT_OVERWEIGHT="${5}"
 GAP_BP="${6}"
 ALL_BASES="${8}"
 TMPDIR=$(mktemp -d)
-# Set up memory and cpu control for parallel operations
-TOTAL_CPUS="${1}"
-TOTAL_MEM_GB="${2}"
-SORT_MEM_GB=$(( (TOTAL_MEM_GB * 75 / 100) / TOTAL_CPUS )) # reserve 25% mem headroom
-(( SORT_MEM_GB < 1 )) && SORT_MEM_GB=1
 
 # Create contig list in reference order with lengths, including just those in the included intervals file
 awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
 | cut -f1,2 > contigs.tsv
 
-# Exit early if contigs.tsv is empty
-if [[ ! -s contigs.tsv ]]; then
-  : > "_empty.bed"          # create empty output file
-  exit 0
-fi
+# Set up memory and cpu control for parralel operations
+TOTAL_CPUS="${1}"
+TOTAL_MEM_GB="${2}"
+
+JOBS="$TOTAL_CPUS"
+
+# reserve 25% headroom
+SORT_MEM_GB=$(( (TOTAL_MEM_GB * 75 / 100) / JOBS ))
+(( SORT_MEM_GB < 1 )) && SORT_MEM_GB=1
 
 # Make a list of counts files 
 ls -1 *.counts.bed.gz > counts_files.list
 
-# Concatenate all counts beds for that chromosome and merge by gap_bp within file, then within the joint file
-btmp="${TMPDIR}/tmp.bed"
-all_bed="${TMPDIR}/all_intervals.bed"
+# Function for determining how many bed files (samples) overlap each position of the reference genome, and optionally counting bases
+process_contig() {
+  chr="$1"
+  len="$2"
 
-while read -r f; do
-    tabix --threads "$TOTAL_CPUS" "$f" -R contigs.tsv 2>/dev/null 
-done < counts_files.list \
-  | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "$SORT_MEM_GB" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
+  out="per_contig/${chr}.bed"
+  btmp="${TMPDIR}/${chr}.B.tmp"
+  all_bed="${TMPDIR}/${chr}.all_intervals.bed"
+
+  genome_line=$(printf "%s\t%s\n" "$chr" "$len")
+
+  # Concatenate all counts beds for that chromosome and merge by gap_bp within file, then within the joint file
+  while read -r f; do
+    tabix "$f" "$chr" 2>/dev/null \
+    | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum
+  done < counts_files.list \
+  | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "$SORT_MEM" -T "$TMPDIR" \
   | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum > "$btmp"
 
-# Create new bedfile which contains all bases with bed records
-if [[ "$ALL_BASES" == "false" ]]; then
-  bedtools genomecov -bg -i "$btmp" -g contigs.tsv \
-    | cut -f1-3 \
-    | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
-else 
-  # if all bases is set (for short contigs) count across entire contig
-  awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > contigs.bed > "$all_bed"
-fi
+  # If no data, 
+  if [ ! -s "$btmp" ]; then
+    : > "$out"
+    rm -f "$btmp"
+    return 0
+  fi
 
-# Map column 4 (counts column) back to data
-bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 > intervals_with_counts.bed
+  # Create new bedfile which contains all bases with bed records
+  if [[ "$ALL_BASES" == "false" ]]; then
+    bedtools genomecov -bg -i "$btmp" -g <(printf "%s" "$genome_line") \
+      | cut -f1-3 \
+      | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
+  else 
+    # if all bases is set (for short contigs) count across entire contig
+    printf "%s\t0\t%s\n" "$chr" "$len" > "$all_bed"
+  fi
 
-# Exit early if intervals_with_counts.bed is empty
-if [[ ! -s intervals_with_counts.bed ]]; then
+  # Map column 4 (counts column) back to data
+  bedtools map -sorted -a "$all_bed" -b "$btmp" -g <(printf "%s" "$genome_line") -c 4 -o sum -null 0 > "$out"
+
+  # Clean up
+  rm -f "$btmp" "$all_bed"
+}
+
+# Export variables for GNU parallel
+mkdir -p per_contig
+export -f process_contig
+export GAP_BP
+export MODE
+export ALL_BASES
+export SORT_MEM="${SORT_MEM_GB}G"
+export TMPDIR
+
+# Run per-contig process
+parallel --colsep '\t' --jobs "${1}" process_contig {1} {2} :::: contigs.tsv
+
+# Merge per-contig counts
+: > combined_counts.bed
+while IFS=$'\t' read -r chr len; do
+  cat "per_contig/${chr}.bed" >> combined_counts.bed
+done < contigs.tsv
+
+# TODO: Could add filter to remove chunks with not many samples called before merging intervals
+
+# Exit early if combined_counts.bed is empty
+if [[ ! -s combined_counts.bed ]]; then
   : > "_empty.bed"          # create empty output file
   exit 0
 fi
@@ -112,9 +151,9 @@ if [[ "$SPLIT_OVERWEIGHT" == "true" ]]; then
       substart = subend
     }
   }
-  ' intervals_with_counts.bed > intervals_split.bed
+  ' combined_counts.bed > intervals_split.bed
 else
-  cat intervals_with_counts.bed > intervals_split.bed
+  cat combined_counts.bed > intervals_split.bed
 fi
 
 # Calculate total counts and number of intervals

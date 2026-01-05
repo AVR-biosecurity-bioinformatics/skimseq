@@ -53,14 +53,14 @@ workflow GATK_JOINT {
     // Create joint calling intervals for long beds
 
     // First split bed by chr
-    SPLIT_BED_BY_CHR(long.bed.first())
+    SPLIT_BED_BY_CHR(ch_long_bed.first())
 
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
     // NOTE: split_large_intervals is used here to allow further splitting of intervals that are over params.jc_genotypes_per_chunk
     CREATE_INTERVAL_CHUNKS_JC_LONG (
         ch_counts,
         ch_genome_indexed,
-        SPLIT_BED_BY_CHR.out.per_chr_beds,
+        SPLIT_BED_BY_CHR.out.per_chr_beds.flatten(),
         params.jc_genotypes_per_chunk,
         params.min_interval_gap,
         params.split_large_intervals,

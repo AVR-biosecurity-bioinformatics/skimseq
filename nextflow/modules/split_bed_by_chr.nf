@@ -18,7 +18,6 @@ process SPLIT_BED_BY_CHR  {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${sample} \
         "${bed}"
 
     """
