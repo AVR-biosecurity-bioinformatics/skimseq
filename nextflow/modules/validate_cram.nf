@@ -28,19 +28,20 @@ process VALIDATE_CRAM {
     #!/usr/bin/env bash
     
     # write expected RGs to a file in the work dir
-    cat > expected.rg <<EOF
-    ${rgLines}
-    EOF
+    printf '%s\n' "${rgLines}" > expected.rg
 
-    
+    # Write list of fastq files to process
+    printf "%s\n" ${fastq1} > r1.list
+    printf "%s\n" ${fastq2} > r2.list
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
         ${ref_genome} \
         ${cram} \
-        ${fastq1} \
-        ${fastq2} \
+        r1.list \
+        r2.list \
         expected.rg
 
 

@@ -28,10 +28,7 @@ process VALIDATE_GVCF {
     #!/usr/bin/env bash
     
     # write expected RGs to a file in the work dir
-    cat > expected.rg <<EOF
-    ${rgLines}
-    EOF
-
+    printf '%s\n' "${rgLines}" > expected.rg
     
     ### run process script
     bash ${process_script} \
