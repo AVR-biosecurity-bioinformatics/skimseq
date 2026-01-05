@@ -29,121 +29,35 @@ if (( java_mem < 1 )); then
 fi
 
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
-if [[ "${OUTPUT_INVARIANT}" == "false" ]]; then
-    # joint genotype variant sites only
-    # Send stderr to log file for profiling
-    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
-        -R "${REF}" \
-        -V gendb://${GENOMICSDB} \
-        -L "${INTERVAL_BED}" \
-        -O joint_called.vcf.gz \
-        --exclude-intervals "${EXCLUDE_BED}" \
-        --interval-exclusion-padding "${EXCLUDE_PAD}" \
-        --interval-merging-rule ALL \
-        --merge-input-intervals \
-        --variant-output-filtering STARTS_IN \
-        --max-alternate-alleles "${MAX_ALTERNATE}" \
-        --genomicsdb-max-alternate-alleles "${GENOMICSDB_MAX_ALTERNATE}" \
-        -ploidy "${PLOIDY}" \
-        --heterozygosity "${HET}" \
-        --heterozygosity-stdev "${HET_SD}" \
-        --indel-heterozygosity "${INDEL_HET}" \
-        --tmp-dir /tmp \
-        --genomicsdb-shared-posixfs-optimizations true \
-        2> >(tee -a ${IHASH}.stderr.log >&2)
-
-elif [[ "${OUTPUT_INVARIANT}" == "true" ]]; then
-    # Joint genotype both variant and invariant
-    # This requires some custom code to re-add missing genotpye fields for compatibility with later steps
-
-    # genotype both variant and invariant sites 
-    # Send stderr to log file for profiling
-    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G"  GenotypeGVCFs \
-        -R "${REF}" \
-        -V gendb://${GENOMICSDB} \
-        -L "${INTERVAL_BED}" \
-        -O calls.vcf.gz \
-        --exclude-intervals "${EXCLUDE_BED}" \
-        --interval-exclusion-padding "${EXCLUDE_PAD}" \
-        --interval-merging-rule ALL \
-        --merge-input-intervals true \
-        --variant-output-filtering STARTS_IN \
-        --max-alternate-alleles "${MAX_ALTERNATE}" \
-        --genomicsdb-max-alternate-alleles "${GENOMICSDB_MAX_ALTERNATE}" \
-        -ploidy "${PLOIDY}" \
-        --heterozygosity "${HET}" \
-        --heterozygosity-stdev "${HET_SD}" \
-        --indel-heterozygosity "${INDEL_HET}" \
-        --tmp-dir /tmp \
-        --genomicsdb-shared-posixfs-optimizations true \
-        2> >(tee -a ${IHASH}.stderr.log >&2)
-
-    # Get the sites as a GVCF as well to transfer the annotations over
-    gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g"  SelectVariants \
-        -R ${REF} \
-        -V gendb://${GENOMICSDB} \
-        -L ${INTERVAL_BED} \
-        -O source.g.vcf.gz 
-
-     # Prepare annotation files for re-adding specific genotype fields to invariant sites
-
-     # Subset gVCF to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, PL tags
-     # NOTE any invariant sites with multiple alleles will be missed
-    bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
-        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref  ${REF} \
-        | bcftools query -f '%CHROM\t%POS\t[%PL\t]\n' \
-        | sed 's/\t$//' \
-        | bgzip > source_PL.tsv.gz
-    tabix -s1 -b2 -e2 source_PL.tsv.gz
-     
-     # Subset gVCF to <NON_REF> sites, then convert to allsites vcf, and extract just chrom, pos, GQ tags
-     # NOTE any invariant sites with multiple alleles will be missed
-	bcftools view -i 'N_ALT=1 && ALT="<NON_REF>"' source.g.vcf.gz \
-        | bcftools convert --threads 4 --gvcf2vcf --fasta-ref ${REF} \
-        | bcftools query -f '%CHROM\t%POS\t[%GQ\t]\n' \
-        | sed 's/\t$//' \
-        | bgzip > source_GQ.tsv.gz
-    tabix -s1 -b2 -e2 source_GQ.tsv.gz
-
-     # Subset called vcf to missing sites, then extract just chrom, pos, DP tags, then fabricate an AD column from the DP column 
-    bcftools view -i 'ALT="."' calls.vcf.gz \
-        | bcftools query -f '%CHROM\t%POS\t[%DP,0\t]\n' \
-        | sed 's/\t$//' \
-        | bgzip > source_AD.tsv.gz
-    tabix -s1 -b2 -e2 source_AD.tsv.gz
-
-     # Annotate the GQ, PL, AD tags for those <NON_REF> sites that lost it during variant calling
-     # Replace missing alleles with <NON_REF> to ensure compatibility with CalculateGenotypePosteriors, otherwise it fails
-     bcftools annotate -a source_GQ.tsv.gz -c CHROM,POS,FORMAT/GQ calls.vcf.gz -Ou \
-        | bcftools annotate -a source_PL.tsv.gz -c CHROM,POS,FORMAT/PL -Ou \
-        | bcftools annotate -a source_AD.tsv.gz -c CHROM,POS,FORMAT/AD -Ov \
-        | awk 'BEGIN{OFS="\t"}
-            /^#/ {print; next}
-            { if($5==".") $5="<NON_REF>"; print }' \
-        | bgzip > joint_called.vcf.gz
-    tabix joint_called.vcf.gz
-else 
-    echo "output_invariant must be true or false"
-    exit 1
-fi 
+# Send stderr to log file for profiling
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
+    -R "${REF}" \
+    -V gendb://${GENOMICSDB} \
+    -L "${INTERVAL_BED}" \
+    -O ${IHASH}.vcf.gz \
+    --exclude-intervals "${EXCLUDE_BED}" \
+    --interval-exclusion-padding "${EXCLUDE_PAD}" \
+    --include-non-variant-sites "${OUTPUT_INVARIANT}" \
+    --interval-merging-rule ALL \
+    --merge-input-intervals \
+    --variant-output-filtering STARTS_IN \
+    --max-alternate-alleles "${MAX_ALTERNATE}" \
+    --genomicsdb-max-alternate-alleles "${GENOMICSDB_MAX_ALTERNATE}" \
+    -ploidy "${PLOIDY}" \
+    --heterozygosity "${HET}" \
+    --heterozygosity-stdev "${HET_SD}" \
+    --indel-heterozygosity "${INDEL_HET}" \
+    --tmp-dir /tmp \
+    --genomicsdb-shared-posixfs-optimizations true \
+    2> >(tee -a ${IHASH}.stderr.log >&2)
 
 # Calculate genotype posteriors over genomic intervals
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" CalculateGenotypePosteriors \
-    -V joint_called.vcf.gz \
-    -L ${INTERVAL_BED} \
-    -O joint_called_posterior.vcf.gz \
-    --interval-merging-rule ALL \
-    --tmp-dir /tmp
+#gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" CalculateGenotypePosteriors \
+#    -V joint_called.vcf.gz \
+#    -L ${INTERVAL_BED} \
+#    -O joint_called_posterior.vcf.gz \
+#    --interval-merging-rule ALL \
+#    --tmp-dir /tmp
 
-# Convert any <NON_REF> back to missing to ensure compatibility with filtering steps
-bcftools view joint_called_posterior.vcf.gz -Ov \
-    | awk 'BEGIN{OFS="\t"}
-        /^#/ {print; next}
-        { if($5=="<NON_REF>") $5="."; print }' \
-    | bgzip > ${IHASH}.vcf.gz
-
-# reindex the output file
+# index the output file
 bcftools index -t --threads ${CPUS} ${IHASH}.vcf.gz
-
-# Remove temporary files
-rm -f source.g.vcf.gz* calls.vcf.gz* *.tsv.gz* joint_called.vcf.gz* joint_called_posterior.vcf.gz* 

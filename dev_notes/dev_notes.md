@@ -108,6 +108,10 @@ module load Java/17
 # Make sure permissions are fixed for R scripts
 chmod +777 bin/*.R
 
-# Test
+# Run tests using slurm modules
 nextflow run . -profile basc_modules,debug,test -resume
+
+# Run tests on local node 
+nextflow run . -profile debug,test -resume
+
 ```
