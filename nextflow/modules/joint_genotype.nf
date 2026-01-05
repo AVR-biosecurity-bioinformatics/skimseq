@@ -2,7 +2,7 @@ process JOINT_GENOTYPE {
     def process_name = "joint_genotype"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
+    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(genomicsdb)
@@ -31,7 +31,7 @@ process JOINT_GENOTYPE {
     """
     #!/usr/bin/env bash
     
-    // Export haplotypecaller parameters
+    # Export haplotypecaller parameters
     export EXCLUDE_PAD='${params.exclude_padding}'
     export OUTPUT_INVARIANT='${params.output_invariant}'
     export PLOIDY='${params.ploidy}'

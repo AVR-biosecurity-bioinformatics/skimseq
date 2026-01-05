@@ -52,7 +52,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
 
 # Add additional annotations to interval VCF file - To be used for filtering
 
-# Add minor alelle count (MAC) info tag
+# Create annotation table for minor allele count (MAC)
 # First create an annotation table with minor allele count
 bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' genotyped.vcf.gz \
 | awk 'BEGIN{OFS="\t"}
@@ -71,11 +71,37 @@ tabix -s1 -b2 -e2 MAC.tsv.gz
 cat > MAC.hdr <<'EOF'
 ##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
 EOF
+
+# Create annotation table for distance to closest indel
+bcftools view -v indels -Ou genotyped.vcf.gz \
+| bcftools query -f '%CHROM\t%POS\t%REF\n' \
+| awk 'BEGIN{OFS="\t"}
+       { s=$2-1; e=s+length($3); if(e<=s) e=s+1; print $1,s,e }' \
+| LC_ALL=C sort -k1,1 -k2,2n > indels.bed
+
+# Get a list of all sites
+bcftools query -f '%CHROM\t%POS\n' genotyped.vcf.gz \
+| awk 'BEGIN{OFS="\t"}{ print $1, $2-1, $2, $2 }' \
+| LC_ALL=C sort -k1,1 -k2,2n > sites.bed
+
+# Find distance to closest indel. No indel returns -1
+bedtools closest -a sites.bed -b indels.bed -d -t first \
+| awk 'BEGIN{OFS="\t"} {print $1,$4,$NF}' \
+| bgzip > dist_to_indel.tsv.gz
+
+tabix -s1 -b2 -e2 dist_to_indel.tsv.gz
+
+cat > dist_to_indel.hdr <<'EOF'
+##INFO=<ID=DIST_INDEL,Number=1,Type=Integer,Description="Distance in bp to closest indel (0 if overlaps indel reference span)">
+EOF
+
+# Add annotations to vcf
 bcftools annotate --threads ${CPUS} -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou genotyped.vcf.gz \
+    | bcftools annotate --threads ${CPUS} -h dist_to_indel.hdr -a dist_to_indel.tsv.gz -c CHROM,POS,INFO/DIST_INDEL -Ou \
     | bcftools +setGT -- -t q -n . -i 'FMT/DP=0' \
     | bcftools +fill-tags -- -t AC_Hom,AC_Het,AC_Hemi,MAF,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
     | bcftools +tag2tag -- --PL-to-GL \
-    | bcftools annotate --threads ${CPUS} --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' -Ou \
+    | bcftools annotate --threads ${CPUS} --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' -Ou \
     | bcftools sort -Oz9 -o ${IHASH}.vcf.gz 
 
 # Reindex outpu

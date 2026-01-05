@@ -6,6 +6,7 @@
 include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_filters'
 //include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { FILTER_VCF_SITES                             } from '../modules/filter_vcf_sites'
+include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
@@ -41,7 +42,7 @@ workflow FILTER_VARIANTS {
     MERGE_FILTERED_VCFS (
         ch_vcf_to_merge
     )
-      
+   
     // Extract merged variant type vcfs into convenient channels
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
@@ -66,6 +67,13 @@ workflow FILTER_VARIANTS {
         ch_sample_names
     )
         
+
+    // Extract filtered sites only
+    EXTRACT_VCF_SITES (
+        MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }
+    )   
+
+
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_combined = ch_combined_filtered
