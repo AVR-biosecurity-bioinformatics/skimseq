@@ -4,7 +4,8 @@
 
 //// import modules
 include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_filters'
-include { FILTER_VCF                                   } from '../modules/filter_vcf'
+//include { FILTER_VCF                                   } from '../modules/filter_vcf'
+include { FILTER_VCF_SITES                             } from '../modules/filter_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
@@ -21,8 +22,8 @@ workflow FILTER_VARIANTS {
 
     main: 
 
-    // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF for each type
-    FILTER_VCF (
+    // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF_SITES for each type
+    FILTER_VCF_SITES (
         ch_vcfs.combine( channel.of("snp", "indel", "invariant") ),
 	    ch_mask_bed_vcf,
         ch_missing_frac.map{sample, path -> [path ]}.collect(),
@@ -30,8 +31,8 @@ workflow FILTER_VARIANTS {
     )
 
     // Create a channel of all 3 variant types + all together for merging
-    FILTER_VCF.out.vcf
-        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+    FILTER_VCF_SITES.out.vcf
+        .concat(FILTER_VCF_SITES.out.vcf.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
@@ -48,7 +49,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sites and genotypes
     PLOT_VCF_FILTERS (
-        FILTER_VCF.out.tables.collect()
+        FILTER_VCF_SITES.out.tables.collect()
     )
 
     // QC plots for sample missing data
@@ -57,7 +58,7 @@ workflow FILTER_VARIANTS {
         params.sample_max_missing
     )
 
-    FILTER_VCF.out.samples_to_keep
+    FILTER_VCF_SITES.out.samples_to_keep
         .splitText( by: 1 )
         .unique()
         .set { ch_sample_names_filt }

@@ -33,7 +33,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
     -R "${REF}" \
     -V gendb://${GENOMICSDB} \
     -L "${INTERVAL_BED}" \
-    -O ${IHASH}.vcf.gz \
+    -O genotyped.vcf.gz \
     --exclude-intervals "${EXCLUDE_BED}" \
     --interval-exclusion-padding "${EXCLUDE_PAD}" \
     --include-non-variant-sites "${OUTPUT_INVARIANT}" \
@@ -49,3 +49,37 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
     --tmp-dir /tmp \
     --genomicsdb-shared-posixfs-optimizations true \
     2> >(tee -a ${IHASH}.stderr.log >&2)
+
+# Add additional annotations to interval VCF file - To be used for filtering
+
+# Add minor alelle count (MAC) info tag
+# First create an annotation table with minor allele count
+bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' genotyped.vcf.gz \
+| awk 'BEGIN{OFS="\t"}
+       {
+         split($3,ac,",")          # AC is comma‑separated if multi‑allelic
+         mac=$4                    # start with AN
+         refCount = $4             # will be AN - sum(AC)
+         for(i in ac){refCount-=ac[i]; mac=(ac[i]<mac?ac[i]:mac)}
+         mac=(refCount<mac?refCount:mac)
+         print $1,$2,mac
+       }'                         \
+| bgzip > MAC.tsv.gz
+tabix -s1 -b2 -e2 MAC.tsv.gz
+
+# Create VCF header line for MAC filter
+cat > MAC.hdr <<'EOF'
+##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
+EOF
+bcftools annotate --threads ${CPUS} -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou genotyped.vcf.gz \
+    | bcftools +setGT -- -t q -n . -i 'FMT/DP=0' \
+    | bcftools +fill-tags -- -t AC_Hom,AC_Het,AC_Hemi,MAF,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
+    | bcftools +tag2tag -- --PL-to-GL \
+    | bcftools annotate --threads ${CPUS} --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' -Ou \
+    | bcftools sort -Oz9 -o ${IHASH}.vcf.gz 
+
+# Reindex outpu
+bcftools index -t ${IHASH}.vcf.gz
+
+# Clean up
+rm genotyped.vcf.gz* *.hdr *.tsv.gz
