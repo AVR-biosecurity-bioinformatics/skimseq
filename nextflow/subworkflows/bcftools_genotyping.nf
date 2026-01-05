@@ -48,7 +48,7 @@ workflow BCFTOOLS_GENOTYPING {
         }
         .set { ch_counts }
 
-    // Create haplotypecaller intervals on per sample basis
+    // Create mpileup intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_MP (
         COUNT_BAM_READS.out.counts,
         ch_genome_indexed,
@@ -70,7 +70,7 @@ workflow BCFTOOLS_GENOTYPING {
             [ interval_chunk, interval_bed ] }
         .set { ch_interval_bed_mp }
 
-    // combine sample-level gvcf with each interval_bed file and interval chunk
+    // combine sample-level cran with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )
@@ -84,6 +84,9 @@ workflow BCFTOOLS_GENOTYPING {
     /* 
        Call variants per sample
     */
+
+    // Calculate cohort size for memory scaling
+    ch_cohort_size = ch_sample_names.unique().count()
 
     // call variants for single samples across intervals
     MPILEUP (
