@@ -9,71 +9,69 @@ set -u
 # $5 = split_overweight
 # $6 = min_interval_gap
 # $7 = included_contigs
-# $8 = counts_file
+# $8 = include_zero
+# $9 = counts_file
+
+# This script uses bed files with or without a counts column to assign bed intervals to seperate chunks for parallel processing
+# For Haplotypecaller, input is a single bed with per-base counts in column 4
+# For GenotypeGVCFS, input is multiple bed files with no counts
+# For Mpileup, input is multiple bed fils with per-base counts in column 4
 
 TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
-SPLIT_OVERWEIGHT=${5}
+SPLIT_OVERWEIGHT="${5}"
 GAP_BP="${6}"
+ALL_BASES="${8}"
+TMPDIR=$(mktemp -d)
+# Set up memory and cpu control for parallel operations
+TOTAL_CPUS="${1}"
+TOTAL_MEM_GB="${2}"
+SORT_MEM_GB=$(( (TOTAL_MEM_GB * 75 / 100) / TOTAL_CPUS )) # reserve 25% mem headroom
+(( SORT_MEM_GB < 1 )) && SORT_MEM_GB=1
 
 # Create contig list in reference order with lengths, including just those in the included intervals file
 awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
 | cut -f1,2 > contigs.tsv
 
-# Function for determining how many bed files (samples) overlap each position of the reference genome
-process_contig() {
-  chr="$1"
-  len="$2"
-  out="per_contig/${chr}.bed"
-  tmp="per_contig/${chr}.bg.tmp"
-
-  # genome file for this contig only
-  genome_line=$(printf "%s\t%s\n" "$chr" "$len")
-
-  # build bedGraph (chr start end depth) for this contig
-  for f in *counts.bed.gz; do
-    tabix "$f" "$chr" 2>/dev/null || true
-  done \
-  | bedtools genomecov -bg -i - -g <(printf "%s" "$genome_line") \
-  > "$tmp"
-
-  # If no coverage anywhere on this contig, emit an empty file and skip merge
-  if [ ! -s "$tmp" ]; then
-    : > "$out"
-    rm -f "$tmp"
-    return 0
-  fi
-
-  # Otherwise merge + sum depth column
-  bedtools merge -i "$tmp" -d "$GAP_BP" -c 4 -o sum > "$out"
-  rm -f "$tmp"
-}
-
-# Run function in parallel
-mkdir -p per_contig
-
-export -f process_contig
-export GAP_BP
-
-# parallel across contigs
-parallel --colsep '\t' --jobs ${1} process_contig {1} {2} :::: contigs.tsv
-
-# Merge contig counts
-: > combined_counts.bed
-while IFS=$'\t' read -r chr len; do
-  cat "per_contig/${chr}.bed" >> combined_counts.bed
-done < contigs.tsv
-
-# TODO: Could add filter to remove chunks with not many samples called before merging intervals
-
-# Exit early if combined_counts.bed is empty
-if [[ ! -s combined_counts.bed ]]; then
+# Exit early if contigs.tsv is empty
+if [[ ! -s contigs.tsv ]]; then
   : > "_empty.bed"          # create empty output file
   exit 0
 fi
 
-# Merge intervals within gap_BP to produce file for chunking
-bedtools merge -i combined_counts.bed -d "$GAP_BP" -c 4 -o sum > intervals_with_counts.bed
+# Make a list of counts files 
+ls -1 *.counts.bed.gz > counts_files.list
+
+# Concatenate all counts beds for that chromosome and merge by gap_bp within file, then within the joint file
+btmp="${TMPDIR}/tmp.bed"
+all_bed="${TMPDIR}/all_intervals.bed"
+
+while IFS=$'\t' read -r chr len; do
+  while read -r f; do
+    tabix --threads "$TOTAL_CPUS"  "$f" "$chr" 2>/dev/null
+  done < counts_files.list
+done < contigs.tsv \
+  | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "${SORT_MEM_GB}G" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
+  | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum > "$btmp"
+
+# Create new bedfile which contains all bases with bed records
+if [[ "$ALL_BASES" == "false" ]]; then
+  bedtools genomecov -bg -i "$btmp" -g contigs.tsv \
+    | cut -f1-3 \
+    | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
+else 
+  # if all bases is set (for short contigs) count across entire contig
+  awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
+fi
+
+# Map column 4 (counts column) back to data
+bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 > intervals_with_counts.bed
+
+# Exit early if intervals_with_counts.bed is empty
+if [[ ! -s intervals_with_counts.bed ]]; then
+  : > "_empty.bed"          # create empty output file
+  exit 0
+fi
 
 # Split intervals that individually exceed the target counts.
 # Assumes counts are roughly uniform across the interval length.
@@ -175,10 +173,9 @@ for i in *chunk_*.bed;do
   # compute hash of this chunk’s contents
   hash=$(md5sum "$i" | awk '{print $1}')
 
-  # merge any abutting intervals
+  # Output just column 1:4
   out="_${pad}${hash}.bed"
-  cut -f1-4 "$i" \
-  | bedtools merge -i stdin > "$out"
+  cut -f1-4 "$i" > "$out"
   
   # report size
   bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")

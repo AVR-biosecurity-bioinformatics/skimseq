@@ -3,20 +3,19 @@ process COUNT_BAM_READS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0:parallel/20240722-GCCcore-13.3.0"
+    module "BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0:BCFtools/1.22-GCC-13.3.0"
 
     input:
     tuple val(sample), path(cram), path(cram_index)
-
+    tuple path(ref_genome), path(genome_index_files)
     path(interval_bed)
     path(exclude_bed)
-    tuple path(ref_genome), path(genome_index_files)
-    val(mode)
     val(hc_rmdup)
+    val(hc_minbq)
     val(hc_minmq)
     
     output: 
-    tuple val(sample), path("*counts.bed"),                 emit: counts
+    tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"),   emit: counts
     
     script:
     def process_script = "${process_name}.sh"
@@ -28,12 +27,12 @@ process COUNT_BAM_READS {
         ${task.cpus} \
         ${task.memory.giga} \
         "${cram}" \
+        ${sample} \
         ${ref_genome} \
         ${interval_bed} \
         ${exclude_bed} \
-        ${sample} \
-        ${mode} \
         ${hc_rmdup} \
+        ${hc_minbq} \
         ${hc_minmq}
         
     """

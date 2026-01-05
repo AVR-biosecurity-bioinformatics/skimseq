@@ -6,8 +6,8 @@
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
-include { COUNT_VCF_DEPTH                                        } from '../modules/count_vcf_depth'
-include { CREATE_INTERVAL_CHUNKS_HC                              } from '../modules/create_interval_chunks_hc'
+include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
 include { PROFILE_HC                                             } from '../modules/profile_hc'
 include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
 
@@ -19,7 +19,7 @@ workflow GATK_SINGLE {
     ch_rg_to_validate
     ch_genome_indexed
     ch_include_bed
-    ch_mask_bed_gatk
+    ch_mask_bed_genotype
     ch_long_bed
     ch_short_bed
     ch_dummy_file
@@ -104,18 +104,26 @@ workflow GATK_SINGLE {
        Create groups of genomic intervals for parallel haplotypecaller
     */
 
-    // Create haplotypecaller intervals on per sample basis
-    CREATE_INTERVAL_CHUNKS_HC (
+    // Count per-base depths in bam, used for creating interval chunks
+    COUNT_BAM_READS (
         ch_cram_for_hc,
         ch_genome_indexed,
         ch_include_bed.first(),
-        ch_mask_bed_gatk,
-        params.hc_bases_per_chunk,
-        params.split_large_intervals,
+        ch_mask_bed_genotype,
         params.hc_rmdup,
         params.hc_minbq,
-        params.hc_minmq,
-        params.min_interval_gap
+        params.hc_minmq
+    )
+
+    // Create haplotypecaller intervals on per sample basis
+    CREATE_INTERVAL_CHUNKS_HC (
+        COUNT_BAM_READS.out.counts,
+        ch_genome_indexed,
+        ch_include_bed.first(),
+        params.hc_bases_per_chunk,
+        params.min_interval_gap,
+        params.split_large_intervals,
+        "false"
     )
    
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
@@ -147,7 +155,7 @@ workflow GATK_SINGLE {
     CALL_VARIANTS (
         ch_sample_intervals,
         ch_genome_indexed,
-        ch_mask_bed_gatk
+        ch_mask_bed_genotype
     )
 
     if( params.profile_gatk ) {

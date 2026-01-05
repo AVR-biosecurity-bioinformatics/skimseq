@@ -188,37 +188,62 @@ workflow SKIMSEQ {
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
     if ( !params.genotype_masked_bases ){
-            ch_mask_bed_gatk = MASK_GENOME.out.mask_bed
+            ch_mask_bed_genotype = MASK_GENOME.out.mask_bed
          } else {
-            ch_mask_bed_gatk = ch_mito_bed
+            ch_mask_bed_genotype = ch_mito_bed
     }
     
-    GATK_SINGLE (
-        ch_sample_names,
-        PROCESS_READS.out.cram,
-        VALIDATE_INPUTS.out.rg_to_validate,
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_mask_bed_gatk,
-        ch_long_bed,
-        ch_short_bed,
-        ch_dummy_file
-    )
 
-    /*
-    Joint call genotypes
-    */
-    
-    GATK_JOINT (
-        GATK_SINGLE.out.gvcf,
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_mask_bed_gatk,
-        ch_long_bed,
-        ch_short_bed,
-        ch_dummy_file,
-        ch_sample_names
-    )
+    if ( params.variant_caller == "gatk" ){
+
+        // Single sample calling with haplotypecaller
+        GATK_SINGLE (
+            ch_sample_names,
+            PROCESS_READS.out.cram,
+            VALIDATE_INPUTS.out.rg_to_validate,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype,
+            ch_long_bed,
+            ch_short_bed,
+            ch_dummy_file
+        )
+
+        // Joint call genotypes        
+        GATK_JOINT (
+            GATK_SINGLE.out.gvcf,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype,
+            ch_long_bed,
+            ch_short_bed,
+            ch_dummy_file,
+            ch_sample_names
+        )
+
+        GATK_JOINT.out.vcf
+            .set{ ch_vcfs }
+
+        GATK_JOINT.out.missing_frac
+            .set{ ch_missing_frac }
+
+        GATK_JOINT.out.variant_dp
+            .set{ ch_variant_dp }
+
+    } else if (params.variant_caller == "mpileup"){
+
+        // TODO: Mpileup subworkflow goes here
+        // Single step mpileup and call on all samples at once
+        // Re-use create_chunks_hc with option for summed counts
+
+        //BCFTOOLS_GENOTYPING (
+        //    ch_sample_names,
+        //    PROCESS_READS.out.cram,
+        //    ch_genome_indexed,
+        //    ch_include_bed,
+        //    ch_mask_bed_genotype
+        //)
+    }
 
     /*
     Filter SNPs, INDELs, and invariant sites
@@ -232,9 +257,9 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        GATK_JOINT.out.vcf,
-        GATK_JOINT.out.missing_frac,
-        GATK_JOINT.out.variant_dp,
+        ch_vcfs,
+        ch_missing_frac,
+        ch_variant_dp,
         ch_genome_indexed,
         ch_mask_bed_vcf
     )
@@ -259,7 +284,6 @@ workflow SKIMSEQ {
     // TODO: run VCF stats in here?
     QC (
         ch_reports.mix(FILTER_VARIANTS.out.reports),
-        VALIDATE_INPUTS.out.validated_fastq,
         PROCESS_READS.out.cram,
         ch_genome_indexed,
         ch_multiqc_config

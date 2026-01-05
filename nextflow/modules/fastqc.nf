@@ -3,10 +3,11 @@ process FASTQC {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "FastQC/0.12.1-Java-11"
+    module "FastQC/0.12.1-Java-11:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2)
+    tuple val(sample), path(cram), path(cram_index)
+    tuple path(ref_genome), path(genome_index_files)
 
     output: 
     path("*fastqc_data.txt"),             emit: results
@@ -20,9 +21,9 @@ process FASTQC {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${fastq1} \
-        ${fastq2} \
+        ${task.memory.giga} \
+        ${cram} \
         ${sample} \
-        ${lib}
+        ${ref_genome}
     """
 }
