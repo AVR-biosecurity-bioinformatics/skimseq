@@ -1,5 +1,5 @@
-process FILTER_VCF {
-    def process_name = "filter_vcf"
+process FILTER_VCF_SITES {
+    def process_name = "filter_vcf_sites"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     //publishDir "${launchDir}/output/results/vcf/filtered", mode: 'copy', pattern: "*vcf.gz*"
@@ -15,7 +15,6 @@ process FILTER_VCF {
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),      emit: vcf
     path("*_filter_summary.tsv.gz"),                                                      emit: tables
-    path("samples_to_keep.txt"),                                                          emit: samples_to_keep
 
     script:
     // variant_type is one of: snp, indel, invariant

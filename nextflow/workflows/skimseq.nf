@@ -261,7 +261,8 @@ workflow SKIMSEQ {
         ch_missing_frac,
         ch_variant_dp,
         ch_genome_indexed,
-        ch_mask_bed_vcf
+        ch_mask_bed_vcf,
+        ch_sample_names
     )
 
     /*
