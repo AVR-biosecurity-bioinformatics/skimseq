@@ -7,6 +7,7 @@ include { JOINT_GENOTYPE                                                 } from 
 include { MERGE_VCFS as MERGE_GVCFS                                      } from '../modules/merge_vcfs' 
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                            } from '../modules/merge_vcfs' 
 include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records'
+include { SPLIT_BED_BY_CHR                                               } from '../modules/split_bed_by_chr' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks'
 include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
@@ -50,12 +51,16 @@ workflow GATK_JOINT {
             .set { ch_counts }
 
     // Create joint calling intervals for long beds
+
+    // First split bed by chr
+    SPLIT_BED_BY_CHR(long.bed.first())
+
     // Takes the sum of vcf records * samples - i.e. number of genotypes to assign intervals to parallel chunks
     // NOTE: split_large_intervals is used here to allow further splitting of intervals that are over params.jc_genotypes_per_chunk
     CREATE_INTERVAL_CHUNKS_JC_LONG (
         ch_counts,
         ch_genome_indexed,
-        ch_long_bed.first(),
+        SPLIT_BED_BY_CHR.out.per_chr_beds,
         params.jc_genotypes_per_chunk,
         params.min_interval_gap,
         params.split_large_intervals,
