@@ -88,7 +88,8 @@ process FILTER_VCF_SITES {
     "${variant_type}" \
     "${mask_bed}" \
     "${interval_hash}" 
-    ##"${missing_summary}" \
-    ##"${dp_summary}"
+
     """
+    //"${missing_summary}" \
+    //"${dp_summary}"
 }

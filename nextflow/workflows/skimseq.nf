@@ -6,6 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
+include { BCFTOOLS_GENOTYPING                                       } from '../subworkflows/bcftools_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'

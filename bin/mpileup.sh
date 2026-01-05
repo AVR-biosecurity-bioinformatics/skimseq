@@ -4,29 +4,28 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = memory
-# $3 = genomicsDB
-# $4 = ref_genome
-# $5 = interval hash
-# $6 = interval_bed
-# $7 = exclude_bed
+# $3 = ref_genome
+# $4 = interval hash
+# $5 = interval_bed
+# $6 = exclude_bed
+# $7 = cram
 
 ## Parse positional input args, the rest are xported
 CPUS="${1}"
 MEM_GB="${2}"
-GENOMICSDB="${3}"
-REF="${4}"
-IHASH="${5}"
-INTERVAL_BED="${6}"
-EXCLUDE_BED="${7}"
+REF="${3}"
+IHASH="${4}"
+INTERVAL_BED="${5}"
+EXCLUDE_BED="${6}"
 
-# Create bed file, subtracting exclude_bed+padding
+# Create new bed file, subtracting exclude_bed+padding
 
 # parse filtering options as flags
 if [[ ${RMDUP} == "false" ]]; then
     # if duplicates are not removed, include them in counts
-    NS="-ns DUP -G UNMAP,SECONDARY,QCFAIL"
+    NS="--ns DUP -G UNMAP,SECONDARY,QCFAIL"
 else 
-    NS="-ns UNMAP,SECONDARY,QCFAIL,DUP"
+    NS="--ns UNMAP,SECONDARY,QCFAIL,DUP"
 fi
 
 if [[ ${OUTPUT_INVARIANT} == "false" ]]; then
@@ -36,19 +35,21 @@ else
     VARIANTS_ONLY=""
 fi
 
-# Create list of CRAMS to process
+# Create list of crams to be processed
+ls *.cram | grep -v '.crai' | sort > cram.list
 
 # TODO - need to handle whether duplicates should be removed
 # TODO - need to toggle variants only
 bcftools mpileup \
     --threads ${CPUS} \
-    --bam-list bam.list \
+    --bam-list cram.list \
     --max-depth 250 \
     --fasta-ref ${REF} \
     --min-BQ ${MINBQ} \
     --min-MQ ${MINMQ} \
-    --regions ${INTERVAL_BED} \
+    --regions-file ${INTERVAL_BED} \
     ${NS} \
+    --annotate FORMAT/AD,FORMAT/ADF,FORMAT/ADR,FORMAT/DP,FORMAT/SP,INFO/AD,INFO/ADF,INFO/ADR \
     --indels-cns \
     --indel-size 110 \
     | bcftools call \
