@@ -16,8 +16,8 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_missing_frac
-    ch_variant_dp    
+    //ch_missing_frac
+    //ch_variant_dp    
     ch_genome_indexed
     ch_mask_bed_vcf
     ch_sample_names
@@ -27,9 +27,9 @@ workflow FILTER_VARIANTS {
     // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF_SITES for each type
     FILTER_VCF_SITES (
         ch_vcfs.combine( channel.of("snp", "indel", "invariant") ),
-	    ch_mask_bed_vcf,
-        ch_missing_frac.map{sample, path -> [path ]}.collect(),
-        ch_variant_dp.map { sample,path -> [ path ] }.collect()
+	    ch_mask_bed_vcf
+        //ch_missing_frac.map{sample, path -> [path ]}.collect(),
+        //ch_variant_dp.map { sample,path -> [ path ] }.collect()
     )
 
     // Create a channel of all 3 variant types + all together for merging

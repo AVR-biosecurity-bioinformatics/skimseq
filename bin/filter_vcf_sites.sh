@@ -25,16 +25,16 @@ esac
 
 
 # Calculate percentile DP filters
-zcat *.variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
-N=$(wc -l < summed_dp.sorted)
+#zcat *.variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
+#N=$(wc -l < summed_dp.sorted)
 
 # Find line index of record nearest to percentile
-LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
+#LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
+#UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
 
 # Get percentile values for filters
-DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
-DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
+#DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
+#DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
 
 # Subset to target variant class and run site-level soft filtering 
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)

@@ -9,8 +9,8 @@ process FILTER_VCF_SITES {
     input:
     tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type)
     path(mask_bed)
-    path(missing_summary)
-    path(dp_summary)
+    //path(missing_summary)
+    //path(dp_summary)
 
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),      emit: vcf
@@ -87,8 +87,8 @@ process FILTER_VCF_SITES {
     "${vcf}" \
     "${variant_type}" \
     "${mask_bed}" \
-    "${interval_hash}" \
-    "${missing_summary}" \
-    "${dp_summary}"
+    "${interval_hash}" 
+    ##"${missing_summary}" \
+    ##"${dp_summary}"
     """
 }

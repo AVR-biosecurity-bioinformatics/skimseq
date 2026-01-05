@@ -240,13 +240,15 @@ workflow SKIMSEQ {
         // Single step mpileup and call on all samples at once
         // Re-use create_chunks_hc with option for summed counts
 
-        //BCFTOOLS_GENOTYPING (
-        //    ch_sample_names,
-        //    PROCESS_READS.out.cram,
-        //    ch_genome_indexed,
-        //    ch_include_bed,
-        //    ch_mask_bed_genotype
-        //)
+        BCFTOOLS_GENOTYPING (
+            ch_sample_names,
+            PROCESS_READS.out.cram,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype
+        )
+        BCFTOOLS_GENOTYPING.out.vcf
+            .set{ ch_vcfs }
     }
 
     /*
@@ -262,8 +264,8 @@ workflow SKIMSEQ {
     
     FILTER_VARIANTS (
         ch_vcfs,
-        ch_missing_frac,
-        ch_variant_dp,
+        //ch_missing_frac,
+        //ch_variant_dp,
         ch_genome_indexed,
         ch_mask_bed_vcf,
         ch_sample_names
