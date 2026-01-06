@@ -19,7 +19,7 @@ CHUNK_NAME=$(echo "${6}-${7}")
 
 # Setup read group headers for BAM, these are necessary for GATK merging and duplicate detection
 # See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
-RG_ID="${9}.${10}"
+RG_ID="${9}.${10}.${3}"
 RG_PU="${9}.${10}.${2}"
 RG_SM="${2}"
 RG_LB="${3}"
