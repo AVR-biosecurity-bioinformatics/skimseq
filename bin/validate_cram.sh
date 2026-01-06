@@ -28,11 +28,14 @@ fi
 tmp_fastq_ids=$(mktemp fastq_ids.XXXXXX)
 tmp_cram_ids=$(mktemp cram_ids.XXXXXX)
 
+mapfile -t R1 < "$5"
+mapfile -t R2 < "$6"
+
 # Get sequence IDs from forward and reverse fastqq
-seqkit seq -n -i "${5}" "${6}" \
- | sed 's/[ \t].*$//' \
- | sed 's/\/[12]$//' \
- | sort -u > "${tmp_fastq_ids}"
+seqkit seq -n -i "${R1[@]}" "${R2[@]}" \
+  | sed 's/[ \t].*$//' \
+  | sed 's/\/[12]$//' \
+  | sort -u > "${tmp_fastq_ids}"
 
 # Get sequence IDs from CRAM
 samtools view --threads ${1} --reference ${3} "${4}" \
