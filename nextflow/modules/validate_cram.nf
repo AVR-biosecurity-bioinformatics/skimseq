@@ -20,7 +20,7 @@ process VALIDATE_CRAM {
     def rgLines = rg_list.collect { rg ->
         def (s, lib, fcid, lane, plat) = rg
         // build the line with literal \t in Groovy
-        "@RG\tID:${fcid}.${lane}\tLB:${lib}\tPL:${plat}\tPU:${fcid}.${lane}.${s}\tSM:${s}"
+        "@RG\tID:${fcid}.${lane}.${lib}\tLB:${lib}\tPL:${plat}\tPU:${fcid}.${lane}.${s}\tSM:${s}"
     }.join('\n')
 
 
