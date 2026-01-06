@@ -49,7 +49,7 @@ bcftools mpileup \
     --min-MQ ${MINMQ} \
     --regions-file ${INTERVAL_BED} \
     ${NS} \
-    --annotate FORMAT/AD,FORMAT/ADF,FORMAT/ADR,FORMAT/DP,FORMAT/SP,INFO/AD,INFO/ADF,INFO/ADR \
+    --annotate FORMAT/DP,INFO/AD,FORMAT/DP,FORMAT/SP \
     --indels-cns \
     --indel-size 110 \
     | bcftools call \
@@ -61,6 +61,7 @@ bcftools mpileup \
     --multiallelic-caller \
     --prior 1.1e-3 \
     --pval-threshold 0.5
+   
 
 # Add additional annotations to interval VCF file - To be used for filtering
 
