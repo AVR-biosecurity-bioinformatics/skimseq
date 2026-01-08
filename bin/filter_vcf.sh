@@ -27,12 +27,11 @@ esac
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
 # Find samples above the missing fraction filter
-awk 'FNR==1 && NR>1{next} {print}' *.missing.tsv > all.missing.tsv
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
- all.missing.tsv > samples_to_keep.txt
+missing_summary.tsv > samples_to_keep.txt
   
 # Calculate percentile DP filters
-zcat *.variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
+zcat variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
 N=$(wc -l < summed_dp.sorted)
 
 # Find line index of record nearest to percentile

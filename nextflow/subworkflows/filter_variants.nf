@@ -34,8 +34,8 @@ workflow FILTER_VARIANTS {
     FILTER_VCF (
         ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
-        FILTER_VCF.out.missing_summary.first(),
-        FILTER_VCF.out.dp_summary.first()
+        CALC_DATASET_FILTERS.out.missing_summary.first(),
+        CALC_DATASET_FILTERS.out.dp_summary.first()
     )
 
     // Create a channel of all 3 variant types + all together for merging
@@ -62,7 +62,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
-        ch_missing_frac.map{sample, path -> [path ]}.collect(),
+        CALC_DATASET_FILTERS.out.missing_summary.first(),
         params.sample_max_missing
     )
 

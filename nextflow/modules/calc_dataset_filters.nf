@@ -6,7 +6,7 @@ process CALC_DATASET_FILTERS {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(tbi)
+    tuple val(sample), path(vcf), path(tbi)
 
     output: 
     path("missing_summary.tsv"),            emit: missing_summary
