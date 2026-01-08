@@ -6,11 +6,11 @@ process CALC_DATASET_FILTERS {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(sample), path(gvcf), path(tbi)
+    tuple path(vcf), path(tbi)
 
     output: 
-    path("missing_summary.tsv"),         emit: missing_summary
-    path("dp_summary.tsv"),              emit: dp_summary
+    path("missing_summary.tsv"),            emit: missing_summary
+    path("variant_dp.tsv.gz"),              emit: dp_summary
 
     script:
     def process_script = "${process_name}.sh"
@@ -21,6 +21,6 @@ process CALC_DATASET_FILTERS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        "${gvcf}"        
+        "${vcf}"        
     """
 }

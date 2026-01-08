@@ -224,6 +224,9 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
+        GATK_JOINT.out.merged_vcf
+            .set{ ch_merged_unfiltered_vcf }
+
         GATK_JOINT.out.missing_frac
             .set{ ch_missing_frac }
 
@@ -258,8 +261,7 @@ workflow SKIMSEQ {
     
     FILTER_VARIANTS (
         ch_vcfs,
-        ch_missing_frac,
-        ch_variant_dp,
+        ch_merged_unfiltered_vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf
     )

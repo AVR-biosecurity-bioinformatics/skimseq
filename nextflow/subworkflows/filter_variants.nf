@@ -14,19 +14,28 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_missing_frac
-    ch_variant_dp    
+    ch_merged_unfiltered_vcf
     ch_genome_indexed
     ch_mask_bed_vcf
 
     main: 
 
-    // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF for each type
+    // Calculate missing data and variant DP distribution from merged unfiltered VCF
+    CALC_DATASET_FILTERS (
+        ch_merged_unfiltered_vcf
+    )
+
+    // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF on each
+    def types = ['snp', 'indel']
+    if( params.output_invariant ) {
+    types << 'invariant'
+    }
+
     FILTER_VCF (
-        ch_vcfs.combine( channel.of("snp", "indel", "invariant") ),
+        ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
-        ch_missing_frac.map{sample, path -> [path ]}.collect(),
-        ch_variant_dp.map { sample,path -> [ path ] }.collect()
+        FILTER_VCF.out.missing_summary.first(),
+        FILTER_VCF.out.dp_summary.first()
     )
 
     // Create a channel of all 3 variant types + all together for merging

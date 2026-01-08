@@ -65,7 +65,7 @@ else
 fi
 
 # Map column 4 (counts column) back to data and remove any completely empty rows
-bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 
+bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 \
   | awk -v OFS='\t' '$4 != 0' \
   > intervals_with_counts.bed
 
