@@ -38,8 +38,18 @@ workflow FILTER_VARIANTS {
         CALC_DATASET_FILTERS.out.dp_summary.first()
     )
 
-    // Create a channel of all 3 variant types + all together for merging
+    // Use counts file to remove those with no variants
     FILTER_VCF.out.vcf
+    .map { type, vcf, tbi, counts_file ->
+        def n = counts_file.text.trim() as Integer
+        tuple(type, vcf, tbi, n)
+    }
+    .filter { type, vcf, tbi, n -> n > 0 }
+    .map { type, vcf, tbi, n -> tuple(type, vcf, tbi) }
+    .set { ch_vcfs_nonempty }
+
+    // Create a channel of all 3 variant types + all together for merging
+    ch_vcfs_nonempty
         .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }

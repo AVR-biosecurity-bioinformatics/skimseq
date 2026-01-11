@@ -62,6 +62,14 @@ if [[ -s "$skipped" ]]; then
   echo "Skipped empty VCFs: $(wc -l < "$skipped")" >&2
 fi
 
+# guard: everything empty, 
+if [[ ! -s vcf.list ]]; then
+  echo "All VCFs were empty; nothing to concat" >&2
+  mv "${first}" "${3}${ext}" 
+  bcftools index -t --threads ${1} "${3}${ext}" 
+  exit 0
+fi
+
 # Run bcftools concat in --naive mode which is much faster when the chunks are already in global genomic order
 # Use z9 for maximum compression, as these files will be stored long term
 bcftools concat \
