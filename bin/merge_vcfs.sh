@@ -79,5 +79,13 @@ bcftools concat \
     -O z9 \
     -o "${3}${ext}"
 
-# Index output 
-bcftools index -t --threads ${1} "${3}${ext}" 
+# Index output - catch instances where naive concat has ruined contig order, in which case sort to fix
+# NOTE This is triggered when re-merging indel,snp, and invariant vcfs
+if bcftools index -t --threads ${1} "${3}${ext}" >/dev/null 2>&1; then
+    echo "OK: VCF is sorted and indexable"
+else
+    echo "NOT OK: VCF is not sorted (or has other issues)"
+    bcftools sort "${3}${ext}" --max-mem "${2}G" -Oz -o "${3}_sorted${ext}"
+    mv -f "${3}_sorted${ext}" "${3}${ext}"
+    bcftools index -t --threads ${1} "${3}${ext}"
+fi
