@@ -50,7 +50,7 @@ workflow FILTER_VARIANTS {
 
     // Create a channel of all 3 variant types + all together for merging
     ch_vcfs_nonempty
-        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+        .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
