@@ -25,9 +25,23 @@ workflow FILTER_VARIANTS {
         ch_vcfs
     )
 
+    // Merge output into single 
+    CALC_CHUNK_MISSING.out.chunk_summaries \
+        .map { interval_hash, interval_bed, missing, dphist ->
+            // drop the per-chunk id/bed, keep only what the merge step needs
+            tuple(missing, dphist)
+        }
+        .collect()
+        .map { pairs ->
+            def missing_list = pairs.collect { it[0] }
+            def dphist_list  = pairs.collect { it[1] }
+            tuple(missing_list, dphist_list)
+        }
+        .set { ch_missing_dp }
+
     // Merge missing data and DP histogram from all chunks
     MERGE_CHUNK_MISSING (
-        CALC_CHUNK_MISSING.out.chunk_summaries.collect()
+        ch_missing_dp
     )
 
     // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF on each
@@ -39,8 +53,8 @@ workflow FILTER_VARIANTS {
     FILTER_VCF (
         ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
-        MERGE_CHUNK_MISSING.out.missing_summary.first(),
-        MERGE_CHUNK_MISSING.out.dp_hist.first()
+        MERGE_CHUNK_MISSING.out.missing_summary,
+        MERGE_CHUNK_MISSING.out.dp_hist
     )
 
     // Use counts file to remove those with no variants
@@ -77,7 +91,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
-        CALC_DATASET_FILTERS.out.missing_summary.first(),
+        MERGE_CHUNK_MISSING.out.missing_summary,
         params.sample_max_missing
     )
 

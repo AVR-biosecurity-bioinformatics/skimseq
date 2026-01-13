@@ -9,7 +9,7 @@ process CALC_CHUNK_MISSING {
     tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi)
 
     output: 
-    tuple val(interval_hash), val(interval_bed), path("*.missing.tsv"), path("dphist.tsv"),  emit: chunk_summaries
+    tuple val(interval_hash), val(interval_bed), path("*.missing.tsv"), path("*.dphist.tsv"),  emit: chunk_summaries
 
     script:
     def process_script = "${process_name}.sh"

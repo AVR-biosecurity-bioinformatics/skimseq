@@ -6,7 +6,7 @@ process MERGE_CHUNK_MISSING {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), val(interval_bed), path(missing), path(dphist)
+    tuple path(missing), path(dphist)
 
     output: 
     path("missing_summary.tsv"),           emit: missing_summary
@@ -21,8 +21,6 @@ process MERGE_CHUNK_MISSING {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${interval_hash} \
-        ${interval_bed} \
         ${missing} \
         ${dphist}
 
