@@ -6,11 +6,10 @@ process CALC_CHUNK_MISSING {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), val(interval_bed), path(missing), path(dphist)
+    tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi)
 
     output: 
-    path("missing_summary.tsv"),           emit: missing_summary
-    path("dphist_dataset.tsv"),            emit: dp_hist
+    tuple val(interval_hash), val(interval_bed), path("*.missing.tsv"), path("dphist.tsv"),  emit: chunk_summaries
 
     script:
     def process_script = "${process_name}.sh"
@@ -23,8 +22,6 @@ process CALC_CHUNK_MISSING {
         ${task.memory.giga} \
         ${interval_hash} \
         ${interval_bed} \
-        ${missing} \
-        ${dphist}
-
+        "${vcf}"        
     """
 }

@@ -224,9 +224,6 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-        GATK_JOINT.out.merged_vcf
-            .set{ ch_merged_unfiltered_vcf }
-
     } else if (params.variant_caller == "mpileup"){
 
         // TODO: Mpileup subworkflow goes here
@@ -255,7 +252,6 @@ workflow SKIMSEQ {
     
     FILTER_VARIANTS (
         ch_vcfs,
-        ch_merged_unfiltered_vcf,
         ch_genome_indexed,
         ch_mask_bed_vcf
     )

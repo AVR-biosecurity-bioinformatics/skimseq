@@ -3,7 +3,8 @@
 */
 
 //// import modules
-include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_filters'
+include { CALC_CHUNK_MISSING                           } from '../modules/calc_chunk_missing'
+include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_Filters'
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
@@ -14,15 +15,19 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_merged_unfiltered_vcf
     ch_genome_indexed
     ch_mask_bed_vcf
 
     main: 
 
-    // Calculate missing data and variant DP distribution from merged unfiltered VCF
+    // Calculate missing data and variant DP histogram for each chunk
+    CALC_CHUNK_MISSING (
+        ch_vcfs
+    )
+
+    // Merge missing data and DP histogram from all chunks
     CALC_DATASET_FILTERS (
-        ch_merged_unfiltered_vcf
+        CALC_CHUNK_MISSING.out.chunk_summaries.collect()
     )
 
     // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF on each
@@ -35,7 +40,7 @@ workflow FILTER_VARIANTS {
         ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
         CALC_DATASET_FILTERS.out.missing_summary.first(),
-        CALC_DATASET_FILTERS.out.dp_summary.first()
+        CALC_DATASET_FILTERS.out.dp_hist.first()
     )
 
     // Use counts file to remove those with no variants
