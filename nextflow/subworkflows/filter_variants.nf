@@ -26,18 +26,16 @@ workflow FILTER_VARIANTS {
     )
 
     // Merge output into single 
-    CALC_CHUNK_MISSING.out.chunk_summaries \
-        .map { interval_hash, interval_bed, missing, dphist ->
-            // drop the per-chunk id/bed, keep only what the merge step needs
-            tuple(missing, dphist)
-        }
-        .collect()
-        .map { pairs ->
-            def missing_list = pairs.collect { it[0] }
-            def dphist_list  = pairs.collect { it[1] }
-            tuple(missing_list, dphist_list)
-        }
-        .set { ch_missing_dp }
+    CALC_CHUNK_MISSING.out.chunk_summaries
+            .map { interval_hash, interval_bed, missing, dphist-> tuple(missing, dphist) }
+            .toList()
+            .filter { lst -> lst && !lst.isEmpty() }
+            .map { pairs ->
+                def missing_list = pairs.collect { it[0] }
+                def dphist_list  = pairs.collect { it[1] }
+                tuple(missing_list, dphist_list)
+            }
+            .set { ch_missing_dp }
 
     // Merge missing data and DP histogram from all chunks
     MERGE_CHUNK_MISSING (
