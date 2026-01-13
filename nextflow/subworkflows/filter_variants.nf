@@ -4,7 +4,7 @@
 
 //// import modules
 include { CALC_CHUNK_MISSING                           } from '../modules/calc_chunk_missing'
-include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_Filters'
+include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
@@ -26,7 +26,7 @@ workflow FILTER_VARIANTS {
     )
 
     // Merge missing data and DP histogram from all chunks
-    CALC_DATASET_FILTERS (
+    MERGE_CHUNK_MISSING (
         CALC_CHUNK_MISSING.out.chunk_summaries.collect()
     )
 
@@ -39,8 +39,8 @@ workflow FILTER_VARIANTS {
     FILTER_VCF (
         ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
-        CALC_DATASET_FILTERS.out.missing_summary.first(),
-        CALC_DATASET_FILTERS.out.dp_hist.first()
+        MERGE_CHUNK_MISSING.out.missing_summary.first(),
+        MERGE_CHUNK_MISSING.out.dp_hist.first()
     )
 
     // Use counts file to remove those with no variants

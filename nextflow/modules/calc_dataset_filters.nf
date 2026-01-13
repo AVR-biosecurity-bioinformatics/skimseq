@@ -1,5 +1,5 @@
-process CALC_CHUNK_MISSING {
-    def process_name = "calc_chunk_missing"
+process MERGE_CHUNK_MISSING {
+    def process_name = "merge_chunk_missing"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
