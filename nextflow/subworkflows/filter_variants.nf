@@ -5,7 +5,9 @@
 //// import modules
 include { CALC_CHUNK_MISSING                           } from '../modules/calc_chunk_missing'
 include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
-include { FILTER_VCF                                   } from '../modules/filter_vcf'
+//include { FILTER_VCF                                   } from '../modules/filter_vcf'
+include { FILTER_VCF_SITES                             } from '../modules/filter_vcf_sites'
+include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
@@ -15,8 +17,11 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
+    //ch_missing_frac
+    //ch_variant_dp    
     ch_genome_indexed
     ch_mask_bed_vcf
+    ch_sample_names
 
     main: 
 
@@ -48,15 +53,15 @@ workflow FILTER_VARIANTS {
     types << 'invariant'
     }
 
-    FILTER_VCF (
+    FILTER_VCF_SITES (
         ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
-        MERGE_CHUNK_MISSING.out.missing_summary,
-        MERGE_CHUNK_MISSING.out.dp_hist
+       // MERGE_CHUNK_MISSING.out.missing_summary,
+      //  MERGE_CHUNK_MISSING.out.dp_hist
     )
 
     // Use counts file to remove those with no variants
-    FILTER_VCF.out.vcf
+    FILTER_VCF_SITES.out.vcf
     .map { type, vcf, tbi, counts_file ->
         def n = counts_file.text.trim() as Integer
         tuple(type, vcf, tbi, n)
@@ -75,7 +80,7 @@ workflow FILTER_VARIANTS {
     MERGE_FILTERED_VCFS (
         ch_vcf_to_merge
     )
-      
+   
     // Extract merged variant type vcfs into convenient channels
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
     MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
@@ -84,27 +89,34 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sites and genotypes
     PLOT_VCF_FILTERS (
-        FILTER_VCF.out.tables.collect()
+        FILTER_VCF_SITES.out.tables.collect()
     )
 
     // QC plots for sample missing data
-    PLOT_SAMPLE_FILTERS (
-        MERGE_CHUNK_MISSING.out.missing_summary,
-        params.sample_max_missing
-    )
+    //PLOT_SAMPLE_FILTERS (
+    //    MERGE_CHUNK_MISSING.out.missing_summary,
+    //    params.sample_max_missing
+    //)
 
-    FILTER_VCF.out.samples_to_keep
-        .splitText( by: 1 )
-        .unique()
-        .set { ch_sample_names_filt }
+    //FILTER_VCF.out.samples_to_keep
+    //    .splitText( by: 1 )
+    //    .unique()
+    //    .set { ch_sample_names_filt }
 
     // Calculate VCF statistics
    VCF_STATS (
         ch_combined_filtered,
         ch_genome_indexed,
-        ch_sample_names_filt
+        ch_sample_names
     )
         
+
+    // Extract filtered sites only
+    EXTRACT_VCF_SITES (
+        MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }
+    )   
+
+
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_combined = ch_combined_filtered
