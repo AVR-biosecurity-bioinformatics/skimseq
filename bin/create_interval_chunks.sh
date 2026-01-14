@@ -64,8 +64,10 @@ else
   awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
 fi
 
-# Map column 4 (counts column) back to data
-bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 > intervals_with_counts.bed
+# Map column 4 (counts column) back to data and remove any completely empty rows
+bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 \
+  | awk -v OFS='\t' '$4 != 0' \
+  > intervals_with_counts.bed
 
 # Exit early if intervals_with_counts.bed is empty
 if [[ ! -s intervals_with_counts.bed ]]; then

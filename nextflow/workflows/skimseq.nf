@@ -229,12 +229,6 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-        GATK_JOINT.out.missing_frac
-            .set{ ch_missing_frac }
-
-        GATK_JOINT.out.variant_dp
-            .set{ ch_variant_dp }
-
     } else if (params.variant_discovery == "mpileup"){
 
         // TODO: Mpileup subworkflow goes here

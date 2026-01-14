@@ -27,22 +27,27 @@ esac
 bcftools view --threads ${1} ${TYPE_ARGS} -Ob -o pre_mask.bcf "${3}"
 
 # Find samples above the missing fraction filter
-awk 'FNR==1 && NR>1{next} {print}' *.missing.tsv > all.missing.tsv
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
- all.missing.tsv > samples_to_keep.txt
+missing_summary.tsv > samples_to_keep.txt
   
-# Calculate percentile DP filters
-zcat *.variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
-N=$(wc -l < summed_dp.sorted)
-
-# Find line index of record nearest to percentile
-LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-
-# Get percentile values for filters
-DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
-DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
-
+# Calculate percentile DP filters from DP histogram
+read DPlower DPupper < <(
+  awk -v pl="$PCT_LOW" -v ph="$PCT_HIGH" '
+    { dp[NR]=$1; cnt[NR]=$2+0; N+=cnt[NR] }
+    END{
+      if(N==0) exit 1
+      low  = pl/100*N; li=int(low);  if(li<low)  li++; if(li<1) li=1; if(li>N) li=N
+      high = ph/100*N; ui=int(high); if(ui<high) ui++; if(ui<1) ui=1; if(ui>N) ui=N
+      cum=0
+      for(i=1;i<=NR;i++){
+        cum += cnt[i]
+        if(!lo && cum>=li) lo=dp[i]
+        if(!hi && cum>=ui){ hi=dp[i]; break }
+      }
+      printf "%d %d\n", lo, hi
+    }
+  ' "$8"
+)
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' pre_mask.bcf \
 | awk -v OFS='\t' -v gq="${GQ:-0}" -v dmin="${gtDPmin:-0}" -v dmax="${gtDPmax:-999999999}" '
@@ -128,6 +133,10 @@ bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf \
 # TODO: Drop FT and other extra fields from vcf
 bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_filtered.vcf.gz tmp.tagged.bcf
 bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
+
+# Output number of variant records remaining (non-header lines)
+nvars=$(bcftools index -n "${6}_${4}_filtered.vcf.gz" | tr -d '[:space:]')
+printf "%s\n" "$nvars" > "${6}_${4}.counts"
 
 # ------- make filter summary histograms ------
 
