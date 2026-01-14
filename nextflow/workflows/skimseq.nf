@@ -281,20 +281,22 @@ workflow SKIMSEQ {
         ch_genotyped_snps = FILTER_VARIANTS.out.filtered_snps
         ch_genotyped_indels = FILTER_VARIANTS.out.filtered_indels
 
-    } else if (params.variant_discovery == "mpileup"){
+
+        // Join the filtered sitelists with the original vcfs on a per_chunk bassis
+        // Subset to just those sites and calculate genotype posteriors
 
 
+    } else if (params.genotyping == "mpileup"){
+
+        // TODO: Extract
     }
 
     /*
     Filter genotypes and samples
     */
-    //FILTER_GENOTYPES (
-    //    ch_vcfs,
-    //    ch_genome_indexed,
-    //    ch_mask_bed_vcf,
-    //    ch_sample_names
-    //)
+    FILTER_GENOTYPES (
+        ch_vcfs
+    )
 
 
     /*

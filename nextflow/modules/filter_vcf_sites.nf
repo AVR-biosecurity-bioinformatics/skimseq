@@ -45,7 +45,7 @@ process FILTER_VCF_SITES {
     def DPmin     = p("${prefix}_dp_min")
     def PCT_LOW   = p("${prefix}_dp_lower_perc")
     def PCT_HIGH  = p("${prefix}_dp_upper_perc")
-    def F_MISSING = p("${prefix}_max_missing")
+    def CR        = p("${prefix}_min_callrate")
 
     // global values (also guard with containsKey)
     def GQ           = p("gq")
@@ -73,7 +73,7 @@ process FILTER_VCF_SITES {
     ${exOrUnset("DPmin",     DPmin)}
     ${exOrUnset("PCT_LOW",   PCT_LOW)}
     ${exOrUnset("PCT_HIGH",  PCT_HIGH)}
-    ${exOrUnset("F_MISSING", F_MISSING)}
+    ${exOrUnset("CR",        CR)}
 
     ${exOrUnset("GQ",          GQ)}
     ${exOrUnset("gtDPmin",     gtDPmin)}

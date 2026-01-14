@@ -44,18 +44,18 @@ read DPlower DPupper < <(
 # Subset to target variant class and run drop all genotypes, then run site-level soft filtering 
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
-  | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD < ${QD:-0}" \
-  | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     < ${QUAL_THR:-0}" \
-  | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR > ${SOR:-1e9}" \
-  | bcftools filter -Ou -s FS_FAIL     -m+ -e "INFO/FS  > ${FS:-1e9}" \
-  | bcftools filter -Ou -s MQ_FAIL     -m+ -e "INFO/MQ  < ${MQ:-0}" \
-  | bcftools filter -Ou -s MQRS_FAIL   -m+ -e "INFO/MQRankSum      < ${MQRS:--1e9}" \
-  | bcftools filter -Ou -s RPRS_FAIL   -m+ -e "INFO/ReadPosRankSum < ${RPRS:--1e9}" \
-  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF < ${MAF:-0}" \
-  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC < ${MAC:-0}" \
-  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet > ${EH:-1e9}" \
-  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
-  | bcftools filter -Ou -s MISS_FAIL   -m+ -e "INFO/F_MISSING > ${F_MISSING:-1}" \
+  | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD <= ${QD:-0}" \
+  | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     <= ${QUAL_THR:-0}" \
+  | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR >= ${SOR:-1e9}" \
+  | bcftools filter -Ou -s FS_FAIL     -m+ -e "INFO/FS  >= ${FS:-1e9}" \
+  | bcftools filter -Ou -s MQ_FAIL     -m+ -e "INFO/MQ  <= ${MQ:-0}" \
+  | bcftools filter -Ou -s MQRS_FAIL   -m+ -e "INFO/MQRankSum <= ${MQRS:--1e9}" \
+  | bcftools filter -Ou -s RPRS_FAIL   -m+ -e "INFO/ReadPosRankSum <= ${RPRS:--1e9}" \
+  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
+  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet >= ${EH:-1e9}" \
+  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
+  | bcftools filter -Ou -s CR_FAIL     -m+ -e "INFO/CR <= ${CR:-0}" \
   | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
   | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
 
@@ -207,7 +207,7 @@ create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF
 create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcessHet\n"      ExcessHet   "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "MISS_FAIL"  "%INFO/F_MISSING\n"      F_MISSING   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "CR_FAIL"    "%INFO/CR\n"             CR          "$VTYPE" "$NBINS" >> "$out"
 
 # Zip output summary table
 pigz -p ${1} $out

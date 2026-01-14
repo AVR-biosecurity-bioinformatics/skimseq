@@ -28,22 +28,17 @@ workflow FILTER_GENOTYPES {
     types << 'invariant'
     }
 
-    FILTER_VCF_SITES (
-        ch_vcfs.combine( channel.of(*types) ),
-	    ch_mask_bed_vcf,
-       // MERGE_CHUNK_MISSING.out.missing_summary,
-      //  MERGE_CHUNK_MISSING.out.dp_hist
-    )
+    // Filter VCF genotypes
 
-    // Use counts file to remove those with no variants
-    FILTER_VCF_SITES.out.vcf
-    .map { type, vcf, tbi, counts_file ->
-        def n = counts_file.text.trim() as Integer
-        tuple(type, vcf, tbi, n)
-    }
-    .filter { type, vcf, tbi, n -> n > 0 }
-    .map { type, vcf, tbi, n -> tuple(type, vcf, tbi) }
-    .set { ch_vcfs_nonempty }
+    // Calculate per-sample missing data, creating a list of samples to keep
+
+
+    // Filter genotypes for quality - Set to missing genotype but retain GL/PL for probabilistic analyses
+    // Apply final missing data
+    FILTER_VCF_GENOTYPES (
+        ch_vcfs.combine( channel.of(*types) ),
+	    ch_mask_bed_vcf
+    )
 
     // Create a channel of all 3 variant types + all together for merging
     ch_vcfs_nonempty

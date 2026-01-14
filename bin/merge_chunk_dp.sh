@@ -4,9 +4,7 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = memory
-# $3 = interval_hash
-# $4 = interval_bed
-# $5 = vcf file
+# $3 = dp_files
 
 #  Merge DP histograms
 ls *.dphist.tsv > hist_files.list

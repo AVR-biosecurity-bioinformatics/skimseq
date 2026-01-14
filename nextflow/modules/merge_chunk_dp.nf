@@ -20,7 +20,6 @@ process MERGE_CHUNK_DP {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${missing} \
         ${dphist}
 
     """
