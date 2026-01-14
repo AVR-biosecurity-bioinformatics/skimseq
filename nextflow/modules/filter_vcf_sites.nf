@@ -9,12 +9,11 @@ process FILTER_VCF_SITES {
     input:
     tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type)
     path(mask_bed)
-    //path(missing_summary)
-    //path(dp_summary)
+    path(dp_summary)
 
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"), path("*.counts"),     emit: vcf
-    path("*_filter_summary.tsv.gz"),                                                      emit: tables
+    path("*_filter_summary.tsv.gz"),                                                                       emit: tables
 
     script:
     // variant_type is one of: snp, indel, invariant
@@ -87,9 +86,9 @@ process FILTER_VCF_SITES {
     "${vcf}" \
     "${variant_type}" \
     "${mask_bed}" \
-    "${interval_hash}" 
+    "${interval_hash}" \
+    "${dp_summary}"
 
     """
-    //"${missing_summary}" \
-    //"${dp_summary}"
+
 }

@@ -8,8 +8,7 @@ set -uoe pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
 # $6 = interval_hash
-# $7 = missing_summary
-# $8 = DP summary
+# $7 = DP summary
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
@@ -23,22 +22,28 @@ case "${4}" in
   *) echo "variant_type must be snp|indel|invariant"; exit 1;;
 esac
 
+# Calculate percentile DP filters from DP histogram
+read DPlower DPupper < <(
+  awk -v pl="$PCT_LOW" -v ph="$PCT_HIGH" '
+    { dp[NR]=$1; cnt[NR]=$2+0; N+=cnt[NR] }
+    END{
+      if(N==0) exit 1
+      low  = pl/100*N; li=int(low);  if(li<low)  li++; if(li<1) li=1; if(li>N) li=N
+      high = ph/100*N; ui=int(high); if(ui<high) ui++; if(ui<1) ui=1; if(ui>N) ui=N
+      cum=0
+      for(i=1;i<=NR;i++){
+        cum += cnt[i]
+        if(!lo && cum>=li) lo=dp[i]
+        if(!hi && cum>=ui){ hi=dp[i]; break }
+      }
+      printf "%d %d\n", lo, hi
+    }
+  ' "$7"
+)
 
-# Calculate percentile DP filters
-#zcat *.variant_dp.tsv.gz | cut -f3 | sort -n > summed_dp.sorted
-#N=$(wc -l < summed_dp.sorted)
-
-# Find line index of record nearest to percentile
-#LOWER_INDEX=$(awk -v n="$N" -v p="$PCT_LOW"  'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-#UPPER_INDEX=$(awk -v n="$N" -v p="$PCT_HIGH" 'BEGIN{r=p/100*n; i=int(r); if(i<r)i++; if(i<1)i=1; if(i>n)i=n; print i}')
-
-# Get percentile values for filters
-#DPlower=$(awk -v i="$LOWER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
-#DPupper=$(awk -v i="$UPPER_INDEX" 'NR==i{print; exit}' summed_dp.sorted)
-
-# Subset to target variant class and run site-level soft filtering 
+# Subset to target variant class and run drop all genotypes, then run site-level soft filtering 
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
-bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
+bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD < ${QD:-0}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR > ${SOR:-1e9}" \

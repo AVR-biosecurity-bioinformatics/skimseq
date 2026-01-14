@@ -291,7 +291,12 @@ workflow SKIMSEQ {
     /*
     Filter genotypes and samples
     */
-
+    //FILTER_GENOTYPES (
+    //    ch_vcfs,
+    //    ch_genome_indexed,
+    //    ch_mask_bed_vcf,
+    //    ch_sample_names
+    //)
 
 
     /*
