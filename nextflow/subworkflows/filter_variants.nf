@@ -3,7 +3,8 @@
 */
 
 //// import modules
-include { CALC_DATASET_FILTERS                         } from '../modules/calc_dataset_filters'
+include { CALC_CHUNK_MISSING                           } from '../modules/calc_chunk_missing'
+include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
@@ -14,24 +15,59 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_missing_frac
-    ch_variant_dp    
     ch_genome_indexed
     ch_mask_bed_vcf
 
     main: 
 
-    // For each input VCF, combine with type to make 3 copies for each type, then run FILTER_VCF for each type
-    FILTER_VCF (
-        ch_vcfs.combine( channel.of("snp", "indel", "invariant") ),
-	    ch_mask_bed_vcf,
-        ch_missing_frac.map{sample, path -> [path ]}.collect(),
-        ch_variant_dp.map { sample,path -> [ path ] }.collect()
+    // Calculate missing data and variant DP histogram for each chunk
+    CALC_CHUNK_MISSING (
+        ch_vcfs
     )
 
-    // Create a channel of all 3 variant types + all together for merging
+    // Merge output into single 
+    CALC_CHUNK_MISSING.out.chunk_summaries
+            .map { interval_hash, interval_bed, missing, dphist-> tuple(missing, dphist) }
+            .toList()
+            .filter { lst -> lst && !lst.isEmpty() }
+            .map { pairs ->
+                def missing_list = pairs.collect { it[0] }
+                def dphist_list  = pairs.collect { it[1] }
+                tuple(missing_list, dphist_list)
+            }
+            .set { ch_missing_dp }
+
+    // Merge missing data and DP histogram from all chunks
+    MERGE_CHUNK_MISSING (
+        ch_missing_dp
+    )
+
+    // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF on each
+    def types = ['snp', 'indel']
+    if( params.output_invariant ) {
+    types << 'invariant'
+    }
+
+    FILTER_VCF (
+        ch_vcfs.combine( channel.of(*types) ),
+	    ch_mask_bed_vcf,
+        MERGE_CHUNK_MISSING.out.missing_summary,
+        MERGE_CHUNK_MISSING.out.dp_hist
+    )
+
+    // Use counts file to remove those with no variants
     FILTER_VCF.out.vcf
-        .concat(FILTER_VCF.out.vcf.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+    .map { type, vcf, tbi, counts_file ->
+        def n = counts_file.text.trim() as Integer
+        tuple(type, vcf, tbi, n)
+    }
+    .filter { type, vcf, tbi, n -> n > 0 }
+    .map { type, vcf, tbi, n -> tuple(type, vcf, tbi) }
+    .set { ch_vcfs_nonempty }
+
+    // Create a channel of all 3 variant types + all together for merging
+    ch_vcfs_nonempty
+        .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
@@ -53,7 +89,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
-        ch_missing_frac.map{sample, path -> [path ]}.collect(),
+        MERGE_CHUNK_MISSING.out.missing_summary,
         params.sample_max_missing
     )
 

@@ -48,7 +48,7 @@ all_bed="${TMPDIR}/all_intervals.bed"
 
 while IFS=$'\t' read -r chr len; do
   while read -r f; do
-    tabix --threads "$TOTAL_CPUS"  "$f" "$chr" 2>/dev/null
+    tabix "$f" "$chr" 2>/dev/null
   done < counts_files.list
 done < contigs.tsv \
   | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "${SORT_MEM_GB}G" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
@@ -64,8 +64,10 @@ else
   awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
 fi
 
-# Map column 4 (counts column) back to data
-bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 > intervals_with_counts.bed
+# Map column 4 (counts column) back to data and remove any completely empty rows
+bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 \
+  | awk -v OFS='\t' '$4 != 0' \
+  > intervals_with_counts.bed
 
 # Exit early if intervals_with_counts.bed is empty
 if [[ ! -s intervals_with_counts.bed ]]; then

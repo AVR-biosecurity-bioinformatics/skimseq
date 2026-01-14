@@ -150,13 +150,12 @@ workflow GATK_JOINT {
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
-    MERGE_UNFILTERED_VCFS (
-        ch_vcf_to_merge
-    )
+    if ( params.output_unfiltered_vcf ){
+        MERGE_UNFILTERED_VCFS (
+            ch_vcf_to_merge
+        )
+    }
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
-    merged_vcf = MERGE_UNFILTERED_VCFS.out.vcf
-    missing_frac = COUNT_VCF_RECORDS.out.missing_frac
-    variant_dp = COUNT_VCF_RECORDS.out.variant_dp
 }
