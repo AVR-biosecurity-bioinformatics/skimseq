@@ -59,6 +59,10 @@ bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
 bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_filtered.vcf.gz tmp.tagged.bcf
 bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 
+# Output number of variant records remaining (non-header lines)
+nvars=$(bcftools index -n "${6}_${4}_filtered.vcf.gz" | tr -d '[:space:]')
+printf "%s\n" "$nvars" > "${6}_${4}.counts"
+
 # ------- make filter summary histograms ------
 
 # We bin the values and create the histogram in awk to avoid parsing massive files to R
