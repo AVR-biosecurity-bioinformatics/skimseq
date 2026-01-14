@@ -3,8 +3,8 @@
 */
 
 //// import modules
-include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_missing'
-include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_missing'
+include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
+include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
 include { FILTER_VCF_SITES                             } from '../modules/filter_vcf_sites'
 include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
@@ -16,8 +16,6 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    //ch_missing_frac
-    //ch_variant_dp    
     ch_genome_indexed
     ch_mask_bed_vcf
     ch_sample_names
@@ -31,7 +29,7 @@ workflow FILTER_VARIANTS {
 
     // Merge output into single 
     CALC_CHUNK_DP.out.chunk_dp
-            .map { interval_hash, interval_bed, dphist-> dphist }
+            .map { interval_hash, interval_bed, dphist -> dphist }
             .collect()
             .set { ch_chunk_dp }
 
@@ -49,7 +47,7 @@ workflow FILTER_VARIANTS {
     FILTER_VCF_SITES (
         ch_vcfs.combine( channel.of(*types) ),
 	    ch_mask_bed_vcf,
-        MERGE_CHUNK_DP
+        MERGE_CHUNK_DP.out.dp_hist
     )
 
     // Use counts file to remove those chunks which contain no variants

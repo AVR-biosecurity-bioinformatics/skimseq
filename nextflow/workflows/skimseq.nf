@@ -259,8 +259,6 @@ workflow SKIMSEQ {
     
     FILTER_VARIANTS (
         ch_vcfs,
-        //ch_missing_frac,
-        //ch_variant_dp,
         ch_genome_indexed,
         ch_mask_bed_vcf,
         ch_sample_names
@@ -317,12 +315,12 @@ workflow SKIMSEQ {
 
     // TODO: Pass in fastqs and run FASTQC
     // TODO: run VCF stats in here?
-    QC (
-        ch_reports.mix(FILTER_VARIANTS.out.reports),
-        PROCESS_READS.out.cram,
-        ch_genome_indexed,
-        ch_multiqc_config
-    )
+    //QC (
+    //    ch_reports.mix(FILTER_VARIANTS.out.reports),
+    //    PROCESS_READS.out.cram,
+    //    ch_genome_indexed,
+    //    ch_multiqc_config
+    //)
 
 
 
