@@ -278,8 +278,8 @@ workflow SKIMSEQ {
     
     if ( params.genotyping == "use_existing" ){
         ch_genotyped_all = FILTER_VARIANTS.out.filtered_combined
-        ch_genotyped_snps = FILTER_VARIANTS.out.filtered_snps
-        ch_genotyped_indels = FILTER_VARIANTS.out.filtered_indels
+        ch_genotyped_snps = FILTER_VARIANTS.out.filtered_combined
+        ch_genotyped_indels = FILTER_VARIANTS.out.filtered_combined
 
 
         // Join the filtered sitelists with the original vcfs on a per_chunk bassis

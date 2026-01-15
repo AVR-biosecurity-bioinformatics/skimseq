@@ -52,30 +52,52 @@ workflow FILTER_VARIANTS {
 
     // Use counts file to remove those chunks which contain no variants
     FILTER_VCF_SITES.out.vcf
-        .map { type, vcf, tbi, counts_file ->
+        .map { type, interval_hash, interval_bed, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
-            tuple(type, vcf, tbi, n)
+            tuple(type, interval_hash, interval_bed, vcf, tbi, n)
         }
-        .filter { type, vcf, tbi, n -> n > 0 }
-        .map { type, vcf, tbi, n -> tuple(type, vcf, tbi) }
+        .filter { type, interval_hash, interval_bed, vcf, tbi, n -> n > 0 }
+        .map { type, interval_hash, interval_bed, vcf, tbi, n -> tuple(type, interval_hash, interval_bed, vcf, tbi) }
         .set { ch_vcfs_nonempty }
 
-    // Create a channel of all 3 variant types + all together for merging
+
+    // Merge variant types back together, by chunk
     ch_vcfs_nonempty
-        .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+        .map { type, interval_hash, interval_bed, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
-    // Group all filtered VCFs by variant type and merge
     MERGE_FILTERED_VCFS (
         ch_vcf_to_merge
     )
    
+
+   // Final output channel = interval_hash, interval_bed, vcf, tbi, sitesvcf, sitestbi
+    ch_vcfs   
+        .join ( MERGE_FILTERED_VCFS.out.vcf , by: 0 )
+        .set { ch_vcf_filtered }
+
+    ch_vcf_filtered.view()
+    
+    //MERGE_FILTERED_VCFS.out.vcf 
+    // Output merged sitelists 
+
+    // Create a channel of all 3 variant types + all together for merging
+    //ch_vcfs_nonempty
+    //    .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+    //    .groupTuple(by: 0)
+    //   .set { ch_vcf_to_merge }
+
+    // Group all filtered VCFs by variant type and merge
+    //MERGE_FILTERED_VCFS (
+    //    ch_vcf_to_merge
+    //)
+   
     // Extract merged variant type vcfs into convenient channels
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
+    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
+    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
+    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
+    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
 
     // QC plots for sites and genotypes
     //PLOT_VCF_FILTERS (
@@ -84,9 +106,9 @@ workflow FILTER_VARIANTS {
 
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    filtered_combined = ch_combined_filtered
-    filtered_snps = ch_snp_filtered
-    filtered_indels = ch_indel_filtered
+    filtered_combined = ch_vcf_filtered
+    //filtered_snps = ch_snp_filtered
+    //filtered_indels = ch_indel_filtered
     //reports = VCF_STATS.out.vcfstats
 
 }
