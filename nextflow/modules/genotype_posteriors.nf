@@ -6,7 +6,7 @@ process GENOTYPE_POSTERIORS {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(vcf), path(vcf_tbi)
+    tuple val(interval_hash), path(interval_bed), path(vcf), path(tbi), path(sites_vcf), path(sites_tbi)
 
 
     output: 
@@ -21,9 +21,10 @@ process GENOTYPE_POSTERIORS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${vcf} \
         ${interval_hash} \
-        ${interval_bed}
+        ${interval_bed} \
+        ${vcf} \
+        ${sites_vcf}
 
     """
 }

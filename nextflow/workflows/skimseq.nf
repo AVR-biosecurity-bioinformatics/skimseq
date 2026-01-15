@@ -15,6 +15,7 @@ include { QC                                                        } from '../s
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
+include { GENOTYPE_POSTERIORS                                       } from '../modules/genotype_posteriors'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -277,26 +278,28 @@ workflow SKIMSEQ {
     */
     
     if ( params.genotyping == "use_existing" ){
-        ch_genotyped_all = FILTER_VARIANTS.out.filtered_combined
-        ch_genotyped_snps = FILTER_VARIANTS.out.filtered_combined
-        ch_genotyped_indels = FILTER_VARIANTS.out.filtered_combined
 
+        // Subset to just filtered sites and calculate genotype posteriors
+        GENOTYPE_POSTERIORS(
+            FILTER_VARIANTS.out.filtered_combined
+        )
 
-        // Join the filtered sitelists with the original vcfs on a per_chunk bassis
-        // Subset to just those sites and calculate genotype posteriors
-
-
+        ch_genotyped_all = GENOTYPE_POSTERIORS.out.vcf
+        ch_genotyped_snps = GENOTYPE_POSTERIORS.out.vcf
+        ch_genotyped_indels = GENOTYPE_POSTERIORS.out.vcf
+        
     } else if (params.genotyping == "mpileup"){
 
-        // TODO: Extract
+        // TODO: Generate a pileup file at just the filtered sites
+
     }
 
     /*
     Filter genotypes and samples
     */
-    FILTER_GENOTYPES (
-        ch_vcfs
-    )
+    //FILTER_GENOTYPES (
+    //    ch_vcfs
+    //)
 
 
     /*

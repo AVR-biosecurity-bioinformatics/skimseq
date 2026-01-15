@@ -8,6 +8,7 @@ include { MERGE_CHUNK_DP                               } from '../modules/merge_
 include { FILTER_VCF_SITES                             } from '../modules/filter_vcf_sites'
 include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
@@ -63,41 +64,43 @@ workflow FILTER_VARIANTS {
 
     // Merge variant types back together, by chunk
     ch_vcfs_nonempty
-        .map { type, interval_hash, interval_bed, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
+        .map { type, interval_hash, interval_bed, vcf, tbi ->
+            tuple("${interval_hash}_filtered", vcf, tbi) // Adding string '_filtered' to ihas ensure's its present in from MERGE_FILTERED_VCF output filename
+        }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
     MERGE_FILTERED_VCFS (
         ch_vcf_to_merge
     )
-   
-
-   // Final output channel = interval_hash, interval_bed, vcf, tbi, sitesvcf, sitestbi
+  
+   // Output channel of interval_hash, interval_bed, vcf, tbi, sitesvcf, sitestbi
     ch_vcfs   
-        .join ( MERGE_FILTERED_VCFS.out.vcf , by: 0 )
+        .join ( MERGE_FILTERED_VCFS.out.vcf 
+                    .map { interval_hash_filtered, vcf, tbi ->
+                    def interval_hash = interval_hash_filtered.replaceFirst(/_filtered$/, '') // remove '_filtered' string from ihash for join
+                    tuple(interval_hash, vcf, tbi)
+                }, by: 0 )
         .set { ch_vcf_filtered }
 
-    ch_vcf_filtered.view()
+    // Output channels of just the merged sitelists
     
-    //MERGE_FILTERED_VCFS.out.vcf 
-    // Output merged sitelists 
-
     // Create a channel of all 3 variant types + all together for merging
-    //ch_vcfs_nonempty
-    //    .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
-    //    .groupTuple(by: 0)
-    //   .set { ch_vcf_to_merge }
+    ch_vcfs_nonempty
+        .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+        .groupTuple(by: 0)
+       .set { ch_sitelists_to_merge }
 
-    // Group all filtered VCFs by variant type and merge
-    //MERGE_FILTERED_VCFS (
-    //    ch_vcf_to_merge
-    //)
+    // Group all filtered sitelists by variant type and merge
+    MERGE_FILTERED_SITELISTS (
+        ch_sitelists_to_merge
+    )
    
     // Extract merged variant type vcfs into convenient channels
-    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
-    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
-    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
-    //MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
+    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_all_sitelist }
+    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_sitelist }
+    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_sitelist }
+    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_inv_sitelist }
 
     // QC plots for sites and genotypes
     //PLOT_VCF_FILTERS (
@@ -107,8 +110,10 @@ workflow FILTER_VARIANTS {
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_combined = ch_vcf_filtered
-    //filtered_snps = ch_snp_filtered
-    //filtered_indels = ch_indel_filtered
+    all_sitelist = ch_all_sitelist
+    snp_sitelist = ch_snp_sitelist
+    indel_sitelist = ch_indel_sitelist
+    inv_sitelist = ch_inv_sitelist
     //reports = VCF_STATS.out.vcfstats
 
 }
