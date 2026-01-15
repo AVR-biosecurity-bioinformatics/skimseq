@@ -86,10 +86,11 @@ workflow FILTER_VARIANTS {
     // Output channels of just the merged sitelists
     
     // Create a channel of all 3 variant types + all together for merging
-    ch_vcfs_nonempty
-        .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
+    ch_vcfs_nonempty.map { type, interval_hash, interval_bed, vcf, tbi -> tuple(type, vcf, tbi) }
+        .concat(ch_vcfs_nonempty.map { type, interval_hash, interval_bed, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
        .set { ch_sitelists_to_merge }
+
 
     // Group all filtered sitelists by variant type and merge
     MERGE_FILTERED_SITELISTS (

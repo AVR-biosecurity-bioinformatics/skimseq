@@ -16,6 +16,7 @@ include { QC                                                        } from '../s
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { GENOTYPE_POSTERIORS                                       } from '../modules/genotype_posteriors'
+include { MERGE_VCFS as MERGE_GENOTYPED_VCFS                        } from '../modules/merge_vcfs'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -269,12 +270,14 @@ workflow SKIMSEQ {
    Genotype individuals at filtered sites
 
    Here we re-genotype from the original bams at only the high quality sites. 
-   This makes the resulting 
    Options for genotyping are:
     - using genotypes directly from variant discovery
     - re-genotyping with bcftools mpileup
+    - use an input vcf of existing sites
     - TODO: Imputation with STITCH etc
     - TODO: PCA based genotype calling using pcangsd
+
+    
     */
     
     if ( params.genotyping == "use_existing" ){
@@ -284,10 +287,14 @@ workflow SKIMSEQ {
             FILTER_VARIANTS.out.filtered_combined
         )
 
-        ch_genotyped_all = GENOTYPE_POSTERIORS.out.vcf
-        ch_genotyped_snps = GENOTYPE_POSTERIORS.out.vcf
-        ch_genotyped_indels = GENOTYPE_POSTERIORS.out.vcf
+        MERGE_GENOTYPED_VCFS (
+            GENOTYPE_POSTERIORS.out.vcf.map { interval_hash, interval_bed, vcf, tbi -> tuple('genotyped', vcf, tbi) }
+        )
         
+        ch_genotyped_all = MERGE_GENOTYPED_VCFS.out.vcf
+        ch_genotyped_snps = MERGE_GENOTYPED_VCFS.out.vcf
+        ch_genotyped_indels = MERGE_GENOTYPED_VCFS.out.vcf
+
     } else if (params.genotyping == "mpileup"){
 
         // TODO: Generate a pileup file at just the filtered sites

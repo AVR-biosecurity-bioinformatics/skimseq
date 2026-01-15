@@ -20,3 +20,5 @@ gatk --java-options "-Xmx${2}G" CalculateGenotypePosteriors \
     -O ${3}.gp.vcf.gz \
     --interval-merging-rule ALL \
     --tmp-dir /tmp
+
+rm subset.vcf.gz*
