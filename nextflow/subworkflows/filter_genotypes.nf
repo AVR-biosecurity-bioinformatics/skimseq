@@ -14,48 +14,17 @@ include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_s
 workflow FILTER_GENOTYPES {
 
     take:
-    ch_vcfs
-    ch_filtered_sites
-    ch_mask_bed_vcf
-    ch_sample_names
+    ch_genotyped_all
 
     main: 
-
-
-    // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF on each
-    def types = ['snp', 'indel']
-    if( params.output_invariant ) {
-    types << 'invariant'
-    }
-
-    // Filter VCF genotypes
-
-    // Calculate per-sample missing data, creating a list of samples to keep
 
 
     // Filter genotypes for quality - Set to missing genotype but retain GL/PL for probabilistic analyses
     // Apply final missing data
     FILTER_VCF_GENOTYPES (
-        ch_vcfs.combine( channel.of(*types) ),
-	    ch_mask_bed_vcf
+        ch_genotyped_all
     )
 
-    // Create a channel of all 3 variant types + all together for merging
-    ch_vcfs_nonempty
-        .concat(ch_vcfs_nonempty.map { type, vcf, tbi -> tuple('combined', vcf, tbi) })
-        .groupTuple(by: 0)
-        .set { ch_vcf_to_merge }
-
-    // Group all filtered VCFs by variant type and merge
-    MERGE_FILTERED_VCFS (
-        ch_vcf_to_merge
-    )
-   
-    // Extract merged variant type vcfs into convenient channels
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_combined_filtered }
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_snp_filtered }
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_indel_filtered }
-    MERGE_FILTERED_VCFS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_invariant_filtered }
 
     // QC plots for sites and genotypes
     PLOT_VCF_FILTERS (

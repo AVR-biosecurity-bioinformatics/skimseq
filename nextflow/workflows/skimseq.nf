@@ -267,7 +267,9 @@ workflow SKIMSEQ {
     )
 
     /*
-   Genotype individuals at filtered sites
+   Genotype Refinement
+   
+   This genotypes individuals at filtered sites, or an existing sitelist
 
    Here we re-genotype from the original bams at only the high quality sites. 
    Options for genotyping are:
@@ -287,13 +289,18 @@ workflow SKIMSEQ {
             FILTER_VARIANTS.out.filtered_combined
         )
 
+        GENOTYPE_POSTERIORS.out.vcf
+            .map { interval_hash, interval_bed, vcf, tbi -> tuple('genotyped', vcf, tbi) }
+            .groupTuple(by: 0)
+            .set { ch_vcf_to_merge }
+
         MERGE_GENOTYPED_VCFS (
-            GENOTYPE_POSTERIORS.out.vcf.map { interval_hash, interval_bed, vcf, tbi -> tuple('genotyped', vcf, tbi) }
+            ch_vcf_to_merge
         )
         
-        ch_genotyped_all = MERGE_GENOTYPED_VCFS.out.vcf
-        ch_genotyped_snps = MERGE_GENOTYPED_VCFS.out.vcf
-        ch_genotyped_indels = MERGE_GENOTYPED_VCFS.out.vcf
+        ch_genotyped_all = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_snps = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_indels = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
 
     } else if (params.genotyping == "mpileup"){
 
@@ -304,9 +311,9 @@ workflow SKIMSEQ {
     /*
     Filter genotypes and samples
     */
-    //FILTER_GENOTYPES (
-    //    ch_vcfs
-    //)
+    FILTER_GENOTYPES (
+        ch_genotyped_all
+    )
 
 
     /*

@@ -104,9 +104,9 @@ workflow FILTER_VARIANTS {
     MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_inv_sitelist }
 
     // QC plots for sites and genotypes
-    //PLOT_VCF_FILTERS (
-    //    FILTER_VCF_SITES.out.tables.collect()
-    //)
+    PLOT_VCF_FILTERS (
+        FILTER_VCF_SITES.out.tables.collect()
+    )
 
     // Subset the merged vcf channels to each variant type for emission
     emit:

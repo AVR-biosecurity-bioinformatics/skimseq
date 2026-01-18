@@ -27,7 +27,7 @@ workflow OUTPUTS {
 
     // Create channel containing filtered VCF along with seperate SNP and INDEL vcf
     ch_filtered_merged
-        .mix(ch_filtered_snps, ch_filtered_indels)
+        //.mix(ch_filtered_snps, ch_filtered_indels)
         .set{ ch_vcfs }
 
     // Create beagle GL file
