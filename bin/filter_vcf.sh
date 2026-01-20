@@ -139,7 +139,7 @@ nvars=$(bcftools index -n "${6}_${4}_filtered.vcf.gz" | tr -d '[:space:]')
 printf "%s\n" "$nvars" > "${6}_${4}.counts"
 
 # Create a small summary of the number of sites passing and failing each filter
-bcftools query -f tmp.tagged.bcf \
+bcftools query -f '%FILTER\n' tmp.tagged.bcf \
   | sort \
   | uniq -c \
   | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
