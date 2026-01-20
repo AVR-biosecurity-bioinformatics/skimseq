@@ -3,7 +3,8 @@
 */
 
 //// import modules
-include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
+include { EXTRACT_GENOME_MASKS                                      } from '../modules/extract_genome_masks' 
+include { GENMAP                                                    } from '../modules/genmap' 
 include { MERGE_MASKS                                               } from '../modules/merge_masks' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 
@@ -19,7 +20,7 @@ workflow MASK_GENOME {
     main: 
 
     // Create masks from exclude intervals and existing genome masks
-    CREATE_GENOME_MASKS (
+    EXTRACT_GENOME_MASKS (
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
@@ -28,12 +29,21 @@ workflow MASK_GENOME {
         params.use_reference_softmasks
     )
 
+    // Create mapabillity mask with GENMAP
+    EXTRACT_GENOME_MASKS (
+       ch_genome_indexed,
+       params.genmap_kmer_length,
+       params.genmap_error_tol,
+       params.genmap_thresh
+    )
+
     /*
     Create mask file and summarise
     */
 
     //Concatenate multiple masks together intp a list
-    CREATE_GENOME_MASKS.out.mask_bed
+    EXTRACT_GENOME_MASKS.out.mask_bed
+      .concat(EXTRACT_GENOME_MASKS.out.mask_bed)
       .concat(ch_mito_bed)
       .collect()
       .set{ ch_mask_bed }

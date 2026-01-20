@@ -1,5 +1,5 @@
-process CREATE_GENOME_MASKS {
-    def process_name = "create_genome_masks"    
+process EXTRACT_GENOME_MASKS {
+    def process_name = "extract_genome_masks"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
