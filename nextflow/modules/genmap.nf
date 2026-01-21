@@ -6,7 +6,7 @@ process GENMAP {
     module "GenMap/1.3.0-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    path(ref_genome)
+    tuple path(ref_genome), path(genome_index_files)
     val(genmap_kmer_length)
     val(genmap_error_tol)
     val(genmap_thresh)

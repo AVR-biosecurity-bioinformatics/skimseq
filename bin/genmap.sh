@@ -20,6 +20,7 @@ genmap map -K ${4} -E ${5} \
 -O genmap_E${4}_E${5} -t -w -bg --threads ${1}
 
 # Create filtered bed file with masked (low mappability regions), and merge contiguous/overlapping
-awk -v thr="${6}" 'BEGIN{FS=OFS="\t"} ($4=="" || $4+0 < thr) {print $1,$2,$3}' genmap_E${4}_E${5}.bedgraph \
-| bedtools merge -i - \
+awk -v thr="${6}" 'BEGIN{FS=OFS="\t"} ($4=="" || $4+0 < thr) {print $1,$2,$3,"GENMAP"}' \
+genmap_E${4}_E${5}.bedgraph \
+| bedtools merge -i - -c 4 -o distinct \
 > genmap_mask.bed

@@ -30,7 +30,7 @@ workflow MASK_GENOME {
     )
 
     // Create mapabillity mask with GENMAP
-    EXTRACT_GENOME_MASKS (
+    GENMAP (
        ch_genome_indexed,
        params.genmap_kmer_length,
        params.genmap_error_tol,
@@ -42,7 +42,7 @@ workflow MASK_GENOME {
     */
 
     //Concatenate multiple masks together intp a list
-    EXTRACT_GENOME_MASKS.out.mask_bed
+    GENMAP.out.mask_bed
       .concat(EXTRACT_GENOME_MASKS.out.mask_bed)
       .concat(ch_mito_bed)
       .collect()
