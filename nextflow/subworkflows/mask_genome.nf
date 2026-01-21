@@ -5,6 +5,7 @@
 //// import modules
 include { EXTRACT_GENOME_MASKS                                      } from '../modules/extract_genome_masks' 
 include { GENMAP                                                    } from '../modules/genmap' 
+include { LONGDUST                                                  } from '../modules/longdust'
 include { MERGE_MASKS                                               } from '../modules/merge_masks' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 
@@ -35,6 +36,14 @@ workflow MASK_GENOME {
        params.genmap_kmer_length,
        params.genmap_error_tol,
        params.genmap_thresh
+    )
+
+    // Create Repeat/LCR mask with longdust
+    LONGDUST (
+       ch_genome_indexed,
+       params.longdust_kmer_length,
+       params.longdust_window_size,
+       params.longdust_thresh
     )
 
     /*
