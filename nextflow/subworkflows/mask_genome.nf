@@ -51,8 +51,9 @@ workflow MASK_GENOME {
     */
 
     //Concatenate multiple masks together intp a list
-    GENMAP.out.mask_bed
-      .concat(EXTRACT_GENOME_MASKS.out.mask_bed)
+    EXTRACT_GENOME_MASKS.out.mask_bed
+      .concat(GENMAP.out.mask_bed)
+      .concat(LONGDUST.out.mask_bed)
       .concat(ch_mito_bed)
       .collect()
       .set{ ch_mask_bed }

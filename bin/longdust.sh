@@ -9,7 +9,7 @@ set -u
 # $5 = window_size
 # $6 = threshold
 
-gc_perc=$(seqkit fx2tab -n -i -l -g "$ref" \
+gc_perc=$(seqkit fx2tab -n -i -l -g ${3} \
   | awk 'BEGIN{FS=OFS="\t"} {L=$(NF-1); GC=$(NF); gc += L*GC/100; tot += L}
          END{printf("%.3f\n", gc/tot)}')
 
