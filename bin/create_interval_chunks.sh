@@ -42,7 +42,7 @@ fi
 # Make a list of counts files 
 ls -1 *.counts.bed.gz > counts_files.list
 
-# Concatenate all counts beds for that chromosome and merge by gap_bp within file, then within the joint file
+# Concatenate all counts beds for that chromosome, remove any outside included_intervals, then merge by gap_bp within the joint file
 btmp="${TMPDIR}/tmp.bed"
 all_bed="${TMPDIR}/all_intervals.bed"
 
@@ -52,7 +52,8 @@ while IFS=$'\t' read -r chr len; do
   done < counts_files.list
 done < contigs.tsv \
   | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "${SORT_MEM_GB}G" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
-  | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum > "$btmp"
+  | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum \
+  | bedtools intersect -a - -b ${7} > "$btmp"
 
 # Create new bedfile which contains all bases with bed records
 if [[ "$ALL_BASES" == "false" ]]; then

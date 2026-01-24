@@ -7,14 +7,12 @@ set -u
 # $3 = cram file
 # $4 = sample
 # $5 = ref genome
-# $6 = include_bed     
-# $7 = exclude_bed
-# $8 = hc_rmdup
-# $9 = hc_minbq
-# $10 = hc_minmq
+# $6 = hc_rmdup
+# $7 = hc_minbq
+# $8 = hc_minmq
 
 # Set up samtools flags
-if [[ ${8} == "false" ]]; then
+if [[ ${6} == "false" ]]; then
     # if duplicates are not removed, include them in counts
     FLAGS="-g DUP -G UNMAP,SECONDARY,QCFAIL"
 else 
@@ -33,8 +31,8 @@ tmp_bed="${4}.counts.bed"
 samtools depth \
   -b included_intervals.bed \
   -@ ${1} \
-  -q ${9} \
-  -Q ${10} \
+  -q ${7} \
+  -Q ${8} \
   ${FLAGS} \
   --reference ${5} \
   ${3} \

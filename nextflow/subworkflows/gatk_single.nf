@@ -6,7 +6,6 @@
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
 include { CALL_VARIANTS                                          } from '../modules/call_variants'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
-include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
 include { PROFILE_HC                                             } from '../modules/profile_hc'
 include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
@@ -22,7 +21,7 @@ workflow GATK_SINGLE {
     ch_mask_bed_genotype
     ch_long_bed
     ch_short_bed
-    ch_dummy_file
+    ch_read_counts
 
     main: 
 
@@ -104,20 +103,9 @@ workflow GATK_SINGLE {
        Create groups of genomic intervals for parallel haplotypecaller
     */
 
-    // Count per-base depths in bam, used for creating interval chunks
-    COUNT_BAM_READS (
-        ch_cram_for_hc,
-        ch_genome_indexed,
-        ch_include_bed.first(),
-        ch_mask_bed_genotype,
-        params.hc_rmdup,
-        params.hc_minbq,
-        params.hc_minmq
-    )
-
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
-        COUNT_BAM_READS.out.counts,
+        ch_read_counts,
         ch_genome_indexed,
         ch_include_bed.first(),
         params.hc_bases_per_chunk,

@@ -1,5 +1,5 @@
-process COUNT_BAM_READS {
-    def process_name = "count_bam_reads"
+process COUNT_CRAM_READS {
+    def process_name = "count_cram_reads"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -8,8 +8,6 @@ process COUNT_BAM_READS {
     input:
     tuple val(sample), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
-    path(interval_bed)
-    path(exclude_bed)
     val(hc_rmdup)
     val(hc_minbq)
     val(hc_minmq)
@@ -29,8 +27,6 @@ process COUNT_BAM_READS {
         "${cram}" \
         ${sample} \
         ${ref_genome} \
-        ${interval_bed} \
-        ${exclude_bed} \
         ${hc_rmdup} \
         ${hc_minbq} \
         ${hc_minmq}

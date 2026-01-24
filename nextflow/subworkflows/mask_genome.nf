@@ -16,7 +16,7 @@ workflow MASK_GENOME {
     ch_include_bed
     ch_exclude_bed
     ch_mito_bed
-    //ch_sample_cram
+    ch_read_counts
 
     main: 
 
@@ -45,6 +45,8 @@ workflow MASK_GENOME {
        params.longdust_window_size,
        params.longdust_thresh
     )
+
+    // TODO: Create read depth masks from CRAM counts
 
     /*
     Create mask file and summarise
