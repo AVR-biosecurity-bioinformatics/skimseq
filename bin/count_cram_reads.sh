@@ -19,17 +19,11 @@ else
     FLAGS="-G UNMAP,SECONDARY,QCFAIL,DUP"
 fi
 
-# Exclude any intervals in exclude_bed, and ensure they contain only 3 columns
-bedtools subtract \
-    -a <(cut -f1-3 "${6}") \
-    -b <(cut -f1-3 "${7}") > included_intervals.bed
-
 tmp_bed="${4}.counts.bed"
 
 # count per-base depths
 # Then exclude any zero counts with awk and create bed, merging abutting intervals
 samtools depth \
-  -b included_intervals.bed \
   -@ ${1} \
   -q ${7} \
   -Q ${8} \
