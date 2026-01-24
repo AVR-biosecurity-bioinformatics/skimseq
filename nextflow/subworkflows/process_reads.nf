@@ -153,6 +153,8 @@ workflow PROCESS_READS {
 
     emit: 
     cram = STAGE_CRAM.out.cram
-    counts = COUNT_CRAM_READS.out.counts
+    counts = COUNT_CRAM_READS.out.covered
+    perbase = COUNT_CRAM_READS.out.perbase
+
 }
 

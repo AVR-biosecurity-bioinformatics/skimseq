@@ -13,8 +13,9 @@ process COUNT_CRAM_READS {
     val(hc_minmq)
     
     output: 
-    tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"),   emit: counts
-    
+    tuple val(sample), path("${sample}.covered.bed.gz"),  path("${sample}.covered.bed.gz.tbi"),   emit: covered
+    tuple val(sample), path("${sample}.perbase.bed.gz"),  path("${sample}.perbase.bed.gz.tbi"),   emit: perbase
+
     script:
     def process_script = "${process_name}.sh"
     """

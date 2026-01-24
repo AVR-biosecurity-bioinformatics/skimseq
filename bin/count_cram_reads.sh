@@ -22,20 +22,24 @@ fi
 tmp_bed="${4}.counts.bed"
 
 # count per-base depths
-# Then exclude any zero counts with awk and create bed, merging abutting intervals
 samtools depth \
   -@ ${1} \
+  -a \
   -q ${7} \
   -Q ${8} \
   ${FLAGS} \
   --reference ${5} \
-  ${3} \
-  |	awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' \
-  | bedtools merge -i -  -c 4 -o sum > "$tmp_bed"
+  ${3} > "$tmp_bed"
+  
+# Find covered tracts and summarise counts within tem
+# Then exclude any zero counts with awk and create bed, merging abutting intervals
+awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' "$tmp_bed" \
+  | bedtools merge -i -  -c 4 -o sum \
+  | bgzip -c --compress-level 9 > "${4}.covered.bed.gz"
 
 # bgzip output and create  tabix index
-bgzip -c "$tmp_bed" > "${4}.counts.bed.gz"
-tabix -f -p bed "${4}.counts.bed.gz"
+bgzip -c --compress-level 9 "$tmp_bed" > "${4}.perbase.bed.gz"
+tabix -f -p bed "${4}.perbase.bed.gz"
 
 # Cleanup
 rm "$tmp_bed"

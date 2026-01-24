@@ -59,7 +59,7 @@ done < contigs.tsv \
 if [[ "$ALL_BASES" == "false" ]]; then
   bedtools genomecov -bg -i "$btmp" -g contigs.tsv \
     | cut -f1-3 \
-    | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
+    | bedtools merge -i - -d "$GAP_BP"> "$cd "
 else 
   # if all bases is set (for short contigs) count across entire contig
   awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
