@@ -13,7 +13,8 @@ process FILTER_VCF_SITES {
 
     output: 
     tuple val(variant_type), val(interval_hash), val(interval_bed), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"), path("*.counts"),     emit: vcf
-    path("*_filter_summary.tsv.gz"),                                                                       emit: tables
+    path("*_filter_summary.tsv"),                                                                          emit: summary
+    path("*_filter_hist.tsv.gz"),                                                                          emit: hist
 
     script:
     // variant_type is one of: snp, indel, invariant

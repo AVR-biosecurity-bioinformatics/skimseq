@@ -246,7 +246,8 @@ workflow SKIMSEQ {
             PROCESS_READS.out.cram,
             ch_genome_indexed,
             ch_include_bed,
-            ch_mask_bed_genotype
+            ch_mask_bed_genotype,
+            ch_read_counts
         )
         BCFTOOLS_GENOTYPING.out.vcf
             .set{ ch_vcfs }

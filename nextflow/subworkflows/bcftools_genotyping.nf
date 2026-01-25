@@ -4,7 +4,6 @@
 
 //// import modules
 include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
-include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
 include { MPILEUP                                                } from '../modules/mpileup'
 
@@ -16,6 +15,7 @@ workflow BCFTOOLS_GENOTYPING {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
+    ch_read_counts
 
     main: 
 
@@ -23,18 +23,7 @@ workflow BCFTOOLS_GENOTYPING {
        Create groups of genomic intervals for parallel genotyping
     */
 
-    // Count per-base depths in bam, used for creating interval chunks
-    COUNT_BAM_READS (
-        ch_sample_cram,
-        ch_genome_indexed,
-        ch_include_bed.first(),
-        ch_mask_bed_genotype,
-        params.hc_rmdup,
-        params.hc_minbq,
-        params.hc_minmq
-    )
-
-     COUNT_BAM_READS.out.counts
+     ch_read_counts
         .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
         .toList()
         .filter { lst -> lst && !lst.isEmpty() }

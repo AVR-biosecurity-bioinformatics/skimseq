@@ -105,7 +105,8 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sites and genotypes
     PLOT_VCF_FILTERS (
-        FILTER_VCF_SITES.out.tables.collect()
+        FILTER_VCF_SITES.out.hist.collect(),
+        FILTER_VCF_SITES.out.summary.collect()
     )
 
     // Subset the merged vcf channels to each variant type for emission
