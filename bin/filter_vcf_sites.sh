@@ -47,7 +47,8 @@ read DPlower DPupper < <(
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     <= ${QUAL_THR:-0}" \
-  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet >= ${EH:-1e9}" \
+  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcHet <= ${EH:-1e9}" \
+  | bcftools filter -Ou -s HWE_FAIL     -m+ -e "INFO/HWE <= ${HWE:-1e9}" \
   | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
   | bcftools filter -Ou -s INDELDIST_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
   | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
@@ -199,22 +200,11 @@ printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 VTYPE="${4}"  # snp|indel|invariant
 NBINS=100 # Maximum number of data bins
 
-bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
-  | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     <= ${QUAL_THR:-0}" \
-  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet >= ${EH:-1e9}" \
-  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
-  | bcftools filter -Ou -s INDELDIST_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
-  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
-  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
-  | bcftools filter -Ou -s NS_FAIL     -m+ -e "INFO/NS <= ${NS:-0}" \
-  | bcftools filter -Ou -s CR_FAIL     -m+ -e "INFO/CR <= ${CR:-0}" \
-  | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
-  | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
-
 # Site-level histograms (use tmp.tagged.bcf)
 INPUT_SITE=tmp.tagged.bcf
 create_pf_histogram SITE "$INPUT_SITE" "QUAL_FAIL"  "%QUAL\n"                QUAL        "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcessHet\n"      ExcessHet   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcHet\n"      ExcHet   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "HWE_FAIL"    "%INFO/HWE\n"      HWE   "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "DIST_INDEL_FAIL"    "%INFO/DIST_INDEL\n"      DIST_INDEL          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" "$NBINS" >> "$out"

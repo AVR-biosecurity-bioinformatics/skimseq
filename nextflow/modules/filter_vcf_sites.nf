@@ -35,6 +35,7 @@ process FILTER_VCF_SITES {
     // dynamic per-type values
     def QUAL_THR  = p("${prefix}_qual")
     def EH        = p("${prefix}_eh")
+    def HWE        = p("${prefix}_eh")
     def DPmin     = p("${prefix}_dp_min")
     def PCT_LOW   = p("${prefix}_dp_lower_perc")
     def PCT_HIGH  = p("${prefix}_dp_upper_perc")
@@ -54,6 +55,7 @@ process FILTER_VCF_SITES {
 
     ${exOrUnset("QUAL_THR",  QUAL_THR)}
     ${exOrUnset("EH",        EH)}
+    ${exOrUnset("HWE",       HWE)}
     ${exOrUnset("DPmin",     DPmin)}
     ${exOrUnset("PCT_LOW",   PCT_LOW)}
     ${exOrUnset("PCT_HIGH",  PCT_HIGH)}
