@@ -34,25 +34,16 @@ process FILTER_VCF_SITES {
 
     // dynamic per-type values
     def QUAL_THR  = p("${prefix}_qual")
-    def QD        = p("${prefix}_qd")
-    def FS        = p("${prefix}_fs")
-    def SOR       = p("${prefix}_sor")
-    def MQ        = p("${prefix}_mq")
-    def MQRS      = p("${prefix}_mqrs")
-    def RPRS      = p("${prefix}_rprs")
     def EH        = p("${prefix}_eh")
-    def MAF       = p("${prefix}_maf")
-    def MAC       = p("${prefix}_mac")
     def DPmin     = p("${prefix}_dp_min")
     def PCT_LOW   = p("${prefix}_dp_lower_perc")
     def PCT_HIGH  = p("${prefix}_dp_upper_perc")
+    def DIST_INDEL = p("${prefix}_dist_indel")
+    def MAF       = p("${prefix}_maf")
+    def MAC       = p("${prefix}_mac")
+    def NS        = p("${prefix}_min_samples")
     def CR        = p("${prefix}_min_callrate")
 
-    // global values (also guard with containsKey)
-    def GQ           = p("gq")
-    def gtDPmin      = p("gt_dp_min")
-    def gtDPmax      = p("gt_dp_max")
-    def MISSING_FRAC = p("sample_max_missing")
 
     def process_script = "${process_name}.sh"
     """
@@ -62,24 +53,15 @@ process FILTER_VCF_SITES {
     export VARIANT_TYPE='${variant_type}'
 
     ${exOrUnset("QUAL_THR",  QUAL_THR)}
-    ${exOrUnset("QD",        QD)}
-    ${exOrUnset("FS",        FS)}
-    ${exOrUnset("SOR",       SOR)}
-    ${exOrUnset("MQ",        MQ)}
-    ${exOrUnset("MQRS",      MQRS)}
-    ${exOrUnset("RPRS",      RPRS)}
     ${exOrUnset("EH",        EH)}
-    ${exOrUnset("MAF",       MAF)}
-    ${exOrUnset("MAC",       MAC)}
     ${exOrUnset("DPmin",     DPmin)}
     ${exOrUnset("PCT_LOW",   PCT_LOW)}
     ${exOrUnset("PCT_HIGH",  PCT_HIGH)}
+    ${exOrUnset("DIST_INDEL",  DIST_INDEL)}
+    ${exOrUnset("MAF",       MAF)}
+    ${exOrUnset("MAC",       MAC)}
+    ${exOrUnset("NS",        NS)}
     ${exOrUnset("CR",        CR)}
-
-    ${exOrUnset("GQ",          GQ)}
-    ${exOrUnset("gtDPmin",     gtDPmin)}
-    ${exOrUnset("gtDPmax",     gtDPmax)}
-    ${exOrUnset("MISSING_FRAC",MISSING_FRAC)}
 
     bash ${process_script} \
     ${task.cpus} \

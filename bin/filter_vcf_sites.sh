@@ -13,6 +13,8 @@ set -uoe pipefail
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
 
+# TODO: Break out vcf masks into individual components (i.e. Genmap, longdust, etc)
+
 # Map variant type to bcftools selectors
 # TODO: select variants on output of joint genotype
 case "${4}" in
@@ -44,17 +46,13 @@ read DPlower DPupper < <(
 # Subset to target variant class and run drop all genotypes, then run site-level soft filtering 
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
-  | bcftools filter -Ou -s QD_FAIL     -m+ -e "INFO/QD <= ${QD:-0}" \
   | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     <= ${QUAL_THR:-0}" \
-  | bcftools filter -Ou -s SOR_FAIL    -m+ -e "INFO/SOR >= ${SOR:-1e9}" \
-  | bcftools filter -Ou -s FS_FAIL     -m+ -e "INFO/FS  >= ${FS:-1e9}" \
-  | bcftools filter -Ou -s MQ_FAIL     -m+ -e "INFO/MQ  <= ${MQ:-0}" \
-  | bcftools filter -Ou -s MQRS_FAIL   -m+ -e "INFO/MQRankSum <= ${MQRS:--1e9}" \
-  | bcftools filter -Ou -s RPRS_FAIL   -m+ -e "INFO/ReadPosRankSum <= ${RPRS:--1e9}" \
-  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
-  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
   | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet >= ${EH:-1e9}" \
   | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
+  | bcftools filter -Ou -s INDELDIST_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
+  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
+  | bcftools filter -Ou -s NS_FAIL     -m+ -e "INFO/NS <= ${NS:-0}" \
   | bcftools filter -Ou -s CR_FAIL     -m+ -e "INFO/CR <= ${CR:-0}" \
   | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
   | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
@@ -201,19 +199,27 @@ printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 VTYPE="${4}"  # snp|indel|invariant
 NBINS=100 # Maximum number of data bins
 
+bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
+  | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     <= ${QUAL_THR:-0}" \
+  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcessHet >= ${EH:-1e9}" \
+  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
+  | bcftools filter -Ou -s INDELDIST_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
+  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
+  | bcftools filter -Ou -s NS_FAIL     -m+ -e "INFO/NS <= ${NS:-0}" \
+  | bcftools filter -Ou -s CR_FAIL     -m+ -e "INFO/CR <= ${CR:-0}" \
+  | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
+  | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
+
 # Site-level histograms (use tmp.tagged.bcf)
 INPUT_SITE=tmp.tagged.bcf
 create_pf_histogram SITE "$INPUT_SITE" "QUAL_FAIL"  "%QUAL\n"                QUAL        "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "QD_FAIL"    "%INFO/QD\n"             QD          "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "SOR_FAIL"   "%INFO/SOR\n"            SOR         "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "FS_FAIL"    "%INFO/FS\n"             FS          "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "MQ_FAIL"    "%INFO/MQ\n"             MQ          "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "MQRS_FAIL"  "%INFO/MQRankSum\n"      MQRankSum   "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "RPRS_FAIL"  "%INFO/ReadPosRankSum\n" ReadPosRS   "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcessHet\n"      ExcessHet   "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "DIST_INDEL_FAIL"    "%INFO/DIST_INDEL\n"      DIST_INDEL          "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "NS_FAIL"    "%INFO/NS\n"             NS          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "CR_FAIL"    "%INFO/CR\n"             CR          "$VTYPE" "$NBINS" >> "$out"
 
 # Zip output summary table

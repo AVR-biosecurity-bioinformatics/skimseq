@@ -34,9 +34,9 @@ workflow BCFTOOLS_GENOTYPING {
         }
         .set { ch_counts }
 
-    // Create mpileup intervals on per sample basis
+    // Create mpileup intervals
     CREATE_INTERVAL_CHUNKS_MP (
-        COUNT_BAM_READS.out.counts,
+        ch_counts,
         ch_genome_indexed,
         ch_include_bed.first(),
         params.hc_bases_per_chunk,
