@@ -2,7 +2,6 @@ process STAGE_CRAM {
     def process_name = "stage_cram"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    //publishDir "${launchDir}/output/results/cram", mode: 'copy', pattern: "*.cram*", enabled: "${ params.output_cram ? true : false }"
     cache 'deep'
 
     input:

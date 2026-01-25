@@ -3,13 +3,10 @@
 */
 
 //// import modules
-include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
-include { CALL_VARIANTS                                          } from '../modules/call_variants'
-include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
+include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
 include { COUNT_BAM_READS                                        } from '../modules/count_bam_reads'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
-include { PROFILE_HC                                             } from '../modules/profile_hc'
-include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
+include { MPILEUP                                                } from '../modules/mpileup'
 
 workflow BCFTOOLS_GENOTYPING {
 
@@ -48,7 +45,7 @@ workflow BCFTOOLS_GENOTYPING {
         }
         .set { ch_counts }
 
-    // Create haplotypecaller intervals on per sample basis
+    // Create mpileup intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_MP (
         COUNT_BAM_READS.out.counts,
         ch_genome_indexed,
@@ -70,7 +67,7 @@ workflow BCFTOOLS_GENOTYPING {
             [ interval_chunk, interval_bed ] }
         .set { ch_interval_bed_mp }
 
-    // combine sample-level gvcf with each interval_bed file and interval chunk
+    // combine sample-level cran with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )
@@ -85,11 +82,15 @@ workflow BCFTOOLS_GENOTYPING {
        Call variants per sample
     */
 
+    // Calculate cohort size for memory scaling
+    ch_cohort_size = ch_sample_names.unique().count()
+
     // call variants for single samples across intervals
     MPILEUP (
-        ch_sample_intervals,
+        ch_cram_interval,
         ch_genome_indexed,
-        ch_mask_bed_genotype
+        ch_mask_bed_genotype,
+        ch_cohort_size
     )
 
     MPILEUP.out.vcf

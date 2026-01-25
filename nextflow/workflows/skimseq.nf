@@ -6,6 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
+include { BCFTOOLS_GENOTYPING                                       } from '../subworkflows/bcftools_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
@@ -14,6 +15,8 @@ include { QC                                                        } from '../s
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
+include { GENOTYPE_POSTERIORS                                       } from '../modules/genotype_posteriors'
+include { MERGE_VCFS as MERGE_GENOTYPED_VCFS                        } from '../modules/merge_vcfs'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -187,7 +190,11 @@ workflow SKIMSEQ {
     )
     
     /*
-    Call nuclear variants per sample
+    Discover nuclear variants per sample
+    This first step uses more strict filters to find just the reliable sites
+    Options for variant discovery are:
+    - GATK Haplotypecaller + GenotypeGVCFs
+    - BCFtools mpileup + call
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -198,7 +205,7 @@ workflow SKIMSEQ {
     }
     
 
-    if ( params.variant_caller == "gatk" ){
+    if ( params.variant_discovery == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
@@ -228,19 +235,21 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-    } else if (params.variant_caller == "mpileup"){
+    } else if (params.variant_discovery == "mpileup"){
 
         // TODO: Mpileup subworkflow goes here
         // Single step mpileup and call on all samples at once
         // Re-use create_chunks_hc with option for summed counts
 
-        //BCFTOOLS_GENOTYPING (
-        //    ch_sample_names,
-        //    PROCESS_READS.out.cram,
-        //    ch_genome_indexed,
-        //    ch_include_bed,
-        //    ch_mask_bed_genotype
-        //)
+        BCFTOOLS_GENOTYPING (
+            ch_sample_names,
+            PROCESS_READS.out.cram,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype
+        )
+        BCFTOOLS_GENOTYPING.out.vcf
+            .set{ ch_vcfs }
     }
 
     /*
@@ -257,17 +266,68 @@ workflow SKIMSEQ {
     FILTER_VARIANTS (
         ch_vcfs,
         ch_genome_indexed,
-        ch_mask_bed_vcf
+        ch_mask_bed_vcf,
+        ch_sample_names
     )
+
+    /*
+   Genotype Refinement
+   
+   This genotypes individuals at filtered sites, or an existing sitelist
+
+   Here we re-genotype from the original bams at only the high quality sites. 
+   Options for genotyping are:
+    - using genotypes directly from variant discovery
+    - re-genotyping with bcftools mpileup
+    - use an input vcf of existing sites
+    - TODO: Imputation with STITCH etc
+    - TODO: PCA based genotype calling using pcangsd
+
+    
+    */
+    
+    if ( params.genotyping == "use_existing" ){
+
+        // Subset to just filtered sites and calculate genotype posteriors
+        GENOTYPE_POSTERIORS(
+            FILTER_VARIANTS.out.filtered_combined
+        )
+
+        GENOTYPE_POSTERIORS.out.vcf
+            .map { interval_hash, interval_bed, vcf, tbi -> tuple('genotyped', vcf, tbi) }
+            .groupTuple(by: 0)
+            .set { ch_vcf_to_merge }
+
+        MERGE_GENOTYPED_VCFS (
+            ch_vcf_to_merge
+        )
+        
+        ch_genotyped_all = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_snps = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_indels = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+
+    } else if (params.genotyping == "mpileup"){
+
+        // TODO: Generate a pileup file at just the filtered sites
+
+    }
+
+    /*
+    Filter genotypes and samples
+    */
+    FILTER_GENOTYPES (
+        ch_genotyped_all
+    )
+
 
     /*
    Create extra outputs and visualisations
     */
 
     OUTPUTS (
-        FILTER_VARIANTS.out.filtered_combined,
-        FILTER_VARIANTS.out.filtered_snps,
-        FILTER_VARIANTS.out.filtered_indels,
+        ch_genotyped_all,
+        ch_genotyped_snps,
+        ch_genotyped_indels,
         ch_genome_indexed,
         ch_sample_pop
     )
@@ -278,12 +338,12 @@ workflow SKIMSEQ {
 
     // TODO: Pass in fastqs and run FASTQC
     // TODO: run VCF stats in here?
-    QC (
-        ch_reports.mix(FILTER_VARIANTS.out.reports),
-        PROCESS_READS.out.cram,
-        ch_genome_indexed,
-        ch_multiqc_config
-    )
+    //QC (
+    //    ch_reports.mix(FILTER_VARIANTS.out.reports),
+    //    PROCESS_READS.out.cram,
+    //    ch_genome_indexed,
+    //    ch_multiqc_config
+    //)
 
 
 

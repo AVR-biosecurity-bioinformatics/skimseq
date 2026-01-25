@@ -27,7 +27,7 @@ workflow OUTPUTS {
 
     // Create channel containing filtered VCF along with seperate SNP and INDEL vcf
     ch_filtered_merged
-        .mix(ch_filtered_snps, ch_filtered_indels)
+        //.mix(ch_filtered_snps, ch_filtered_indels)
         .set{ ch_vcfs }
 
     // Create beagle GL file
@@ -42,15 +42,15 @@ workflow OUTPUTS {
     }
 
     // Create beagle GP file
-    def ch_beagle_gp_out = Channel.empty()
-    if (params.output_beagle_gp) {
-        CREATE_BEAGLE_GP (
-            ch_vcfs,
-            ch_genome_indexed,
-            true
-        )
-        ch_beagle_gl_out = CREATE_BEAGLE_GP.out.beagle
-    }
+    //def ch_beagle_gp_out = Channel.empty()
+    //if (params.output_beagle_gp) {
+    //    CREATE_BEAGLE_GP (
+    //        ch_vcfs,
+    //        ch_genome_indexed,
+    //        true
+    //    )
+    //    ch_beagle_gp_out = CREATE_BEAGLE_GP.out.beagle
+    // }
 
     // Create pseudohaploid vcf file
     def ch_pseudohap_out = Channel.empty()

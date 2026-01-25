@@ -72,6 +72,7 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GC
     --heterozygosity-stdev "${HET_SD}" \
     --indel-heterozygosity "${INDEL_HET}" \
     -ERC GVCF \
+    -GQB 10 -GQB 20 -GQB 30 -GQB 40 -GQB 50 -GQB 60 -GQB 70 -GQB 80 -GQB 90 \
     -O tmp.g.vcf.gz \
     2> >(tee -a "${IHASH}.${SAMPLE}.stderr.log" >&2)
 

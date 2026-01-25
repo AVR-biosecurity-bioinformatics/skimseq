@@ -108,6 +108,7 @@ module load Java/17
 # Make sure permissions are fixed for R scripts
 chmod +777 bin/*.R
 
-# Test
+# Run tests on local node 
 nextflow run . -profile debug,test -resume
+
 ```

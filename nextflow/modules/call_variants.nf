@@ -19,7 +19,7 @@ process CALL_VARIANTS {
     """
     #!/usr/bin/env bash
 
-    // Export haplotypecaller parameters
+    # Export haplotypecaller parameters
     export INTERVAL_PAD='${params.hc_interval_padding}'
     export EXCLUDE_PAD='${params.exclude_padding}'
     export MIN_PRUNING='${params.hc_min_pruning}'
