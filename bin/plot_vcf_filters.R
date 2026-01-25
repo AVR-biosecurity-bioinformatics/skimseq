@@ -28,9 +28,12 @@ tryCatch(
 
     ### run code
 
+    hist_files <- list.files(pattern = "hist.tsv.gz$")
+    hist_files <- hist_files[file.size(hist_files) > 0]
+
     # Read in all tables and combine
     df <- readr::read_tsv(
-      list.files(pattern = "hist.tsv.gz$"),
+      hist_files,
       col_names = c("RULE", "FILTER", "VARIANT_TYPE", "BIN", "COUNT"),
       col_types = c("cccnn")
     ) %>%
@@ -108,8 +111,10 @@ tryCatch(
 
     # Create a joint table of the summary files
     # List filtering summary files
+    summary_files <- list.files(pattern = "filter_summary.tsv$")
+    summary_files <- summary_files[file.size(summary_files) > 0]
     df_summary <- readr::read_tsv(
-      list.files(pattern = "filter_summary.tsv$"),
+      summary_files,
       col_names = c("FILTER", "COUNT"),
       col_types = c("cn")
     ) %>%

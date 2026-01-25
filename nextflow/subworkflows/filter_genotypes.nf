@@ -7,7 +7,6 @@ include { CALC_CHUNK_MISSING                           } from '../modules/calc_c
 include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
 include { FILTER_VCF_GENOTYPES                         } from '../modules/filter_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
-include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
@@ -42,12 +41,6 @@ workflow FILTER_GENOTYPES {
     //    .unique()
     //    .set { ch_sample_names_filt }
 
-    // Calculate VCF statistics
-   VCF_STATS (
-        ch_combined_filtered,
-        ch_genome_indexed,
-        ch_sample_names
-    )
         
 
     // Extract filtered sites only

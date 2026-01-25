@@ -6,6 +6,7 @@
 include { FASTQC                                } from '../modules/fastqc'
 include { CRAM_STATS                            } from '../modules/cram_stats'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
+include { VCF_STATS                             } from '../modules/vcf_stats'
 include { MULTIQC                               } from '../modules/multiqc'
 
 workflow QC {
@@ -13,6 +14,8 @@ workflow QC {
     take:
     ch_reports
     ch_sample_cram
+    ch_vcf
+    ch_sample_names
     ch_genome_indexed
     ch_multiqc_config
 
@@ -31,6 +34,13 @@ workflow QC {
         ch_genome_indexed
     )
 
+    // Calculate VCF statistics on the final file
+    VCF_STATS (
+        ch_vcf,
+        ch_genome_indexed,
+        ch_sample_names
+    )
+
     // TODO: Generate QC statistics for vcf files
 
     // Optional: extract unmapped reads 
@@ -47,7 +57,8 @@ workflow QC {
             CRAM_STATS.out.stats.map { sample,path -> [ path ] }, 
             CRAM_STATS.out.flagstats.map { sample,path -> [ path ] }, 
             CRAM_STATS.out.coverage.map { sample,path -> [ path ] },  
-            FASTQC.out.results.collect()
+            FASTQC.out.results.collect(),
+            VCF_STATS.out.vcfstats
             )
         .collect()
         .ifEmpty([])

@@ -50,7 +50,7 @@ bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcHet <= ${EH:-1e9}" \
   | bcftools filter -Ou -s HWE_FAIL     -m+ -e "INFO/HWE <= ${HWE:-1e9}" \
   | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
-  | bcftools filter -Ou -s INDELDIST_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
+  | bcftools filter -Ou -s DIST_INDEL_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
   | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
   | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
   | bcftools filter -Ou -s NS_FAIL     -m+ -e "INFO/NS <= ${NS:-0}" \
