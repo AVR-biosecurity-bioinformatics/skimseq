@@ -21,6 +21,9 @@ process CREATE_INTERVAL_CHUNKS {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
+
+    # Write list of bed files to process
+    printf "%s\n" ${counts_bed} > counts_files.list
     
     ### run process script
     bash ${process_script} \
@@ -31,8 +34,7 @@ process CREATE_INTERVAL_CHUNKS {
         ${split_large_intervals} \
         ${min_interval_gap} \
         ${contig_bed} \
-        ${include_zero} \
-        "${counts_bed}" 
+        ${include_zero} 
 
     """
   

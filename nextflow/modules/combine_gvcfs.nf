@@ -17,6 +17,9 @@ process COMBINE_GVCFS {
     """
     #!/usr/bin/env bash
     
+    # Write list of gvcf files to process
+    printf "%s\n" ${gvcf} > vcf.list
+    
     ### run process script
     bash ${process_script} \
         ${task.cpus} \

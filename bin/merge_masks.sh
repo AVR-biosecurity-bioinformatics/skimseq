@@ -9,7 +9,7 @@ set -u
 touch concat_mask.bed
 while read mask; do
   cat $mask | cut -f1-4 >> concat_mask.bed
-done < <(echo ${2} | tr ' ' '\n')
+done < mask_beds.list
 
 # Merge any overlapping intervals
 bedtools sort -i concat_mask.bed \

@@ -19,7 +19,7 @@ else
     FLAGS="-G UNMAP,SECONDARY,QCFAIL,DUP"
 fi
 
-tmp_bed="${4}.counts.bed"
+tmp_bed="tmp.bed"
 
 # count per-base depths
 samtools depth \
@@ -29,13 +29,13 @@ samtools depth \
   -Q ${8} \
   ${FLAGS} \
   --reference ${5} \
-  ${3} > "$tmp_bed"
+  ${3} \
+  | awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' > "$tmp_bed"
   
-# Find covered tracts and summarise counts within tem
-# Then exclude any zero counts with awk and create bed, merging abutting intervals
-awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' "$tmp_bed" \
-  | bedtools merge -i -  -c 4 -o sum \
+# Find covered tracts by merging abutting intervals and summing counts
+bedtools merge -i "$tmp_bed" -c 4 -o sum \
   | bgzip -c --compress-level 9 > "${4}.covered.bed.gz"
+tabix -f -p bed "${4}.covered.bed.gz"
 
 # bgzip output and create  tabix index
 bgzip -c --compress-level 9 "$tmp_bed" > "${4}.perbase.bed.gz"

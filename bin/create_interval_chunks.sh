@@ -39,9 +39,6 @@ if [[ ! -s contigs.tsv ]]; then
   exit 0
 fi
 
-# Make a list of counts files 
-ls -1 *.counts.bed.gz > counts_files.list
-
 # Concatenate all counts beds for that chromosome, remove any outside included_intervals, then merge by gap_bp within the joint file
 btmp="${TMPDIR}/tmp.bed"
 all_bed="${TMPDIR}/all_intervals.bed"
@@ -59,7 +56,7 @@ done < contigs.tsv \
 if [[ "$ALL_BASES" == "false" ]]; then
   bedtools genomecov -bg -i "$btmp" -g contigs.tsv \
     | cut -f1-3 \
-    | bedtools merge -i - -d "$GAP_BP"> "$cd "
+    | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
 else 
   # if all bases is set (for short contigs) count across entire contig
   awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
