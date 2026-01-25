@@ -36,9 +36,8 @@ workflow QC {
 
     // Calculate VCF statistics on the final file
     VCF_STATS (
-        ch_vcf,
-        ch_genome_indexed,
-        ch_sample_names
+        ch_vcf.combine(ch_sample_names),
+        ch_genome_indexed
     )
 
     // TODO: Generate QC statistics for vcf files
