@@ -7,10 +7,12 @@ process PLOT_VCF_FILTERS {
     module "shifter/22.02.1"
 
     input:
-    path(filter_tables)
+    path(filter_hist)
+    path(filter_summary)
 
     output: 
-    path("*.pdf"),             emit: plots
+    path("*.pdf"),                        emit: plots
+    path("variant_filter_summary.tsv"),   emit: summary
 
     script:
     def process_script = "${process_name}.R"

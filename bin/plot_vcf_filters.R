@@ -28,12 +28,9 @@ tryCatch(
 
     ### run code
 
-    # List filtering summary files
-    table_files <- list.files(pattern = "\\.tsv.gz$")
-
     # Read in all tables and combine
     df <- readr::read_tsv(
-      table_files,
+      list.files(pattern = "hist.tsv.gz$"),
       col_names = c("RULE", "FILTER", "VARIANT_TYPE", "BIN", "COUNT"),
       col_types = c("cccnn")
     ) %>%
@@ -108,6 +105,19 @@ tryCatch(
     pdf("variant_filter_qc.pdf", width = 11, height = 8)
     purrr::walk(variant_qc_plots, plot)
     try(dev.off(), silent = TRUE)
+
+    # Create a joint table of the summary files
+    # List filtering summary files
+    df_summary <- readr::read_tsv(
+      list.files(pattern = "filter_summary.tsv$"),
+      col_names = c("FILTER", "COUNT"),
+      col_types = c("cn")
+    ) %>%
+      group_by(FILTER) %>%
+      summarise(COUNT = sum(COUNT))
+
+    # Write out summary file
+    write_tsv(df_summary, "variant_filter_summary.tsv")
   },
   finally = {
     ### save R environment if script throws error code

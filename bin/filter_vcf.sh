@@ -138,6 +138,13 @@ bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
 nvars=$(bcftools index -n "${6}_${4}_filtered.vcf.gz" | tr -d '[:space:]')
 printf "%s\n" "$nvars" > "${6}_${4}.counts"
 
+# Create a small summary of the number of sites passing and failing each filter
+bcftools query -f '%FILTER\n' tmp.tagged.bcf \
+  | sort \
+  | uniq -c \
+  | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
+  > "${6}_${4}_filter_summary.tsv"
+
 # ------- make filter summary histograms ------
 
 # We bin the values and create the histogram in awk to avoid parsing massive files to R
@@ -258,7 +265,7 @@ create_pf_histogram() {
 }
 
 # ---- build the table ----
-out="${6}_${4}_filter_summary.tsv"
+out="${6}_${4}_filter_hist.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant

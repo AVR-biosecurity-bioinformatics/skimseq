@@ -163,6 +163,9 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
     
+    PROCESS_READS.out.counts
+        .set{ ch_read_counts }
+
     /*
     Create genomic masks used to exclude regions from variant calling
     */
@@ -171,7 +174,8 @@ workflow SKIMSEQ {
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
-        ch_mito_bed
+        ch_mito_bed,
+        ch_read_counts
       )
     
     /*
@@ -213,7 +217,7 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype,
             ch_long_bed,
             ch_short_bed,
-            ch_dummy_file
+            ch_read_counts
         )
 
         // Joint call genotypes        

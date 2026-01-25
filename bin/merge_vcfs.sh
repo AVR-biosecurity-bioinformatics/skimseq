@@ -5,9 +5,6 @@ set -euo pipefail
 # $2 = mem (GB)
 # $3 = outname
 
-# Collect and sort files (initial list)
-ls *.vcf.gz | sort -> vcf.list
-
 # Detect vcf type (.g.vcf.gz or .vcf.gz) from the first file
 first=$(head -n1 vcf.list || true)
 if [[ -z "$first" ]]; then

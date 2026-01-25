@@ -18,12 +18,14 @@ process MERGE_CRAM {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
+
+    # Write list of cram files to process
+    printf "%s\n" ${cram} > cram.list
     
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
         ${sample} \
-        "${cram}" \
         ${ref_genome}
 
     """

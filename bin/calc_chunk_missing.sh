@@ -12,7 +12,7 @@ set -u
 bcftools stats -s - "$5" \
 | awk -v out="${3}.missing.tsv" 'BEGIN{OFS="\t"}
     $1=="SN" && $3=="number" && $5=="records:" {
-        total=$5
+        total=$6
         next
     }
     $1=="PSC" {

@@ -3,7 +3,9 @@
 */
 
 //// import modules
-include { CREATE_GENOME_MASKS                                       } from '../modules/create_genome_masks' 
+include { EXTRACT_GENOME_MASKS                                      } from '../modules/extract_genome_masks' 
+include { GENMAP                                                    } from '../modules/genmap' 
+include { LONGDUST                                                  } from '../modules/longdust'
 include { MERGE_MASKS                                               } from '../modules/merge_masks' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 
@@ -14,12 +16,12 @@ workflow MASK_GENOME {
     ch_include_bed
     ch_exclude_bed
     ch_mito_bed
-    //ch_sample_cram
+    ch_read_counts
 
     main: 
 
     // Create masks from exclude intervals and existing genome masks
-    CREATE_GENOME_MASKS (
+    EXTRACT_GENOME_MASKS (
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
@@ -28,12 +30,32 @@ workflow MASK_GENOME {
         params.use_reference_softmasks
     )
 
+    // Create mapabillity mask with GENMAP
+    GENMAP (
+       ch_genome_indexed,
+       params.genmap_kmer_length,
+       params.genmap_error_tol,
+       params.genmap_thresh
+    )
+
+    // Create Repeat/LCR mask with longdust
+    LONGDUST (
+       ch_genome_indexed,
+       params.longdust_kmer_length,
+       params.longdust_window_size,
+       params.longdust_thresh
+    )
+
+    // TODO: Create read depth masks from CRAM counts
+
     /*
     Create mask file and summarise
     */
 
     //Concatenate multiple masks together intp a list
-    CREATE_GENOME_MASKS.out.mask_bed
+    EXTRACT_GENOME_MASKS.out.mask_bed
+      .concat(GENMAP.out.mask_bed)
+      .concat(LONGDUST.out.mask_bed)
       .concat(ch_mito_bed)
       .collect()
       .set{ ch_mask_bed }

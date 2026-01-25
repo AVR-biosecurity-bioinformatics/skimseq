@@ -1,32 +1,32 @@
-process COMBINE_GVCFS {
-    def process_name = "combine_gvcfs"    
+process GENMAP {
+    def process_name = "genmap"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
+    module "GenMap/1.3.0-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_list), path(gvcf), path(tbi)
     tuple path(ref_genome), path(genome_index_files)
+    val(genmap_kmer_length)
+    val(genmap_error_tol)
+    val(genmap_thresh)
 
     output: 
-    tuple val(interval_hash), path(interval_list), path("*.combined.g.vcf.gz"), path("*.combined.g.vcf.gz.tbi"),      emit: gvcf_intervals
-    
+    path("genmap_mask.bed"),                                              emit: mask_bed
+
     script:
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
-    
-    # Write list of gvcf files to process
-    printf "%s\n" ${gvcf} > vcf.list
     
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
         ${ref_genome} \
-        ${interval_hash} \
-        ${interval_list}
+        ${genmap_kmer_length} \
+        ${genmap_error_tol} \
+        ${genmap_thresh}
 
     """
 }
