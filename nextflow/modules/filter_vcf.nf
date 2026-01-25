@@ -14,7 +14,8 @@ process FILTER_VCF {
 
     output: 
     tuple val(variant_type), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"), path("*.counts"),     emit: vcf
-    path("*_filter_summary.tsv.gz"),                                                                       emit: tables
+    path("*_filter_summary.tsv"),                                                                          emit: summary
+    path("*_filter_hist.tsv.gz"),                                                                          emit: hist
     path("samples_to_keep.txt"),                                                                           emit: samples_to_keep
 
     script:

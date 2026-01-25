@@ -84,7 +84,8 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sites and genotypes
     PLOT_VCF_FILTERS (
-        FILTER_VCF.out.tables.collect()
+        FILTER_VCF.out.hist.collect(),
+        FILTER_VCF.out.summary.collect()
     )
 
     // QC plots for sample missing data

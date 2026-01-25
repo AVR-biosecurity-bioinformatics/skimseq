@@ -4,14 +4,10 @@ set -uo pipefail   # no -e so we can inspect PIPESTATUS
 ## args are the following:
 # $1 = cpus 
 # $2 = sample name
-# $3 = list of cram files
-# $4 = ref_genome fasta
-
-# Create list of crams to be processed
-ls *.cram | grep -v '.crai' | sort > cram.list
+# $3 = ref_genome fasta
 
 # With samtools merge, use -c and -p to ensure duplicate RG and PG tags arent made for the chunked input samples, which will violate cram validation
-samtools merge --threads ${1} -b cram.list -c -p --reference ${4} -u -o - \
+samtools merge --threads ${1} -b cram.list -c -p --reference ${3} -u -o - \
     | samtools collate --threads ${1} -O -u - - \
     | samtools fixmate --threads ${1} -m -u - - \
     | samtools sort -M --threads ${1} -o - - \
@@ -22,7 +18,7 @@ samtools merge --threads ${1} -b cram.list -c -p --reference ${4} -u -o - \
         -S --include-fails \
         -O CRAM \
         --use-read-groups \
-        --reference ${4} \
+        --reference ${3} \
         - ${2}.cram 
 
 # Capture and report individual tool pipe statuses

@@ -3,11 +3,12 @@
 */
 
 //// import modules
-include { VALIDATE_CRAM                        } from '../modules/validate_cram'
+include { VALIDATE_CRAM                         } from '../modules/validate_cram'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
 include { SPLIT_FASTQ                           } from '../modules/split_fastq'
 include { MERGE_CRAM                            } from '../modules/merge_cram'
 include { STAGE_CRAM                            } from '../modules/stage_cram'
+include { COUNT_CRAM_READS                      } from '../modules/count_cram_reads'
 
 workflow PROCESS_READS {
 
@@ -141,7 +142,19 @@ workflow PROCESS_READS {
         ch_sample_cram
     )
 
+    // Count per-base depths in cram, used for masking and creating interval chunks
+    COUNT_CRAM_READS (
+        ch_sample_cram,
+        ch_genome_indexed,
+        params.hc_rmdup,
+        params.hc_minbq,
+        params.hc_minmq
+    )
+
     emit: 
     cram = STAGE_CRAM.out.cram
+    counts = COUNT_CRAM_READS.out.covered
+    perbase = COUNT_CRAM_READS.out.perbase
+
 }
 

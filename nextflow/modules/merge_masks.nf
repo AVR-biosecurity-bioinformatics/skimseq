@@ -15,11 +15,14 @@ process MERGE_MASKS {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
+
+    # Write list of mask beds to process
+    printf "%s\n" ${exclude_bed} > mask_beds.list
     
     ### run process script
     bash ${process_script} \
-        ${task.cpus} \
-        "${exclude_bed}" 
+        ${task.cpus}
+        
     """
   
 }

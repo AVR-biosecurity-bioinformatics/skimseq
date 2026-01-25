@@ -109,5 +109,5 @@ module load Java/17
 chmod +777 bin/*.R
 
 # Test
-nextflow run . -profile basc_modules,debug,test -resume
+nextflow run . -profile debug,test -resume
 ```

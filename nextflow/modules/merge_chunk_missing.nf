@@ -17,12 +17,14 @@ process MERGE_CHUNK_MISSING {
     """
     #!/usr/bin/env bash
 
+    # Write lists of missing data and dp hist files to process
+    printf "%s\n" ${missing} > missing_files.list
+    printf "%s\n" ${dphist} > hist_files.list
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        ${task.memory.giga} \
-        ${missing} \
-        ${dphist}
+        ${task.memory.giga} 
 
     """
 }

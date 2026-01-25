@@ -8,8 +8,6 @@ set -u
 # $4 = interval_bed
 # $5 = vcf file
 
-ls *.missing.tsv > missing_files.list
-
 # Get the total records header from each chunk
 TOTAL_TARGET=$(
   xargs -a missing_files.list awk '$1=="#TOTAL_RECORDS"{s+=$2} END{print s+0}'
@@ -36,8 +34,6 @@ xargs -a missing_files.list awk '
 > missing_summary.tsv
 
 #  Merge DP histograms
-ls *.dphist.tsv > hist_files.list
-
 xargs -a hist_files.list awk 'BEGIN{OFS="\t"} { c[$1]+=$2; N+=$2 } END{ for (d in c) print d,c[d] }' \
 | LC_ALL=C sort -n -k1,1 \
 > dphist_dataset.tsv
