@@ -15,7 +15,8 @@ MEM_GB="${2}"
 REF="${3}"
 IHASH="${4}"
 
-# Create bed file of sites to call
+# Create bed file of sites to call 
+# TODO: NEED TO HANDLE EXCLUDE PAD WITH BEDTOOLS SLOP!
 bedtools subtract -a ${5} -b ${6} > included_intervals.bed
 INTERVAL_BED="included_intervals.bed"
 
@@ -29,13 +30,13 @@ INTERVAL_BED="included_intervals.bed"
 ALN_CLAUSE="(qlen - sclen) >= ${MIN_ALIGNED_LENGTH}"
 
 # Min and max fragment (insert size) length
-TLEN_CLAUSE="( tlen == 0 || ( (tlen >= ${MIN_FRAGMENT_LENGTH} && tlen <= ${MAX_FRAGMENT_LENGTH}) || (tlen <= -${MIN_FRAGMENT_LENGTH} && tlen >= -${MAX_FRAGMENT_LENGTH}) ) )"
+TLEN_CLAUSE="( (tlen >= ${MIN_FRAGMENT_LENGTH} && tlen <= ${MAX_FRAGMENT_LENGTH}) || (tlen <= -${MIN_FRAGMENT_LENGTH} && tlen >= -${MAX_FRAGMENT_LENGTH}) )"
 
 # Read flags filter (make DUP conditional)
 if [[ "${RMDUP}" == "false" ]]; then
-  FLAGS_CLAUSE='(!flag.unmap && !flag.secondary && !flag.supplementary)'
+  FLAGS_CLAUSE='(!flag.unmap && !flag.secondary && !flag.supplementary  && flag.proper_pair )'
 else
-  FLAGS_CLAUSE='(!flag.unmap && !flag.secondary && !flag.supplementary && !flag.dup)'
+  FLAGS_CLAUSE='(!flag.unmap && !flag.secondary && !flag.supplementary  && flag.proper_pair && !flag.dup)'
 fi
 
 # Create joint filtering expression for samtools

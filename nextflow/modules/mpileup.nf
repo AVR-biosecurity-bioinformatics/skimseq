@@ -37,12 +37,11 @@ process MPILEUP {
     export PLOIDY='${params.ploidy}'
     export MINBQ='${params.minbq}'
     export MINMQ='${params.minmq}'
-    export MIN_ALIGNED_LENGTH='${params.min_fragment_length}'
-    export MIN_FRAGMENT_LENGTH='${params.max_fragment_length}'
-    export MAX_FRAGMENT_LENGTH='${params.min_aligned_length}'
-    export MUTATIONRATE='${params.mutation_rate}'
+    export MIN_ALIGNED_LENGTH='${params.min_aligned_length}'
+    export MIN_FRAGMENT_LENGTH='${params.min_fragment_length}'
+    export MAX_FRAGMENT_LENGTH='${params.max_fragment_length}'
+    export MUTATION_RATE='${params.mutation_rate}'
     export MAXDEPTH='${params.max_depth}'
-
 
     # Write list of cram files to process
     printf "%s\n" ${cram} | sort > cram.list
