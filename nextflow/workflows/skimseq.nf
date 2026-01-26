@@ -317,19 +317,22 @@ workflow SKIMSEQ {
     /*
     Filter genotypes and samples
     */
-    //FILTER_GENOTYPES (
-    //    ch_genotyped_all
-    //)
+    FILTER_GENOTYPES (
+        ch_genotyped_all
+    )
 
+    ch_final_all = FILTER_GENOTYPES.out.vcf
+    ch_final_snps = FILTER_GENOTYPES.out.vcf
+    ch_final_indels = FILTER_GENOTYPES.out.vcf
 
     /*
    Create extra outputs and visualisations
     */
 
     OUTPUTS (
-        ch_genotyped_all,
-        ch_genotyped_snps,
-        ch_genotyped_indels,
+        ch_final_all,
+        ch_final_snps,
+        ch_final_indels,
         ch_genome_indexed,
         ch_sample_pop
     )
