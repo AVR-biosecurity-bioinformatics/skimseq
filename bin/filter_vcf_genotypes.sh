@@ -44,32 +44,36 @@ bcftools annotate \
   -Ob -o gt_masked.bcf ${3}
 
 # Set failing GTs to missing 
-bcftools +setGT -Ou gt_masked.bcf -- -t q -n . -e 'FMT/FT="PASS" && FMT/FT="."' \
-  | bcftools view -U -S samples_to_keep.txt -Ob gt_filtered.bcf
+bcftools +setGT -Ob -o gt_filtered.bcf gt_masked.bcf -- \
+  -t q -n . \
+  -i 'FMT/FT!="PASS"'
 
 # Calculate per_sample missing data
 bcftools stats -s - gt_filtered.bcf \
-| awk -v out="missing_summary.tsv" 'BEGIN{OFS="\t"}
+  | awk '
+    # SN line with total records
     $1=="SN" && $3=="number" && $5=="records:" {
-        total=$6
+        total = $6
         next
     }
+
+    # per-sample counts
     $1=="PSC" {
-        if(!printed_header){
-            print "#TOTAL_RECORDS", total > out
-            print "SAMPLE","NMISS" > out
-            printed_header=1
-        }
-        print $3, $14 > out
-    }
-'
+        sample = $3
+        nmiss  = $14          # missing genotypes for that sample
+        printf "%s\t%d\t%d\t%.6f\n", sample, nmiss, total, nmiss/total
+    }' > missing_summary.tsv
+  
 # Find samples above the missing fraction filter
 awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
 missing_summary.tsv > samples_to_keep.txt
+
+# Filter for sampls
+bcftools view -U -S samples_to_keep.txt -Ob -o sample_filtered.bcf gt_filtered.bcf
   
 # Re-calculate minor alelle count (MAC) info tag
 # First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' tmp.bcf \
+bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' sample_filtered.bcf \
 | awk 'BEGIN{OFS="\t"}
        {
          split($3,ac,",")          # AC is comma‑separated if multi‑allelic
@@ -88,9 +92,12 @@ cat > MAC.hdr <<'EOF'
 EOF
 
 # Annotate the vcf with INFO/MAC and update site tags
-bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou tmp.bcf  \
+bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou sample_filtered.bcf  \
   | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
-  | bcftools view -U -Oz9 -o final.vcf
+  | bcftools filter -Ou -e "INFO/F_MISSING > ${F_MISSING:-1}" \
+  | bcftools view -U -Oz9 -o final.vcf.gz
+
+bcftools index -t final.vcf.gz
 
 # ------- make filter summary histograms ------
 
@@ -212,10 +219,9 @@ create_pf_histogram() {
 }
 
 # ---- build the table ----
-out="${6}_${4}_filter_hist.tsv"
+out="genotype_filter_hist.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
-VTYPE="${4}"  # snp|indel|invariant
 NBINS=100 # Maximum number of data bins
 
 # Genotype-level histograms (use gt_masked.bcf which has FORMAT/FT)

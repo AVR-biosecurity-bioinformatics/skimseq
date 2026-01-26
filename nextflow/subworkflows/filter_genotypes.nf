@@ -3,7 +3,7 @@
 */
 
 //// import modules
-include { FILTER_VCF_GENOTYPES                         } from '../modules/filter_vcf_sites'
+include { FILTER_VCF_GENOTYPES                         } from '../modules/filter_vcf_genotypes'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
@@ -42,6 +42,6 @@ workflow FILTER_GENOTYPES {
 
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    final_filtered = FILTER_VCF_GENOTYPES.out.vcf
+    vcf = FILTER_VCF_GENOTYPES.out.vcf
 
 }

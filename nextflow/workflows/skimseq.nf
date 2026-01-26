@@ -9,7 +9,7 @@ include { GATK_JOINT                                                } from '../s
 include { BCFTOOLS_GENOTYPING                                       } from '../subworkflows/bcftools_genotyping'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-//include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
+include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 

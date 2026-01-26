@@ -10,7 +10,7 @@ process FILTER_VCF_GENOTYPES {
     tuple path(vcf), path(vcf_tbi)
 
     output: 
-    tuple path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"),     emit: vcf
+    tuple path("final.vcf.gz"), path("final.vcf.gz.tbi"),     emit: vcf
     path("*_filter_hist.tsv.gz"),                                     emit: hist
     path("samples_to_keep.txt"),                                      emit: samples_to_keep
 
@@ -28,6 +28,7 @@ process FILTER_VCF_GENOTYPES {
     def gtDPmin      = p("gt_dp_min")
     def gtDPmax      = p("gt_dp_max")
     def MISSING_FRAC = p("sample_max_missing")
+    def F_MISSING = p("site_max_missing")
 
     def process_script = "${process_name}.sh"
     """
@@ -38,6 +39,7 @@ process FILTER_VCF_GENOTYPES {
     ${exOrUnset("gtDPmin",     gtDPmin)}
     ${exOrUnset("gtDPmax",     gtDPmax)}
     ${exOrUnset("MISSING_FRAC",MISSING_FRAC)}
+    ${exOrUnset("F_MISSING",F_MISSING)}
 
     bash ${process_script} \
     ${task.cpus} \
