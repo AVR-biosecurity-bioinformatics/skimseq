@@ -146,9 +146,9 @@ workflow PROCESS_READS {
     COUNT_CRAM_READS (
         ch_sample_cram,
         ch_genome_indexed,
-        params.hc_rmdup,
-        params.hc_minbq,
-        params.hc_minmq
+        params.rmdup,
+        params.minbq,
+        params.minmq
     )
 
     emit: 

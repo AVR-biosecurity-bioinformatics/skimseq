@@ -338,8 +338,6 @@ workflow SKIMSEQ {
     Quality control plots
     */
 
-    // TODO: Pass in fastqs and run FASTQC
-    // TODO: run VCF stats in here?
     QC (
         ch_reports,
         PROCESS_READS.out.cram,

@@ -14,14 +14,10 @@ CPUS="${1}"
 MEM_GB="${2}"
 REF="${3}"
 IHASH="${4}"
-INTERVAL_BED="${5}"
-EXCLUDE_BED="${6}"
 
-# -----------------------------
 # Create bed file of sites to call
-# -----------------------------
-
-
+bedtools subtract -a ${5} -b ${6} > included_intervals.bed
+INTERVAL_BED="included_intervals.bed"
 
 # -----------------------------
 # Pre-filter reads using samtools
