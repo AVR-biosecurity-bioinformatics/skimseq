@@ -4,7 +4,7 @@
 
 //// import modules
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
-include { CALL_VARIANTS                                          } from '../modules/call_variants'
+include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
 include { PROFILE_HC                                             } from '../modules/profile_hc'
@@ -140,7 +140,7 @@ workflow GATK_SINGLE {
     */
 
     // call variants for single samples across intervals
-    CALL_VARIANTS (
+    HAPLOTYPECALLER (
         ch_sample_intervals,
         ch_genome_indexed,
         ch_mask_bed_genotype
@@ -149,9 +149,9 @@ workflow GATK_SINGLE {
     if( params.profile_gatk ) {
 
         // Join back onto cram and gvcf based on first 3 columns
-        CALL_VARIANTS.out.log
+        HAPLOTYPECALLER.out.log
             .join( ch_sample_intervals.map { sample, interval_chunk, interval_bed,cram, crai -> tuple(sample, interval_chunk, cram, crai) }, by:[0,1] )
-            .join( CALL_VARIANTS.out.gvcf_intervals, by:[0,1] )
+            .join( HAPLOTYPECALLER.out.gvcf_intervals, by:[0,1] )
             .map { sample, interval_chunk, logfile, assembly_regions, cram, crai, gvcf, tbi -> tuple(sample, interval_chunk, cram, crai, gvcf, tbi, logfile, assembly_regions ) }
             .set { ch_for_profile }
 
@@ -174,7 +174,7 @@ workflow GATK_SINGLE {
     }
 
     // Merge interval GVCFs by sample
-    CALL_VARIANTS.out.gvcf_intervals
+    HAPLOTYPECALLER.out.gvcf_intervals
         .groupTuple ( by: 0 )
         .set { ch_gvcf_to_merge }
 

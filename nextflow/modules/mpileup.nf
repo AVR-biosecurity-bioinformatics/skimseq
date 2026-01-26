@@ -31,12 +31,22 @@ process MPILEUP {
     #!/usr/bin/env bash
     
     # Export Mpileup parameters
-    export RMDUP='${params.hc_rmdup}'
+    export RMDUP='${params.rmdup}'
     export EXCLUDE_PAD='${params.exclude_padding}'
     export OUTPUT_INVARIANT='${params.output_invariant}'
     export PLOIDY='${params.ploidy}'
-    export MINBQ='${params.hc_minbq}'
-    export MINMQ='${params.hc_minmq}'
+    export MINBQ='${params.minbq}'
+    export MINMQ='${params.minmq}'
+    export MIN_ALIGNED_LENGTH='${params.min_fragment_length}'
+    export MIN_FRAGMENT_LENGTH='${params.max_fragment_length}'
+    export MAX_FRAGMENT_LENGTH='${params.min_aligned_length}'
+    export MUTATIONRATE='${params.mutation_rate}'
+    export MAXDEPTH='${params.max_depth}'
+
+
+    # Write list of cram files to process
+    printf "%s\n" ${cram} | sort > cram.list
+    
 
     ### run process script
     bash ${process_script} \
@@ -45,8 +55,7 @@ process MPILEUP {
         ${ref_genome} \
         ${interval_hash} \
         ${interval_bed} \
-        ${exclude_bed} \
-        "${cram}"
+        ${exclude_bed}
 
     """
 }

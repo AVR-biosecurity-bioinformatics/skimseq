@@ -8,7 +8,6 @@ set -u
 # $4 = interval hash
 # $5 = interval_bed
 # $6 = exclude_bed
-# $7 = cram
 
 ## Parse positional input args, the rest are xported
 CPUS="${1}"
@@ -18,37 +17,82 @@ IHASH="${4}"
 INTERVAL_BED="${5}"
 EXCLUDE_BED="${6}"
 
-# Create new bed file, subtracting exclude_bed+padding
+# -----------------------------
+# Create bed file of sites to call
+# -----------------------------
 
-# parse filtering options as flags
-if [[ ${RMDUP} == "false" ]]; then
-    # if duplicates are not removed, include them in counts
-    NS="--ns DUP -G UNMAP,SECONDARY,QCFAIL"
-else 
-    NS="--ns UNMAP,SECONDARY,QCFAIL,DUP"
+
+
+# -----------------------------
+# Pre-filter reads using samtools
+# -----------------------------
+
+# Set up filtering expressions for samtools
+
+# Min aligned bases (excluding softclips)
+ALN_CLAUSE="(qlen - sclen) >= ${MIN_ALIGNED_LENGTH}"
+
+# Min and max fragment (insert size) length
+TLEN_CLAUSE="( tlen == 0 || ( (tlen >= ${MIN_FRAGMENT_LENGTH} && tlen <= ${MAX_FRAGMENT_LENGTH}) || (tlen <= -${MIN_FRAGMENT_LENGTH} && tlen >= -${MAX_FRAGMENT_LENGTH}) ) )"
+
+# Read flags filter (make DUP conditional)
+if [[ "${RMDUP}" == "false" ]]; then
+  FLAGS_CLAUSE='(!flag.unmap && !flag.secondary && !flag.supplementary)'
+else
+  FLAGS_CLAUSE='(!flag.unmap && !flag.secondary && !flag.supplementary && !flag.dup)'
 fi
 
-if [[ ${OUTPUT_INVARIANT} == "false" ]]; then
-    # if duplicates are not removed, include them in counts
-    VARIANTS_ONLY="--variants-only"
-else 
-    VARIANTS_ONLY=""
+# Create joint filtering expression for samtools
+EXPR="${FLAGS_CLAUSE} && ${ALN_CLAUSE} && ${TLEN_CLAUSE}"
+
+export REF INTERVAL_BED EXPR
+
+# Choose jobs and cpus for GNU parallel
+THREADS_PER_JOB=2
+JOBS=$(( CPUS / THREADS_PER_JOB )) # how many CRAMs in parallel
+(( JOBS < 1 )) && JOBS=1
+
+# Subset and filter CRAMs in parallel
+parallel --jobs "${JOBS}" --line-buffer '
+  cram={}
+  out="${cram%.cram}.filt.cram"
+
+  samtools view -@ '"${THREADS_PER_JOB}"' -T "${REF}" \
+    --regions-file "${INTERVAL_BED}" \
+    -e "${EXPR}" \
+    -O cram -o "${out}" "${cram}"
+
+  samtools index -@ '"${THREADS_PER_JOB}"' "${out}"
+  echo "${out}"
+' :::: cram.list > cram.filtered.list
+
+# -----------------------------
+# Variant calling using pre-filtered crams
+# -----------------------------
+
+# set up bcftools filter flags
+if [[ "${RMDUP}" == "false" ]]; then
+  FILTER_FLAGS="--ns DUP -G UNMAP,SECONDARY,QCFAIL"
+else
+  FILTER_FLAGS="--ns UNMAP,SECONDARY,QCFAIL,DUP"
 fi
 
-# Create list of crams to be processed
-ls *.cram | grep -v '.crai' | sort > cram.list
+if [[ "${OUTPUT_INVARIANT}" == "false" ]]; then
+  VARIANTS_ONLY="--variants-only"
+else
+  VARIANTS_ONLY=""
+fi
 
-# TODO - need to handle whether duplicates should be removed
-# TODO - need to toggle variants only
+# Call variants with mpleup
 bcftools mpileup \
     --threads ${CPUS} \
-    --bam-list cram.list \
-    --max-depth 250 \
+    --bam-list cram.filtered.list \
+    --max-depth ${MAXDEPTH} \
     --fasta-ref ${REF} \
     --min-BQ ${MINBQ} \
     --min-MQ ${MINMQ} \
     --regions-file ${INTERVAL_BED} \
-    ${NS} \
+    ${FILTER_FLAGS} \
     --annotate FORMAT/DP,INFO/AD,FORMAT/DP,FORMAT/SP \
     --indels-cns \
     --indel-size 110 \
@@ -59,11 +103,11 @@ bcftools mpileup \
     --ploidy ${PLOIDY} \
     ${VARIANTS_ONLY} \
     --multiallelic-caller \
-    --prior 1.1e-3 \
-    --pval-threshold 0.5
-   
+    --prior ${MUTATION_RATE}
 
-# Add additional annotations to interval VCF file - To be used for filtering
+# -----------------------------
+# Add additional annotations to be used for filtering
+# -----------------------------
 
 # Create annotation table for minor allele count (MAC)
 # First create an annotation table with minor allele count
@@ -118,8 +162,10 @@ bcftools annotate --threads ${CPUS} -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/M
 
 #| bcftools +tag2tag -- --PL-to-GL \
 
-# Reindex outpu
+# Reindex output
 bcftools index -t ${IHASH}.vcf.gz
 
-# Clean up
+# Clean up temporary files
+xargs -r -d '\n' rm -f < <(awk '{print $0; print $0 ".crai"}' cram.filtered.list)
+rm -f cram.filtered.list
 rm genotyped.vcf.gz* *.hdr *.tsv.gz

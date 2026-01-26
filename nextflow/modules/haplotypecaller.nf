@@ -1,5 +1,5 @@
-process CALL_VARIANTS {
-    def process_name = "call_variants"    
+process HAPLOTYPECALLER {
+    def process_name = "haplotypecaller"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -25,15 +25,15 @@ process CALL_VARIANTS {
     export MIN_PRUNING='${params.hc_min_pruning}'
     export MIN_DANGLE='${params.hc_min_dangling_length}'
     export MAX_READS_STARTPOS='${params.hc_max_reads_startpos}'
-    export RMDUP='${params.hc_rmdup}'
+    export RMDUP='${params.rmdup}'
     export PCR_FREE='${params.hc_pcr_free}'
     export USE_SOFTCLIPPED_BASES='${params.hc_use_softclipped_bases}'
-    export MINBQ='${params.hc_minbq}'
-    export MINMQ='${params.hc_minmq}'
+    export MINBQ='${params.minbq}'
+    export MINMQ='${params.minmq}'
     export MAX_AMBIG_BASES='${params.hc_max_ambig_bases}'
-    export MIN_FRAGMENT_LENGTH='${params.hc_min_fragment_length}'
-    export MAX_FRAGMENT_LENGTH='${params.hc_max_fragment_length}'
-    export MIN_ALIGNED_LENGTH='${params.hc_min_aligned_length}'
+    export MIN_FRAGMENT_LENGTH='${params.min_fragment_length}'
+    export MAX_FRAGMENT_LENGTH='${params.max_fragment_length}'
+    export MIN_ALIGNED_LENGTH='${params.min_aligned_length}'
     export PLOIDY='${params.ploidy}'
     export HET='${params.heterozygosity}'
     export HET_SD='${params.heterozygosity_stdev}'
