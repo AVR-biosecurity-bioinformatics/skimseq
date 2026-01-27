@@ -28,17 +28,27 @@ RG_PL="${11}"
 READ_GROUP=$(echo "@RG\tID:${RG_ID}\tLB:${RG_LB}\tPL:${RG_PL}\tPU:${RG_PU}\tSM:${RG_SM}")
 
 # Align to genome
+
+# Manage threads between processes in the pipe
+CPUS=${1}
+SEQKIT_T=1
+SORT_T=2
+
+# leave room for two seqkit processes + sort
+BWA_T=$(( CPUS - SORT_T - 2*SEQKIT_T ))
+(( BWA_T < 1 )) && BWA_T=1
+
 bwa-mem2 mem \
-        	-t ${1} \
+        	-t "${BWA_T}" \
         	-R $READ_GROUP \
         	-K 100000000 \
        	-Y \
         ${8} \
-	<(seqkit range --threads "${1}" -r "${6}:${7}" "${4}") \
-  <(seqkit range --threads "${1}" -r "${6}:${7}" "${5}") \
+	<(seqkit range --threads "${SEQKIT_T}" -r "${6}:${7}" "${4}") \
+  <(seqkit range --threads "${SEQKIT_T}" -r "${6}:${7}" "${5}") \
 	| samtools sort \
     -M \
-    --threads ${1} \
+    --threads "${SORT_T}" \
     --reference ${8} \
     -O CRAM \
     -o ${3}.${CHUNK_NAME}.cram
@@ -57,10 +67,6 @@ for i in "${!st[@]}"; do
     break
   fi
 done
-
-# Remove temporary fastqs
-rm ${3}.${CHUNK_NAME}.F.fq
-rm ${3}.${CHUNK_NAME}.R.fq
 
 # If any tool returned non-zero, return that exit status to nextflow for retry
 exit "${ec}"           
