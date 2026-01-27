@@ -43,6 +43,8 @@ bwa-mem2 mem \
         	-R $READ_GROUP \
         	-K 100000000 \
        	-Y \
+        -k ${BWA_k}
+        -c ${BWA_c} \
         ${8} \
 	<(seqkit range --threads "${SEQKIT_T}" -r "${6}:${7}" "${4}") \
   <(seqkit range --threads "${SEQKIT_T}" -r "${6}:${7}" "${5}") \
