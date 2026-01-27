@@ -24,13 +24,12 @@ tmp_bed="tmp.bed"
 # count per-base depths
 samtools depth \
   -@ ${1} \
-  -a \
   -q ${7} \
   -Q ${8} \
   ${FLAGS} \
   --reference ${5} \
   ${3} \
-  | awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' > "$tmp_bed"
+  | awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}'> "$tmp_bed"
   
 # Find covered tracts by merging abutting intervals and summing counts
 bedtools merge -i "$tmp_bed" -c 4 -o sum \

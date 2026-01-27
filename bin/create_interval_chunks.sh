@@ -43,12 +43,13 @@ fi
 btmp="${TMPDIR}/tmp.bed"
 all_bed="${TMPDIR}/all_intervals.bed"
 
+# Note: need to use bedtools sort in gneomic order rather than lexographical order as cannot rely on contigs being alphabetical
 while IFS=$'\t' read -r chr len; do
   while read -r f; do
     tabix "$f" "$chr" 2>/dev/null
   done < counts_files.list
 done < contigs.tsv \
-  | LC_ALL=C sort -k1,1 -k2,2n -k3,3n -S "${SORT_MEM_GB}G" -T "$TMPDIR" --parallel "$TOTAL_CPUS" \
+  | bedtools sort -i - -g ${3}.fai \
   | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum \
   | bedtools intersect -a - -b ${7} > "$btmp"
 
