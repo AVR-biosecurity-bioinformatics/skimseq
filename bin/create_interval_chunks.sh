@@ -23,15 +23,15 @@ SPLIT_OVERWEIGHT="${5}"
 GAP_BP="${6}"
 ALL_BASES="${8}"
 TMPDIR=$(mktemp -d)
-# Set up memory and cpu control for parallel operations
-TOTAL_CPUS="${1}"
-TOTAL_MEM_GB="${2}"
-SORT_MEM_GB=$(( (TOTAL_MEM_GB * 75 / 100) / TOTAL_CPUS )) # reserve 25% mem headroom
-(( SORT_MEM_GB < 1 )) && SORT_MEM_GB=1
+CPUS="${1}"
 
-# Create contig list in reference order with lengths, including just those in the included intervals file
-awk 'NR==FNR{c[$1]=1; next} c[$1]' ${7} ${3}.fai \
-| cut -f1,2 > contigs.tsv
+# Create contig bed file including just those in the included intervals file
+awk 'NR==FNR{
+        if($0 !~ /^#/ && $1!="") c[$1]=1
+        next
+     }
+     ($1 in c){ print $1, 0, $2 }' OFS=$'\t' ${7} ${3}.fai > contigs.bed
+     
 
 # Exit early if contigs.tsv is empty
 if [[ ! -s contigs.tsv ]]; then
@@ -39,34 +39,29 @@ if [[ ! -s contigs.tsv ]]; then
   exit 0
 fi
 
-# Concatenate all counts beds for that chromosome, remove any outside included_intervals, then merge by gap_bp within the joint file
 btmp="${TMPDIR}/tmp.bed"
-all_bed="${TMPDIR}/all_intervals.bed"
 
-# Note: need to use bedtools sort in gneomic order rather than lexographical order as cannot rely on contigs being alphabetical
-while IFS=$'\t' read -r chr len; do
-  while read -r f; do
-    tabix "$f" "$chr" 2>/dev/null
-  done < counts_files.list
-done < contigs.tsv \
-  | bedtools sort -i - -g ${3}.fai \
-  | bedtools merge -i - -d "$GAP_BP" -c 4 -o sum \
-  | bedtools intersect -a - -b ${7} > "$btmp"
+# Extract just included contigs from zipped bed hten lexagraphically sort all counts files
+parallel -j "${CPUS}" --line-buffer '
+  f={}
+  out="${f%.bed.gz}.sorted.bed"
+  tabix "$f" -R contigs.bed | LC_ALL=C sort -k1,1 -k2,2n -k3,3n > "$out"
+' :::: counts_files.list
 
-# Create new bedfile which contains all bases with bed records
+# Merge pre-sorted files with bedops, then sum across GAP_BP, sort back into genome (can be non lexagraphical) order.
+bedops --everything *.sorted.bed \
+| bedtools merge -i - -d ${GAP_BP} -c 4 -o sum \
+| bedtools sort -i - -g ${3}.fai > "$btmp"
+
+# If ALL_BASES=false: keep only intervals that have any counts 
+# If ALL_BASES=true: build whole-contig intervals, map counts back, drop zeros
 if [[ "$ALL_BASES" == "false" ]]; then
-  bedtools genomecov -bg -i "$btmp" -g contigs.tsv \
-    | cut -f1-3 \
-    | bedtools merge -i - -d "$GAP_BP"> "$all_bed"
-else 
-  # if all bases is set (for short contigs) count across entire contig
-  awk 'BEGIN{OFS="\t"} {print $1, 0, $2}' contigs.tsv > "$all_bed"
-fi
-
-# Map column 4 (counts column) back to data and remove any completely empty rows
-bedtools map -sorted -a "$all_bed" -b "$btmp" -g contigs.tsv -c 4 -o sum -null 0 \
+  mv "$btmp" intervals_with_counts.bed
+else
+  bedtools map -sorted -g ${3}.fai -a contigs.bed -b "$btmp" -c 4 -o sum -null 0 \
   | awk -v OFS='\t' '$4 != 0' \
   > intervals_with_counts.bed
+fi
 
 # Exit early if intervals_with_counts.bed is empty
 if [[ ! -s intervals_with_counts.bed ]]; then

@@ -3,7 +3,7 @@ process CREATE_INTERVAL_CHUNKS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:parallel/20240722-GCCcore-13.3.0:BCFtools/1.22-GCC-13.3.0"
+    module "BEDTools/2.31.1-GCC-13.3.0:BEDOPS/2.4.42-foss-2024a:parallel/20240722-GCCcore-13.3.0:BCFtools/1.22-GCC-13.3.0"
 
     input:
     tuple val(sample), path(counts_bed), path(counts_tbi)
