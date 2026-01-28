@@ -33,8 +33,8 @@ awk 'NR==FNR{
      ($1 in c){ print $1, 0, $2 }' OFS=$'\t' ${7} ${3}.fai > contigs.bed
      
 
-# Exit early if contigs.tsv is empty
-if [[ ! -s contigs.tsv ]]; then
+# Exit early if contigs.bed is empty
+if [[ ! -s contigs.bed ]]; then
   : > "_empty.bed"          # create empty output file
   exit 0
 fi
