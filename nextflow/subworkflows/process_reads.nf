@@ -144,7 +144,7 @@ workflow PROCESS_READS {
 
     // Count per-base depths in cram, used for masking and creating interval chunks
     COUNT_CRAM_READS (
-        ch_sample_cram,
+        STAGE_CRAM.out.cram,
         ch_genome_indexed,
         params.rmdup,
         params.minbq,
