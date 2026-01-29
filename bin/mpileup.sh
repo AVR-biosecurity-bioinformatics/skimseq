@@ -7,18 +7,13 @@ set -u
 # $3 = ref_genome
 # $4 = interval hash
 # $5 = interval_bed
-# $6 = exclude_bed
 
 ## Parse positional input args, the rest are xported
 CPUS="${1}"
 MEM_GB="${2}"
 REF="${3}"
 IHASH="${4}"
-
-# Create bed file of sites to call 
-# TODO: NEED TO HANDLE EXCLUDE PAD WITH BEDTOOLS SLOP!
-bedtools subtract -a ${5} -b ${6} > included_intervals.bed
-INTERVAL_BED="included_intervals.bed"
+INTERVAL_BED="${5}"
 
 # -----------------------------
 # Pre-filter reads using samtools
