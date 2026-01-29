@@ -21,6 +21,7 @@ process SUM_COVERED_INTERVALS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${sample} \
         ${count_bed} \
         ${exclude_bed}
     """
