@@ -9,8 +9,7 @@ set -u
 # $5 = split_overweight
 # $6 = min_interval_gap
 # $7 = include_bed
-# $8 = exclude_bed
-# $9 = include_zero
+# $8 = include_zero
 
 # This script uses bed files with or without a counts column to assign bed intervals to seperate chunks for parallel processing
 # For Haplotypecaller, input is a single bed with per-base counts in column 4
@@ -21,7 +20,7 @@ TARGET_COUNTS_PER_CHUNK=$(awk -v x="${4}" 'BEGIN {printf("%d\n",x)}')
 OUTDIR=$(pwd)
 SPLIT_OVERWEIGHT="${5}"
 GAP_BP="${6}"
-ALL_BASES="${9}"
+ALL_BASES="${8}"
 TMPDIR=$(mktemp -d)
 CPUS="${1}"
 
@@ -31,9 +30,6 @@ awk 'NR==FNR{
         next
      }
      ($1 in c){ print $1, 0, $2 }' OFS=$'\t' ${7} ${3}.fai > contigs.bed
-
-# Subset out the masked bases
-bedtools subtract -a contigs.bed -b ${8} > contigs_masked.bed
 
 # Exit early if contigs.bed is empty
 if [[ ! -s contigs.bed ]]; then
@@ -47,7 +43,7 @@ btmp="${TMPDIR}/tmp.bed"
 parallel -j "${CPUS}" --line-buffer '
   f={}
   out="${f%.bed.gz}.sorted.bed"
-  tabix "$f" -R contigs_masked.bed | LC_ALL=C sort -k1,1 -k2,2n -k3,3n > "$out"
+  tabix "$f" -R contigs.bed | LC_ALL=C sort -k1,1 -k2,2n -k3,3n > "$out"
 ' :::: counts_files.list
 
 # Merge pre-sorted files with bedops, then sum across GAP_BP, sort back into genome (can be non lexagraphical) order.

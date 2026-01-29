@@ -9,7 +9,6 @@ process CREATE_INTERVAL_CHUNKS {
     tuple val(sample), path(counts_bed), path(counts_tbi)
     tuple path(ref_genome), path(genome_index_files)
     path(include_bed)
-    path(exclude_bed)
     val(counts_per_chunk)
     val(min_interval_gap)
     val(split_large_intervals)
@@ -35,7 +34,6 @@ process CREATE_INTERVAL_CHUNKS {
         ${split_large_intervals} \
         ${min_interval_gap} \
         ${include_bed} \
-        ${exclude_bed} \
         ${include_zero} 
 
     """

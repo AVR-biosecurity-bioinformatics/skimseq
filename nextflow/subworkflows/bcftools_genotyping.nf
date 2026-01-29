@@ -39,8 +39,7 @@ workflow BCFTOOLS_GENOTYPING {
         ch_counts,
         ch_genome_indexed,
         ch_include_bed.first(),
-        ch_mask_bed_genotype,
-        params.hc_bases_per_chunk,
+        params.mp_bases_per_chunk,
         params.min_interval_gap,
         params.split_large_intervals,
         "false"

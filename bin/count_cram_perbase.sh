@@ -19,8 +19,6 @@ else
     FLAGS="-G UNMAP,SECONDARY,QCFAIL,DUP"
 fi
 
-tmp_bed="tmp.bed"
-
 # count per-base depths
 samtools depth \
   -@ ${1} \
@@ -29,16 +27,7 @@ samtools depth \
   ${FLAGS} \
   --reference ${5} \
   ${3} \
-  | awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}'> "$tmp_bed"
+  | awk 'BEGIN{OFS="\t"} {print $1, $2-1, $2, $3}' \
+  | bgzip -c --compress-level 9 > "${4}.perbase.bed.gz"
   
-# Find covered tracts by merging abutting intervals and summing counts
-bedtools merge -i "$tmp_bed" -c 4 -o sum \
-  | bgzip -c --compress-level 9 > "${4}.covered.bed.gz"
-tabix -f -p bed "${4}.covered.bed.gz"
-
-# bgzip output and create  tabix index
-bgzip -c --compress-level 9 "$tmp_bed" > "${4}.perbase.bed.gz"
 tabix -f -p bed "${4}.perbase.bed.gz"
-
-# Cleanup
-rm "$tmp_bed"

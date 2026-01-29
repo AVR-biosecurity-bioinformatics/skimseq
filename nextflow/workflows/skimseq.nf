@@ -18,6 +18,7 @@ include { INDEX_GENOME                                              } from '../m
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { GENOTYPE_POSTERIORS                                       } from '../modules/genotype_posteriors'
 include { MERGE_VCFS as MERGE_GENOTYPED_VCFS                        } from '../modules/merge_vcfs'
+include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -164,7 +165,7 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
     
-    PROCESS_READS.out.counts
+    PROCESS_READS.out.perbase
         .set{ ch_read_counts }
 
     /*
@@ -205,7 +206,15 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype = ch_mito_bed
     }
     
-
+        // Create a list of covered perbase tracts
+    SUM_COVERED_INTERVALS(
+        PROCESS_READS.out.perbase,
+        ch_mask_bed_genotype
+    )
+    
+    SUM_COVERED_INTERVALS.out.counts
+        .set { ch_read_counts }
+        
     if ( params.variant_discovery == "gatk" ){
 
         // Single sample calling with haplotypecaller

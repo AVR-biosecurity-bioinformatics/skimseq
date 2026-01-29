@@ -1,5 +1,5 @@
-process COUNT_CRAM_READS {
-    def process_name = "count_cram_reads"
+process COUNT_CRAM_PERBASE {
+    def process_name = "count_cram_perbase"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
@@ -13,7 +13,6 @@ process COUNT_CRAM_READS {
     val(hc_minmq)
     
     output: 
-    tuple val(sample), path("${sample}.covered.bed.gz"),  path("${sample}.covered.bed.gz.tbi"),   emit: covered
     tuple val(sample), path("${sample}.perbase.bed.gz"),  path("${sample}.perbase.bed.gz.tbi"),   emit: perbase
 
     script:
