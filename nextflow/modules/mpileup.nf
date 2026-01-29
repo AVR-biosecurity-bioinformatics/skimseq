@@ -7,7 +7,6 @@ process MPILEUP {
     input:
     tuple val(interval_hash), path(interval_bed), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
     val(cohort_size)
 
     // Scale memory based on cohort size
@@ -53,8 +52,7 @@ process MPILEUP {
         ${task.memory.giga} \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_bed} \
-        ${exclude_bed}
+        ${interval_bed} 
 
     """
 }
