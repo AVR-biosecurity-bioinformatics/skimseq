@@ -214,7 +214,7 @@ workflow SKIMSEQ {
     
     SUM_COVERED_INTERVALS.out.counts
         .set { ch_read_counts }
-        
+
     if ( params.variant_discovery == "gatk" ){
 
         // Single sample calling with haplotypecaller
@@ -281,6 +281,8 @@ workflow SKIMSEQ {
         ch_sample_names
     )
 
+    FILTER_VARIANTS.out.filtered_combined
+        .set { ch_sites_to_genotype }
     /*
    Genotype Refinement
    
@@ -301,7 +303,7 @@ workflow SKIMSEQ {
 
         // Subset to just filtered sites and calculate genotype posteriors
         GENOTYPE_POSTERIORS(
-            FILTER_VARIANTS.out.filtered_combined
+           ch_sites_to_genotype
         )
 
         GENOTYPE_POSTERIORS.out.vcf
@@ -316,6 +318,14 @@ workflow SKIMSEQ {
         ch_genotyped_all = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
         ch_genotyped_snps = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
         ch_genotyped_indels = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+
+    } else if (params.genotyping == "pseudohaploid"){
+
+        // TODO: Run consensify style pseudohaploid genotyping
+        //PSEUDOHAPLOID_GENOTYPING (
+        //    ch_sites_to_genotype,
+        //    ch_sample_cram
+        //)
 
     } else if (params.genotyping == "mpileup"){
 

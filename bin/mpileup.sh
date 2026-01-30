@@ -6,14 +6,45 @@ set -u
 # $2 = memory
 # $3 = ref_genome
 # $4 = interval hash
-# $5 = interval_bed
+# $5 = targets_file
 
 ## Parse positional input args, the rest are xported
 CPUS="${1}"
 MEM_GB="${2}"
 REF="${3}"
 IHASH="${4}"
-INTERVAL_BED="${5}"
+TARGETS_FILE="${5}"
+
+# Set up intervals - handle fixed sitelists
+
+if [[ "${TARGETS_FILE}" == *.vcf.gz ]]; then
+  echo "[targets] Detected VCF panel: ${TARGETS_FILE}" >&2
+
+  ## Build allele targets: CHROM POS REF,ALT  (tabix indexed)
+  bcftools view -m2 -M2 -v snps "${TARGETS_FILE}" \
+    | bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' \
+    | bgzip -c > panel.alleles.tsv.gz
+  tabix -s1 -b2 -e2 panel.alleles.tsv.gz
+
+  # Build a BED (0-based) for filtering CRAMs by region
+  bcftools view -m2 -M2 -v snps "${TARGETS_FILE}" \
+    | bcftools query -f'%CHROM\t%POS0\t%POS\n' \
+    | bgzip -c > panel.bed.gz
+  tabix -p bed panel.bed.gz
+
+  INTERVAL_BED="panel.bed.gz"
+
+  # Use allele-restricted calling at those positions and ensure all are present
+  MPILEUP_TARGETS_FLAGS="-T panel.alleles.tsv.gz"
+  CALL_FLAGS="-C alleles -T panel.alleles.tsv.gz --insert-missed 0"
+
+elif [[ "${TARGETS_FILE}" == *.bed ]]; then
+  echo "[targets] Detected BED intervals: ${TARGETS_FILE}" >&2
+  # For BED, just target the intervals; no allele restriction possible
+  MPILEUP_TARGETS_FLAGS="-R ${TARGETS_FILE}"
+  INTERVAL_BED=${TARGETS_FILE}
+  CALL_FLAGS=""
+fi
 
 # -----------------------------
 # Pre-filter reads using samtools
@@ -56,7 +87,7 @@ parallel --jobs "${JOBS}" --line-buffer '
 
   samtools index -@ '"${THREADS_PER_JOB}"' "${out}"
   echo "${out}"
-' :::: cram.list > cram.filtered.list
+' :::: cram.list | sort > cram.filtered.list
 
 # -----------------------------
 # Variant calling using pre-filtered crams
@@ -83,7 +114,7 @@ bcftools mpileup \
     --fasta-ref ${REF} \
     --min-BQ ${MINBQ} \
     --min-MQ ${MINMQ} \
-    --regions-file ${INTERVAL_BED} \
+    ${MPILEUP_TARGETS_FLAGS} \
     ${FILTER_FLAGS} \
     --annotate FORMAT/DP,INFO/AD,FORMAT/DP,FORMAT/SP \
     --indels-cns \
@@ -93,6 +124,7 @@ bcftools mpileup \
     -o genotyped.vcf.gz \
     -a FORMAT/GP,FORMAT/GQ,INFO/PV4 \
     --ploidy ${PLOIDY} \
+    ${CALL_FLAGS} \
     ${VARIANTS_ONLY} \
     --multiallelic-caller \
     --prior ${MUTATION_RATE}

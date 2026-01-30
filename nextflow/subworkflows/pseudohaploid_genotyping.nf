@@ -1,5 +1,5 @@
 /*
-    Genotype samples using GATK
+    Pseudohaploid genotyping using list of provided sites
 */
 
 //// import modules
@@ -10,41 +10,18 @@ include { MPILEUP                                                } from '../modu
 workflow BCFTOOLS_GENOTYPING {
 
     take:
-    ch_sample_names
+    ch_sites_to_genotype
     ch_sample_cram
-    ch_genome_indexed
-    ch_include_bed
-    ch_mask_bed_genotype
-    ch_read_counts
 
     main: 
 
-   /* 
-       Create groups of genomic intervals for parallel genotyping
-    */
-
-     ch_read_counts
-        .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
-        .toList()
-        .filter { lst -> lst && !lst.isEmpty() }
-        .map { pairs ->
-            def beds = pairs.collect { it[0] }
-            def tbis = pairs.collect { it[1] }
-            tuple("joint", beds, tbis)
-        }
-        .set { ch_counts }
-
-    // Create mpileup intervals
-    CREATE_INTERVAL_CHUNKS_MP (
-        ch_counts,
-        ch_genome_indexed,
-        ch_include_bed.first(),
-        params.mp_bases_per_chunk,
-        params.min_interval_gap,
-        params.split_large_intervals,
-        "false"
+    // Call pseudohaploids per sample
+    CALL_PSEUDOHAPLOID (
+        ch_sample_cram,
+        ch_sites_to_genotype
     )
 
+    // Merge pseudohaploid
     CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
 	    .map { sample,interval_bed -> interval_bed }
         .filter { interval_bed -> interval_bed && interval_bed.size() > 0 }   // drop empty
@@ -83,6 +60,7 @@ workflow BCFTOOLS_GENOTYPING {
 
     MPILEUP.out.vcf
         .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+        .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
