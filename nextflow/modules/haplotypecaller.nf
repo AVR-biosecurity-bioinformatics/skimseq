@@ -6,7 +6,7 @@ process HAPLOTYPECALLER {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
-    tuple val(sample), val(interval_hash), path(interval_bed), path(cram), path(cram_index)
+    tuple val(sample), val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
 

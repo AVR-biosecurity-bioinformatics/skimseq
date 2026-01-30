@@ -15,7 +15,7 @@ process CREATE_INTERVAL_CHUNKS {
     val(include_zero)
 
     output: 
-    tuple val(sample), path("_*.bed"),              emit: interval_bed
+    tuple val(sample), path("*.bed.gz"), path("*.bed.gz.tbi")    emit: interval_bed
     
     script:
     def process_script = "${process_name}.sh"

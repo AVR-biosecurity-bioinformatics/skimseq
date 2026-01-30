@@ -117,15 +117,21 @@ workflow GATK_SINGLE {
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
     // where `bed` is either a List<Path> or a single Path, so has to be normalised to list
     CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
-        .flatMap { sample, beds ->
+        .flatMap { sample, beds, tbi ->
             // normalize to a list for cases where there are only 1 bed output for a sample
-            def lst = (beds instanceof List) ? beds : [ beds ]
+            def bedList = (beds instanceof List) ? beds : [beds]
+            def tbiList = (tbis instanceof List) ? tbis : [tbis]
+
+            assert bedList.size() == tbiList.size() :
+            "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
+
             // emit one tuple per bed file
-            lst.collect { bed ->
-            bed  = bed as Path
-            def base = bed.baseName
-            def interval_chunk = base.startsWith('_') ? base.substring(1) : base
-            tuple(sample, interval_chunk, bed)
+            (0..<bedList.size()).collect { i ->
+                def bed = bedList[i] as Path
+                def tbi = tbiList[i]
+                def base = bed.baseName
+                def interval_chunk = base.startsWith('_') ? base.substring(1) : base
+                tuple(sample, interval_chunk, bed, tbi)
             }
         }
         .set { ch_interval_bed_hc }
@@ -150,7 +156,7 @@ workflow GATK_SINGLE {
 
         // Join back onto cram and gvcf based on first 3 columns
         HAPLOTYPECALLER.out.log
-            .join( ch_sample_intervals.map { sample, interval_chunk, interval_bed,cram, crai -> tuple(sample, interval_chunk, cram, crai) }, by:[0,1] )
+            .join( ch_sample_intervals.map { sample, interval_chunk, interval_bed, interval_tbi, cram, crai -> tuple(sample, interval_chunk, cram, crai) }, by:[0,1] )
             .join( HAPLOTYPECALLER.out.gvcf_intervals, by:[0,1] )
             .map { sample, interval_chunk, logfile, assembly_regions, cram, crai, gvcf, tbi -> tuple(sample, interval_chunk, cram, crai, gvcf, tbi, logfile, assembly_regions ) }
             .set { ch_for_profile }

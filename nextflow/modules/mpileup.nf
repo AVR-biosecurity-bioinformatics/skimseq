@@ -5,7 +5,7 @@ process MPILEUP {
     module "BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0:parallel/20240722-GCCcore-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(cram), path(cram_index)
+    tuple val(interval_hash), path(interval_bed), path(interval_index), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     val(cohort_size)
 
@@ -22,7 +22,7 @@ process MPILEUP {
     }
 
     output: 
-    tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
+    tuple val(interval_hash), path(interval_bed), path(interval_index), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
 
     script:
     def process_script = "${process_name}.sh"

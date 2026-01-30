@@ -167,10 +167,11 @@ for i in *chunk_*.bed;do
   # compute hash of this chunk’s contents
   hash=$(md5sum "$i" | awk '{print $1}')
 
-  # Output just column 1:4
-  out="_${pad}${hash}.bed"
-  cut -f1-4 "$i" > "$out"
-  
+  # Output just column 1:4 as a gzipped bed
+  out="${pad}${hash}.bed"
+  cut -f1-4 "$i" | bgzip -c > "$out"
+  tabix -p bed "$out"
+
   # report size
   bases=$(awk '{s+=$3-$2} END{print s+0}' "$i")
   counts=$(awk '{s+=$4} END{print s+0}' "$i")

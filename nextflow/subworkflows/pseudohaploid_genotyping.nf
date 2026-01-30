@@ -15,7 +15,21 @@ workflow BCFTOOLS_GENOTYPING {
 
     main: 
 
-    // Call pseudohaploids per sample
+    // combine sample-level cran with each interval_bed file and interval chunk
+    // Then group by interval for joint genotyping
+    ch_sample_cram 
+        .combine ( ch_sites_to_genotype )
+        .map { sample, cram, crai, interval_hash, interval_bed, vcf, tbi, sites_vcf, sites_tbi -> [ interval_hash, sites_vcf, sites_tbi, cram, cram_index ] }
+        .set { ch_cram_to_genotype}
+
+    // Call just target sites using mpileup
+    MPILEUP (
+        ch_cram_to_genotype,
+        ch_genome_indexed,
+        ch_cohort_size
+    )
+
+    // Create pseudohaploids per sample
     CALL_PSEUDOHAPLOID (
         ch_sample_cram,
         ch_sites_to_genotype
