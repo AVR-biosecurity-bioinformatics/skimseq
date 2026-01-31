@@ -99,6 +99,15 @@ bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou sample_filt
 
 bcftools index -t final.vcf.gz
 
+# Create a small summary of the number of sites passing and failing each filter
+bcftools query -f '[%FT:]\t' gt_masked.bcf \
+  | tr '\t' '\n' \
+  | awk 'NF' \
+  | sort \
+  | uniq -c \
+  | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
+  > "filter_summary.tsv"
+
 # ------- make filter summary histograms ------
 
 # We bin the values and create the histogram in awk to avoid parsing massive files to R
@@ -226,8 +235,8 @@ NBINS=100 # Maximum number of data bins
 
 # Genotype-level histograms (use gt_masked.bcf which has FORMAT/FT)
 INPUT_GT=gt_masked.bcf
-create_pf_histogram GT "$INPUT_GT" '(^|;)GQ_FAIL(;|$)'        "%GQ" GT_GQ "ALL" >> "$out"
-create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "ALL" >> "$out"
+create_pf_histogram GT "$INPUT_GT" '(^|;)GQ_FAIL(;|$)'        "%GQ" GT_GQ "all" >> "$out"
+create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "all" >> "$out"
 
 
 # Zip output summary table

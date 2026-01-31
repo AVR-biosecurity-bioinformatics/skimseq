@@ -39,7 +39,8 @@ tryCatch(
 
     # Read in table file
     df <- read_tsv(
-      table_files
+      table_files,
+      col_names = c("SAMPLE", "MISSING", "TOTAL", "MISSING_FRACTION")
     ) %>%
       dplyr::mutate(
         FILTER = ifelse(

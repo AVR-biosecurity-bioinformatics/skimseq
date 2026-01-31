@@ -62,7 +62,7 @@ tryCatch(
 
     variant_types <- factor(
       unique(df$VARIANT_TYPE),
-      levels = c("snp", "indel", "invariant")
+      levels = c("snp", "indel", "invariant", "all")
     )
 
     # Function to not display all breaks for scale_x_binned
