@@ -22,10 +22,12 @@ workflow FILTER_GENOTYPES {
     )
 
     // QC plots for sites and genotypes
-    PLOT_GENOTYPE_FILTERS (
-        FILTER_VCF_GENOTYPES.out.hist.collect(),
-        FILTER_VCF_GENOTYPES.out.summary.collect()
-    )
+    // TODO: just need to sort out naming clash before enabling this
+    // TODO: Join back to the original SNP/INDEL/SITES one so its one file?
+    //PLOT_GENOTYPE_FILTERS (
+    //    FILTER_VCF_GENOTYPES.out.hist.collect(),
+    //    FILTER_VCF_GENOTYPES.out.summary.collect()
+    //)
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
