@@ -46,25 +46,34 @@ workflow BCFTOOLS_GENOTYPING {
     )
 
     CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
-	    .map { sample,interval_bed -> interval_bed }
-        .filter { interval_bed -> interval_bed && interval_bed.size() > 0 }   // drop empty
-        .collect()
-        .flatten()
+	    .map { sample, interval_bed, bed_tbi -> tuple(interval_bed, bed_tbi) }
+        .flatMap { beds, tbis ->
+                // normalize bed output to list
+                def bedList = (beds instanceof List) ? beds : (beds ? [beds] : [])
+                // normalize tbi output to list
+                def tbiList = (tbis instanceof List) ? tbis : (tbis ? [tbis] : [])
+
+                // emit one tuple per bed using index-based pairing
+                (0..<bedList.size()).collect { i ->
+                    tuple(bedList[i] as Path, tbiList[i])
+                }
+            }
+        .filter { interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         // get interval_chunk from interval_bed name as element to identify intervals
-        .map { interval_bed ->
+        .map { interval_bed, bed_tbi  ->
             def interval_chunk = interval_bed.getFileName().toString().split("\\.")[0]
-            [ interval_chunk, interval_bed ] }
+            [ interval_chunk, interval_bed, bed_tbi  ] }
         .set { ch_interval_bed_mp }
 
     // combine sample-level cran with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )
-        .map { sample, cram, crai, interval_chunk, interval_bed -> [ interval_chunk, cram, crai ] }
+        .map { sample, cram, crai, interval_chunk, interval_bed, bed_tbi -> [ interval_chunk, cram, crai ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_mp, by: 0 )
-        .map { interval_chunk, cram, crai, interval_bed -> [ interval_chunk, interval_bed, cram, crai ] }
+        .map { interval_chunk, cram, crai, interval_bed, bed_tbi -> [ interval_chunk, interval_bed, bed_tbi, cram, crai ] }
         .set { ch_cram_interval }
 
     /* 
@@ -82,7 +91,7 @@ workflow BCFTOOLS_GENOTYPING {
     )
 
     MPILEUP.out.vcf
-        .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+        .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 

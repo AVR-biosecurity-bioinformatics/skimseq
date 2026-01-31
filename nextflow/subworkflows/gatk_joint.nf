@@ -116,8 +116,6 @@ workflow GATK_JOINT {
         .map { interval_chunk, gvcf, tbi, interval_bed, bed_tbi -> [ interval_chunk, interval_bed, bed_tbi, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
-    ch_sample_gvcf.view()
-
     // Calculate cohort size from sample names
     // NOTE: This is used for memory scaling of GENOMICSDB_IMPORT and JOINT_GENOTYPE which are primarily driven by sample size
     ch_cohort_size = ch_sample_names.unique().count()

@@ -307,7 +307,7 @@ workflow SKIMSEQ {
         )
 
         GENOTYPE_POSTERIORS.out.vcf
-            .map { interval_hash, interval_bed, vcf, tbi -> tuple('genotyped', vcf, tbi) }
+            .map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('genotyped', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 

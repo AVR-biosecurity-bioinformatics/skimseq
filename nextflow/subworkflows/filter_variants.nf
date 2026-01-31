@@ -55,9 +55,9 @@ workflow FILTER_VARIANTS {
     FILTER_VCF_SITES.out.vcf
         .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
-            tuple(type, interval_hash, interval_bed, vcf, tbi, n)
+            tuple(type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
-        .filter { type, interval_hash, interval_bed, vcf, tbi, n -> n > 0 }
+        .filter { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
         .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(type, interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_vcfs_nonempty }
 
@@ -69,6 +69,8 @@ workflow FILTER_VARIANTS {
         }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
+
+ch_vcf_to_merge.view()
 
     MERGE_FILTERED_VCFS (
         ch_vcf_to_merge
