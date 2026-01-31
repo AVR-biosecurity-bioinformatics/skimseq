@@ -7,12 +7,11 @@ process CREATE_PSEUDOHAP {
     module "BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi)
+    tuple val(outname), path(vcf), path(vcf_tbi)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple path("*pseudohaploid.vcf.gz"), path("*pseudohaploid.vcf.gz.tbi"),   emit: vcf
-    //path("*pseudohaploid.tsv"),                                               emit: tsv
+    tuple val(outname), path("*pseudohaploid.vcf.gz"), path("*pseudohaploid.vcf.gz.tbi"),   emit: vcf
 
     script:
     def process_script = "${process_name}.sh"
@@ -22,6 +21,8 @@ process CREATE_PSEUDOHAP {
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
+        ${task.memory.giga} \
+        ${outname} \
         ${vcf} \
         ${ref_genome}
 

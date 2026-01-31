@@ -36,7 +36,7 @@ if [[ "${TARGETS_FILE}" == *.vcf.gz ]]; then
 
   # Use allele-restricted calling at those positions and ensure all are present
   MPILEUP_TARGETS_FLAGS="-T panel.alleles.tsv.gz"
-  CALL_FLAGS="-C alleles -T panel.alleles.tsv.gz --insert-missed 0"
+  CALL_FLAGS="-C alleles -T panel.alleles.tsv.gz --insert-missed"
 
 elif [[ "${TARGETS_FILE}" == *.bed* ]]; then
   echo "[targets] Detected BED intervals: ${TARGETS_FILE}" >&2

@@ -325,8 +325,14 @@ workflow SKIMSEQ {
         // TODO: Run consensify style pseudohaploid genotyping
         PSEUDOHAPLOID_GENOTYPING (
             ch_sites_to_genotype,
-            ch_sample_cram
+            PROCESS_READS.out.cram,
+            ch_genome_indexed,
+            ch_sample_names
         )
+
+        ch_genotyped_all = PSEUDOHAPLOID_GENOTYPING.out.vcf
+        ch_genotyped_snps = PSEUDOHAPLOID_GENOTYPING.out.vcf
+        ch_genotyped_indels = PSEUDOHAPLOID_GENOTYPING.out.vcf
 
     } else if (params.genotyping == "mpileup"){
 

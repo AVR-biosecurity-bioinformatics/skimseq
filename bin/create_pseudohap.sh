@@ -3,10 +3,13 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = vcf
-# $3 = ref_genome
+# $2 = mem
+# $3 = outname
+# $4 = vcf
+# $5 = ref_genome
 
-VCF=${2}
+VCF=${4}
+OUTNAME=${3}
 
 # sample list
 bcftools query -l ${VCF} > samples.txt
@@ -60,6 +63,6 @@ bcftools index -t raw.withPH.vcf.gz
 # 3 set ./., where PH is missing
 bcftools +setGT raw.withPH.vcf.gz -Ou -- -t q -n c:0/0 -i 'FMT/PH=="0"' \
     | bcftools +setGT -Ou -- -t q -n c:1/1 -i 'FMT/PH=="1"' \
-    | bcftools +setGT -Oz -o pseudohaploid.vcf.gz -- -t q -n . -i 'FMT/PH=="."' 
+    | bcftools +setGT -Oz -o  ${OUTNAME}.vcf.gz -- -t q -n . -i 'FMT/PH=="."' 
 
-bcftools index -t pseudohaploid.vcf.gz
+bcftools index -t ${OUTNAME}.vcf.gz
