@@ -117,7 +117,7 @@ workflow GATK_SINGLE {
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
     // where `bed` is either a List<Path> or a single Path, so has to be normalised to list
     CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
-        .flatMap { sample, beds, tbi ->
+        .flatMap { sample, beds, tbis  ->
             // normalize to a list for cases where there are only 1 bed output for a sample
             def bedList = (beds instanceof List) ? beds : [beds]
             def tbiList = (tbis instanceof List) ? tbis : [tbis]
@@ -128,10 +128,10 @@ workflow GATK_SINGLE {
             // emit one tuple per bed file
             (0..<bedList.size()).collect { i ->
                 def bed = bedList[i] as Path
-                def tbi = tbiList[i]
+                def tbiPath = tbiList[i]
                 def base = bed.baseName
                 def interval_chunk = base.startsWith('_') ? base.substring(1) : base
-                tuple(sample, interval_chunk, bed, tbi)
+                tuple(sample, interval_chunk, bed, tbiPath)
             }
         }
         .set { ch_interval_bed_hc }

@@ -6,10 +6,10 @@ process CALC_CHUNK_DP {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
 
     output: 
-    tuple val(interval_hash), val(interval_bed), path("*.dphist.tsv"),  emit: chunk_dp
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.dphist.tsv"),  emit: chunk_dp
 
     script:
     def process_script = "${process_name}.sh"

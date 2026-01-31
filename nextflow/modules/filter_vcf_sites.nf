@@ -7,12 +7,12 @@ process FILTER_VCF_SITES {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), val(interval_bed), path(vcf), path(vcf_tbi), val(variant_type)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(variant_type)
     path(mask_bed)
     path(dp_summary)
 
     output: 
-    tuple val(variant_type), val(interval_hash), val(interval_bed), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"), path("*.counts"),     emit: vcf
+    tuple val(variant_type), val(interval_hash), val(interval_bed), path(bed_tbi), path("*filtered.vcf.gz"), path("*filtered.vcf.gz.tbi"), path("*.counts"),     emit: vcf
     path("*_filter_summary.tsv"),                                                                          emit: summary
     path("*_filter_hist.tsv.gz"),                                                                          emit: hist
 

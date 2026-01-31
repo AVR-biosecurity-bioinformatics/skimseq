@@ -33,7 +33,8 @@ awk 'NR==FNR{
 
 # Exit early if contigs.bed is empty
 if [[ ! -s contigs.bed ]]; then
-  : > "_empty.bed"          # create empty output file
+  : > "_empty.bed.gz"          # create empty output file
+  : > "_empty.bed.gz.tbi"          # create empty output file
   exit 0
 fi
 
@@ -63,7 +64,8 @@ fi
 
 # Exit early if intervals_with_counts.bed is empty
 if [[ ! -s intervals_with_counts.bed ]]; then
-  : > "_empty.bed"          # create empty output file
+  : > "_empty.bed.gz"          # create empty output file
+  : > "_empty.bed.gz.tbi"      # create empty output file
   exit 0
 fi
 
@@ -168,7 +170,7 @@ for i in *chunk_*.bed;do
   hash=$(md5sum "$i" | awk '{print $1}')
 
   # Output just column 1:4 as a gzipped bed
-  out="${pad}${hash}.bed"
+  out="${pad}${hash}.bed.gz"
   cut -f1-4 "$i" | bgzip -c > "$out"
   tabix -p bed "$out"
 

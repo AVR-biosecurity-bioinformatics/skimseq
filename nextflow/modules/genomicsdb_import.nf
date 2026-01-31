@@ -6,7 +6,7 @@ process GENOMICSDB_IMPORT {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
 
     input:
-    tuple val(interval_hash), path(interval_list), path(gvcf), path(tbi)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
     tuple path(ref_genome), path(genome_index_files)
     val(cohort_size)
 
@@ -23,7 +23,7 @@ process GENOMICSDB_IMPORT {
     }
     
     output: 
-    tuple val(interval_hash), path(interval_list), path("$interval_hash"),      emit: genomicsdb
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("$interval_hash"),      emit: genomicsdb
     
     script:
     def process_script = "${process_name}.sh"
@@ -36,7 +36,7 @@ process GENOMICSDB_IMPORT {
         ${task.memory.giga} \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_list}
+        ${interval_bed}
 
     """
 }

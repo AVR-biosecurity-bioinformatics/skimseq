@@ -84,28 +84,39 @@ workflow GATK_JOINT {
     // create intervals channel, with one interval_bed file per element
     // Mix the long contig chunk channels with the short ones - split long and whole short contigs should never be together
     CREATE_INTERVAL_CHUNKS_JC_LONG.out.interval_bed
-	    .map { sample, interval_bed, bed_tbi -> interval_bed }
-        .mix(CREATE_INTERVAL_CHUNKS_JC_SHORT.out.interval_bed.map { sample,interval_bed -> interval_bed })
-        .filter { interval_bed -> interval_bed && interval_bed.size() > 0 }   // drop empty
-        .collect()
-        .flatten()
+	    .map { sample, interval_bed, bed_tbi -> tuple(interval_bed, bed_tbi) }
+        .mix(CREATE_INTERVAL_CHUNKS_JC_SHORT.out.interval_bed.map { sample, interval_bed, bed_tbi -> tuple(interval_bed, bed_tbi)})
+        .flatMap { beds, tbis ->
+                // normalize bed output to list
+                def bedList = (beds instanceof List) ? beds : (beds ? [beds] : [])
+                // normalize tbi output to list
+                def tbiList = (tbis instanceof List) ? tbis : (tbis ? [tbis] : [])
+
+                // emit one tuple per bed using index-based pairing
+                (0..<bedList.size()).collect { i ->
+                    tuple(bedList[i] as Path, tbiList[i])
+                }
+            }
+        .filter { interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         // get interval_chunk from interval_bed name as element to identify intervals
-        .map { interval_bed ->
+        .map { interval_bed, bed_tbi  ->
             def interval_chunk = interval_bed.getFileName().toString().split("\\.")[0]
-            [ interval_chunk, interval_bed ] }
+            [ interval_chunk, interval_bed, bed_tbi  ] }
         .set { ch_interval_bed_jc }
+
 
     // combine sample-level gvcf with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_gvcf 
         .combine ( ch_interval_bed_jc )
-        .map { sample, gvcf, tbi, interval_chunk, interval_bed -> [ interval_chunk, gvcf, tbi ] }
+        .map { sample, gvcf, tbi, interval_chunk, interval_bed,bed_tbi -> [ interval_chunk, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_jc, by: 0 )
-        .map { interval_chunk, gvcf, tbi, interval_bed -> [ interval_chunk, interval_bed, gvcf, tbi ] }
+        .map { interval_chunk, gvcf, tbi, interval_bed, bed_tbi -> [ interval_chunk, interval_bed, bed_tbi, gvcf, tbi ] }
         .set { ch_gvcf_interval }
 
+    ch_sample_gvcf.view()
 
     // Calculate cohort size from sample names
     // NOTE: This is used for memory scaling of GENOMICSDB_IMPORT and JOINT_GENOTYPE which are primarily driven by sample size
@@ -145,7 +156,7 @@ workflow GATK_JOINT {
     }
 
     JOINT_GENOTYPE.out.vcf
-        .map { interval_chunk, interval_bed, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+        .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
         .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }

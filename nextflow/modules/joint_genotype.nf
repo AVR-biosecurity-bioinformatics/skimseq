@@ -5,7 +5,7 @@ process JOINT_GENOTYPE {
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(genomicsdb)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
     val(cohort_size)
@@ -23,7 +23,7 @@ process JOINT_GENOTYPE {
     }
 
     output: 
-    tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
     tuple val(interval_hash), path("*.vcf.gz"), path("*.vcf.gz.tbi"), path("*.stderr.log"),  emit: log
 
     script:

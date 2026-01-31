@@ -30,7 +30,7 @@ workflow FILTER_VARIANTS {
 
     // Merge output into single 
     CALC_CHUNK_DP.out.chunk_dp
-            .map { interval_hash, interval_bed, dphist -> dphist }
+            .map { interval_hash, interval_bed, bed_tbi, dphist -> dphist }
             .collect()
             .set { ch_chunk_dp }
 
@@ -53,18 +53,18 @@ workflow FILTER_VARIANTS {
 
     // Use counts file to remove those chunks which contain no variants
     FILTER_VCF_SITES.out.vcf
-        .map { type, interval_hash, interval_bed, vcf, tbi, counts_file ->
+        .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
             tuple(type, interval_hash, interval_bed, vcf, tbi, n)
         }
         .filter { type, interval_hash, interval_bed, vcf, tbi, n -> n > 0 }
-        .map { type, interval_hash, interval_bed, vcf, tbi, n -> tuple(type, interval_hash, interval_bed, vcf, tbi) }
+        .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(type, interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_vcfs_nonempty }
 
 
     // Merge variant types back together, by chunk
     ch_vcfs_nonempty
-        .map { type, interval_hash, interval_bed, vcf, tbi ->
+        .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi ->
             tuple("${interval_hash}_filtered", vcf, tbi) // Adding string '_filtered' to ihas ensure's its present in from MERGE_FILTERED_VCF output filename
         }
         .groupTuple(by: 0)
@@ -86,8 +86,8 @@ workflow FILTER_VARIANTS {
     // Output channels of just the merged sitelists
     
     // Create a channel of all 3 variant types + all together for merging
-    ch_vcfs_nonempty.map { type, interval_hash, interval_bed, vcf, tbi -> tuple(type, vcf, tbi) }
-        .concat(ch_vcfs_nonempty.map { type, interval_hash, interval_bed, vcf, tbi -> tuple('combined', vcf, tbi) })
+    ch_vcfs_nonempty.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(type, vcf, tbi) }
+        .concat(ch_vcfs_nonempty.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
        .set { ch_sitelists_to_merge }
 
