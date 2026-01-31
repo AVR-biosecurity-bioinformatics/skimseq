@@ -38,9 +38,10 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     )
     
     MPILEUP_PSEUDOHAP.out.vcf
-        .map { interval_hash, sites_vcf, sites_tbi, vcf, vcf_tbi -> [ interval_hash, vcf, vcf_tbi ] }
+        .map { interval_hash, sites_vcf, sites_tbi, vcf, vcf_tbi -> 
+                tuple("${interval_hash}_pseudohaploid", vcf, vcf_tbi) // Adding string '_pseudohaploid' to ensure's its present in output filename
+        }
         .set { ch_vcf_for_pseudo }
-
 
     // Create pseudohaploid vcf file
     CREATE_PSEUDOHAP (
