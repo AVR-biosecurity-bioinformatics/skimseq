@@ -10,6 +10,7 @@ include { BCFTOOLS_GENOTYPING                                       } from '../s
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
+include { PSEUDOHAPLOID_GENOTYPING                                  } from "../subworkflows/pseudohaploid_genotyping"
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 
@@ -322,10 +323,10 @@ workflow SKIMSEQ {
     } else if (params.genotyping == "pseudohaploid"){
 
         // TODO: Run consensify style pseudohaploid genotyping
-        //PSEUDOHAPLOID_GENOTYPING (
-        //    ch_sites_to_genotype,
-        //    ch_sample_cram
-        //)
+        PSEUDOHAPLOID_GENOTYPING (
+            ch_sites_to_genotype,
+            ch_sample_cram
+        )
 
     } else if (params.genotyping == "mpileup"){
 

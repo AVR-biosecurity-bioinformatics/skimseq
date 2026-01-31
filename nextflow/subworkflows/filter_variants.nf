@@ -61,7 +61,6 @@ workflow FILTER_VARIANTS {
         .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(type, interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_vcfs_nonempty }
 
-
     // Merge variant types back together, by chunk
     ch_vcfs_nonempty
         .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi ->
@@ -69,8 +68,6 @@ workflow FILTER_VARIANTS {
         }
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
-
-ch_vcf_to_merge.view()
 
     MERGE_FILTERED_VCFS (
         ch_vcf_to_merge

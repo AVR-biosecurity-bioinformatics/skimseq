@@ -62,4 +62,4 @@ bcftools +setGT raw.withPH.vcf.gz -Ou -- -t q -n c:0/0 -i 'FMT/PH=="0"' \
     | bcftools +setGT -Ou -- -t q -n c:1/1 -i 'FMT/PH=="1"' \
     | bcftools +setGT -Oz -o pseudohaploid.vcf.gz -- -t q -n . -i 'FMT/PH=="."' 
 
-bcftools index -t $pseudohaploid.vcf.gz
+bcftools index -t pseudohaploid.vcf.gz

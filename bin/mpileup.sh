@@ -38,13 +38,16 @@ if [[ "${TARGETS_FILE}" == *.vcf.gz ]]; then
   MPILEUP_TARGETS_FLAGS="-T panel.alleles.tsv.gz"
   CALL_FLAGS="-C alleles -T panel.alleles.tsv.gz --insert-missed 0"
 
-elif [[ "${TARGETS_FILE}" == *.bed ]]; then
+elif [[ "${TARGETS_FILE}" == *.bed* ]]; then
   echo "[targets] Detected BED intervals: ${TARGETS_FILE}" >&2
   # For BED, just target the intervals; no allele restriction possible
   MPILEUP_TARGETS_FLAGS="-R ${TARGETS_FILE}"
   INTERVAL_BED=${TARGETS_FILE}
   CALL_FLAGS=""
-fi
+else
+  echo "${TARGETS_FILE} is in wrong format" >&2
+  exit 1
+fi 
 
 # -----------------------------
 # Pre-filter reads using samtools

@@ -4,8 +4,6 @@
 
 //// import modules
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle' 
-include { CREATE_BEAGLE as CREATE_BEAGLE_GP                      } from '../modules/create_beagle' 
-include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
 include { VCF2DIST                                               } from '../modules/vcf2dist' 
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination' 
 include { PLOT_TREE                                              } from '../modules/plot_tree' 
@@ -41,30 +39,8 @@ workflow OUTPUTS {
         ch_beagle_gl_out = CREATE_BEAGLE_GL.out.beagle
     }
 
-    // Create beagle GP file
-    //def ch_beagle_gp_out = Channel.empty()
-    //if (params.output_beagle_gp) {
-    //    CREATE_BEAGLE_GP (
-    //        ch_vcfs,
-    //        ch_genome_indexed,
-    //        true
-    //    )
-    //    ch_beagle_gp_out = CREATE_BEAGLE_GP.out.beagle
-    // }
-
-    // Create pseudohaploid vcf file
-    def ch_pseudohap_out = Channel.empty()
-    if (params.output_pseudohaploid_vcf) {
-        CREATE_PSEUDOHAP (
-            ch_vcfs,
-            ch_genome_indexed
-        )
-        ch_pseudohap_out = CREATE_PSEUDOHAP.out.vcf
-    }
-
     // Create updated channel for distance matrices
     ch_vcfs
-        .mix(ch_pseudohap_out)
         .set{ ch_vcfs_for_dist }
 
     // Create distance matrices from VCFs
