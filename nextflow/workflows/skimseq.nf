@@ -330,9 +330,9 @@ workflow SKIMSEQ {
             ch_sample_names
         )
 
-        ch_genotyped_all = PSEUDOHAPLOID_GENOTYPING.out.vcf
-        ch_genotyped_snps = PSEUDOHAPLOID_GENOTYPING.out.vcf
-        ch_genotyped_indels = PSEUDOHAPLOID_GENOTYPING.out.vcf
+        ch_genotyped_all = PSEUDOHAPLOID_GENOTYPING.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_snps = PSEUDOHAPLOID_GENOTYPING.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_indels = PSEUDOHAPLOID_GENOTYPING.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
 
     } else if (params.genotyping == "mpileup"){
 

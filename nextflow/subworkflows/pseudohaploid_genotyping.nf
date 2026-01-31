@@ -53,8 +53,6 @@ workflow PSEUDOHAPLOID_GENOTYPING {
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
- ch_vcf_to_merge.view()
-
     MERGE_PSEUDOHAP (
         ch_vcf_to_merge
     )
