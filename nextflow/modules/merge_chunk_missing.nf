@@ -6,11 +6,10 @@ process MERGE_CHUNK_MISSING {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(missing), path(dphist)
+    tuple path(missing)
 
     output: 
     path("missing_summary.tsv"),           emit: missing_summary
-    path("dphist_dataset.tsv"),            emit: dp_hist
 
     script:
     def process_script = "${process_name}.sh"
@@ -19,7 +18,6 @@ process MERGE_CHUNK_MISSING {
 
     # Write lists of missing data and dp hist files to process
     printf "%s\n" ${missing} > missing_files.list
-    printf "%s\n" ${dphist} > hist_files.list
 
     ### run process script
     bash ${process_script} \

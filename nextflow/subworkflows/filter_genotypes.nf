@@ -6,6 +6,8 @@
 include { FILTER_VCF_GENOTYPES                         } from '../modules/filter_vcf_genotypes'
 include { PLOT_VCF_FILTERS as PLOT_GENOTYPE_FILTERS    } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
+include { CALC_CHUNK_MISSING                           } from '../modules/calc_chunk_missing'
+include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
 
 workflow FILTER_GENOTYPES {
 
@@ -29,16 +31,35 @@ workflow FILTER_GENOTYPES {
     //    FILTER_VCF_GENOTYPES.out.summary.collect()
     //)
 
-    // QC plots for sample missing data
-    PLOT_SAMPLE_FILTERS (
-        FILTER_VCF_GENOTYPES.out.missing_summary,
-        params.sample_max_missing
+
+    // Calculate missing data for each chunk
+    CALC_CHUNK_MISSING (
+        ch_vcfs
     )
 
-    FILTER_VCF_GENOTYPES.out.samples_to_keep
-        .splitText( by: 1 )
-        .unique()
-        .set { ch_sample_names_filt }
+    // Merge output into single 
+    CALC_CHUNK_MISSING.out.chunk_missing
+            .map { interval_hash, interval_bed, missing -> missing }
+            .collect()
+            .set { ch_missing_chunk }
+
+    // Merge missing data and DP histogram from all chunks
+    MERGE_CHUNK_MISSING (
+        ch_missing_chunk
+    )
+
+    // Filter for missing data (samples and sites)
+
+    // QC plots for sample missing data
+    //PLOT_SAMPLE_FILTERS (
+    //    FILTER_VCF_GENOTYPES.out.missing_summary,
+    //    params.sample_max_missing
+    //)
+
+    //FILTER_VCF_GENOTYPES.out.samples_to_keep
+    //    .splitText( by: 1 )
+    //    .unique()
+    //    .set { ch_sample_names_filt }
 
 
     // Subset the merged vcf channels to each variant type for emission

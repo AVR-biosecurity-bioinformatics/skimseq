@@ -12,8 +12,8 @@ process FILTER_VCF_GENOTYPES {
     output: 
     tuple path("final.vcf.gz"), path("final.vcf.gz.tbi"),     emit: vcf
     path("*_filter_hist.tsv.gz"),                             emit: hist
-    path("samples_to_keep.txt"),                              emit: samples_to_keep
-    path("missing_summary.tsv"),                              emit: missing_summary
+    //path("samples_to_keep.txt"),                              emit: samples_to_keep
+    //path("missing_summary.tsv"),                              emit: missing_summary
     path("filter_summary.tsv"),                               emit: summary
 
     script:

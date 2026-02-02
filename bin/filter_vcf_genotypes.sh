@@ -49,31 +49,31 @@ bcftools +setGT -Ob -o gt_filtered.bcf gt_masked.bcf -- \
   -i 'FMT/FT!="PASS"'
 
 # Calculate per_sample missing data
-bcftools stats -s - gt_filtered.bcf \
-  | awk '
-    # SN line with total records
-    $1=="SN" && $3=="number" && $5=="records:" {
-        total = $6
-        next
-    }
-
-    # per-sample counts
-    $1=="PSC" {
-        sample = $3
-        nmiss  = $14          # missing genotypes for that sample
-        printf "%s\t%d\t%d\t%.6f\n", sample, nmiss, total, nmiss/total
-    }' > missing_summary.tsv
+#bcftools stats -s - gt_filtered.bcf \
+#  | awk '
+#    # SN line with total records
+#    $1=="SN" && $3=="number" && $5=="records:" {
+#        total = $6
+#        next
+#    }
+#
+#    # per-sample counts
+#    $1=="PSC" {
+#        sample = $3
+#        nmiss  = $14          # missing genotypes for that sample
+#        printf "%s\t%d\t%d\t%.6f\n", sample, nmiss, total, nmiss/total
+#    }' > missing_summary.tsv
   
 # Find samples above the missing fraction filter
-awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
-missing_summary.tsv > samples_to_keep.txt
+#awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
+#missing_summary.tsv > samples_to_keep.txt
 
 # Filter for sampls
-bcftools view -U -S samples_to_keep.txt -Ob -o sample_filtered.bcf gt_filtered.bcf
+#bcftools view -U -S samples_to_keep.txt -Ob -o sample_filtered.bcf gt_filtered.bcf
   
 # Re-calculate minor alelle count (MAC) info tag
 # First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' sample_filtered.bcf \
+bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' gt_filtered.bcf \
 | awk 'BEGIN{OFS="\t"}
        {
          split($3,ac,",")          # AC is comma‑separated if multi‑allelic

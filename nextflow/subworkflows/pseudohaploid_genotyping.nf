@@ -54,10 +54,10 @@ workflow PSEUDOHAPLOID_GENOTYPING {
         .groupTuple(by: 0)
         .set { ch_vcf_to_merge }
 
-    MERGE_PSEUDOHAP (
-        ch_vcf_to_merge
-    )
+    //MERGE_PSEUDOHAP (
+    //    ch_vcf_to_merge
+    //)
 
     emit: 
-    vcf = MERGE_PSEUDOHAP.out.vcf
+    vcf = CREATE_PSEUDOHAP.out.vcf
 }

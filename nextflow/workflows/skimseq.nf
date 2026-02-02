@@ -307,18 +307,16 @@ workflow SKIMSEQ {
            ch_sites_to_genotype
         )
 
-        GENOTYPE_POSTERIORS.out.vcf
-            .map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('genotyped', vcf, tbi) }
-            .groupTuple(by: 0)
-            .set { ch_vcf_to_merge }
+        //GENOTYPE_POSTERIORS.out.vcf
+        //     .map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('genotyped', vcf, tbi) }
+        //    .groupTuple(by: 0)
+        //    .set { ch_vcf_to_merge }
 
-        MERGE_GENOTYPED_VCFS (
-            ch_vcf_to_merge
-        )
+        //MERGE_GENOTYPED_VCFS (
+        //    ch_vcf_to_merge
+        //)
         
-        ch_genotyped_all = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
-        ch_genotyped_snps = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
-        ch_genotyped_indels = MERGE_GENOTYPED_VCFS.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_all = GENOTYPE_POSTERIORS.out.vcf
 
     } else if (params.genotyping == "pseudohaploid"){
 
@@ -330,9 +328,7 @@ workflow SKIMSEQ {
             ch_sample_names
         )
 
-        ch_genotyped_all = PSEUDOHAPLOID_GENOTYPING.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
-        ch_genotyped_snps = PSEUDOHAPLOID_GENOTYPING.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
-        ch_genotyped_indels = PSEUDOHAPLOID_GENOTYPING.out.vcf.map { type, vcf, tbi -> tuple(vcf, tbi) }
+        ch_genotyped_all = PSEUDOHAPLOID_GENOTYPING.out.vcf
 
     } else if (params.genotyping == "mpileup"){
 
@@ -354,6 +350,9 @@ workflow SKIMSEQ {
     /*
    Create extra outputs and visualisations
     */
+
+    // TODO: Split into variant types in here?
+    // OR keep then split and merge them in here
 
     OUTPUTS (
         ch_final_all,

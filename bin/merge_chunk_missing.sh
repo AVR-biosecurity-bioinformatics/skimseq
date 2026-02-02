@@ -33,8 +33,3 @@ xargs -a missing_files.list awk '
 | awk 'BEGIN{print "SAMPLE\tPRESENT_BASES\tTARGET_BASES\tMISSING_FRACTION"} {print}' \
 > missing_summary.tsv
 
-#  Merge DP histograms
-xargs -a hist_files.list awk 'BEGIN{OFS="\t"} { c[$1]+=$2; N+=$2 } END{ for (d in c) print d,c[d] }' \
-| LC_ALL=C sort -n -k1,1 \
-> dphist_dataset.tsv
-

@@ -24,8 +24,3 @@ bcftools stats -s - "$5" \
         print $3, $14 > out
     }
 '
-# DP histogram for this chunk
-bcftools query -f '%DP\n' "$5" \
-| awk '{d=$1+0; c[d]++} END{for (d in c) print d"\t"c[d]}' \
-| LC_ALL=C sort -n -k1,1 > ${3}.dphist.tsv
-
