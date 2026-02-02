@@ -21,7 +21,7 @@ if [[ "${TARGETS_FILE}" == *.vcf.gz ]]; then
   echo "[targets] Detected VCF panel: ${TARGETS_FILE}" >&2
 
   ## Build allele targets: CHROM POS REF,ALT  (tabix indexed)
-  bcftools view -m2 -M2 -v snps "${TARGETS_FILE}" \
+  bcftools view -m2 -M2 "${TARGETS_FILE}" \
     | bcftools query -f'%CHROM\t%POS\t%REF,%ALT\n' \
     | bgzip -c > panel.alleles.tsv.gz
   tabix -s1 -b2 -e2 panel.alleles.tsv.gz
