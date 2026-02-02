@@ -34,12 +34,12 @@ workflow FILTER_GENOTYPES {
 
     // Calculate missing data for each chunk
     CALC_CHUNK_MISSING (
-        ch_vcfs
+        FILTER_VCF_GENOTYPES.out.vcf
     )
 
     // Merge output into single 
     CALC_CHUNK_MISSING.out.chunk_missing
-            .map { interval_hash, interval_bed, missing -> missing }
+            .map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }
             .collect()
             .set { ch_missing_chunk }
 

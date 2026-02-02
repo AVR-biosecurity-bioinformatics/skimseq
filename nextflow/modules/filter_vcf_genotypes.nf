@@ -7,10 +7,10 @@ process FILTER_VCF_GENOTYPES {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi)
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
 
     output: 
-    tuple path("final.vcf.gz"), path("final.vcf.gz.tbi"),     emit: vcf
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path("final.vcf.gz"), path("final.vcf.gz.tbi"),     emit: vcf
     path("*_filter_hist.tsv.gz"),                             emit: hist
     //path("samples_to_keep.txt"),                              emit: samples_to_keep
     //path("missing_summary.tsv"),                              emit: missing_summary
