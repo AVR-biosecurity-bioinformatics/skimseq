@@ -10,7 +10,7 @@ process FILTER_VCF_GENOTYPES {
     tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
 
     output: 
-    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path("final.vcf.gz"), path("final.vcf.gz.tbi"),     emit: vcf
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path("${interval_hash}.filtered.vcf.gz"), path("${interval_hash}.filtered.vcf.gz.tbi"),     emit: vcf
     path("*_filter_hist.tsv.gz"),                             emit: hist
     //path("samples_to_keep.txt"),                              emit: samples_to_keep
     //path("missing_summary.tsv"),                              emit: missing_summary
@@ -46,6 +46,7 @@ process FILTER_VCF_GENOTYPES {
     bash ${process_script} \
     ${task.cpus} \
     ${task.memory.giga} \
-    "${vcf}" 
+    "${vcf}" \
+    ${interval_hash}
     """
 }

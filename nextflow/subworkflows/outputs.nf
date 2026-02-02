@@ -22,8 +22,6 @@ workflow OUTPUTS {
         Create outputs
     */
 
-    ch_genotype_filtered.view()
-
     // Create a channel of all 3 variant types + all together for merging
     ch_genotype_filtered.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(type, vcf, tbi) }
         .concat(ch_genotype_filtered.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
@@ -37,10 +35,10 @@ workflow OUTPUTS {
     )
    
     // Extract merged variant type vcfs into convenient channels
-    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_all }
-    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_snp }
-    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_indel }
-    MERGE_FILTERED_SITELISTS.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_inv }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_all }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_snp }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_indel }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_inv }
 
     /* 
         Create outputs
@@ -91,5 +89,6 @@ workflow OUTPUTS {
         VCF2DIST.out.mat,
         ch_popmap
     )
-
+    emit:
+    vcf = ch_final_all
 }

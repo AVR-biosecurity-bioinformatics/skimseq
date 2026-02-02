@@ -35,10 +35,10 @@ workflow QC {
     )
 
     // Calculate VCF statistics on the final file
-    //VCF_STATS (
-    //    ch_vcf.combine(ch_sample_names),
-    //    ch_genome_indexed
-    //)
+    VCF_STATS (
+        ch_vcf.combine(ch_sample_names),
+        ch_genome_indexed
+    )
 
     // TODO: Generate QC statistics for vcf files
 
@@ -56,8 +56,8 @@ workflow QC {
             CRAM_STATS.out.stats.map { sample,path -> [ path ] }, 
             CRAM_STATS.out.flagstats.map { sample,path -> [ path ] }, 
             CRAM_STATS.out.coverage.map { sample,path -> [ path ] },  
-            FASTQC.out.results.collect()
-            //VCF_STATS.out.vcfstats
+            FASTQC.out.results.collect(),
+            VCF_STATS.out.vcfstats
             )
         .collect()
         .ifEmpty([])
