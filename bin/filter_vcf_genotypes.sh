@@ -92,7 +92,7 @@ cat > MAC.hdr <<'EOF'
 EOF
 
 # Annotate the vcf with INFO/MAC and update site tags
-bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou sample_filtered.bcf  \
+bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou gt_filtered.bcf  \
   | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
   | bcftools filter -Ou -e "INFO/F_MISSING > ${F_MISSING:-1}" \
   | bcftools view -U -Oz9 -o final.vcf.gz

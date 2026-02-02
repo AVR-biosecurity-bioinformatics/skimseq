@@ -6,7 +6,7 @@ process MERGE_CHUNK_MISSING {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(missing)
+    path(missing)
 
     output: 
     path("missing_summary.tsv"),           emit: missing_summary

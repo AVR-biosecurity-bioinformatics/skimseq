@@ -343,9 +343,7 @@ workflow SKIMSEQ {
         ch_genotyped_all
     )
 
-    ch_final_all = FILTER_GENOTYPES.out.vcf
-    ch_final_snps = FILTER_GENOTYPES.out.vcf
-    ch_final_indels = FILTER_GENOTYPES.out.vcf
+    ch_genotype_filtered = FILTER_GENOTYPES.out.vcf
 
     /*
    Create extra outputs and visualisations
@@ -355,9 +353,7 @@ workflow SKIMSEQ {
     // OR keep then split and merge them in here
 
     OUTPUTS (
-        ch_final_all,
-        ch_final_snps,
-        ch_final_indels,
+        ch_genotype_filtered,
         ch_genome_indexed,
         ch_sample_pop
     )
