@@ -20,6 +20,7 @@ process CALC_CHUNK_MISSING {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${variant_type} \
         ${interval_hash} \
         ${interval_bed} \
         "${vcf}"        

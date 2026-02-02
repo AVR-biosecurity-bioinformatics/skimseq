@@ -27,7 +27,7 @@ if [[ "${TARGETS_FILE}" == *.vcf.gz ]]; then
   tabix -s1 -b2 -e2 panel.alleles.tsv.gz
 
   # Build a BED (0-based) for filtering CRAMs by region
-  bcftools view -m2 -M2 -v snps "${TARGETS_FILE}" \
+  bcftools view -m2 -M2 "${TARGETS_FILE}" \
     | bcftools query -f'%CHROM\t%POS0\t%POS\n' \
     | bgzip -c > panel.bed.gz
   tabix -p bed panel.bed.gz

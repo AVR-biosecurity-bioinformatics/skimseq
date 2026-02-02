@@ -50,7 +50,7 @@ bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcHet <= ${EH:-1e9}" \
   | bcftools filter -Ou -s HWE_FAIL     -m+ -e "INFO/HWE <= ${HWE:-1e9}" \
   | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
-  | bcftools filter -Ou -s DIST_INDEL_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:-0}" \
+  | bcftools filter -Ou -s DIST_INDEL_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:--999999999}" \
   | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
   | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
   | bcftools filter -Ou -s NS_FAIL     -m+ -e "INFO/NS <= ${NS:-0}" \
@@ -60,11 +60,11 @@ bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
 
 # Keep only variants that PASS & index output
 # TODO: Drop FT and other extra fields from vcf
-bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_filtered.vcf.gz tmp.tagged.bcf
-bcftools index --threads ${1} -t ${6}_${4}_filtered.vcf.gz
+bcftools view --threads ${1} -f PASS -Oz -o ${6}_${4}_sites.vcf.gz tmp.tagged.bcf
+bcftools index --threads ${1} -t ${6}_${4}_sites.vcf.gz
 
 # Output number of variant records remaining (non-header lines)
-nvars=$(bcftools index -n "${6}_${4}_filtered.vcf.gz" | tr -d '[:space:]')
+nvars=$(bcftools index -n "${6}_${4}_sites.vcf.gz" | tr -d '[:space:]')
 printf "%s\n" "$nvars" > "${6}_${4}.counts"
 
 # Create a small summary of the number of sites passing and failing each filter

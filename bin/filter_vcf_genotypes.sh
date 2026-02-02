@@ -5,7 +5,8 @@ set -uoe pipefail
 # $1 = cpus 
 # $2 = mem (GB)
 # $3 = vcf
-# $4 = interval_hash
+# $4 = variant_type
+# $5 = interval_hash
 
 # Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
 bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' ${3} \
@@ -96,9 +97,9 @@ EOF
 bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou gt_filtered.bcf  \
   | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
   | bcftools filter -Ou -e "INFO/F_MISSING > ${F_MISSING:-1}" \
-  | bcftools view -U -Oz9 -o ${4}.filtered.vcf.gz
+  | bcftools view -U -Oz9 -o ${4}.${5}.filtered.vcf.gz
 
-bcftools index -t ${4}.filtered.vcf.gz
+bcftools index -t ${4}.${5}.filtered.vcf.gz
 
 # Create a small summary of the number of sites passing and failing each filter
 bcftools query -f '[%FT:]\t' gt_masked.bcf \

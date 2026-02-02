@@ -65,30 +65,11 @@ workflow FILTER_VARIANTS {
         .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(type, interval_hash, vcf, tbi) }
         .set { ch_vcfs_nonempty }
 
-    // Merge variant types back together, by chunk
-    //ch_vcfs_nonempty
-    //    .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi ->
-    //        tuple("${interval_hash}_filtered", vcf, tbi) // Adding string '_filtered' to ihas ensure's its present in from MERGE_FILTERED_VCF output filename
-    //    }
-    //    .groupTuple(by: 0)
-    //    .set { ch_vcf_to_merge }
-
-    //MERGE_FILTERED_VCFS (
-    //    ch_vcf_to_merge
-    //)
-
 
    // Output channel of variant_type, interval_hash, interval_bed, vcf, tbi, sitesvcf, sitestbi
     ch_vcf_types   
         .join(ch_vcfs_nonempty, by: [0,1] )
         .set { ch_vcf_filtered }
-
-        //.join ( MERGE_FILTERED_VCFS.out.vcf 
-        //            .map { interval_hash_filtered, vcf, tbi ->
-        //            def interval_hash = interval_hash_filtered.replaceFirst(/_filtered$/, '') // remove '_filtered' string from ihash for join
-        //            tuple(interval_hash, vcf, tbi)
-        //        }, by: 0 )
-        //.set { ch_vcf_filtered }
 
     // Output channels of just the merged sitelists
     

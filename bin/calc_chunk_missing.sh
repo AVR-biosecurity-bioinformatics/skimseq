@@ -4,13 +4,14 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = memory
-# $3 = interval_hash
-# $4 = interval_bed
-# $5 = vcf file
+# $3 = variant_type
+# $4 = interval_hash
+# $5 = interval_bed
+# $6 = vcf file
 
 # total records and missing records for chunk
-bcftools stats -s - "$5" \
-| awk -v out="${3}.missing.tsv" 'BEGIN{OFS="\t"}
+bcftools stats -s - "$6" \
+| awk -v out="${3}.${4}.missing.tsv" 'BEGIN{OFS="\t"}
     $1=="SN" && $3=="number" && $5=="records:" {
         total=$6
         next

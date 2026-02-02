@@ -3,7 +3,7 @@
 */
 
 //// import modules
-include { MERGE_VCFS as MERGE_PSEUDOHAP                          } from '../modules/merge_vcfs' 
+include { MERGE_VCFS as MERGE_SITELIST                           } from '../modules/merge_vcfs' 
 include { MPILEUP as MPILEUP_PSEUDOHAP                           } from '../modules/mpileup'
 include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
 
@@ -20,11 +20,15 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     // combine sample-level cram with each interval_bed file and interval chunk
     ch_sample_cram 
         .combine ( ch_sites_to_genotype )
-        .map { sample, cram, crai, interval_hash, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi -> [ interval_hash, cram, crai ] }
-        .groupTuple ( by: 0 )
+        .map { sample, cram, crai, variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi -> [ variant_type, interval_hash, cram, crai ] }
+        .groupTuple ( by: [0,1] )
         // join to get back interval_file
-        .join ( ch_sites_to_genotype, by: 0 )
-        .map { interval_hash, cram, crai, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi -> [ interval_hash, sites_vcf, sites_tbi, cram, crai ] }
+        .join ( ch_sites_to_genotype, by: [0,1] )
+        // variant type and interval hash columns are combined into a single string for compatibility with mpileup
+        .map { variant_type, interval_hash, cram, crai, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi -> 
+            def id = "${variant_type}_${interval_hash}"
+            tuple(id, sites_vcf, sites_tbi, cram, crai) 
+        }
 	    .set { ch_cram_to_genotype }
 
     // Calculate cohort size for memory scaling
@@ -36,28 +40,28 @@ workflow PSEUDOHAPLOID_GENOTYPING {
         ch_genome_indexed,
         ch_cohort_size
     )
-    
-    MPILEUP_PSEUDOHAP.out.vcf
-        .map { interval_hash, sites_vcf, sites_tbi, vcf, vcf_tbi -> 
-                tuple("${interval_hash}_pseudohaploid", vcf, vcf_tbi) // Adding string '_pseudohaploid' to ensure's its present in output filename
-        }
-        .set { ch_vcf_for_pseudo }
-
+     
     // Create pseudohaploid vcf file
     CREATE_PSEUDOHAP (
-            ch_vcf_for_pseudo,
+            MPILEUP_PSEUDOHAP.out.vcf.map { id, sites_vcf, sites_tbi, vcf, tbi -> tuple(id, vcf, tbi) },
             ch_genome_indexed
     )
 
-    CREATE_PSEUDOHAP.out.vcf
-        .map { interval_hash, vcf, tbi -> tuple('pseudohaploid', vcf, tbi) }
-        .groupTuple(by: 0)
-        .set { ch_vcf_to_merge }
+        
 
-    //MERGE_PSEUDOHAP (
-    //    ch_vcf_to_merge
-    //)
+    // Split the variant_type and interval_hash back out to separate columns
+    CREATE_PSEUDOHAP.out.vcf
+    .map { id, vcf, tbi ->
+        def (variant_type, interval_hash) = id.split('_', 2)
+        tuple(variant_type, interval_hash, vcf, tbi)
+    }
+    .join ( ch_sites_to_genotype.map {
+         variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi
+          -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi)
+        }, by: [0,1] ) 
+    .map { variant_type, interval_hash, vcf, tbi, sites_vcf, sites_tbi -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi) }
+    .set{ ch_pseudohaploid_vcf }
 
     emit: 
-    vcf = CREATE_PSEUDOHAP.out.vcf
+    vcf = ch_pseudohaploid_vcf
 }
