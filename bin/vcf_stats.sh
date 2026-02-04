@@ -8,11 +8,18 @@ set -u
 # $4 = Reference genome
 # $5 = Sample
 
-# Subset to target sample
-bcftools view -s ${5} $2 --exclude-uncalled -o ${5}.vcf.gz
-
-# Calculate Per-sample statistics
-bcftools stats -F ${4} ${5}.vcf.gz > ${5}.vcfstats.txt
-
-# Remove temp file
-rm -f ${5}.vcf.gz
+bcftools view \
+  --threads ${1} \
+  -s ${5} \
+  --exclude-uncalled \
+  -Ou ${2} \
+| bcftools stats \
+    --threads ${1} \
+    -F ${4} \
+    -s ${5} \
+    - \
+| awk -v s="${5}" 'BEGIN{FS=OFS="\t"}
+    /^#/ {print; next}
+    $1=="ID" { $3=s ".vcf.gz" }
+    { print }
+' > "${5}.vcfstats.txt"

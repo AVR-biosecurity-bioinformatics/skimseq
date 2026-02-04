@@ -284,6 +284,7 @@ workflow SKIMSEQ {
 
     FILTER_VARIANTS.out.filtered_sitelist
         .set { ch_sites_to_genotype }
+        
     /*
    Genotype Refinement
    

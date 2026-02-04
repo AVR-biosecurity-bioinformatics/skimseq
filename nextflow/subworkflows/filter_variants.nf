@@ -40,12 +40,12 @@ workflow FILTER_VARIANTS {
     )
 
     // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF_SITES on each
-    def types = ['snp', 'indel']
+    def variant_types = ['snp', 'indel']
     if( params.output_invariant ) {
-    types << 'invariant'
+    variant_types << 'invariant'
     }
 
-   channel.of(*types) 
+   channel.of(*variant_types) 
 	.combine(ch_vcfs)
 	.set { ch_vcf_types }
 
@@ -57,12 +57,12 @@ workflow FILTER_VARIANTS {
 
     // Use counts file to remove those chunks which contain no variants
     FILTER_VCF_SITES.out.vcf
-        .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
-            tuple(type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
+            tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
-        .filter { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(type, interval_hash, vcf, tbi) }
+        .filter { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, vcf, tbi) }
         .set { ch_vcfs_nonempty }
 
 
@@ -74,8 +74,8 @@ workflow FILTER_VARIANTS {
     // Output channels of just the merged sitelists
     
     // Create a channel of all 3 variant types + all together for merging
-    ch_vcfs_nonempty.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(type, vcf, tbi) }
-        .concat(ch_vcfs_nonempty.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
+    ch_vcfs_nonempty.map { variant_type, interval_hash, vcf, tbi -> tuple(variant_type, vcf, tbi) }
+        .concat(ch_vcfs_nonempty.map { variant_type, interval_hash, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_sitelists_to_merge }
 
