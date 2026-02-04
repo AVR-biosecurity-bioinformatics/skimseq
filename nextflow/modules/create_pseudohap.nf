@@ -10,7 +10,7 @@ process CREATE_PSEUDOHAP {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(outname), path("${outname}.vcf.gz"), path("${outname}.vcf.gz.tbi"),   emit: vcf
+    tuple val(outname), path("${outname}.pseudohap.vcf.gz"), path("${outname}.pseudohap.vcf.gz.tbi"),   emit: vcf
 
     script:
     def process_script = "${process_name}.sh"
