@@ -46,9 +46,7 @@ workflow PSEUDOHAPLOID_GENOTYPING {
             MPILEUP_PSEUDOHAP.out.vcf.map { id, sites_vcf, sites_tbi, vcf, tbi -> tuple(id, vcf, tbi) },
             ch_genome_indexed
     )
-
-        
-
+      
     // Split the variant_type and interval_hash back out to separate columns
     CREATE_PSEUDOHAP.out.vcf
     .map { id, vcf, tbi ->
