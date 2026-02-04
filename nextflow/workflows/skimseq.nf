@@ -282,7 +282,7 @@ workflow SKIMSEQ {
         ch_sample_names
     )
 
-    FILTER_VARIANTS.out.filtered_combined
+    FILTER_VARIANTS.out.filtered_sitelist
         .set { ch_sites_to_genotype }
     /*
    Genotype Refinement
@@ -307,15 +307,6 @@ workflow SKIMSEQ {
            ch_sites_to_genotype
         )
 
-        //GENOTYPE_POSTERIORS.out.vcf
-        //     .map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('genotyped', vcf, tbi) }
-        //    .groupTuple(by: 0)
-        //    .set { ch_vcf_to_merge }
-
-        //MERGE_GENOTYPED_VCFS (
-        //    ch_vcf_to_merge
-        //)
-        
         ch_genotyped_all = GENOTYPE_POSTERIORS.out.vcf
 
     } else if (params.genotyping == "pseudohaploid"){
