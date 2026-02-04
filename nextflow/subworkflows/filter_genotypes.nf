@@ -51,10 +51,10 @@ workflow FILTER_GENOTYPES {
     // Filter for missing data (samples and sites)
 
     // QC plots for sample missing data
-    //PLOT_SAMPLE_FILTERS (
-    //    FILTER_VCF_GENOTYPES.out.missing_summary,
-    //    params.sample_max_missing
-    //)
+    PLOT_SAMPLE_FILTERS (
+        MERGE_CHUNK_MISSING.out.missing_summary,
+        params.sample_max_missing
+    )
 
     //FILTER_VCF_GENOTYPES.out.samples_to_keep
     //    .splitText( by: 1 )
