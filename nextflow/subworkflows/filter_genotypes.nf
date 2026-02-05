@@ -18,19 +18,17 @@ workflow FILTER_GENOTYPES {
 
 
     // Filter genotypes for quality - Set to missing genotype but retain GL/PL for probabilistic analyses
-    // Apply final missing data
     FILTER_VCF_GENOTYPES (
         ch_genotyped_all
     )
 
-    // QC plots for sites and genotypes
+    // QC plots for genotypes
     // TODO: just need to sort out naming clash before enabling this
     // TODO: Join back to the original SNP/INDEL/SITES one so its one file?
     //PLOT_GENOTYPE_FILTERS (
     //    FILTER_VCF_GENOTYPES.out.hist.collect(),
     //    FILTER_VCF_GENOTYPES.out.summary.collect()
     //)
-
 
     // Calculate missing data for each chunk
     CALC_CHUNK_MISSING (
@@ -48,7 +46,7 @@ workflow FILTER_GENOTYPES {
         ch_missing_chunk
     )
 
-    // Filter for missing data (samples and sites)
+    // TODO: Filter for missing data (samples and sites)
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (

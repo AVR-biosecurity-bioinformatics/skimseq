@@ -30,17 +30,17 @@ process FILTER_VCF_SITES {
     }
 
     // dynamic per-type values
-    def QUAL_THR  = p("${prefix}_qual")
-    def EH        = p("${prefix}_eh")
-    def HWE        = p("${prefix}_eh")
-    def DPmin     = p("${prefix}_dp_min")
-    def PCT_LOW   = p("${prefix}_dp_lower_perc")
-    def PCT_HIGH  = p("${prefix}_dp_upper_perc")
+    def QUAL_THR   = p("${prefix}_qual")
+    def EH         = p("${prefix}_eh")
+    def HWE        = p("${prefix}_hwe")
+    def DPmin      = p("${prefix}_dp_min")
+    def PCT_LOW    = p("${prefix}_dp_lower_perc")
+    def PCT_HIGH   = p("${prefix}_dp_upper_perc")
     def DIST_INDEL = p("${prefix}_dist_indel")
-    def MAF       = p("${prefix}_maf")
-    def MAC       = p("${prefix}_mac")
-    def NS        = p("${prefix}_min_samples")
-    def CR        = p("${prefix}_min_callrate")
+    def MAF        = p("${prefix}_maf")
+    def MAC        = p("${prefix}_mac")
+    def NS         = p("${prefix}_min_samples")
+    def CR         = p("${prefix}_min_callrate")
 
 
     def process_script = "${process_name}.sh"
