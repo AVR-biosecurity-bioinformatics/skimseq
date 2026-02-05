@@ -10,7 +10,7 @@ set -u
 
 # Get the total records header from each chunk
 TOTAL_TARGET=$(
-  xargs -a missing_files.list awk '$1=="#TOTAL_RECORDS"{s+=$2} END{print s+0}'
+  awk '$1=="#TOTAL_RECORDS"{s+=$2} END{print s+0}' $(cat missing_files.list)
 )
 
 # Sum nmiss per sample across chunks
