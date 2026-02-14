@@ -312,7 +312,7 @@ workflow SKIMSEQ {
 
     } else if (params.genotyping == "pseudohaploid"){
 
-        // TODO: Run consensify style pseudohaploid genotyping
+        // Call pseudohaploid genotypes by sampling a single read per individual at each site
         PSEUDOHAPLOID_GENOTYPING (
             ch_sites_to_genotype,
             PROCESS_READS.out.cram,

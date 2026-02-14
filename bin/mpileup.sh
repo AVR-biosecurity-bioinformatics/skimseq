@@ -119,18 +119,22 @@ bcftools mpileup \
     --min-MQ ${MINMQ} \
     ${MPILEUP_TARGETS_FLAGS} \
     ${FILTER_FLAGS} \
-    --annotate FORMAT/DP,INFO/AD,FORMAT/DP,FORMAT/SP \
+    --annotate FORMAT/DP,FORMAT/AD,INFO/AD \
     --indels-cns \
     --indel-size 110 \
     | bcftools call \
     -Ob \
     -o genotyped.vcf.gz \
-    -a FORMAT/GP,FORMAT/GQ,INFO/PV4 \
+    -a FORMAT/GP,FORMAT/GQ \
     --ploidy ${PLOIDY} \
     ${CALL_FLAGS} \
     ${VARIANTS_ONLY} \
     --multiallelic-caller \
     --prior ${MUTATION_RATE}
+
+# Extra annotatiomns that can be added
+# mpileup: FORMAT/SP
+# call: FORMAT/GP,INFO/PV4
 
 # -----------------------------
 # Add additional annotations to be used for filtering
