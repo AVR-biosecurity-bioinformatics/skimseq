@@ -7,7 +7,7 @@ include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modu
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
 include { MPILEUP                                                } from '../modules/mpileup'
 
-workflow BCFTOOLS_GENOTYPING {
+workflow MPILEUP_CALLING {
 
     take:
     ch_sample_names

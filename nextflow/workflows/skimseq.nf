@@ -6,7 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
-include { BCFTOOLS_GENOTYPING                                       } from '../subworkflows/bcftools_genotyping'
+include { MPILEUP_CALLING                                           } from '../subworkflows/mpileup_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
@@ -252,7 +252,7 @@ workflow SKIMSEQ {
         // Single step mpileup and call on all samples at once
         // Re-use create_chunks_hc with option for summed counts
 
-        BCFTOOLS_GENOTYPING (
+        MPILEUP_CALLING (
             ch_sample_names,
             PROCESS_READS.out.cram,
             ch_genome_indexed,
@@ -260,7 +260,7 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype,
             ch_read_counts
         )
-        BCFTOOLS_GENOTYPING.out.vcf
+        MPILEUP_CALLING.out.vcf
             .set{ ch_vcfs }
     }
 
@@ -301,7 +301,7 @@ workflow SKIMSEQ {
     
     */
     
-    if ( params.genotyping == "use_existing" ){
+    if ( params.genotyping == "use_discovered" ){
 
         // Subset to just filtered sites and calculate genotype posteriors
         GENOTYPE_POSTERIORS(
