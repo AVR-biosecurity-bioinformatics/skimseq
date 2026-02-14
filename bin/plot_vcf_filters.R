@@ -6,6 +6,7 @@ tryCatch(
 
     projectDir <- args[1]
     params.rdata <- args[2]
+    outname <- args[3]
 
     sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
@@ -105,7 +106,7 @@ tryCatch(
         )
     }
     # Write out plots
-    pdf("variant_filter_qc.pdf", width = 11, height = 8)
+    pdf(paste0(outname, ".pdf"), width = 11, height = 8)
     purrr::walk(variant_qc_plots, plot)
     try(dev.off(), silent = TRUE)
 
@@ -122,12 +123,12 @@ tryCatch(
       summarise(COUNT = sum(COUNT))
 
     # Write out summary file
-    write_tsv(df_summary, "variant_filter_summary.tsv")
+    write_tsv(df_summary, paste0(outname, ".tsv"))
   },
   finally = {
     ### save R environment if script throws error code
     if (params.rdata == "true") {
-      save.image(file = "PLOT_SITE_FILTERS.rda")
+      save.image(file = "PLOT_VCF_FILTERS.rda")
     }
   }
 )
