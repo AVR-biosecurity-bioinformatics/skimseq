@@ -13,8 +13,8 @@ process FILTER_VCF_GENOTYPES {
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.filtered.vcf.gz"), 
           path("${variant_type}.${interval_hash}.filtered.vcf.gz.tbi"),     emit: vcf
+    path("*_filter_summary.tsv"),                                           emit: summary
     path("*_filter_hist.tsv.gz"),                                           emit: hist
-    path("filter_summary.tsv"),                                             emit: summary
 
     script:
     // safe lookup of parameters: no warnings for undefined parameters (i.e. the indel or inv ones that are pre-defined)

@@ -22,10 +22,12 @@ workflow FILTER_GENOTYPES {
         ch_genotyped_all
     )
 
+    // TODO: FIlter_VCF_Genotypes outputs need to be named by chunk
+
     // QC plots for genotypes
     PLOT_GENOTYPE_FILTERS (
         FILTER_VCF_GENOTYPES.out.hist.collect(),
-        FILTER_VCF_GENOTYPES.out.summary.collect()
+        FILTER_VCF_GENOTYPES.out.summary.collect(),
         "genotype_filters"
     )
 
