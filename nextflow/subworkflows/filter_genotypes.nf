@@ -45,7 +45,7 @@ workflow FILTER_GENOTYPES {
     // Filter for missing data
     FILTER_VCF_MISSING (
         FILTER_VCF_GENOTYPES.out.vcf,
-        MERGE_CHUNK_MISSING.out.missing_summary.first()
+        MERGE_CHUNK_MISSING.out.missing_summary
     )
 
     // QC plots for sample missing data

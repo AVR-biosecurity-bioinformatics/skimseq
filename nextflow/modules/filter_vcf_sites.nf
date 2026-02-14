@@ -9,7 +9,13 @@ process FILTER_VCF_SITES {
     path(dp_summary)
 
     output: 
-    tuple val(variant_type), val(interval_hash), val(interval_bed), path(bed_tbi), path("*sites.vcf.gz"), path("*sites.vcf.gz.tbi"), path("*.counts"),     emit: vcf
+    tuple val(variant_type),
+         val(interval_hash),
+          path(interval_bed), 
+          path(bed_tbi), 
+          path("${variant_type}.${interval_hash}.sites.vcf.gz"), 
+          path("${variant_type}.${interval_hash}.sites.vcf.gz.tbi"),
+          path("*.counts"),                                                   emit: vcf
     path("*_filter_summary.tsv"),                                                                          emit: summary
     path("*_filter_hist.tsv.gz"),                                                                          emit: hist
 
