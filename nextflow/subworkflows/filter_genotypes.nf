@@ -4,6 +4,7 @@
 
 //// import modules
 include { FILTER_VCF_GENOTYPES                         } from '../modules/filter_vcf_genotypes'
+include { FILTER_VCF_MISSING                           } from '../modules/filter_vcf_missing'
 include { PLOT_VCF_FILTERS as PLOT_GENOTYPE_FILTERS    } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 include { CALC_CHUNK_MISSING                           } from '../modules/calc_chunk_missing'
@@ -31,23 +32,21 @@ workflow FILTER_GENOTYPES {
         "genotype_filters"
     )
 
-    // Calculate missing data for each chunk
+    // Calculate per-sample missing data from each chunk
     CALC_CHUNK_MISSING (
         FILTER_VCF_GENOTYPES.out.vcf
     )
 
-    // Merge output into single 
-    CALC_CHUNK_MISSING.out.chunk_missing
-            .map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }
-            .collect()
-            .set { ch_missing_chunk }
-
-    // Merge missing data and DP histogram from all chunks
+    // Merge per-sample missing data and DP histogram from all chunks into a single table
     MERGE_CHUNK_MISSING (
-        ch_missing_chunk
+         CALC_CHUNK_MISSING.out.chunk_missing.map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
     )
 
-    // TODO: Filter for missing data (samples and sites)
+    // Filter for missing data
+    FILTER_VCF_MISSING (
+        FILTER_VCF_GENOTYPES.out.vcf,
+        MERGE_CHUNK_MISSING.out.missing_summary.first()
+    )
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
@@ -55,14 +54,15 @@ workflow FILTER_GENOTYPES {
         params.sample_max_missing
     )
 
-    //FILTER_VCF_GENOTYPES.out.samples_to_keep
-    //    .splitText( by: 1 )
-    //    .unique()
-    //    .set { ch_sample_names_filt }
+    FILTER_VCF_MISSING.out.samples_to_keep
+        .splitText( by: 1 )
+        .unique()
+        .set { ch_sample_names_filt }
 
 
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    vcf = FILTER_VCF_GENOTYPES.out.vcf
+    vcf = FILTER_VCF_MISSING.out.vcf
+    sample_names_filt = ch_sample_names_filt
 
 }

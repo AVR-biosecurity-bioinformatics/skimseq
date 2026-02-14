@@ -358,7 +358,7 @@ workflow SKIMSEQ {
         ch_reports,
         PROCESS_READS.out.cram,
         OUTPUTS.out.vcf,
-        ch_sample_names,
+        FILTER_GENOTYPES.out.sample_names_filt,
         ch_genome_indexed,
         ch_multiqc_config
     )

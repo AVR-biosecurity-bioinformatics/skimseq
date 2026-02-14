@@ -45,33 +45,11 @@ bcftools annotate \
   -c CHROM,POS,FORMAT/FT \
   -Ob -o gt_masked.bcf ${3}
 
-# Set failing GTs to missing 
-bcftools +setGT -Ob -o gt_filtered.bcf gt_masked.bcf -- \
+# Set failing GTs to missing and drop FT annotation
+bcftools +setGT -Ou gt_masked.bcf -- \
   -t q -n . \
-  -i 'FMT/FT!="PASS"'
-
-# Calculate per_sample missing data
-#bcftools stats -s - gt_filtered.bcf \
-#  | awk '
-#    # SN line with total records
-#    $1=="SN" && $3=="number" && $5=="records:" {
-#        total = $6
-#        next
-#    }
-#
-#    # per-sample counts
-#    $1=="PSC" {
-#        sample = $3
-#        nmiss  = $14          # missing genotypes for that sample
-#        printf "%s\t%d\t%d\t%.6f\n", sample, nmiss, total, nmiss/total
-#    }' > missing_summary.tsv
-  
-# Find samples above the missing fraction filter
-#awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' \
-#missing_summary.tsv > samples_to_keep.txt
-
-# Filter for sampls
-#bcftools view -U -S samples_to_keep.txt -Ob -o sample_filtered.bcf gt_filtered.bcf
+  -i 'FMT/FT!="PASS"' \
+| bcftools annotate -Ob -o gt_filtered.bcf -x FORMAT/FT
   
 # Re-calculate minor alelle count (MAC) info tag
 # First create an annotation table with minor allele count
@@ -95,11 +73,10 @@ EOF
 
 # Annotate the vcf with INFO/MAC and update site tags
 bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou gt_filtered.bcf  \
-  | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
-  | bcftools filter -Ou -e "INFO/F_MISSING > ${F_MISSING:-1}" \
-  | bcftools view -U -Oz9 -o ${4}.${5}.filtered.vcf.gz
+  | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE \
+  | bcftools view -U -Oz9 -o ${4}.${5}.gtfiltered.vcf.gz
 
-bcftools index -t ${4}.${5}.filtered.vcf.gz
+bcftools index -t ${4}.${5}.gtfiltered.vcf.gz
 
 # Create a small summary of the number of sites passing and failing each filter
 bcftools query -f '[%FT:]\t' gt_masked.bcf \
