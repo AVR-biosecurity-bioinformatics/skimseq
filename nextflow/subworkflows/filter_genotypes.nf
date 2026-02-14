@@ -54,7 +54,7 @@ workflow FILTER_GENOTYPES {
         params.sample_max_missing
     )
 
-    FILTER_VCF_MISSING.out.samples_to_keep
+    FILTER_VCF_MISSING.out.samples_to_keep.first()
         .splitText( by: 1 )
         .unique()
         .set { ch_sample_names_filt }

@@ -17,7 +17,7 @@ process FILTER_VCF_MISSING {
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.missfiltered.vcf.gz"), 
           path("${variant_type}.${interval_hash}.missfiltered.vcf.gz.tbi"),     emit: vcf
-    path("samples_to_keep.txt"),                                                emit: samples_to_keep
+    path("*samples.txt"),                                                       emit: samples_to_keep
 
     script:
 

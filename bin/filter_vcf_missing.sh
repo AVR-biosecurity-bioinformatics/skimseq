@@ -10,7 +10,7 @@ set -uoe pipefail
 # $6 = missing_summary
 
 # Find samples above the missing fraction filter
-awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' ${6} > samples_to_keep.txt
+awk -v thr="$MISSING_FRAC" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' ${6} > ${4}.${5}.samples.txt
 
 # Drop samples and re-calculate site tags, then drop sites under the missing data filter
 bcftools view -U -S samples_to_keep.txt -Ou ${3} \
