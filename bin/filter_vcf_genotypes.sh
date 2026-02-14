@@ -85,7 +85,7 @@ bcftools query -f '[%FT:]\t' gt_masked.bcf \
   | sort \
   | uniq -c \
   | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
-  > "${4}_${5}_filter_summary.tsv"
+  > "${4}.${5}_filter_summary.tsv"
 
 # ------- make filter summary histograms ------
 
@@ -207,7 +207,7 @@ create_pf_histogram() {
 }
 
 # ---- build the table ----
-out="${4}_${5}_filter_hist.tsv"
+out="${4}.${5}_filter_hist.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 NBINS=100 # Maximum number of data bins

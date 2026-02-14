@@ -60,19 +60,19 @@ bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
 
 # Keep only variants that PASS & index output
 # TODO: Drop FT and other extra fields from vcf
-bcftools view --threads ${1} -f PASS -Oz -o ${4}_${6}_sites.vcf.gz tmp.tagged.bcf
-bcftools index --threads ${1} -t ${4}_${6}_sites.vcf.gz
+bcftools view --threads ${1} -f PASS -Oz -o ${4}.${6}.sites.vcf.gz tmp.tagged.bcf
+bcftools index --threads ${1} -t ${4}.${6}.sites.vcf.gz
 
 # Output number of variant records remaining (non-header lines)
-nvars=$(bcftools index -n "${4}_${6}_sites.vcf.gz" | tr -d '[:space:]')
-printf "%s\n" "$nvars" > "${4}_${6}.counts"
+nvars=$(bcftools index -n "${4}.${6}.sites.vcf.gz" | tr -d '[:space:]')
+printf "%s\n" "$nvars" > "${4}.${6}.counts"
 
 # Create a small summary of the number of sites passing and failing each filter
 bcftools query -f '%FILTER\n' tmp.tagged.bcf \
   | sort \
   | uniq -c \
   | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
-  > "${4}_${6}_filter_summary.tsv"
+  > "${4}.${6}_filter_summary.tsv"
 
 # ------- make filter summary histograms ------
 
@@ -194,7 +194,7 @@ create_pf_histogram() {
 }
 
 # ---- build the table ----
-out="${4}_${6}_filter_hist.tsv"
+out="${4}.${6}_filter_hist.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant
