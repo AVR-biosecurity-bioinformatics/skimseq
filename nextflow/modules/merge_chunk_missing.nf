@@ -17,7 +17,7 @@ process MERGE_CHUNK_MISSING {
     #!/usr/bin/env bash
 
     # Write lists of missing data and dp hist files to process
-    printf "%s\n" ${missing} > missing_files.list
+    printf "%s\n" ${missing} | sort > missing_files.list
 
     ### run process script
     bash ${process_script} \
