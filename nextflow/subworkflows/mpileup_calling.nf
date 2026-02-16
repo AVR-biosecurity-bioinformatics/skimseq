@@ -89,21 +89,20 @@ workflow MPILEUP_CALLING {
         ch_genome_indexed,
         ch_cohort_size
     )
-
-    MPILEUP.out.vcf
-        .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
-        .groupTuple(by: 0)
-        .set { ch_vcf_to_merge }
-
-    MERGE_UNFILTERED_VCFS (
-        ch_vcf_to_merge
-    )
-
-    // How to set up count_vcf_records in a way thats flexible to mpileup as well?
     
+    if ( params.output_unfiltered_vcf ){
+        // TODO: Make this output seperate files for each variant type
+        MPILEUP.out.vcf
+            .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+            .groupTuple(by: 0)
+            .set { ch_vcf_to_merge }
+
+        MERGE_UNFILTERED_VCFS (
+            ch_vcf_to_merge
+        )
+    }
+
     emit: 
     vcf = MPILEUP.out.vcf
-    merged_vcf = MERGE_UNFILTERED_VCFS.out.vcf
-    //missing_frac = COUNT_VCF_RECORDS.out.missing_frac
-    //variant_dp = COUNT_VCF_RECORDS.out.variant_dp
+
 }
