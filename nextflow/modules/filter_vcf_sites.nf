@@ -4,7 +4,23 @@ process FILTER_VCF_SITES {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
+    tuple val(variant_type),
+        val(interval_hash),
+        path(interval_bed),
+        path(bed_tbi),
+        path(vcf),
+        path(vcf_tbi),
+        val(QUAL_THR),
+        val(DPmin),
+        val(PCT_LOW),
+        val(PCT_HIGH),
+        val(DIST_INDEL),
+        val(EH),
+        val(HWE),
+        val(MAF),
+        val(MAC),
+        val(NS),
+        val(CR)
     path(mask_bed)
     path(dp_summary)
 
@@ -20,41 +36,11 @@ process FILTER_VCF_SITES {
     //path("*_filter_hist.tsv.gz"),                                                                          emit: hist
 
     script:
-    // variant_type is one of: snp, indel, invariant
-    def prefix =
-        (variant_type == 'snp')      ? 'snp'  :
-        (variant_type == 'indel')    ? 'indel':
-        (variant_type == 'invariant')? 'inv'  :
-        null
-
-    // safe lookup of parameters: no warnings for undefined parameters (i.e. the indel or inv ones that are pre-defined)
-    def p = { String k -> params.containsKey(k) ? params[k] : null }
 
     // render either "export VAR='x'" or "unset VAR"
     def exOrUnset = { String envName, def value ->
         (value == null) ? "unset ${envName}" : "export ${envName}='${value}'"
     }
-
-    // dynamic per-type values
-    def QUAL_THR   = p("${prefix}_global_qual")
-    def DPmin      = p("${prefix}_global_dp_min")
-    def PCT_LOW    = p("${prefix}_global_dp_lower_perc")
-    def PCT_HIGH   = p("${prefix}_global_dp_upper_perc")
-    def DIST_INDEL = p("${prefix}_global_dist_indel")
-
-    //def EH         = p("${prefix}_eh")
-    //def HWE        = p("${prefix}_hwe")
-    //def MAF        = p("${prefix}_maf")
-    //def MAC        = p("${prefix}_mac")
-    //def NS         = p("${prefix}_min_samples")
-    //def CR         = p("${prefix}_min_callrate")
-
-    //${exOrUnset("EH",        EH)}
-    //${exOrUnset("HWE",       HWE)}
-    //${exOrUnset("MAF",       MAF)}
-    //${exOrUnset("MAC",       MAC)}
-    //${exOrUnset("NS",        NS)}
-    //${exOrUnset("CR",        CR)} 
 
     def process_script = "${process_name}.sh"
     """
@@ -68,6 +54,12 @@ process FILTER_VCF_SITES {
     ${exOrUnset("PCT_LOW",   PCT_LOW)}
     ${exOrUnset("PCT_HIGH",  PCT_HIGH)}
     ${exOrUnset("DIST_INDEL",  DIST_INDEL)}
+    ${exOrUnset("EH",        EH)}
+    ${exOrUnset("HWE",       HWE)}
+    ${exOrUnset("MAF",       MAF)}
+    ${exOrUnset("MAC",       MAC)}
+    ${exOrUnset("NS",        NS)}
+    ${exOrUnset("CR",        CR)} 
 
     bash ${process_script} \
     ${task.cpus} \
