@@ -17,7 +17,7 @@ process FILTER_VCF_SITES {
           path("${variant_type}.${interval_hash}.sites.vcf.gz.tbi"),
           path("*.counts"),                                                   emit: vcf
     path("*_filter_summary.tsv"),                                                                          emit: summary
-    path("*_filter_hist.tsv.gz"),                                                                          emit: hist
+    //path("*_filter_hist.tsv.gz"),                                                                          emit: hist
 
     script:
     // variant_type is one of: snp, indel, invariant
@@ -36,18 +36,25 @@ process FILTER_VCF_SITES {
     }
 
     // dynamic per-type values
-    def QUAL_THR   = p("${prefix}_qual")
-    def EH         = p("${prefix}_eh")
-    def HWE        = p("${prefix}_hwe")
-    def DPmin      = p("${prefix}_dp_min")
-    def PCT_LOW    = p("${prefix}_dp_lower_perc")
-    def PCT_HIGH   = p("${prefix}_dp_upper_perc")
-    def DIST_INDEL = p("${prefix}_dist_indel")
-    def MAF        = p("${prefix}_maf")
-    def MAC        = p("${prefix}_mac")
-    def NS         = p("${prefix}_min_samples")
-    def CR         = p("${prefix}_min_callrate")
+    def QUAL_THR   = p("${prefix}_global_qual")
+    def DPmin      = p("${prefix}_global_dp_min")
+    def PCT_LOW    = p("${prefix}_global_dp_lower_perc")
+    def PCT_HIGH   = p("${prefix}_global_dp_upper_perc")
+    def DIST_INDEL = p("${prefix}_global_dist_indel")
 
+    //def EH         = p("${prefix}_eh")
+    //def HWE        = p("${prefix}_hwe")
+    //def MAF        = p("${prefix}_maf")
+    //def MAC        = p("${prefix}_mac")
+    //def NS         = p("${prefix}_min_samples")
+    //def CR         = p("${prefix}_min_callrate")
+
+    //${exOrUnset("EH",        EH)}
+    //${exOrUnset("HWE",       HWE)}
+    //${exOrUnset("MAF",       MAF)}
+    //${exOrUnset("MAC",       MAC)}
+    //${exOrUnset("NS",        NS)}
+    //${exOrUnset("CR",        CR)} 
 
     def process_script = "${process_name}.sh"
     """
@@ -57,16 +64,10 @@ process FILTER_VCF_SITES {
     export VARIANT_TYPE='${variant_type}'
 
     ${exOrUnset("QUAL_THR",  QUAL_THR)}
-    ${exOrUnset("EH",        EH)}
-    ${exOrUnset("HWE",       HWE)}
     ${exOrUnset("DPmin",     DPmin)}
     ${exOrUnset("PCT_LOW",   PCT_LOW)}
     ${exOrUnset("PCT_HIGH",  PCT_HIGH)}
     ${exOrUnset("DIST_INDEL",  DIST_INDEL)}
-    ${exOrUnset("MAF",       MAF)}
-    ${exOrUnset("MAC",       MAC)}
-    ${exOrUnset("NS",        NS)}
-    ${exOrUnset("CR",        CR)}
 
     bash ${process_script} \
     ${task.cpus} \

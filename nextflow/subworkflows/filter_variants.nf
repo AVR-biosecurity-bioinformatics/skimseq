@@ -20,6 +20,7 @@ workflow FILTER_VARIANTS {
     ch_genome_indexed
     ch_mask_bed_vcf
     ch_sample_names
+    ch_sample_pop
 
     main: 
 
@@ -49,11 +50,37 @@ workflow FILTER_VARIANTS {
 	.combine(ch_vcfs)
 	.set { ch_vcf_types }
 
+    // Global sites filters - TODO: this adds tags to the vcf but does not filter
     FILTER_VCF_SITES (
         ch_vcf_types,
 	    ch_mask_bed_vcf,
         MERGE_CHUNK_DP.out.dp_hist
     )
+
+    // Create seperate channels that have all sample names grouped by pop
+
+    // Filter on a per-populations basis, outputting a sites only vcf of just passing sites
+    //FILTER_VCF_POP (
+    //    ch_vcf_types,
+    //    ch_sample_pop
+    //)
+
+    // intersect per-pop sitelists, keeping only those failing in >n samples
+    // Then intersect with global filter
+
+
+    // Create site histograms - uses the tages from the soft filtered vcf
+    //CREATE_FILTER_HISTS(
+    //    
+    //)
+
+    // QC plots for site histograms
+    //PLOT_VCF_FILTERS (
+    //    FILTER_VCF_SITES.out.hist.collect(),
+    //    FILTER_VCF_SITES.out.summary.collect(),
+    //    "site_filters"
+    //)
+
 
     // Use counts file to remove those chunks which contain no variants
     FILTER_VCF_SITES.out.vcf
@@ -85,13 +112,6 @@ workflow FILTER_VARIANTS {
         ch_sitelists_to_merge
     )
    
-    // QC plots for sites and genotypes
-    PLOT_VCF_FILTERS (
-        FILTER_VCF_SITES.out.hist.collect(),
-        FILTER_VCF_SITES.out.summary.collect(),
-        "site_filters"
-    )
-
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_sitelist = ch_filtered_sitelist

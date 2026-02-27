@@ -279,7 +279,8 @@ workflow SKIMSEQ {
         ch_vcfs,
         ch_genome_indexed,
         ch_mask_bed_vcf,
-        ch_sample_names
+        ch_sample_names,
+        ch_sample_pop
     )
 
     FILTER_VARIANTS.out.filtered_sitelist

@@ -5,87 +5,74 @@ set -uoe pipefail
 # $1 = cpus 
 # $2 = mem (GB)
 # $3 = vcf
-# $4 = variant_type
-# $5 = interval_hash
+# $4 = variant_type {snp|indel|invariant}
+# $5 = mask_bed
+# $6 = interval_hash
+# $7 = DP summary
 
-# Add FORMAT/FT tags using awk and annotate - BCFtools doesnt natively support soft filtering of genotypes
-bcftools query -f '%CHROM\t%POS[\t%GQ\t%DP]\n' ${3} \
-| awk -v OFS='\t' -v gq="${GQ:-0}" -v dmin="${gtDPmin:-0}" -v dmax="${gtDPmax:-999999999}" '
-  {
-    printf "%s%s%s", $1, OFS, $2
-    # fields: 3=GQ_s1, 4=DP_s1, 5=GQ_s2, 6=DP_s2, ...
-    for (i=3; i<=NF; i+=2) {
-      g=$i; d=$(i+1)
-      if (g=="." || d==".") {
-        ft="."
-      } else {
-        ft=""
-        if (g+0 < gq)  ft = (ft=="" ? "GQ_FAIL"   : ft ";GQ_FAIL")
-        if (d+0 < dmin)ft = (ft=="" ? "GTDP_FAIL": ft ";GTDP_FAIL")
-        if (d+0 > dmax)ft = (ft=="" ? "GTDP_FAIL": ft ";GTDP_FAIL")
-        if (ft=="") ft="PASS"
+# Make sure mask file is sorted and unique (and 0-based, half-open)
+sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
+
+# TODO: Break out vcf masks into individual components (i.e. Genmap, longdust, etc)
+
+# Map variant type to bcftools selectors
+# TODO: select variants on output of joint genotype
+case "${4}" in
+  snp)       TYPE_ARGS="-v snps   -m2 -M2 -e 'ALT=\"*\"'";;   # biallelic SNPs, drop star alleles
+  indel)     TYPE_ARGS="-v indels -m2 -M2";;                  # biallelic INDELs
+  invariant) TYPE_ARGS="-v ref";;                              # reference-only sites (if present)
+  *) echo "variant_type must be snp|indel|invariant"; exit 1;;
+esac
+
+# Calculate percentile DP filters from DP histogram
+read DPlower DPupper < <(
+  awk -v pl="$PCT_LOW" -v ph="$PCT_HIGH" '
+    { dp[NR]=$1; cnt[NR]=$2+0; N+=cnt[NR] }
+    END{
+      if(N==0) exit 1
+      low  = pl/100*N; li=int(low);  if(li<low)  li++; if(li<1) li=1; if(li>N) li=N
+      high = ph/100*N; ui=int(high); if(ui<high) ui++; if(ui<1) ui=1; if(ui>N) ui=N
+      cum=0
+      for(i=1;i<=NR;i++){
+        cum += cnt[i]
+        if(!lo && cum>=li) lo=dp[i]
+        if(!hi && cum>=ui){ hi=dp[i]; break }
       }
-      printf OFS "%s", ft
+      printf "%d %d\n", lo, hi
     }
-    print ""
-  }' \
-| bgzip -c > FT.tsv.gz
+  ' "$7"
+)
 
-tabix -s1 -b2 -e2 FT.tsv.gz
+# Subset to target variant class and run drop all genotypes, then run site-level soft filtering 
+# (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
+bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
+  | bcftools filter -Ou -s QUAL_FAIL   -m+ -e "QUAL     <= ${QUAL_THR:-0}" \
+  | bcftools filter -Ou -s EH_FAIL     -m+ -e "INFO/ExcHet <= ${EH:-1e9}" \
+  | bcftools filter -Ou -s HWE_FAIL     -m+ -e "INFO/HWE <= ${HWE:-1e9}" \
+  | bcftools filter -Ou -s DP_FAIL     -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
+  | bcftools filter -Ou -s DIST_INDEL_FAIL   -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:--999999999}" \
+  | bcftools filter -Ou -s MAF_FAIL    -m+ -e "INFO/MAF <= ${MAF:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL    -m+ -e "INFO/MAC <= ${MAC:-0}" \
+  | bcftools filter -Ou -s NS_FAIL     -m+ -e "INFO/NS <= ${NS:-0}" \
+  | bcftools filter -Ou -s CR_FAIL     -m+ -e "INFO/CR <= ${CR:-0}" \
+  | bcftools filter -Ou -s MASK_FAIL   -m+ -M vcf_masks.bed \
+  | bcftools view --threads ${1} -Ob -o tmp.tagged.bcf
 
-# add header + inject FORMAT/FT
-cat > FT.hdr <<'EOF'
-##FORMAT=<ID=FT,Number=.,Type=String,Description="Genotype-level filters (per-sample) from GQ/DP thresholds">
-EOF
+# Keep only variants that PASS & index output
+# TODO: Drop FT and other extra fields from vcf
+bcftools view --threads ${1} -f PASS -Oz -o ${4}.${6}.sites.vcf.gz tmp.tagged.bcf
+bcftools index --threads ${1} -t ${4}.${6}.sites.vcf.gz
 
-# Annotate filter column in vcf
-bcftools annotate \
-  -h FT.hdr \
-  -a FT.tsv.gz \
-  -c CHROM,POS,FORMAT/FT \
-  -Ob -o gt_masked.bcf ${3}
-
-# Set failing GTs to missing and drop FT annotation
-bcftools +setGT -Ou gt_masked.bcf -- \
-  -t q -n . \
-  -i 'FMT/FT!="PASS"' \
-| bcftools annotate -Ob -o gt_filtered.bcf -x FORMAT/FT
-  
-# Re-calculate minor alelle count (MAC) info tag
-# First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' gt_filtered.bcf \
-| awk 'BEGIN{OFS="\t"}
-       {
-         split($3,ac,",")          # AC is comma‑separated if multi‑allelic
-         mac=$4                    # start with AN
-         refCount = $4             # will be AN - sum(AC)
-         for(i in ac){refCount-=ac[i]; mac=(ac[i]<mac?ac[i]:mac)}
-         mac=(refCount<mac?refCount:mac)
-         print $1,$2,mac
-       }'                         \
-| bgzip > MAC.tsv.gz
-tabix -s1 -b2 -e2 MAC.tsv.gz
-
-# Create VCF header line for MAC filter
-cat > MAC.hdr <<'EOF'
-##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
-EOF
-
-# Annotate the vcf with INFO/MAC and update site tags
-bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou gt_filtered.bcf  \
-  | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE \
-  | bcftools view -U -Oz9 -o ${4}.${5}.gtfiltered.vcf.gz
-
-bcftools index -t ${4}.${5}.gtfiltered.vcf.gz
+# Output number of variant records remaining (non-header lines)
+nvars=$(bcftools index -n "${4}.${6}.sites.vcf.gz" | tr -d '[:space:]')
+printf "%s\n" "$nvars" > "${4}.${6}.counts"
 
 # Create a small summary of the number of sites passing and failing each filter
-bcftools query -f '[%FT\t]' gt_masked.bcf \
-  | tr '\t' '\n' \
-  | awk 'NF' \
+bcftools query -f '%FILTER\n' tmp.tagged.bcf \
   | sort \
   | uniq -c \
   | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
-  > "${4}.${5}_filter_summary.tsv"
+  > "${4}.${6}_filter_summary.tsv"
 
 # ------- make filter summary histograms ------
 
@@ -207,19 +194,26 @@ create_pf_histogram() {
 }
 
 # ---- build the table ----
-out="${4}.${5}_filter_hist.tsv"
+out="${4}.${6}_filter_hist.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
+VTYPE="${4}"  # snp|indel|invariant
 NBINS=100 # Maximum number of data bins
 
-# Genotype-level histograms (use gt_masked.bcf which has FORMAT/FT)
-INPUT_GT=gt_masked.bcf
-create_pf_histogram GT "$INPUT_GT" '(^|;)GQ_FAIL(;|$)'        "%GQ" GT_GQ "all" >> "$out"
-create_pf_histogram GT "$INPUT_GT" '(^|;)GTDP_FAIL(;|$)'      "%DP" GT_DP "all" >> "$out"
-
+# Site-level histograms (use tmp.tagged.bcf)
+INPUT_SITE=tmp.tagged.bcf
+create_pf_histogram SITE "$INPUT_SITE" "QUAL_FAIL"  "%QUAL\n"                QUAL        "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcHet\n"      ExcHet   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "HWE_FAIL"    "%INFO/HWE\n"      HWE   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "DIST_INDEL_FAIL"    "%INFO/DIST_INDEL\n"      DIST_INDEL          "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "NS_FAIL"    "%INFO/NS\n"             NS          "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "CR_FAIL"    "%INFO/CR\n"             CR          "$VTYPE" "$NBINS" >> "$out"
 
 # Zip output summary table
 pigz -p ${1} $out
 
 # Remove temporary vcf files
-rm -f tmp* MAC.tsv.gz* *.hdr *.bcf
+rm -f tmp* *.bcf
