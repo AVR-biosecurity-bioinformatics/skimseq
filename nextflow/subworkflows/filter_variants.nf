@@ -46,44 +46,49 @@ workflow FILTER_VARIANTS {
     variant_types << 'invariant'
     }
 
-    // Function for safe parameter lookup
-    def p = { String k -> params.containsKey(k) ? params[k] : null }
+   // Function to create cannonical filter string
+   def canon = { Map m, Map defaults = [:] ->
+        def merged = defaults + m  // m overrides defaults
+        merged.collect { k,v -> "${k}=${v == null ? 'NA' : v}" }
+                .sort()
+                .join(";")
+    }
 
-    // Funciton to get filters
-    def getFilters = { String vt ->
-        def prefix = (vt=='snp'?'snp' : vt=='indel'?'indel' : vt=='invariant'?'inv' : null)
+    // Define the full key set once (this matters)
+    def FILTER_DEFAULTS = [
+        QUAL_THR:'NA', DPmin:'NA', PCT_LOW:'NA', PCT_HIGH:'NA', DIST_INDEL:'NA',
+        EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA'
+    ]
 
-        // return a fixed-order list (important!)
-        return [
-        p("${prefix}_global_qual"),          // QUAL_THR
-        p("${prefix}_global_dp_min"),        // DPmin
-        p("${prefix}_global_dp_lower_perc"), // PCT_LOW
-        p("${prefix}_global_dp_upper_perc"), // PCT_HIGH
-        p("${prefix}_global_dist_indel"),    // DIST_INDEL
-
-        // Optional ones (include them even if null so tuple shape is constant)
-        p("${prefix}_eh"),                  // EH
-        p("${prefix}_hwe"),                 // HWE
-        p("${prefix}_maf"),                 // MAF
-        p("${prefix}_mac"),                 // MAC
-        p("${prefix}_min_samples"),         // NS
-        p("${prefix}_min_callrate"),        // CR
+    def filtersForType = { String vt ->
+        def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
+        def p = { String k -> params.containsKey(k) ? params[k] : null }
+        [
+            QUAL_THR  : p("${prefix}_global_qual"),
+            DPmin     : p("${prefix}_global_dp_min"),
+            PCT_LOW   : p("${prefix}_global_dp_lower_perc"),
+            PCT_HIGH  : p("${prefix}_global_dp_upper_perc"),
+            DIST_INDEL: p("${prefix}_global_dist_indel"),
+            EH        : p("${prefix}_eh"),
+            HWE       : p("${prefix}_hwe"),
+            MAF       : p("${prefix}_maf"),
+            MAC       : p("${prefix}_mac"),
+            NS        : p("${prefix}_min_samples"),
+            CR        : p("${prefix}_min_callrate"),
         ]
     }
 
-   channel.of(*variant_types) 
-	.combine(ch_vcfs)
+  Channel.of(*variant_types)
+    .combine(ch_vcfs)
     .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
-        def f = getFilters(vt)
-        tuple(
-          vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
-          f[0], f[1], f[2], f[3], f[4],
-          f[5], f[6], f[7], f[8], f[9], f[10]
-        )
+      tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
+            canon(filtersForType(vt), FILTER_DEFAULTS))
     }
 	.set { ch_vcf_types }
+    
 
-    // Global sites filters - TODO: this adds tags to the vcf but does not filter
+    // Global sites filters - TODO: this needs add tags to the vcf but does not filter
+    // Filtering can be done in the later site selection step
     FILTER_VCF_SITES (
         ch_vcf_types,
 	    ch_mask_bed_vcf,

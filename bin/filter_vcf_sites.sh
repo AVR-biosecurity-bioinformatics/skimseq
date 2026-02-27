@@ -45,6 +45,8 @@ read DPlower DPupper < <(
 
 # Subset to target variant class and run drop all genotypes, then run site-level soft filtering 
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
+
+# TODO: subset to samples here to allow for pop-specific calculation
 bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL <= ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
