@@ -24,25 +24,6 @@ case "${4}" in
   *) echo "variant_type must be snp|indel|invariant"; exit 1;;
 esac
 
-# Calculate percentile DP filters from DP histogram
-read DPlower DPupper < <(
-  awk -v pl="$PCT_LOW" -v ph="$PCT_HIGH" '
-    { dp[NR]=$1; cnt[NR]=$2+0; N+=cnt[NR] }
-    END{
-      if(N==0) exit 1
-      low  = pl/100*N; li=int(low);  if(li<low)  li++; if(li<1) li=1; if(li>N) li=N
-      high = ph/100*N; ui=int(high); if(ui<high) ui++; if(ui<1) ui=1; if(ui>N) ui=N
-      cum=0
-      for(i=1;i<=NR;i++){
-        cum += cnt[i]
-        if(!lo && cum>=li) lo=dp[i]
-        if(!hi && cum>=ui){ hi=dp[i]; break }
-      }
-      printf "%d %d\n", lo, hi
-    }
-  ' "$7"
-)
-
 # Subset to target variant class and run drop all genotypes, then run site-level soft filtering 
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 
@@ -51,8 +32,8 @@ bcftools view --threads ${1} -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL <= ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
   | bcftools filter -Ou -s DIST_INDEL_FAIL -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:--999999999}" \
-  | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet <= ${EH:-1e9}" \
-  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE <= ${HWE:-1e9}" \
+  | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet <= ${EH:--1}" \
+  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE <= ${HWE:--1}" \
   | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF <= ${MAF:-0}" \
   | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/MAC <= ${MAC:-0}" \
   | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS <= ${NS:-0}" \

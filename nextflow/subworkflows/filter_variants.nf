@@ -5,7 +5,8 @@
 //// import modules
 include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
-include { FILTER_VCF_SITES                             } from '../modules/filter_vcf_sites'
+include { FILTER_VCF_SITES as FILTER_VCF_SITES_GLOBAL  } from '../modules/filter_vcf_sites'
+include { FILTER_VCF_SITES as FILTER_VCF_SITES_POP     } from '../modules/filter_vcf_sites'
 include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
@@ -24,27 +25,15 @@ workflow FILTER_VARIANTS {
 
     main: 
 
-    // Calculate missing data and variant DP histogram for each chunk
-    CALC_CHUNK_DP (
-        ch_vcfs
-    )
+    /*
+        Function definitions
+    */
 
-    // Merge output into single 
-    CALC_CHUNK_DP.out.chunk_dp
-            .map { interval_hash, interval_bed, bed_tbi, dphist -> dphist }
-            .collect()
-            .set { ch_chunk_dp }
-
-    // Merge missing data and DP histogram from all chunks
-    MERGE_CHUNK_DP (
-        ch_chunk_dp
-    )
-
-    // For each input VCF, combine with type to make a copy for each variant type, then run FILTER_VCF_SITES on each
-    def variant_types = ['snp', 'indel']
-    if( params.output_invariant ) {
-    variant_types << 'invariant'
-    }
+    // Set up default emtpy filters
+    def FILTER_DEFAULTS = [
+        QUAL_THR:'NA', DPlower:'NA', PCT_LOW:'NA', DPupper:'NA', DIST_INDEL:'NA',
+        EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA'
+    ]
 
    // Function to create cannonical filter string
    def canon = { Map m, Map defaults = [:] ->
@@ -54,46 +43,116 @@ workflow FILTER_VARIANTS {
                 .join(";")
     }
 
-    // Define the full key set once (this matters)
-    def FILTER_DEFAULTS = [
-        QUAL_THR:'NA', DPmin:'NA', PCT_LOW:'NA', PCT_HIGH:'NA', DIST_INDEL:'NA',
-        EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA'
-    ]
+    // Function to pull per-population filters from parameters by type
+    def PopFiltersForType = { String vt ->
+        def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
+        def p = { String k -> params.containsKey(k) ? params[k] : null }
+        [
+            EH        : p("${prefix}_pop_eh"),
+            HWE       : p("${prefix}_pop_hwe"),
+            MAF       : p("${prefix}_pop_maf"),
+            MAC       : p("${prefix}_pop_mac"),
+            NS        : p("${prefix}_pop_min_samples"),
+            CR        : p("${prefix}_pop_min_callrate"),
+        ]
+    }
 
-    def filtersForType = { String vt ->
+
+     // Duplicate vcf files by variant type
+    def variant_types = ['snp', 'indel']
+        if( params.output_invariant ) {
+        variant_types << 'invariant'
+    }
+    Channel.of(*variant_types)
+        .combine(ch_vcfs)
+        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
+        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
+        }
+    .set { ch_vcf_types }
+
+    /*
+        Calculate depth filters
+    */
+
+    // Calculate missing data and variant DP histogram for each chunk
+    CALC_CHUNK_DP (
+        ch_vcf_types
+    )
+
+    // Function to switch out dp lower and dp upper by variant type
+    def dpPercForType = { String vt ->
+        switch(vt) {
+            case 'snp':      return [params.snp_global_dp_lower_perc,  params.snp_global_dp_upper_perc]
+            case 'indel':    return [params.indel_global_dp_lower_perc,params.indel_global_dp_upper_perc]
+            case 'invariant':return [params.inv_global_dp_lower_perc,  params.inv_global_dp_upper_perc]
+            default:         return [null, null]
+        }
+    }
+    // Merge chunk_dp by varaint type
+    CALC_CHUNK_DP.out.chunk_dp
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, dphist -> tuple(variant_type, dphist ) }
+        .groupTuple()
+        .map { vt, files ->
+        def (lo, hi) = dpPercForType(vt)
+            tuple(vt, files, lo, hi)
+        }
+        .set { ch_chunk_dp_grouped }
+
+    MERGE_CHUNK_DP (
+        ch_chunk_dp_grouped
+    )
+
+    MERGE_CHUNK_DP.out.dp_bounds.map { vt, f ->
+        def lines = f.readLines()
+        def hdr = lines[0].split('\t')
+        def row = lines[1].split('\t')
+        def m = [hdr, row].transpose().collectEntries { k,v -> [(k): v] }
+        tuple(vt, m.DPlower as Integer, m.DPupper as Integer)
+    }
+    .set { ch_dp_bounds }
+
+    /*
+        Global filters for sites
+    */
+
+    // Function to pull global filters from parameters by type
+    def GlobalFiltersForType = { String vt ->
         def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
         def p = { String k -> params.containsKey(k) ? params[k] : null }
         [
             QUAL_THR  : p("${prefix}_global_qual"),
             DPmin     : p("${prefix}_global_dp_min"),
-            PCT_LOW   : p("${prefix}_global_dp_lower_perc"),
-            PCT_HIGH  : p("${prefix}_global_dp_upper_perc"),
             DIST_INDEL: p("${prefix}_global_dist_indel"),
-            EH        : p("${prefix}_eh"),
-            HWE       : p("${prefix}_hwe"),
-            MAF       : p("${prefix}_maf"),
-            MAC       : p("${prefix}_mac"),
-            NS        : p("${prefix}_min_samples"),
-            CR        : p("${prefix}_min_callrate"),
         ]
     }
 
-  Channel.of(*variant_types)
-    .combine(ch_vcfs)
-    .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
-      tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
-            canon(filtersForType(vt), FILTER_DEFAULTS))
-    }
-	.set { ch_vcf_types }
-    
+    // Create channel of VCFs by variant type, with filter string as an extra element
+    ch_vcf_types
+        .map { vt, ih, interval_bed, bed_tbi, vcf, vcf_tbi ->
+        tuple(vt, ih, interval_bed, bed_tbi, vcf, vcf_tbi)
+        }
+        .join(ch_dp_bounds)
+        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi ->
 
-    // Global sites filters - TODO: this needs add tags to the vcf but does not filter
-    // Filtering can be done in the later site selection step
-    FILTER_VCF_SITES (
-        ch_vcf_types,
-	    ch_mask_bed_vcf,
-        MERGE_CHUNK_DP.out.dp_hist
+        def gf = GlobalFiltersForType(vt)
+        gf.DPlower = dpLo
+        gf.DPupper = dpHi
+
+        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
+                canon(gf, FILTER_DEFAULTS))
+        }
+        .set { ch_vcf_types_global }
+
+    // Global sites filters 
+    // TODO: this needs add tags to the vcf but does not filter - Filtering can be done in the later site selection step
+    FILTER_VCF_SITES_GLOBAL (
+        ch_vcf_types_global,
+	    ch_mask_bed_vcf
     )
+
+    /*
+        Per-population filters for sites
+    */
 
     // Create seperate channels that have all sample names grouped by pop
 
@@ -114,14 +173,14 @@ workflow FILTER_VARIANTS {
 
     // QC plots for site histograms
     //PLOT_VCF_FILTERS (
-    //    FILTER_VCF_SITES.out.hist.collect(),
-    //    FILTER_VCF_SITES.out.summary.collect(),
+    //    FILTER_VCF_SITES_GLOBAL.out.hist.collect(),
+    //    FILTER_VCF_SITES_GLOBAL.out.summary.collect(),
     //    "site_filters"
     //)
 
 
     // Use counts file to remove those chunks which contain no variants
-    FILTER_VCF_SITES.out.vcf
+    FILTER_VCF_SITES_GLOBAL.out.vcf
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
             tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
@@ -133,6 +192,7 @@ workflow FILTER_VARIANTS {
 
    // Output channel of variant_type, interval_hash, interval_bed, vcf, tbi, sitesvcf, sitestbi
     ch_vcf_types   
+	.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_string -> tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi) }
         .join(ch_vcfs_nonempty, by: [0,1] )
         .set { ch_filtered_sitelist }
 

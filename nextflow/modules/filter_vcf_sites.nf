@@ -6,7 +6,6 @@ process FILTER_VCF_SITES {
     input:
     tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_kv)
     path(mask_bed)
-    path(dp_summary)
 
     output: 
     tuple val(variant_type),
@@ -16,8 +15,8 @@ process FILTER_VCF_SITES {
           path("${variant_type}.${interval_hash}.sites.vcf.gz"), 
           path("${variant_type}.${interval_hash}.sites.vcf.gz.tbi"),
           path("*.counts"),                                                   emit: vcf
-    path("*_filter_summary.tsv"),                                                                          emit: summary
-    //path("*_filter_hist.tsv.gz"),                                                                          emit: hist
+    path("*_filter_summary.tsv"),                                             emit: summary
+    //path("*_filter_hist.tsv.gz"),                                             emit: hist
 
     script:
     def process_script = "${process_name}.sh"
