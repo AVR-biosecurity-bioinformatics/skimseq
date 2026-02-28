@@ -4,7 +4,7 @@ process FILTER_VCF_SITES {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_kv)
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_kv), val(sample_names)
     path(mask_bed)
 
     output: 
@@ -16,7 +16,7 @@ process FILTER_VCF_SITES {
           path("${variant_type}.${interval_hash}.sites.vcf.gz.tbi"),
           path("*.counts"),                                                   emit: vcf
     path("*_filter_summary.tsv"),                                             emit: summary
-    //path("*_filter_hist.tsv.gz"),                                             emit: hist
+    //path("*_filter_hist.tsv.gz"),                                           emit: hist
 
     script:
     def process_script = "${process_name}.sh"
@@ -44,16 +44,17 @@ process FILTER_VCF_SITES {
       fi
     done
 
-    # Optional: write out what was enabled for debugging
-    # env | egrep '^(QUAL_THR|DPmin|PCT_LOW|PCT_HIGH|DIST_INDEL|EH|HWE|MAF|MAC|NS|CR)=' | sort >&2
+    # Write samples list
+    # Write list of mask beds to process
+    printf "%s\n" ${sample_names} | sort > samples.list
 
     bash ${process_script} \
-    ${task.cpus} \
-    ${task.memory.giga} \
-    "${vcf}" \
-    "${variant_type}" \
-    "${mask_bed}" \
-    "${interval_hash}" 
+        ${task.cpus} \
+        ${task.memory.giga} \
+        "${vcf}" \
+        "${variant_type}" \
+        "${mask_bed}" \
+        "${interval_hash}" 
     """
 
 }

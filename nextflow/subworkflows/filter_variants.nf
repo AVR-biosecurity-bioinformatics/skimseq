@@ -113,18 +113,17 @@ workflow FILTER_VARIANTS {
 
     // Create channel of VCFs by variant type, with filter string as an extra element
     ch_vcf_types
-        .map { vt, ih, interval_bed, bed_tbi, vcf, vcf_tbi ->
-        tuple(vt, ih, interval_bed, bed_tbi, vcf, vcf_tbi)
-        }
         .join(ch_dp_bounds)
         .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi ->
-
-        def gf = GlobalFiltersForType(vt)
-        gf.DPlower = dpLo
-        gf.DPupper = dpHi
-
-        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
-                canon(gf, FILTER_DEFAULTS))
+            def gf = GlobalFiltersForType(vt)
+            gf.DPlower = dpLo
+            gf.DPupper = dpHi
+            tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
+                    canon(gf, FILTER_DEFAULTS))
+        }
+        .combine(ch_sample_names)   // attaches samples file to every tuple
+        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_kv, sample_names ->
+            tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_kv, sample_names )
         }
         .set { ch_vcf_types_global }
 
@@ -155,11 +154,20 @@ workflow FILTER_VARIANTS {
 
     // Create seperate channels that have all sample names grouped by pop
 
-    // Filter on a per-populations basis, outputting a sites only vcf of just passing sites
-    //FILTER_VCF_POP (
-    //    ch_vcf_types,
-    //    ch_sample_pop
+    //ch_vcf_types
+    //    .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
+    //    tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
+    //            canon(PopFiltersForType, FILTER_DEFAULTS))
+    //    }
+    //    .set { ch_vcf_types_pop }
+
+    // Global sites filters 
+    // TODO: this needs add tags to the vcf but does not filter - Filtering can be done in the later site selection step
+    //FILTER_VCF_SITES_POP (
+    //    ch_vcf_types_pop,
+	//    ch_mask_bed_vcf
     //)
+
 
     // intersect per-pop sitelists, keeping only those failing in >n samples
     // Then intersect with global filter
