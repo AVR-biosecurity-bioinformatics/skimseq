@@ -8,6 +8,7 @@ set -uoe pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
 # $6 = interval_hash
+# $7 = pop
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
@@ -40,5 +41,5 @@ bcftools view --threads ${1} -S samples.list ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS:-0}" \
   | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR:-0}" \
   | bcftools filter -Ou -s MASK_FAIL       -m+ -M vcf_masks.bed \
-  | bcftools view --threads ${1} -Oz -o ${4}.${6}.filt.vcf.gz
-bcftools index --threads ${1} -t ${4}.${6}.filt.vcf.gz
+  | bcftools view --threads ${1} -Oz -o ${4}.${7}.${6}.filt.vcf.gz
+bcftools index --threads ${1} -t ${4}.${7}.${6}.filt.vcf.gz

@@ -12,8 +12,8 @@ process FILTER_VCF_SITES {
          val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
-          path("${variant_type}.${interval_hash}.filt.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.filt.vcf.gz.tbi"),            emit: vcf
+          path("${variant_type}.${pop}.${interval_hash}.filt.vcf.gz"), 
+          path("${variant_type}.${pop}.${interval_hash}.filt.vcf.gz.tbi"),            emit: vcf
     //path("*_filter_summary.tsv"),                                             emit: summary
     //path("*_filter_hist.tsv.gz"),                                           emit: hist
 
@@ -53,7 +53,8 @@ process FILTER_VCF_SITES {
         "${vcf}" \
         "${variant_type}" \
         "${mask_bed}" \
-        "${interval_hash}" 
+        "${interval_hash}" \
+        "${pop}"
     """
 
 }

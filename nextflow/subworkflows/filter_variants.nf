@@ -158,12 +158,15 @@ workflow FILTER_VARIANTS {
         ]
     }
 
-    // Create seperate channels that have all sample names grouped by pop
+  // Create seperate channels that have all sample names grouped by pop
+  // Exclude any below min samples per pop
   ch_sample_pop
-    .map { sample, pop -> tuple(pop, sample) }   // key by pop
-    .groupTuple()                                // -> (pop, [sample1, sample2, ...])
-    .map { pop, samples -> tuple(pop, [samples: samples.unique().sort()]) }
-    .set { ch_sample_list_pop }
+    .map { sample, pop -> tuple(pop, sample) }
+    .groupTuple()
+    .map { pop, samples -> tuple(pop, samples.unique().sort()) }
+    .filter { pop, samples -> samples.size() >= (params.min_samples_per_pop as Integer) }
+    .map { pop, samples -> tuple(pop, [samples: samples]) }
+    .set {ch_sample_list_pop }
 
     // Create channel of VCFs by variant type, with filter string as an extra element
     ch_vcf_types
@@ -186,25 +189,34 @@ workflow FILTER_VARIANTS {
     */
 
     FILTER_VCF_SITES_GLOBAL.out.vcf
-        .map { vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi, counts ->
-        tuple([vt, ih], interval_bed, bed_tbi, global_vcf, global_tbi)
-        }
-        .join(  FILTER_VCF_SITES_POP.out.vcf
-            .map { vt, pop, ih, interval_bed, bed_tbi, pop_vcf, pop_tbi, counts ->
-            tuple([vt, ih], pop_vcf)
-            }
-            .groupTuple()
-        )    
-    .map { key, interval_bed, bed_tbi, global_vcf, global_tbi, pop_vcfs ->
+    .map { vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi ->
+      tuple([vt, ih], interval_bed, bed_tbi, global_vcf, global_tbi)
+    }
+    .set{ ch_global_keyed }
+
+  FILTER_VCF_SITES_POP.out.vcf
+    .map { vt, ih, interval_bed, bed_tbi, pop_vcf, pop_tbi ->
+      tuple([vt, ih], tuple(pop_vcf, pop_tbi))
+    }
+    .groupTuple()
+    .set{ ch_pop_grouped }
+
+  ch_global_keyed
+    .join(ch_pop_grouped)
+    .map { key, interval_bed, bed_tbi, global_vcf, global_tbi, pop_pairs ->
       def (vt, ih) = key
-      tuple(vt, ih, interval_bed, bed_tbi, global_vcf, pop_vcfs)
+      def pop_vcfs = pop_pairs.collect{ it[0] }
+      def pop_tbis = pop_pairs.collect{ it[1] }
+      tuple(vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi, pop_vcfs, pop_tbis)
     }
     .set { ch_sitelists_to_intersect }
 
     // intersect global filter with per-pop, keeping only those failing in >n populations
     // This function makes the QC histograms too
     INTERSECT_FILTERED_SITES (
-        ch_sitelists_to_intersect
+        ch_sitelists_to_intersect,
+        params.n_pops_failing,
+        params.perc_pops_failing
     )
 
     // Create site histograms - uses the tages from the soft filtered vcf
@@ -219,10 +231,7 @@ workflow FILTER_VARIANTS {
     //    "site_filters"
     //)
 
-
     // Use counts file to remove those chunks which contain no variants
-
-
     INTERSECT_FILTERED_SITES.out.vcf
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
