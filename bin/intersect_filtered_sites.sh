@@ -21,7 +21,7 @@ n_pops=$(awk 'NF{n++} END{print n+0}' pop_vcfs.list)
 perc_N=$(awk -v p="${7}" -v n="$n_pops" '
   BEGIN{
     if(p<=0 || n<=0){print 0; exit}
-    x = p*n/100.0
+    x = p*n
     t = int(x)
     if(t < x) t++
     print t
@@ -33,7 +33,8 @@ N=${6}
 if (( perc_N > N )); then N=$perc_N; fi
 
 # 1) build BED of positions failing in >N pops
-tmp_fail_bed=$(mktemp)
+tmp_fail_bed=tmp.bed
+touch $tmp_fail_bed
 
 # count failures by CHROM,POS across pop vcfs
 while read -r v; do
@@ -48,9 +49,12 @@ done < pop_vcfs.list \
 # 2) filter the global sitelist: keep PASS sites (if global is tagged), then exclude fail bed
 out="${4}.${5}.sites.vcf.gz"
 
-bcftools view --threads "${1}" -f PASS -Ou "${3}" \
-  | bcftools view --threads "${1}" -T ^"$tmp_fail_bed" -Oz -o "$out"
-
+# Handle cases where no sites failed the per-pop filters
+if [[ -s "$tmp_fail_bed" ]]; then
+    bcftools view --threads "${1}" -f PASS -Ou "${3}" -T ^"$tmp_fail_bed" -Oz -o "$out"
+else
+    bcftools view --threads "${1}" -f PASS -Ou "${3}" -Oz -o "$out"
+fi
 bcftools index --threads "${1}" -t "$out"
 
 # summary: how many sites were excluded for failing in >N pops
@@ -62,4 +66,4 @@ nvars=$(bcftools index -n $out | tr -d '[:space:]')
 printf "%s\n" "$nvars" > "${4}.${5}.counts"
 
 # Remove temporary files
-#rm -f "$tmp_fail_bed"
+rm -f "$tmp_fail_bed"
