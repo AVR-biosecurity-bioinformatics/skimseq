@@ -27,7 +27,7 @@ esac
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 
 # TODO: subset to samples here to allow for pop-specific calculation
-bcftools view --threads ${1} -S samples.list --force-samples -G ${TYPE_ARGS} -Ou "${3}" \
+bcftools view --threads ${1} -S samples.list -G ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL <= ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP <= ${DPmin:-0} || INFO/DP <= ${DPlower:-0} || INFO/DP >= ${DPupper:-999999999}" \
   | bcftools filter -Ou -s DIST_INDEL_FAIL -m+ -e "INFO/DIST_INDEL <= ${DIST_INDEL:--999999999}" \

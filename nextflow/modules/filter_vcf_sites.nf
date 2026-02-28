@@ -19,6 +19,7 @@ process FILTER_VCF_SITES {
     //path("*_filter_hist.tsv.gz"),                                           emit: hist
 
     script:
+    def samples_str = (sample_names.samples as List).join('\n')
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
@@ -44,9 +45,8 @@ process FILTER_VCF_SITES {
       fi
     done
 
-    # Write samples list
-    # Write list of mask beds to process
-    printf "%s\n" ${sample_names} | sort > samples.list
+    # Write sample list (one per line)
+    printf '%s\n' "$samples_str" | LC_ALL=C sort -u > samples.list
 
     bash ${process_script} \
         ${task.cpus} \
