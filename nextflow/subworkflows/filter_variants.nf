@@ -43,22 +43,7 @@ workflow FILTER_VARIANTS {
                 .join(";")
     }
 
-    // Function to pull per-population filters from parameters by type
-    def PopFiltersForType = { String vt ->
-        def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
-        def p = { String k -> params.containsKey(k) ? params[k] : null }
-        [
-            EH        : p("${prefix}_pop_eh"),
-            HWE       : p("${prefix}_pop_hwe"),
-            MAF       : p("${prefix}_pop_maf"),
-            MAC       : p("${prefix}_pop_mac"),
-            NS        : p("${prefix}_pop_min_samples"),
-            CR        : p("${prefix}_pop_min_callrate"),
-        ]
-    }
-
-
-     // Duplicate vcf files by variant type
+    // Duplicate vcf files by variant type
     def variant_types = ['snp', 'indel']
         if( params.output_invariant ) {
         variant_types << 'invariant'
@@ -154,6 +139,20 @@ workflow FILTER_VARIANTS {
         Per-population filters for sites
     */
 
+    // Function to pull per-population filters from parameters by type
+    def PopFiltersForType = { String vt ->
+        def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
+        def p = { String k -> params.containsKey(k) ? params[k] : null }
+        [
+            EH        : p("${prefix}_pop_eh"),
+            HWE       : p("${prefix}_pop_hwe"),
+            MAF       : p("${prefix}_pop_maf"),
+            MAC       : p("${prefix}_pop_mac"),
+            NS        : p("${prefix}_pop_min_samples"),
+            CR        : p("${prefix}_pop_min_callrate"),
+        ]
+    }
+
     // Create seperate channels that have all sample names grouped by pop
 
     // Filter on a per-populations basis, outputting a sites only vcf of just passing sites
@@ -192,7 +191,6 @@ workflow FILTER_VARIANTS {
 
    // Output channel of variant_type, interval_hash, interval_bed, vcf, tbi, sitesvcf, sitestbi
     ch_vcf_types   
-	.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_string -> tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi) }
         .join(ch_vcfs_nonempty, by: [0,1] )
         .set { ch_filtered_sitelist }
 

@@ -8,7 +8,6 @@ set -uoe pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = mask_bed
 # $6 = interval_hash
-# $7 = DP summary
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed

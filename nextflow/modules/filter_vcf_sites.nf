@@ -53,9 +53,7 @@ process FILTER_VCF_SITES {
     "${vcf}" \
     "${variant_type}" \
     "${mask_bed}" \
-    "${interval_hash}" \
-    "${dp_summary}"
-
+    "${interval_hash}" 
     """
 
 }
