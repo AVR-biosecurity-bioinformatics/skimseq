@@ -111,6 +111,12 @@ workflow FILTER_VARIANTS {
         ]
     }
 
+    ch_sample_names
+        .collect()
+        .map { it.unique().sort() } 
+        .map { [samples: it] }
+        .set{ ch_sample_list_global }
+
     // Create channel of VCFs by variant type, with filter string as an extra element
     ch_vcf_types
         .join(ch_dp_bounds)
@@ -121,14 +127,13 @@ workflow FILTER_VARIANTS {
             tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
                     canon(gf, FILTER_DEFAULTS))
         }
-        .combine(ch_sample_names)   // attaches samples file to every tuple
+        .combine(ch_sample_list_global)   // attaches samples file to every tuple
         .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_kv, sample_names ->
-            tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_kv, sample_names )
+            tuple(vt, "global", interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_kv, sample_names )
         }
         .set { ch_vcf_types_global }
 
     // Global sites filters 
-    // TODO: this needs add tags to the vcf but does not filter - Filtering can be done in the later site selection step
     FILTER_VCF_SITES_GLOBAL (
         ch_vcf_types_global,
 	    ch_mask_bed_vcf
@@ -153,25 +158,53 @@ workflow FILTER_VARIANTS {
     }
 
     // Create seperate channels that have all sample names grouped by pop
+  ch_sample_pop
+    .map { sample, pop -> tuple(pop, sample) }   // key by pop
+    .groupTuple()                                // -> (pop, [sample1, sample2, ...])
+    .map { pop, samples -> tuple(pop, [samples: samples.unique().sort()]) }
+    .set { ch_sample_list_pop }
 
-    //ch_vcf_types
-    //    .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
-    //    tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
-    //            canon(PopFiltersForType, FILTER_DEFAULTS))
-    //    }
-    //    .set { ch_vcf_types_pop }
+    // Create channel of VCFs by variant type, with filter string as an extra element
+    ch_vcf_types
+    .combine(ch_sample_list_pop)   // (vt, ih, bed..., vcf..., pop, samples)
+    .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, pop, samples ->
+        tuple(vt, pop, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
+            canon(PopFiltersForType(vt), FILTER_DEFAULTS),
+            samples)
+    }
+    .set { ch_vcf_types_pop }
 
-    // Global sites filters 
-    // TODO: this needs add tags to the vcf but does not filter - Filtering can be done in the later site selection step
-    //FILTER_VCF_SITES_POP (
-    //    ch_vcf_types_pop,
-	//    ch_mask_bed_vcf
-    //)
+    // Per-population site filters
+    FILTER_VCF_SITES_POP (
+        ch_vcf_types_pop,
+	    ch_mask_bed_vcf
+    )
 
+    /*
+        Intersect global and per-population filters
+    */
 
-    // intersect per-pop sitelists, keeping only those failing in >n samples
-    // Then intersect with global filter
+    FILTER_VCF_SITES_GLOBAL.out.vcf
+        .map { vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi, counts ->
+        tuple([vt, ih], global_vcf)       // key + global vcf
+        }
+        .join( FILTER_VCF_SITES_POP.out.vcf
+            .map { vt, pop, ih, interval_bed, bed_tbi, pop_vcf, pop_tbi, counts ->
+            tuple([vt, ih], pop_vcf)
+            }
+            .groupTuple()
+        )    
+    .map { key, global_vcf, pop_vcfs ->
+            def (vt, ih) = key
+            tuple(vt, ih, global_vcf, pop_vcfs)
+            }
+    .set { ch_sitelists_to_intersect }
 
+    // intersect global filter with per-pop, keeping only those failing in >n populations
+    // This function makes the QC histograms too
+    INTERSECT_FILTERED_SITES (
+        ch_sitelists_to_intersect
+    )
 
     // Create site histograms - uses the tages from the soft filtered vcf
     //CREATE_FILTER_HISTS(
@@ -187,7 +220,7 @@ workflow FILTER_VARIANTS {
 
 
     // Use counts file to remove those chunks which contain no variants
-    FILTER_VCF_SITES_GLOBAL.out.vcf
+    INTERSECT_FILTERED_SITES.out.vcf
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer
             tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
