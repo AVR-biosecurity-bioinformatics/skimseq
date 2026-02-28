@@ -13,8 +13,8 @@ process FILTER_VCF_SITES {
           path(interval_bed), 
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.filt.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.filt.vcf.gz.tbi")            emit: vcf
-    path("*_filter_summary.tsv"),                                             emit: summary
+          path("${variant_type}.${interval_hash}.filt.vcf.gz.tbi"),            emit: vcf
+    //path("*_filter_summary.tsv"),                                             emit: summary
     //path("*_filter_hist.tsv.gz"),                                           emit: hist
 
     script:

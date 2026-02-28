@@ -7,6 +7,7 @@ include { CALC_CHUNK_DP                                } from '../modules/calc_c
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_GLOBAL  } from '../modules/filter_vcf_sites'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_POP     } from '../modules/filter_vcf_sites'
+include { INTERSECT_FILTERED_SITES                     } from '../modules/intersect_filtered_sites'
 include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
 include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
@@ -186,18 +187,18 @@ workflow FILTER_VARIANTS {
 
     FILTER_VCF_SITES_GLOBAL.out.vcf
         .map { vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi, counts ->
-        tuple([vt, ih], global_vcf)       // key + global vcf
+        tuple([vt, ih], interval_bed, bed_tbi, global_vcf, global_tbi)
         }
-        .join( FILTER_VCF_SITES_POP.out.vcf
+        .join(  FILTER_VCF_SITES_POP.out.vcf
             .map { vt, pop, ih, interval_bed, bed_tbi, pop_vcf, pop_tbi, counts ->
             tuple([vt, ih], pop_vcf)
             }
             .groupTuple()
         )    
-    .map { key, global_vcf, pop_vcfs ->
-            def (vt, ih) = key
-            tuple(vt, ih, global_vcf, pop_vcfs)
-            }
+    .map { key, interval_bed, bed_tbi, global_vcf, global_tbi, pop_vcfs ->
+      def (vt, ih) = key
+      tuple(vt, ih, interval_bed, bed_tbi, global_vcf, pop_vcfs)
+    }
     .set { ch_sitelists_to_intersect }
 
     // intersect global filter with per-pop, keeping only those failing in >n populations
@@ -220,6 +221,8 @@ workflow FILTER_VARIANTS {
 
 
     // Use counts file to remove those chunks which contain no variants
+
+
     INTERSECT_FILTERED_SITES.out.vcf
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
             def n = counts_file.text.trim() as Integer

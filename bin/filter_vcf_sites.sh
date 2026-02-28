@@ -29,7 +29,7 @@ esac
 # Subset to just the samples and update tags, then 
 bcftools view --threads ${1} -S samples.list ${TYPE_ARGS} -Ou "${3}" \
   | bcftools +fill-tags -Ou - -- -t AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING \
-  | bcftoools view -G -Ou \
+  | bcftools view -G -Ou \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
   | bcftools filter -Ou -s DIST_INDEL_FAIL -m+ -e "INFO/DIST_INDEL < ${DIST_INDEL:--999999999}" \
