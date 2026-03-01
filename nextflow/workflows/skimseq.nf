@@ -43,28 +43,25 @@ workflow SKIMSEQ {
     }
     
     // Reads channel
-    ch_samplesheet 
-        .splitCsv ( by: 1, skip: 1 )
-        .map { row -> [ 
-            row[0],                                 // sample
-            file( row[2], checkIfExists: true ),    // read1 
-            file( row[3], checkIfExists: true )     // read2
-            ] }
-        .map { sample, r1, r2 ->
-            // Derive a stable library ID from the R1 basename (minus extensions)
-            // This is needed when there are multiple libraries for the same sample
-            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
+    ch_samplesheet
+        .splitCsv(header: true) 
+        .map { row ->
+            def sample = row.sample                         //sample_name
+            def r1     = file(row.fwd, checkIfExists: true) //read1
+            def r2     = file(row.rev, checkIfExists: true) //read2
+            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '') // stable library ID from the R1 basename (minus extensions) to deal with >1 lib per sample
             [ sample, lib, r1, r2 ]
-            }
+        }
         .set { ch_reads }
 
     // Sample names and pops channel
-    ch_samplesheet 
-        .splitCsv ( by: 1, skip: 1 )
-        .map { row -> [
-            row[0], // sample
-            row[1] // pop
-            ] }
+    ch_samplesheet
+        .splitCsv(header: true, sep: '\t')
+        .map { row ->
+            def sample = row.sample
+            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_')
+            [ sample, pop ]
+        }
         .unique()
         .set { ch_sample_pop }
 
