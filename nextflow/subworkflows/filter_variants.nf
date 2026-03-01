@@ -3,13 +3,15 @@
 */
 
 //// import modules
+include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
+include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_FILT    } from '../modules/create_interval_chunks'
 include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_GLOBAL  } from '../modules/filter_vcf_sites'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_POP     } from '../modules/filter_vcf_sites'
 include { INTERSECT_FILTERED_SITES                     } from '../modules/intersect_filtered_sites'
-include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
-include { MERGE_VCFS as MERGE_FILTERED_VCFS            } from '../modules/merge_vcfs'
+include { MERGE_VCFS as MERGE_UNFILTERED_SITELISTS     } from '../modules/merge_vcfs'
 include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
 include { VCF_STATS                                    } from '../modules/vcf_stats'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
@@ -20,11 +22,50 @@ workflow FILTER_VARIANTS {
     take:
     ch_vcfs
     ch_genome_indexed
+    ch_include_bed
     ch_mask_bed_vcf
     ch_sample_names
     ch_sample_pop
 
     main: 
+
+    // Extract VCF sites and merge them
+    EXTRACT_VCF_SITES(
+        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
+    )
+
+    EXTRACT_VCF_SITES.out.vcf
+        .map { interval_hash, vcf, tbi -> tuple('unfiltered_sitelist', vcf, tbi) }
+        .groupTuple(by: 0)
+        .set { ch_unfiltered_sitelist_to_merge }
+
+    MERGE_UNFILTERED_SITELISTS (
+        ch_unfiltered_sitelist_to_merge
+    )
+
+    COUNT_VCF_RECORDS (
+        MERGE_UNFILTERED_SITELISTS.out.vcf,
+        ch_genome_indexed,
+        ch_include_bed.first(),
+        ch_mask_bed_vcf
+    )
+
+    CREATE_INTERVAL_CHUNKS_FILT (
+        COUNT_VCF_RECORDS.out.counts,
+        ch_genome_indexed,
+        ch_include_bed.first(),
+        params.filt_var_per_chunk,
+        params.min_interval_gap,
+        params.split_large_intervals,
+        "false"
+    )
+
+
+    // Create new chunks from the merged unfiltered sitelist
+
+    // Extract the Genotypes for the new chunks
+
+    // Calculate depth filters from the sitelist
 
     /*
         Function definitions
@@ -55,6 +96,8 @@ workflow FILTER_VARIANTS {
         tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
         }
     .set { ch_vcf_types }
+
+
 
     /*
         Calculate depth filters

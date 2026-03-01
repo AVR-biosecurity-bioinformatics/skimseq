@@ -9,7 +9,7 @@ process EXTRACT_VCF_SITES {
     tuple val(outname), path(vcf), path(vcf_tbi)
     
     output: 
-    tuple val(outname),  path("${outname}_sites.vcf.gz"), path("${outname}_sites.vcf.gz.tbi"),       emit: vcf
+    tuple val(outname),  path("${outname}.sites.vcf.gz"), path("${outname}.sites.vcf.gz.tbi"),       emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
