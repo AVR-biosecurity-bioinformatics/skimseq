@@ -42,34 +42,43 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
-    // Reads channel
+    // Parse input samplesheet
     ch_samplesheet
         .splitCsv(header: true) 
         .map { row ->
-            def sample = row.sample                         //sample_name
-            def r1     = file(row.fwd, checkIfExists: true) //read1
-            def r2     = file(row.rev, checkIfExists: true) //read2
-            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '') // stable library ID from the R1 basename (minus extensions) to deal with >1 lib per sample
-            [ sample, lib, r1, r2 ]
+             // Fail early if required columns are missing
+            def required = ['sample','pop','fwd','rev']
+            def present  = row.keySet()*.toString() as Set
+            def missing  = required.findAll { !(it in present) }
+            if( missing ) {
+                error "Samplesheet is missing required columns: ${missing.join(', ')}. " +
+                        "Found columns: ${present.toList().sort().join(', ')}"
+            }
+            // Parse samplesheet columns
+            def sample = row.sample                                       //sample_name
+            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_') //Population
+            def r1     = file(row.fwd, checkIfExists: true)               //read1
+            def r2     = file(row.rev, checkIfExists: true)               //read2
+            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')  // stable library ID from the R1 basename (minus extensions) to deal with >1 lib per sample
+            tuple(sample, lib, pop, r1, r2)
         }
+        .set { ch_samplesheet_parsed }
+
+    // Reads channel
+    ch_samplesheet_parsed
+        .map { sample, lib, pop, r1, r2 -> tuple(sample, lib, r1, r2) }
         .set { ch_reads }
 
-    // Sample names and pops channel
-    ch_samplesheet
-        .splitCsv(header: true, sep: '\t')
-        .map { row ->
-            def sample = row.sample
-            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_')
-            [ sample, pop ]
-        }
-        .unique()
-        .set { ch_sample_pop }
-
     // Sample names channel
-    ch_sample_pop
-        .map { sample, pop -> sample }
+    ch_samplesheet_parsed
+        .map { sample, lib, pop, r1, r2 -> sample }
         .unique()
         .set { ch_sample_names }
+
+    // Sample names and pops channel
+    ch_samplesheet_parsed
+        .map { sample, lib, pop, r1, r2 -> tuple(sample, pop) }
+        .set { ch_sample_pop }
 
     // Reference genome channel
     if ( params.ref_genome ){
@@ -81,16 +90,6 @@ workflow SKIMSEQ {
     } else {
         ch_genome = Channel.empty()
     } 
-    
-    //if ( params.mito_genome ){
-    //    ch_mito = Channel
-    //        .fromPath (
-    //            params.mito_genome, 
-    //            checkIfExists: true
-    //        )
-    //} else {
-    //    ch_mito = Channel.empty()
-    //} 
     
     /*
     Process nuclear genome
