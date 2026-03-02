@@ -44,7 +44,7 @@ esac
 # quick overlap test to find which genotype vcfs contain those sites
 while read -r v; do
   [[ -z "$v" ]] && continue
-  if tabix -R "REGIONS_BED_GZ" "$v" | head -n 1 | grep -q .; then
+  if tabix -R "$REGIONS_BED_GZ" "$v" | head -n 1 | grep -q .; then
     echo "$v" >> chunks_with_sites.list
   fi
 done < vcf.list

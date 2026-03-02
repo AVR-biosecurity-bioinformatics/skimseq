@@ -119,6 +119,7 @@ workflow FILTER_VARIANTS {
     )
 
     SUBSET_VCF_TO_SITES.out.vcf
+        .map { variant_type, interval_hash, bed, bed_tbi, vcf, vcf_tbi -> tuple(interval_hash, bed, bed_tbi, vcf, vcf_tbi  ) }
         .set { ch_vcfs_rechunked }
 
     /*

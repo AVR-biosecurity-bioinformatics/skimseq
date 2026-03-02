@@ -303,10 +303,15 @@ workflow SKIMSEQ {
 
         // Subset to just filtered sites and calculate genotype posteriors
         SUBSET_VCF_TO_SITES(
-           ch_sites_to_genotype
+           ch_sites_to_genotype.map { 
+                variant_type, interval_hash, bed, bed_tbi, vcf, vcf_tbi, sites_vcf, sites_tbi -> 
+                tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, vcf_tbi  ) 
+            }
         )
 
-        ch_genotyped_all = SUBSET_VCF_TO_SITES.out.vcf
+        SUBSET_VCF_TO_SITES.out.vcf
+            .map { variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi, -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi) }
+            .set{ ch_genotyped_all }
 
     } else if (params.genotyping == "pseudohaploid"){
 
