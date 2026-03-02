@@ -40,15 +40,15 @@ workflow GATK_JOINT {
     )
 
     COUNT_VCF_RECORDS.out.counts
-            .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
-            .toList()
-            .filter { lst -> lst && !lst.isEmpty() }
-            .map { pairs ->
-                def beds = pairs.collect { it[0] }
-                def tbis = pairs.collect { it[1] }
-                tuple("joint", beds, tbis)
-            }
-            .set { ch_counts }
+        .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+        .toList()
+        .filter { lst -> lst && !lst.isEmpty() }
+        .map { pairs ->
+            def beds = pairs.collect { it[0] }
+            def tbis = pairs.collect { it[1] }
+            tuple("joint", beds, tbis)
+        }
+        .set { ch_counts }
 
     // Create joint calling intervals for long beds
 

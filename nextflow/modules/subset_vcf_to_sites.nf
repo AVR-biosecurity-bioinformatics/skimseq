@@ -11,8 +11,9 @@ process SUBSET_VCF_TO_SITES {
     tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path("${interval_hash}.subset.vcf.gz"), path("${interval_hash}.subset.vcf.gz.tbi"),       emit: vcf
     
     script:
-    // write one VCF per line
-    def vcf_lines = (vcf_list as List).collect { it.toString() }.sort().join('\n') + '\n'
+    // Allow vcf_list to be either a List or a single item
+    def vcf_items = (vcf_list instanceof List) ? vcf_list : [ vcf_list ]
+    def vcf_lines = vcf_items.collect { it.toString() }.sort().join('\n') + '\n'
 
     def process_script = "${process_name}.sh"
     """

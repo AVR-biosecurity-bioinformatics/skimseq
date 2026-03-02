@@ -4,46 +4,50 @@ process FILTER_VCF_GENOTYPES {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi),
+          path(vcf), path(vcf_tbi), val(filter_kv)
 
-    output: 
+    output:
     tuple val(variant_type),
-         val(interval_hash),
-          path(interval_bed), 
-          path(bed_tbi), 
-          path("${variant_type}.${interval_hash}.gtfiltered.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.gtfiltered.vcf.gz.tbi"),     emit: vcf
-    path("*_filter_summary.tsv"),                                           emit: summary
-    path("*_filter_hist.tsv.gz"),                                           emit: hist
+          val(interval_hash),
+          path(interval_bed),
+          path(bed_tbi),
+          path("${variant_type}.${interval_hash}.gtfiltered.vcf.gz"),
+          path("${variant_type}.${interval_hash}.gtfiltered.vcf.gz.tbi"),
+          emit: vcf
+    path("*_filter_summary.tsv"), emit: summary
+    path("*_filter_hist.tsv.gz"), emit: hist
 
     script:
-    // safe lookup of parameters: no warnings for undefined parameters (i.e. the indel or inv ones that are pre-defined)
-    def p = { String k -> params.containsKey(k) ? params[k] : null }
-
-    // render either "export VAR='x'" or "unset VAR"
-    def exOrUnset = { String envName, def value ->
-        (value == null) ? "unset ${envName}" : "export ${envName}='${value}'"
-    }
-
-    // global values (also guard with containsKey)
-    def GQ           = p("gq")
-    def gtDPmin      = p("gt_dp_min")
-    def gtDPmax      = p("gt_dp_max")
-
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    ${exOrUnset("GQ",          GQ)}
-    ${exOrUnset("gtDPmin",     gtDPmin)}
-    ${exOrUnset("gtDPmax",     gtDPmax)}
+    export VARIANT_TYPE='${variant_type}'
 
-    bash ${process_script} \
-    ${task.cpus} \
-    ${task.memory.giga} \
-    "${vcf}" \
-    ${variant_type} \
-    ${interval_hash}
+    # filter_kv looks like: "GQ=20;gtDPmin=6;gtDPmax=200;..."
+    FILTER_KV='${filter_kv}'
+
+    IFS=';' read -ra KV <<< "\$FILTER_KV"
+    for kv in "\${KV[@]}"; do
+      [[ -z "\$kv" ]] && continue
+      k="\${kv%%=*}"
+      v="\${kv#*=}"
+
+      # Treat NA / -1 / empty as disabled
+      if [[ -z "\$v" || "\$v" == "NA" || "\$v" == "na" || "\$v" == "-1" ]]; then
+        unset "\$k" || true
+      else
+        export "\$k=\$v"
+      fi
+    done
+
+    bash ${process_script} \\
+      ${task.cpus} \\
+      ${task.memory.giga} \\
+      "${vcf}" \\
+      "${variant_type}" \\
+      "${interval_hash}"
     """
 }
