@@ -29,11 +29,22 @@ workflow FILTER_VARIANTS {
 
     main: 
 
-    // Extract VCF sites and merge them
+    // Define the three variant types with optional inclusion
+    def variant_types = ['snp', 'indel']
+        if( params.output_invariant ) {
+        variant_types << 'invariant'
+    }
+
+    /*
+        Create new interval chunks based on the number of called variants
+    */
+
+    // Extract a sites-only VCF (drop genotypes) of unfiltered sites for faster computation
     EXTRACT_VCF_SITES(
         ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
     )
 
+    // Merge per-chunk unfiltered sites lists into a single vcf
     EXTRACT_VCF_SITES.out.vcf
         .map { interval_hash, vcf, tbi -> tuple('unfiltered_sitelist', vcf, tbi) }
         .groupTuple(by: 0)
@@ -43,6 +54,7 @@ workflow FILTER_VARIANTS {
         ch_unfiltered_sitelist_to_merge
     )
 
+    // Count number of VCF records for chunking, this also outputs a depth histogram used later for calculating DP bounds
     COUNT_VCF_RECORDS (
         MERGE_UNFILTERED_SITELISTS.out.vcf,
         ch_genome_indexed,
@@ -50,6 +62,7 @@ workflow FILTER_VARIANTS {
         ch_mask_bed_vcf
     )
 
+    // Create new interval chunks from the merged unfiltered sitelist
     CREATE_INTERVAL_CHUNKS_FILT (
         COUNT_VCF_RECORDS.out.counts,
         ch_genome_indexed,
@@ -60,7 +73,7 @@ workflow FILTER_VARIANTS {
         "false"
     )
 
-    // Create new chunks from the merged unfiltered sitelist
+    // Parse interval outputs
     CREATE_INTERVAL_CHUNKS_FILT.out.interval_bed
             .flatMap { sample, beds, tbis  ->
                 // normalize to a list for cases where there are only 1 bed output for a sample
@@ -73,18 +86,19 @@ workflow FILTER_VARIANTS {
                 // emit one tuple per bed file
                 (0..<bedList.size()).collect { i ->
                     def bed = bedList[i] as Path
-                    def tbiPath = tbiList[i]
+                    def bed_tbi = tbiList[i]
                     def base = bed.getFileName().toString()
                     base = base.replaceFirst(/\.gz$/, '')
                     base = base.replaceFirst(/\.bed$/, '')
                     def interval_hash = base.startsWith('_') ? base.substring(1) : base
-                    tuple(interval_hash, bed, tbiPath)
+                    tuple(interval_hash, bed, bed_tbi)
                 }
             }
             .set { ch_interval_bed_filt }
 
+    // Create a file with both the original genotypes and the interval bed
     ch_vcfs
-        .map { ih, ibed, itbi, vcf, vcf_tbi -> tuple(vcf, vcf_tbi) }
+        .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi -> tuple(vcf, vcf_tbi) }
         .toList()
         .map { pairs ->
             def vcfs = pairs.collect{ it[0] }
@@ -95,10 +109,11 @@ workflow FILTER_VARIANTS {
 
     ch_interval_bed_filt
         .combine(ch_vcfs_list)
+        .map { interval_hash, bed, bed_tbi, vcf_list, vcf_tbi_list -> tuple("all", interval_hash, bed, bed_tbi, vcf_list, vcf_tbi_list ) }
         .set { ch_sitelist_with_all_vcfs }
 
 
-    // Extract the Genotypes for the new chunks
+    // Extract the sites in each new chunks from the original (with genotype) vcf file
     SUBSET_VCF_TO_SITES(
         ch_sitelist_with_all_vcfs
     )
@@ -106,75 +121,43 @@ workflow FILTER_VARIANTS {
     SUBSET_VCF_TO_SITES.out.vcf
         .set { ch_vcfs_rechunked }
 
-
-    /*
-        Function definitions
-    */
-
-    // Set up default emtpy filters
-    def FILTER_DEFAULTS = [
-        QUAL_THR:'NA', DPlower:'NA', PCT_LOW:'NA', DPupper:'NA', DIST_INDEL:'NA',
-        EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA'
-    ]
-
-   // Function to create cannonical filter string
-   def canon = { Map m, Map defaults = [:] ->
-        def merged = defaults + m  // m overrides defaults
-        merged.collect { k,v -> "${k}=${v == null ? 'NA' : v}" }
-                .sort()
-                .join(";")
-    }
-
-    // Duplicate vcf files by variant type
-    def variant_types = ['snp', 'indel']
-        if( params.output_invariant ) {
-        variant_types << 'invariant'
-    }
-    Channel.of(*variant_types)
-        .combine(ch_vcfs_rechunked)
-        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
-        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
-        }
-    .set { ch_vcf_types }
-
     /*
         Calculate depth filters
     */
 
-    // TODO: Calculate depth filters from the merged unfiltered sitelist rather than individual chunks
-
-
-    // Calculate missing data and variant DP histogram for each chunk
-    //CALC_CHUNK_DP (
-    //    ch_vcf_types
-    //)
-
-    // Function to switch out dp lower and dp upper by variant type
-    def dpPercForType = { String vt ->
-        switch(vt) {
-            case 'snp':      return [params.snp_global_dp_lower_perc,  params.snp_global_dp_upper_perc]
-            case 'indel':    return [params.indel_global_dp_lower_perc,params.indel_global_dp_upper_perc]
-            case 'invariant':return [params.inv_global_dp_lower_perc,  params.inv_global_dp_upper_perc]
-            default:         return [null, null]
-        }
-    }
-    // Merge chunk_dp by varaint type
-
+    // Calculate chunk_dp by varaint type using the dphist from COUNT_VCF_RECORDS
     Channel.of(*variant_types)
         .combine(COUNT_VCF_RECORDS.out.dphist)
         .map { variant_type, name, dphist -> tuple(variant_type, dphist ) }
         .groupTuple()
         .map { vt, files ->
-        def (lo, hi) = dpPercForType(vt)
+            def lo
+            def hi
+            switch(vt) {
+                case 'snp':
+                lo = params.snp_global_dp_lower_perc
+                hi = params.snp_global_dp_upper_perc
+                break
+                case 'indel':
+                lo = params.indel_global_dp_lower_perc
+                hi = params.indel_global_dp_upper_perc
+                break
+                case 'invariant':
+                lo = params.inv_global_dp_lower_perc
+                hi = params.inv_global_dp_upper_perc
+                break
+                default:
+                lo = null; hi = null
+            }
             tuple(vt, files, lo, hi)
         }
         .set { ch_chunk_dp_grouped }
 
-    MERGE_CHUNK_DP (
+    CALC_DP_BOUNDS (
         ch_chunk_dp_grouped
     )
 
-    MERGE_CHUNK_DP.out.dp_bounds.map { vt, f ->
+    CALC_DP_BOUNDS.out.dp_bounds.map { vt, f ->
         def lines = f.readLines()
         def hdr = lines[0].split('\t')
         def row = lines[1].split('\t')
@@ -187,6 +170,19 @@ workflow FILTER_VARIANTS {
         Global filters for sites
     */
 
+    // Set up default emtpy filters
+        def FILTER_DEFAULTS = [
+            QUAL_THR:'NA', DPlower:'NA', PCT_LOW:'NA', DPupper:'NA', DIST_INDEL:'NA',
+            EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA'
+        ]
+
+    // Function to create cannonical filter string (reused later for population filters)
+    def canon = { Map m, Map defaults = [:] ->
+            def merged = defaults + m  // m overrides defaults
+            merged.collect { k,v -> "${k}=${v == null ? 'NA' : v}" }
+                    .sort()
+                    .join(";")
+        }
     // Function to pull global filters from parameters by type
     def GlobalFiltersForType = { String vt ->
         def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
@@ -197,6 +193,14 @@ workflow FILTER_VARIANTS {
             DIST_INDEL: p("${prefix}_global_dist_indel"),
         ]
     }
+
+    // Duplicate vcf files by variant type
+    Channel.of(*variant_types)
+        .combine(ch_vcfs_rechunked)
+        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
+        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
+        }
+    .set { ch_vcf_types }
 
     ch_sample_names
         .collect()

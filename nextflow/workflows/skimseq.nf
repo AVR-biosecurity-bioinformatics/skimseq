@@ -17,7 +17,7 @@ include { QC                                                        } from '../s
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
-include { GENOTYPE_POSTERIORS                                       } from '../modules/genotype_posteriors'
+include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites'
 include { MERGE_VCFS as MERGE_GENOTYPED_VCFS                        } from '../modules/merge_vcfs'
 include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
 
@@ -302,11 +302,11 @@ workflow SKIMSEQ {
     if ( params.genotyping == "use_discovered" ){
 
         // Subset to just filtered sites and calculate genotype posteriors
-        GENOTYPE_POSTERIORS(
+        SUBSET_VCF_TO_SITES(
            ch_sites_to_genotype
         )
 
-        ch_genotyped_all = GENOTYPE_POSTERIORS.out.vcf
+        ch_genotyped_all = SUBSET_VCF_TO_SITES.out.vcf
 
     } else if (params.genotyping == "pseudohaploid"){
 

@@ -5,10 +5,10 @@ process SUBSET_VCF_TO_SITES {
     module "BCFtools/1.22-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), val(vcf_list), val(tbi_list)
+    tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), val(vcf_list), val(tbi_list)
     
     output: 
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("${interval_hash}.sites.vcf.gz"), path("${interval_hash}.sites.vcf.gz.tbi"),       emit: vcf
+    tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path("${interval_hash}.subset.vcf.gz"), path("${interval_hash}.subset.vcf.gz.tbi"),       emit: vcf
     
     script:
     // write one VCF per line
@@ -27,7 +27,7 @@ process SUBSET_VCF_TO_SITES {
         ${task.cpus} \
         ${task.memory.giga} \
         ${interval_hash} \
-        ${interval_bed} 
+        ${sites} 
 
     """
 }
