@@ -52,25 +52,6 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
 
 # Add additional annotations to interval VCF file - To be used for filtering
 
-# Create annotation table for minor allele count (MAC)
-# First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' genotyped.vcf.gz \
-| awk 'BEGIN{OFS="\t"}
-       {
-         split($3,ac,",")          # AC is comma‑separated if multi‑allelic
-         mac=$4                    # start with AN
-         refCount = $4             # will be AN - sum(AC)
-         for(i in ac){refCount-=ac[i]; mac=(ac[i]<mac?ac[i]:mac)}
-         mac=(refCount<mac?refCount:mac)
-         print $1,$2,mac
-       }'                         \
-| bgzip > MAC.tsv.gz
-tabix -s1 -b2 -e2 MAC.tsv.gz
-
-# Create VCF header line for MAC filter
-cat > MAC.hdr <<'EOF'
-##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
-EOF
 
 # Create annotation table for distance to closest indel
 bcftools view -v indels -Ou genotyped.vcf.gz \
@@ -96,15 +77,12 @@ cat > dist_to_indel.hdr <<'EOF'
 EOF
 
 # Add annotations to vcf
-bcftools annotate --threads ${CPUS} -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou genotyped.vcf.gz \
-    | bcftools annotate --threads ${CPUS} -h dist_to_indel.hdr -a dist_to_indel.tsv.gz -c CHROM,POS,INFO/DIST_INDEL -Ou \
+bcftools annotate --threads ${CPUS} -h dist_to_indel.hdr -a dist_to_indel.tsv.gz -c CHROM,POS,INFO/DIST_INDEL -Ou genotyped.vcf.gz \
     | bcftools +setGT -- -t q -n . -i 'FMT/DP=0' \
-    | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE,CR:1=1-F_MISSING \
-    | bcftools +tag2tag -- --PL-to-GL \
     | bcftools annotate --threads ${CPUS} --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' -Ou \
     | bcftools sort -Oz9 -o ${IHASH}.vcf.gz 
 
-# Reindex outpu
+# Reindex output
 bcftools index -t ${IHASH}.vcf.gz
 
 # Clean up

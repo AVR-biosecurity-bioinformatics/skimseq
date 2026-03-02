@@ -19,7 +19,7 @@ workflow FILTER_GENOTYPES {
 
     // Function for getting genotype filter parameters as key:value pairs
     def gtFilterKV = { vt ->
-    "GQ=${params.gq};gtDPmin=${params.gt_dp_min};gtDPmax=${params.gt_dp_max}"
+    "GQ=${params.gt_qual};gtDPmin=${params.gt_dp_min};gtDPmax=${params.gt_dp_max}"
     }
 
     // Filter genotypes for quality - Set to missing genotype but retain GL/PL for probabilistic analyses
