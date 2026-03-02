@@ -108,8 +108,6 @@ workflow FILTER_VARIANTS {
         .set { ch_vcfs_rechunked }
 
 
-    // COUNT_VCF_RECORDS outputs a variant DP file that could be used for calculating depths
-
     /*
         Function definitions
     */
@@ -148,9 +146,9 @@ workflow FILTER_VARIANTS {
 
 
     // Calculate missing data and variant DP histogram for each chunk
-    CALC_CHUNK_DP (
-        ch_vcf_types
-    )
+    //CALC_CHUNK_DP (
+    //    ch_vcf_types
+    //)
 
     // Function to switch out dp lower and dp upper by variant type
     def dpPercForType = { String vt ->
@@ -162,14 +160,16 @@ workflow FILTER_VARIANTS {
         }
     }
     // Merge chunk_dp by varaint type
-    CALC_CHUNK_DP.out.chunk_dp
-        .map { variant_type, interval_hash, interval_bed, bed_tbi, dphist -> tuple(variant_type, dphist ) }
+     Channel.of(*variant_types)
+        .combine(COUNT_VCF_RECORDS.out.dphist)
         .groupTuple()
         .map { vt, files ->
         def (lo, hi) = dpPercForType(vt)
             tuple(vt, files, lo, hi)
         }
         .set { ch_chunk_dp_grouped }
+
+    ch_chunk_dp_grouped.view()
 
     MERGE_CHUNK_DP (
         ch_chunk_dp_grouped

@@ -12,9 +12,9 @@ process COUNT_VCF_RECORDS {
     path(exclude_bed)
 
     output: 
-    tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"),   emit: counts
-    tuple val(sample), path("*.missing.tsv"),                                                   emit: missing_frac
-    tuple val(sample), path("*variant_dp.tsv.gz"),                                              emit: variant_dp
+    tuple val(sample), path("${sample}.counts.bed.gz"),  path("${sample}.counts.bed.gz.tbi"), emit: counts
+    tuple val(sample), path("*.missing.tsv"),                                                 emit: missing_frac
+    tuple val(sample), path("*dphist.tsv"),                                                   emit: dphist
 
     script:
     def process_script = "${process_name}.sh"

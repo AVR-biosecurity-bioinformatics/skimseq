@@ -59,14 +59,18 @@ MISSING_FRAC=$(awk -v p="${PRESENT_BASES}" -v t="${TARGET_BASES}" 'BEGIN{printf(
 printf "SAMPLE\tPRESENT_BASES\tTARGET_BASES\tMISSING_FRACTION\n" >  "${7}.missing.tsv"
 printf "%s\t%d\t%d\t%s\n" "${7}" "${PRESENT_BASES}" "${TARGET_BASES}" "${MISSING_FRAC}" >> "${7}.missing.tsv"
 
-# Per-site DP at variant loci (gVCFs don’t store per-base DP for ref blocks)
+# DP histogram
 if [ "$HAS_END" -eq 1 ]; then
   # Get DP from genotype column for GVCF format
-  bcftools query "$3" -f '%CHROM\t%POS\t[%DP]\n' | bgzip -c > "${7}.variant_dp.tsv.gz"
-  #to exlude ref blocks use -e 'INFO/END>0'
+  bcftools query "$3" -f '[%DP]\n' \
+  | awk '{d=$1+0; c[d]++} END{for (d in c) print d"\t"c[d]}' \
+  | LC_ALL=C sort -n -k1,1 > ${7}.dphist.tsv
+  # NOTE: to exlude ref blocks use -e 'INFO/END>0'
 else
   # no END => everything is a variant record, get DP from info block
-  bcftools query "$3" -f '%CHROM\t%POS\t%DP\n' | bgzip -c > "${7}.variant_dp.tsv.gz"
+  bcftools query "$3" -f '%DP\n'  \
+  | awk '{d=$1+0; c[d]++} END{for (d in c) print d"\t"c[d]}' \
+  | LC_ALL=C sort -n -k1,1 > ${7}.dphist.tsv
 fi
 
 # Cleanup
