@@ -6,6 +6,7 @@
 include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
 include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_FILT    } from '../modules/create_interval_chunks'
+include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites'
 include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_GLOBAL  } from '../modules/filter_vcf_sites'
@@ -93,15 +94,22 @@ workflow FILTER_VARIANTS {
         }
         .set { ch_vcfs_list }
 
-
     ch_interval_bed_filt
         .combine(ch_vcfs_list)
         .set { ch_sitelist_with_all_vcfs }
 
+
     // Extract the Genotypes for the new chunks
-    //SUBSET_VCF_TO_SITES(
-    //    
-    //)
+    SUBSET_VCF_TO_SITES(
+        ch_sitelist_with_all_vcfs
+    )
+
+    SUBSET_VCF_TO_SITES.out.vcf
+        .set { ch_vcfs_rechunked }
+
+    ch_vcfs_rechunked.view()
+
+    // COUNT_VCF_RECORDS outputs a variant DP file that could be used for calculating depths
 
     /*
         Function definitions
@@ -127,7 +135,7 @@ workflow FILTER_VARIANTS {
         variant_types << 'invariant'
     }
     Channel.of(*variant_types)
-        .combine(ch_vcfs)
+        .combine(ch_vcfs_rechunked)
         .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
         tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
         }

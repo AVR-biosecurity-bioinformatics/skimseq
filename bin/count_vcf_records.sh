@@ -17,14 +17,27 @@ bedtools subtract -a <(cut -f1-3 "${5}") -b <(cut -f1-3 "${6}") \
 
 tmp_bed="${7}.counts.bed"
 
+# Detect whether END exists in the VCF header (gVCF ref blocks)
+HAS_END=0
+if bcftools view -h "${3}" | grep -qE '^##INFO=<ID=END[,>]' ; then
+  HAS_END=1
+fi
+
 if [ ! -s included_intervals.bed ]; then
   # If no intervals after subtract, produce empty outputs + flag
   : > "$tmp_bed"
 else
-  # Find bases that are covered by reads, merge abutting intervals
-  bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' "$3" \
-    | awk -v OFS="\t" '{ end = ($4=="." ? $3 : $4); print $1,$2,end,1}' \
-    | bedtools merge -i - -c 4 -o sum > "$tmp_bed"
+  if [ "$HAS_END" -eq 1 ]; then
+    # gVCF-style: use END when present, otherwise fall back to POS
+    bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\t%INFO/END\n' "$3" \
+      | awk -v OFS="\t" '{ end = ($4=="." || $4=="" ? $3 : $4); print $1,$2,end,1 }' \
+      | bedtools merge -i - -c 4 -o sum > "$tmp_bed"
+  else
+    # normal VCF: no END tag => each record covers 1 base at POS
+    bcftools query -R included_intervals.bed -f '%CHROM\t%POS0\t%POS\n' "$3" \
+      | awk -v OFS="\t" '{ print $1,$2,$3,1 }' \
+      | bedtools merge -i - -c 4 -o sum > "$tmp_bed"
+  fi
 fi
 
 # TODO: Could add callability filter here, to keep sites that are covered by N reads etc
@@ -47,8 +60,14 @@ printf "SAMPLE\tPRESENT_BASES\tTARGET_BASES\tMISSING_FRACTION\n" >  "${7}.missin
 printf "%s\t%d\t%d\t%s\n" "${7}" "${PRESENT_BASES}" "${TARGET_BASES}" "${MISSING_FRAC}" >> "${7}.missing.tsv"
 
 # Per-site DP at variant loci (gVCFs don’t store per-base DP for ref blocks)
-bcftools query -s "${7}" -e 'INFO/END>0' "${3}" -f '%CHROM\t%POS\t[%DP]\n' \
-| bgzip -c > "${7}.variant_dp.tsv.gz"
+if [ "$HAS_END" -eq 1 ]; then
+  # Get DP from genotype column for GVCF format
+  bcftools query "$3" -f '%CHROM\t%POS\t[%DP]\n' | bgzip -c > "${7}.variant_dp.tsv.gz"
+  #to exlude ref blocks use -e 'INFO/END>0'
+else
+  # no END => everything is a variant record, get DP from info block
+  bcftools query "$3" -f '%CHROM\t%POS\t%DP\n' | bgzip -c > "${7}.variant_dp.tsv.gz"
+fi
 
 # Cleanup
 rm "$tmp_bed"
