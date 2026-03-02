@@ -301,10 +301,6 @@ workflow SKIMSEQ {
     
     if ( params.genotyping == "use_discovered" ){
 
-        ch_sites_to_genotype.map { variant_type, interval_hash, bed, bed_tbi, vcf, vcf_tbi, sites_vcf, sites_tbi ->
-                tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, vcf_tbi)
-            }.view()
-            
         // Subset to just filtered sites
         SUBSET_VCF_TO_SITES(
             ch_sites_to_genotype.map { variant_type, interval_hash, bed, bed_tbi, vcf, vcf_tbi, sites_vcf, sites_tbi ->
