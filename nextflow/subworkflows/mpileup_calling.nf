@@ -46,23 +46,26 @@ workflow MPILEUP_CALLING {
     )
 
     CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
-	    .map { sample, interval_bed, bed_tbi -> tuple(interval_bed, bed_tbi) }
-        .flatMap { beds, tbis ->
-                // normalize bed output to list
-                def bedList = (beds instanceof List) ? beds : (beds ? [beds] : [])
-                // normalize tbi output to list
-                def tbiList = (tbis instanceof List) ? tbis : (tbis ? [tbis] : [])
+        .flatMap { sample, beds, tbis  ->
+            // normalize to a list for cases where there are only 1 bed output for a sample
+            def bedList = (beds instanceof List) ? beds : [beds]
+            def tbiList = (tbis instanceof List) ? tbis : [tbis]
 
-                // emit one tuple per bed using index-based pairing
-                (0..<bedList.size()).collect { i ->
-                    tuple(bedList[i] as Path, tbiList[i])
-                }
+            assert bedList.size() == tbiList.size() :
+            "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
+
+            // emit one tuple per bed file
+            (0..<bedList.size()).collect { i ->
+                def bed = bedList[i] as Path
+                def tbiPath = tbiList[i]
+                def base = bed.getFileName().toString()
+                base = base.replaceFirst(/\.gz$/, '')
+                base = base.replaceFirst(/\.bed$/, '')
+                def interval_hash = base.startsWith('_') ? base.substring(1) : base
+                tuple(interval_hash, bed, tbiPath)
             }
-        .filter { interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
-        // get interval_chunk from interval_bed name as element to identify intervals
-        .map { interval_bed, bed_tbi  ->
-            def interval_chunk = interval_bed.getFileName().toString().split("\\.")[0]
-            [ interval_chunk, interval_bed, bed_tbi  ] }
+        }
+        .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .set { ch_interval_bed_mp }
 
     // combine sample-level cran with each interval_bed file and interval chunk

@@ -104,8 +104,8 @@ workflow GATK_JOINT {
                 tuple(interval_hash, bed, tbiPath)
             }
         }
+        .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .set { ch_interval_bed_jc }
-
 
     // combine sample-level gvcf with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping

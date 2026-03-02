@@ -133,7 +133,7 @@ workflow GATK_SINGLE {
                 base = base.replaceFirst(/\.gz$/, '')
                 base = base.replaceFirst(/\.bed$/, '')
                 def interval_hash = base.startsWith('_') ? base.substring(1) : base
-                tuple(interval_hash, bed, tbiPath)
+                tuple(sample, interval_hash, bed, tbiPath)
             }
         }
         .set { ch_interval_bed_hc }
