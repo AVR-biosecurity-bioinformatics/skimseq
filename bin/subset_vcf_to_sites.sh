@@ -1,6 +1,6 @@
 #!/bin/bash
-set -euo pipefail
-
+set -e
+set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = memory 

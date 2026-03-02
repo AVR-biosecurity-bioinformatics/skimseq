@@ -107,7 +107,6 @@ workflow FILTER_VARIANTS {
     SUBSET_VCF_TO_SITES.out.vcf
         .set { ch_vcfs_rechunked }
 
-    ch_vcfs_rechunked.view()
 
     // COUNT_VCF_RECORDS outputs a variant DP file that could be used for calculating depths
 
