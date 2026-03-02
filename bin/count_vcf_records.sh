@@ -59,19 +59,15 @@ MISSING_FRAC=$(awk -v p="${PRESENT_BASES}" -v t="${TARGET_BASES}" 'BEGIN{printf(
 printf "SAMPLE\tPRESENT_BASES\tTARGET_BASES\tMISSING_FRACTION\n" >  "${7}.missing.tsv"
 printf "%s\t%d\t%d\t%s\n" "${7}" "${PRESENT_BASES}" "${TARGET_BASES}" "${MISSING_FRAC}" >> "${7}.missing.tsv"
 
-# DP histogram
-if [ "$HAS_END" -eq 1 ]; then
-  # Get DP from genotype column for GVCF format
-  bcftools query "$3" -f '[%DP]\n' \
-  | awk '{d=$1+0; c[d]++} END{for (d in c) print d"\t"c[d]}' \
-  | LC_ALL=C sort -n -k1,1 > ${7}.dphist.tsv
-  # NOTE: to exlude ref blocks use -e 'INFO/END>0'
+# DP histogram - if genotypes are in file, update INFO/DP before pulling them
+if bcftools view -h "$3" | grep -q '^##FORMAT=<ID=DP,'; then
+  bcftools +fill-tags -Ou "$3" -- -t 'DP:1=int(sum(FORMAT/DP))' \
+    | bcftools query -f '%INFO/DP\n'
 else
-  # no END => everything is a variant record, get DP from info block
-  bcftools query "$3" -f '%DP\n'  \
-  | awk '{d=$1+0; c[d]++} END{for (d in c) print d"\t"c[d]}' \
-  | LC_ALL=C sort -n -k1,1 > ${7}.dphist.tsv
-fi
+  bcftools query -f '%INFO/DP\n' "$3"
+fi \
+| awk '$1 != "." && $1 != "" { d=$1+0; c[d]++ } END{ for (d in c) print d"\t"c[d] }' \
+| LC_ALL=C sort -n -k1,1 > "${7}.dphist.tsv"
 
 # Cleanup
 rm "$tmp_bed"

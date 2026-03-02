@@ -1,5 +1,5 @@
-process MERGE_CHUNK_DP {
-    def process_name = "merge_chunk_dp"
+process CALC_DP_BOUNDS {
+    def process_name = "calc_dp_bounds"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"

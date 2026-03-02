@@ -7,8 +7,7 @@ include { EXTRACT_VCF_SITES                            } from '../modules/extrac
 include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_FILT    } from '../modules/create_interval_chunks'
 include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites'
-include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
-include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
+include { CALC_DP_BOUNDS                               } from '../modules/calc_dp_bounds'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_GLOBAL  } from '../modules/filter_vcf_sites'
 include { FILTER_VCF_SITES as FILTER_VCF_SITES_POP     } from '../modules/filter_vcf_sites'
 include { INTERSECT_FILTERED_SITES                     } from '../modules/intersect_filtered_sites'
@@ -160,16 +159,16 @@ workflow FILTER_VARIANTS {
         }
     }
     // Merge chunk_dp by varaint type
-     Channel.of(*variant_types)
+
+    Channel.of(*variant_types)
         .combine(COUNT_VCF_RECORDS.out.dphist)
+        .map { variant_type, name, dphist -> tuple(variant_type, dphist ) }
         .groupTuple()
         .map { vt, files ->
         def (lo, hi) = dpPercForType(vt)
             tuple(vt, files, lo, hi)
         }
         .set { ch_chunk_dp_grouped }
-
-    ch_chunk_dp_grouped.view()
 
     MERGE_CHUNK_DP (
         ch_chunk_dp_grouped
