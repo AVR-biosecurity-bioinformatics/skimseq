@@ -129,9 +129,11 @@ workflow GATK_SINGLE {
             (0..<bedList.size()).collect { i ->
                 def bed = bedList[i] as Path
                 def tbiPath = tbiList[i]
-                def base = bed.baseName
-                def interval_chunk = base.startsWith('_') ? base.substring(1) : base
-                tuple(sample, interval_chunk, bed, tbiPath)
+                def base = bed.getFileName().toString()
+                base = base.replaceFirst(/\.gz$/, '')
+                base = base.replaceFirst(/\.bed$/, '')
+                def interval_hash = base.startsWith('_') ? base.substring(1) : base
+                tuple(interval_hash, bed, tbiPath)
             }
         }
         .set { ch_interval_bed_hc }

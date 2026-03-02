@@ -55,17 +55,53 @@ workflow FILTER_VARIANTS {
         ch_genome_indexed,
         ch_include_bed.first(),
         params.filt_var_per_chunk,
-        params.min_interval_gap,
-        params.split_large_intervals,
+        0,
+        "false",
         "false"
     )
 
-
     // Create new chunks from the merged unfiltered sitelist
+    CREATE_INTERVAL_CHUNKS_FILT.out.interval_bed
+            .flatMap { sample, beds, tbis  ->
+                // normalize to a list for cases where there are only 1 bed output for a sample
+                def bedList = (beds instanceof List) ? beds : [beds]
+                def tbiList = (tbis instanceof List) ? tbis : [tbis]
+
+                assert bedList.size() == tbiList.size() :
+                "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
+
+                // emit one tuple per bed file
+                (0..<bedList.size()).collect { i ->
+                    def bed = bedList[i] as Path
+                    def tbiPath = tbiList[i]
+                    def base = bed.getFileName().toString()
+                    base = base.replaceFirst(/\.gz$/, '')
+                    base = base.replaceFirst(/\.bed$/, '')
+                    def interval_hash = base.startsWith('_') ? base.substring(1) : base
+                    tuple(interval_hash, bed, tbiPath)
+                }
+            }
+            .set { ch_interval_bed_filt }
+
+    ch_vcfs
+        .map { ih, ibed, itbi, vcf, vcf_tbi -> tuple(vcf, vcf_tbi) }
+        .toList()
+        .map { pairs ->
+            def vcfs = pairs.collect{ it[0] }
+            def tbis = pairs.collect{ it[1] }
+            tuple(vcfs, tbis)
+        }
+        .set { ch_vcfs_list }
+
+
+    ch_interval_bed_filt
+        .combine(ch_vcfs_list)
+        .set { ch_sitelist_with_all_vcfs }
 
     // Extract the Genotypes for the new chunks
-
-    // Calculate depth filters from the sitelist
+    //SUBSET_VCF_TO_SITES(
+    //    
+    //)
 
     /*
         Function definitions
@@ -97,11 +133,12 @@ workflow FILTER_VARIANTS {
         }
     .set { ch_vcf_types }
 
-
-
     /*
         Calculate depth filters
     */
+
+    // TODO: Calculate depth filters from the merged unfiltered sitelist rather than individual chunks
+
 
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP (
