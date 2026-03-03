@@ -6,10 +6,6 @@ set -u
 # $2 = memory
 # $3 = dp_lower_perc
 # $4 = dp_upper_perc
-# $5 = dp_files
-
-#  Merge DP histograms
-ls *.dphist.tsv > hist_files.list
 
 xargs -a hist_files.list awk 'BEGIN{OFS="\t"} { c[$1]+=$2; N+=$2 } END{ for (d in c) print d,c[d] }' \
 | LC_ALL=C sort -n -k1,1 \

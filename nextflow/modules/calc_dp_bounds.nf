@@ -9,20 +9,21 @@ process CALC_DP_BOUNDS {
     tuple val(variant_type), path(dphist), val(dp_lower), val(dp_upper)
 
     output: 
-   tuple val(variant_type),  path("dphist_dataset.tsv"),   emit: dp_hist
+    tuple val(variant_type),  path("dphist_dataset.tsv"),   emit: dp_hist
     tuple val(variant_type), path("dp_bounds.tsv"),        emit: dp_bounds
     script:
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
+    printf "%s\n" ${dphist} | LC_ALL=C sort -u > hist_files.list
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
         ${dp_lower} \
-        ${dp_upper} \
-        ${dphist}
+        ${dp_upper}
 
     """
 }

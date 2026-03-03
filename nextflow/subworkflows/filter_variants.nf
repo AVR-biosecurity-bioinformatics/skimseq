@@ -98,11 +98,11 @@ workflow FILTER_VARIANTS {
 
     // Create a file with both the original genotypes and the interval bed
     ch_vcfs
-        .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi -> tuple(vcf, vcf_tbi) }
-        .toList()
-        .map { pairs ->
-            def vcfs = pairs.collect{ it[0] }
-            def tbis = pairs.collect{ it[1] }
+        .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi -> tuple(interval_hash, vcf, vcf_tbi) }
+        .toSortedList { a, b -> a[0] <=> b[0] }          // sort by interval_hash to ensure its deterministicly ordered
+        .map { rows ->
+            def vcfs = rows.collect { it[1] }
+            def tbis = rows.collect { it[2] }
             tuple(vcfs, tbis)
         }
         .set { ch_vcfs_list }
