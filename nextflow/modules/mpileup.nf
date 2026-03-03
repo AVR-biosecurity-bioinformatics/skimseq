@@ -8,7 +8,6 @@ process MPILEUP {
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     val(cohort_size)
-    val(mpileup_kv)
 
     // Scale memory based on cohort size
     memory {
@@ -30,23 +29,21 @@ process MPILEUP {
     """
     #!/usr/bin/env bash
     
-    # Parse and export mpileup settings
-    MPILEUP_KV='${mpileup_kv}'
-    IFS=';' read -ra KV <<< "\$MPILEUP_KV"
-    for kv in "\${KV[@]}"; do
-    [[ -z "\$kv" ]] && continue
-    k="\${kv%%=*}"
-    v="\${kv#*=}"
-    # treat NA as disabled/unset
-    if [[ -z "\$v" || "\$v" == "NA" || "\$v" == "na" || "\$v" == "-1" ]]; then
-        unset "\$k" || true
-    else
-        export "\$k=\$v"
-    fi
-    done
+    # Export Mpileup parameters
+    export RMDUP='${params.rmdup}'
+    export EXCLUDE_PAD='${params.exclude_padding}'
+    export OUTPUT_INVARIANT='${params.output_invariant}'
+    export PLOIDY='${params.ploidy}'
+    export MINBQ='${params.minbq}'
+    export MINMQ='${params.minmq}'
+    export MIN_ALIGNED_LENGTH='${params.min_aligned_length}'
+    export MIN_FRAGMENT_LENGTH='${params.min_fragment_length}'
+    export MAX_FRAGMENT_LENGTH='${params.max_fragment_length}'
+    export MUTATION_RATE='${params.mutation_rate}'
+    export MAXDEPTH='${params.max_depth}'
 
-    # Write cram list (cram is a list of paths in the task)
-    printf "%s\n" ${cram} | LC_ALL=C sort -u > cram.list
+    # Write list of cram files to process
+    printf "%s\n" ${cram} | sort > cram.list
     
 
     ### run process script

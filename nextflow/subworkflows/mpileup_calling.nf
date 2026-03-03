@@ -86,41 +86,11 @@ workflow MPILEUP_CALLING {
     // Calculate cohort size for memory scaling
     ch_cohort_size = ch_sample_names.unique().count()
 
-    // Get Mpileup parameters
-    def MPILEUP_DEFAULTS = [
-        RMDUP:'NA', EXCLUDE_PAD:'NA', OUTPUT_INVARIANT:'NA', PLOIDY:'NA',
-        MINBQ:'NA', MINMQ:'NA', MIN_ALIGNED_LENGTH:'NA',
-        MIN_FRAGMENT_LENGTH:'NA', MAX_FRAGMENT_LENGTH:'NA',
-        MUTATION_RATE:'NA', MAXDEPTH:'NA'
-    ]
-
-    def canon = { Map m, Map defaults = [:] ->
-        def merged = defaults + m
-        merged.collect { k,v -> "${k}=${v == null ? 'NA' : v}" }.sort().join(';')
-    }
-
-    def mpileupMap = [
-        RMDUP: params.rmdup,
-        EXCLUDE_PAD: params.exclude_padding,
-        OUTPUT_INVARIANT: params.output_invariant,
-        PLOIDY: params.ploidy,
-        MINBQ: params.minbq,
-        MINMQ: params.minmq,
-        MIN_ALIGNED_LENGTH: params.min_aligned_length,
-        MIN_FRAGMENT_LENGTH: params.min_fragment_length,
-        MAX_FRAGMENT_LENGTH: params.max_fragment_length,
-        MUTATION_RATE: params.mutation_rate,
-        MAXDEPTH: params.max_depth
-    ]
-
-    ch_mpileup_kv = Channel.value( canon(mpileupMap, MPILEUP_DEFAULTS) )
-
     // call variants for single samples across intervals
     MPILEUP (
         ch_cram_interval,
         ch_genome_indexed,
-        ch_cohort_size,
-        ch_mpileup_kv
+        ch_cohort_size
     )
     
     if ( params.output_unfiltered_vcf ){

@@ -4,8 +4,7 @@ process FILTER_VCF_GENOTYPES {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi),
-          path(vcf), path(vcf_tbi), val(filter_kv)
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
 
     output:
     tuple val(variant_type),
@@ -24,24 +23,10 @@ process FILTER_VCF_GENOTYPES {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    export VARIANT_TYPE='${variant_type}'
-
-    # filter_kv looks like: "GQ=20;gtDPmin=6;gtDPmax=200;..."
-    FILTER_KV='${filter_kv}'
-
-    IFS=';' read -ra KV <<< "\$FILTER_KV"
-    for kv in "\${KV[@]}"; do
-      [[ -z "\$kv" ]] && continue
-      k="\${kv%%=*}"
-      v="\${kv#*=}"
-
-      # Treat NA / -1 / empty as disabled
-      if [[ -z "\$v" || "\$v" == "NA" || "\$v" == "na" || "\$v" == "-1" ]]; then
-        unset "\$k" || true
-      else
-        export "\$k=\$v"
-      fi
-    done
+    # Export genotype filtering parameters
+    export GQ='${params.gt_qual}'
+    export gtDPmin='${params.gt_dp_min}'
+    export gtDPmax='${params.gt_dp_max}'
 
     bash ${process_script} \\
       ${task.cpus} \\

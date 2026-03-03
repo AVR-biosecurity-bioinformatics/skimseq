@@ -17,15 +17,9 @@ workflow FILTER_GENOTYPES {
 
     main: 
 
-    // Function for getting genotype filter parameters as key:value pairs
-    def gtFilterKV = { vt ->
-    "GQ=${params.gt_qual};gtDPmin=${params.gt_dp_min};gtDPmax=${params.gt_dp_max}"
-    }
-
     // Filter genotypes for quality - Set to missing genotype but retain GL/PL for probabilistic analyses
     FILTER_VCF_GENOTYPES (
-        ch_genotyped_all.map { vt, ih, bed, tbi, vcf, vcf_tbi -> tuple(vt, ih, bed, tbi, vcf, vcf_tbi, gtFilterKV(vt))
-  }
+        ch_genotyped_all
     )
 
     // TODO: FIlter_VCF_Genotypes outputs need to be named by chunk
@@ -47,14 +41,9 @@ workflow FILTER_GENOTYPES {
          CALC_CHUNK_MISSING.out.chunk_missing.map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
     )
 
-    // Function for getting missing data filter parameters as key:value pairs
-    def missingFilterKV = "MISSING_FRAC=${params.sample_max_missing};F_MISSING=${params.site_max_missing}"
-
     // Filter for missing data
     FILTER_VCF_MISSING (
-        FILTER_VCF_GENOTYPES.out.vcf.map { vt, ih, bed, tbi, vcf, vcf_tbi ->
-            tuple(vt, ih, bed, tbi, vcf, vcf_tbi, missingFilterKV)
-        },
+        FILTER_VCF_GENOTYPES.out.vcf,
         MERGE_CHUNK_MISSING.out.missing_summary
     )
 
