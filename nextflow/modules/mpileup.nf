@@ -43,8 +43,7 @@ process MPILEUP {
     export MAXDEPTH='${params.max_depth}'
 
     # Write list of cram files to process
-    printf "%s\n" ${cram} | sort > cram.list
-    
+    printf "%s\n" ${cram} | LC_ALL=C sort -u > cram.list
 
     ### run process script
     bash ${process_script} \
