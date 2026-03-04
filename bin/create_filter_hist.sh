@@ -8,13 +8,15 @@ set -uoe pipefail
 # $4 = variant_type {snp|indel|invariant}
 # $5 = interval_hash
 
+base="$(basename ${3})"
+prefix="${base%.vcf.gz}"
 
 # Create a small summary of the number of sites passing and failing each filter
-bcftools query -f '%FILTER\n' tmp.tagged.bcf \
+bcftools query -f '%FILTER\n' ${3} \
   | sort \
   | uniq -c \
   | awk 'BEGIN{OFS="\t"} {print $2, $1}' \
-  > "${4}.${5}_filter_summary.tsv"
+  > "${prefix}_filter_summary.tsv"
 
 # ------- make filter summary histograms ------
 
@@ -136,23 +138,24 @@ create_pf_histogram() {
 }
 
 # ---- build the table ----
-out="${4}.${5}_filter_hist.tsv"
+out="${prefix}_filter_hist.tsv"
 printf "RULE\tFILTER\tVARIANT_TYPE\tBIN\tCOUNT\n" > "$out"
 
 VTYPE="${4}"  # snp|indel|invariant
 NBINS=100 # Maximum number of data bins
 
 # Site-level histograms (use tmp.tagged.bcf)
-INPUT_SITE=tmp.tagged.bcf
+INPUT_SITE=${3}
 create_pf_histogram SITE "$INPUT_SITE" "QUAL_FAIL"  "%QUAL\n"                QUAL        "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcHet\n"      ExcHet   "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "HWE_FAIL"    "%INFO/HWE\n"      HWE   "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "DP_FAIL"    "%INFO/DP\n"             DP          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "DIST_INDEL_FAIL"    "%INFO/DIST_INDEL\n"      DIST_INDEL          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" "$NBINS" >> "$out"
-create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "NS_FAIL"    "%INFO/NS\n"             NS          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "CR_FAIL"    "%INFO/CR\n"             CR          "$VTYPE" "$NBINS" >> "$out"
+
+#create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
 
 # Zip output summary table
 pigz -p ${1} $out

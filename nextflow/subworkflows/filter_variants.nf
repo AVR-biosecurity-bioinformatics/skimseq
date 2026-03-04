@@ -13,9 +13,8 @@ include { FILTER_VCF_SITES as FILTER_VCF_SITES_POP     } from '../modules/filter
 include { INTERSECT_FILTERED_SITES                     } from '../modules/intersect_filtered_sites'
 include { MERGE_VCFS as MERGE_UNFILTERED_SITELISTS     } from '../modules/merge_vcfs'
 include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
-include { VCF_STATS                                    } from '../modules/vcf_stats'
+include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
-include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
 workflow FILTER_VARIANTS {
 
@@ -321,14 +320,14 @@ workflow FILTER_VARIANTS {
     .set { ch_vcfs_for_qc }
 
     // Create site histograms - uses the tages from the soft filtered vcf
-    CREATE_FILTER_HISTS(
+    CREATE_FILTER_HIST(
         ch_vcfs_for_qc        
     )
 
     // QC plots for site histograms
     PLOT_VCF_FILTERS (
-        CREATE_FILTER_HISTS.out.hist.collect(),
-        CREATE_FILTER_HISTS.out.summary.collect(),
+        CREATE_FILTER_HIST.out.hist.collect(),
+        CREATE_FILTER_HIST.out.summary.collect(),
         "site_filters"
     )
 
