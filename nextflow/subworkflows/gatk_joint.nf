@@ -11,7 +11,6 @@ include { SPLIT_BED_BY_CHR                                               } from 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks'
 include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
-include { PROFILE_JC                                                     } from '../modules/profile_jc' 
 
 workflow GATK_JOINT {
 
@@ -136,24 +135,6 @@ workflow GATK_JOINT {
         ch_mask_bed_genotype, 
         ch_cohort_size
     )
-
-    if( params.profile_gatk ) {
-        // Profile JC runtimes per interval
-        PROFILE_JC (
-            JOINT_GENOTYPE.out.log,
-            ch_genome_indexed
-        )        
-        // Merge and output JC profiles
-        PROFILE_JC.out.summary
-            .collectFile(
-                name: 'jc_profiles.tsv',
-                storeDir: "${launchDir}/output/gatk_profiles",
-                skip: 1,
-                keepHeader: true,
-                newLine: false,
-                sort: true
-            )
-    }
 
     if ( params.output_unfiltered_vcf ){
 

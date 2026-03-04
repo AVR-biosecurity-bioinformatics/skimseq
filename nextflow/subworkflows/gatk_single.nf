@@ -7,7 +7,6 @@ include { VALIDATE_GVCF                                          } from '../modu
 include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
-include { PROFILE_HC                                             } from '../modules/profile_hc'
 include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
 
 workflow GATK_SINGLE {
@@ -153,33 +152,6 @@ workflow GATK_SINGLE {
         ch_genome_indexed,
         ch_mask_bed_genotype
     )
-
-    if( params.profile_gatk ) {
-
-        // Join back onto cram and gvcf based on first 3 columns
-        HAPLOTYPECALLER.out.log
-            .join( ch_sample_intervals.map { sample, interval_chunk, interval_bed, interval_tbi, cram, crai -> tuple(sample, interval_chunk, cram, crai) }, by:[0,1] )
-            .join( HAPLOTYPECALLER.out.gvcf_intervals, by:[0,1] )
-            .map { sample, interval_chunk, logfile, assembly_regions, cram, crai, gvcf, tbi -> tuple(sample, interval_chunk, cram, crai, gvcf, tbi, logfile, assembly_regions ) }
-            .set { ch_for_profile }
-
-        // Profile HC runtimes per Sample x Interval
-        PROFILE_HC (
-            ch_for_profile,
-            ch_genome_indexed
-        )
-
-        // Merge and output HC profiles
-        PROFILE_HC.out.summary
-            .collectFile(
-                name: 'hc_profiles.tsv',
-                storeDir: "${launchDir}/output/gatk_profiles",
-                skip: 1,
-                keepHeader: true,
-                newLine: false,
-                sort: true
-            )
-    }
 
     // Merge interval GVCFs by sample
     HAPLOTYPECALLER.out.gvcf_intervals
