@@ -209,7 +209,7 @@ workflow FILTER_VARIANTS {
 
     // Create channel of VCFs by variant type, with filter string as an extra element
     ch_vcf_types
-        .join(ch_dp_bounds)
+        .combine(ch_dp_bounds, by: 0)
         .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi ->
             def gf = GlobalFiltersForType(vt)
             gf.DPlower = dpLo
@@ -259,7 +259,7 @@ workflow FILTER_VARIANTS {
 
     // Create channel of VCFs by variant type, with filter string as an extra element
     ch_vcf_types
-    .combine(ch_sample_list_pop)   // (vt, ih, bed..., vcf..., pop, samples)
+    .combine(ch_sample_list_pop)  
     .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, pop, samples ->
         tuple(vt, pop, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
             canon(PopFiltersForType(vt), FILTER_DEFAULTS),
@@ -278,20 +278,20 @@ workflow FILTER_VARIANTS {
     */
 
     FILTER_VCF_SITES_GLOBAL.out.vcf
-    .map { vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi ->
-      tuple([vt, ih], interval_bed, bed_tbi, global_vcf, global_tbi)
-    }
-    .set{ ch_global_keyed }
+        .map { vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi ->
+        tuple([vt, ih], interval_bed, bed_tbi, global_vcf, global_tbi)
+        }
+        .set{ ch_global_keyed }
 
-  FILTER_VCF_SITES_POP.out.vcf
-    .map { vt, ih, interval_bed, bed_tbi, pop_vcf, pop_tbi ->
-      tuple([vt, ih], tuple(pop_vcf, pop_tbi))
-    }
-    .groupTuple()
-    .set{ ch_pop_grouped }
+    FILTER_VCF_SITES_POP.out.vcf
+        .map { vt, ih, interval_bed, bed_tbi, pop_vcf, pop_tbi ->
+        tuple([vt, ih], tuple(pop_vcf, pop_tbi))
+        }
+        .groupTuple()
+        .set{ ch_pop_grouped }
 
   ch_global_keyed
-    .join(ch_pop_grouped)
+    .combine(ch_pop_grouped, by: 0)
     .map { key, interval_bed, bed_tbi, global_vcf, global_tbi, pop_pairs ->
       def (vt, ih) = key
       def pop_vcfs = pop_pairs.collect{ it[0] }
@@ -299,6 +299,7 @@ workflow FILTER_VARIANTS {
       tuple(vt, ih, interval_bed, bed_tbi, global_vcf, global_tbi, pop_vcfs, pop_tbis)
     }
     .set { ch_sitelists_to_intersect }
+
 
     // intersect global filter with per-pop, keeping only those failing in >n populations
     // This function makes the QC histograms too
