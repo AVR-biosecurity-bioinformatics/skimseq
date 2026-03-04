@@ -28,11 +28,10 @@ workflow FILTER_VARIANTS {
 
     main: 
 
-    // Define the three variant types with optional inclusion
-    def variant_types = ['snp', 'indel']
-        if( params.output_invariant ) {
-        variant_types << 'invariant'
-    }
+    // Define the three variant types with optional inclusion of indel and invariant
+    def variant_types = ['snp']
+    if( params.output_indel )      variant_types << 'indel'
+    if( params.output_invariant )  variant_types << 'invariant'
 
     /*
         Create new interval chunks based on the number of called variants
