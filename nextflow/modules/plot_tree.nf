@@ -17,7 +17,7 @@ process PLOT_TREE {
     def process_script = "${process_name}.R"
     """
     shifter --image=gmboowa/ggtree:latest -- \
-        ${projectDir}/bin/${process_script} \
+        Rscript ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata} \
         ${distmat} \

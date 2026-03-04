@@ -19,7 +19,7 @@ process PLOT_VCF_FILTERS {
     def process_script = "${process_name}.R"
     """
     shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
-        ${projectDir}/bin/${process_script} \
+        Rscript ${projectDir}/bin/${process_script} \
         ${projectDir} \
         ${params.rdata} \
         ${outname}
