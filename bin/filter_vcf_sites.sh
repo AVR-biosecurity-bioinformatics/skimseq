@@ -28,8 +28,9 @@ esac
 # (uses env vars exported by Nextflow, with numbers after ':-' defaults if not present)
 
 # Subset to just the samples and update tags, then 
+# Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
 bcftools view --threads ${1} -S samples.list ${TYPE_ARGS} -Ou "${3}" \
-  | bcftools +fill-tags -Ou - -- -t AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING \
+  | bcftools +fill-tags -Ou - -- -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING,MAC=int(MAF*AN)' \
   | bcftools view -G -Ou \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
@@ -37,7 +38,7 @@ bcftools view --threads ${1} -S samples.list ${TYPE_ARGS} -Ou "${3}" \
   | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet < ${EH:--1}" \
   | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE < ${HWE:--1}" \
   | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF:-0}" \
-  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/AC < ${MAC:-0} || (INFO/AN-INFO/AC) < ${MAC:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/MAC < ${MAC:-0}" \
   | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS:-0}" \
   | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR:-0}" \
   | bcftools filter -Ou -s MASK_FAIL       -m+ -M vcf_masks.bed \
