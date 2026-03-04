@@ -12,14 +12,12 @@ process MAP_TO_GENOME {
     
     script:
     def process_script = "${process_name}.sh"
-    def BWA_k      = params.bwa_min_seed_length
-    def BWA_c      = params.bwa_max_seed_occurance
     """
     #!/usr/bin/env bash
 
     # Export variables to script
-    export BWA_k=${BWA_k}
-    export BWA_c=${BWA_c}
+    export BWA_k=${params.bwa_min_seed_length}
+    export BWA_c=${ params.bwa_max_seed_occurance}
 
     ### run process script
     bash ${process_script} \

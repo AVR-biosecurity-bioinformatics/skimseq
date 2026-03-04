@@ -310,17 +310,27 @@ workflow FILTER_VARIANTS {
         params.perc_pops_failing
     )
 
+     /*
+        Create site filtering QC plots
+    */
+    FILTER_VCF_SITES_GLOBAL.out.vcf
+        .concat(FILTER_VCF_SITES_POP.out.vcf)    
+        .map { vt, ih, interval_bed, bed_tbi, vcf, tbi ->
+            tuple(vt, ih, vcf, tbi)
+        }
+    .set { ch_vcfs_for_qc }
+
     // Create site histograms - uses the tages from the soft filtered vcf
-    //CREATE_FILTER_HISTS(
-    //    
-    //)
+    CREATE_FILTER_HISTS(
+        ch_vcfs_for_qc        
+    )
 
     // QC plots for site histograms
-    //PLOT_VCF_FILTERS (
-    //    FILTER_VCF_SITES_GLOBAL.out.hist.collect(),
-    //    FILTER_VCF_SITES_GLOBAL.out.summary.collect(),
-    //    "site_filters"
-    //)
+    PLOT_VCF_FILTERS (
+        CREATE_FILTER_HISTS.out.hist.collect(),
+        CREATE_FILTER_HISTS.out.summary.collect(),
+        "site_filters"
+    )
 
     // Use counts file to remove those chunks which contain no variants
     INTERSECT_FILTERED_SITES.out.vcf
