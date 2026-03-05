@@ -49,17 +49,19 @@ zcat "$REGIONS_BED_GZ" \
 tabix -f -p bed regions.span_by_chr.bed.gz
 
 # Find genotype vcfs that contain any sites in the sitelist 
-: > vcfs_with_overlaps.list
+: > vcfs_overlaps.list
 
 # quick overlap test to find which genotype vcfs contain those intervals
 while read -r v; do
   [[ -z "$v" ]] && continue
   if  bcftools view -R regions.span_by_chr.bed.gz -H "$v" | head -n 1 | grep -q .; then
-    echo "$v" >> vcfs_with_overlaps.list
+    echo "$v" >> vcfs_overlaps.list
   fi
 done < vcf.list
 
+LC_ALL=C sort -u vcfs_overlaps.list > vcfs_overlaps_sorted.list
+
 # Concatenate and sort
-bcftools concat --threads ${1} -R "$REGIONS_BED_GZ" -f vcfs_with_overlaps.list \
+bcftools concat --threads ${1} --allow-overlaps -R "$REGIONS_BED_GZ" -f vcfs_overlaps_sorted.list \
   | bcftools sort -Oz9 -o ${3}.subset.vcf.gz
 tabix -f -p vcf ${3}.subset.vcf.gz
