@@ -8,29 +8,28 @@ set -u
 # $4 = sitelist
 
 SITELIST=${4}
+
 REGIONS_BED_GZ="regions.bed.gz"
 
-# Handle VCF or bed sitelist by normalising to a bed
-
+# Normalize sitelist to bgzipped+tabixed BED (0-based, half-open)
 case "$SITELIST" in
   *.vcf|*.vcf.gz|*.bcf)
-    # Build BED from VCF positions (0-based half-open: POS0..POS)
-    # NOTE: this is position-only (ignores REF/ALT). If you need allele matching, use bcftools isec instead.
     bcftools query -f '%CHROM\t%POS0\t%POS\n' "$SITELIST" \
       | LC_ALL=C sort -k1,1 -k2,2n \
       | bgzip -c > "$REGIONS_BED_GZ"
     tabix -f -p bed "$REGIONS_BED_GZ"
     ;;
-  *.bed|*.bed.gz)
-    # Use BED as-is; if it’s not bgzipped, bgzip+tabix a local copy for speed/compat
-    if [[ "$SITELIST" == *.bed.gz ]]; then
-      cp -f "$SITELIST" "$REGIONS_BED_GZ"
-      # index if missing
-      [[ -e "${SITELIST}.tbi" ]] && cp -f "${SITELIST}.tbi" "${REGIONS_BED_GZ}.tbi" || tabix -f -p bed "$REGIONS_BED_GZ"
+  *.bed.gz)
+    cp -f "$SITELIST" "$REGIONS_BED_GZ"
+    if [[ -e "${SITELIST}.tbi" ]]; then
+      cp -f "${SITELIST}.tbi" "${REGIONS_BED_GZ}.tbi"
     else
-      LC_ALL=C sort -k1,1 -k2,2n "$SITELIST" | bgzip -c > "$REGIONS_BED_GZ"
       tabix -f -p bed "$REGIONS_BED_GZ"
     fi
+    ;;
+  *.bed)
+    LC_ALL=C sort -k1,1 -k2,2n "$SITELIST" | bgzip -c > "$REGIONS_BED_GZ"
+    tabix -f -p bed "$REGIONS_BED_GZ"
     ;;
   *)
     echo "ERROR: sitelist must be BED(.gz) or VCF(.gz)/BCF: $SITELIST" >&2
@@ -38,37 +37,29 @@ case "$SITELIST" in
     ;;
 esac
 
-# Find genotype vcfs that contain any sites in the sitelist 
-: > chunks_with_sites.list
+# Build bcftools format span file (i.e. start of first record in sitelist to end of last, split by chromosome)
+zcat "$REGIONS_BED_GZ" \
+  | LC_ALL=C sort -k1,1 -k2,2n \
+  | awk 'BEGIN{OFS="\t"}
+         $1!=chr && NR>1 { print chr, s, e }
+         $1!=chr { chr=$1; s=$2; e=$3; next }
+         { if($2 < s) s=$2; if($3 > e) e=$3 }
+         END{ if(NR>0) print chr, s, e }' \
+  | bgzip -c > regions.span_by_chr.bed.gz
+tabix -f -p bed regions.span_by_chr.bed.gz
 
-# quick overlap test to find which genotype vcfs contain those sites
+# Find genotype vcfs that contain any sites in the sitelist 
+: > vcfs_with_overlaps.list
+
+# quick overlap test to find which genotype vcfs contain those intervals
 while read -r v; do
   [[ -z "$v" ]] && continue
-  if tabix -R "$REGIONS_BED_GZ" "$v" | head -n 1 | grep -q .; then
-    echo "$v" >> chunks_with_sites.list
+  if  bcftools view -R regions.span_by_chr.bed.gz -H "$v" | head -n 1 | grep -q .; then
+    echo "$v" >> vcfs_with_overlaps.list
   fi
 done < vcf.list
 
-# Actual subsetting and merging
-tmp_vcf=$(mktemp --suffix=.vcf)
-
-# write header once from first vcf
-first_vcf=$(grep -m1 -v '^[[:space:]]*$' chunks_with_sites.list || true)
-bcftools view -h "$first_vcf" > "$tmp_vcf"
-
-# Append records of all overlapping vcfs
-while read -r v; do
-  [[ -z "$v" ]] && continue
-  bcftools view --threads "$1" -R "$4" -H "$v" >> "$tmp_vcf"
-done < chunks_with_sites.list
-
-# sort + compress + index (sorting makes this safe even if chunk order is arbitrary)
-bcftools sort -Oz -o ${3}.subset.vcf.gz "$tmp_vcf"
+# Concatenate and sort
+bcftools concat --threads ${1} -R "$REGIONS_BED_GZ" -f vcfs_with_overlaps.list \
+  | bcftools sort -Oz9 -o ${3}.subset.vcf.gz
 tabix -f -p vcf ${3}.subset.vcf.gz
-
-
-# Subset the genotype vcf to just the sites in the site vcf
-#bcftools isec -n=2 -w1 -Oz -o subset.vcf.gz ${5} ${6}
-#bcftools index -t subset.vcf.gz
-
-rm -f "$tmp_vcf"
