@@ -62,6 +62,7 @@ done < vcf.list
 LC_ALL=C sort -u vcfs_overlaps.list > vcfs_overlaps_sorted.list
 
 # Concatenate and sort
-bcftools concat --threads ${1} --allow-overlaps -R "$REGIONS_BED_GZ" -f vcfs_overlaps_sorted.list \
+bcftools concat --threads ${1} --naive -f vcfs_overlaps_sorted.list -Ou \
+  | bcftools view -R "$REGIONS_BED_GZ" -Ou \
   | bcftools sort -Oz9 -o ${3}.subset.vcf.gz
 tabix -f -p vcf ${3}.subset.vcf.gz

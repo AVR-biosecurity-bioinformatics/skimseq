@@ -5,7 +5,7 @@ process SUBSET_VCF_TO_SITES {
     module "BCFtools/1.22-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), val(vcf_list), val(tbi_list)
+    tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path(vcf_list), path(tbi_list)
     
     output: 
     tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path("${interval_hash}.subset.vcf.gz"), path("${interval_hash}.subset.vcf.gz.tbi"),       emit: vcf
@@ -20,7 +20,7 @@ process SUBSET_VCF_TO_SITES {
     #!/usr/bin/env bash
 
     # Write list of mask beds to process
-    printf '%s' "${vcf_lines}" | LC_ALL=C sort -u > vcf.list
+    printf "%s\n" ${vcf_list} | LC_ALL=C sort -u > vcf.list
 
      
     ### run process script
