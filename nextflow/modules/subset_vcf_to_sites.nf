@@ -8,7 +8,7 @@ process SUBSET_VCF_TO_SITES {
     tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path(vcf_list), path(tbi_list)
     
     output: 
-    tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path("${interval_hash}.subset.vcf.gz"), path("${interval_hash}.subset.vcf.gz.tbi"),       emit: vcf
+    tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path("${variant_type}.${interval_hash}.subset.vcf.gz"), path("${variant_type}.${interval_hash}.subset.vcf.gz.tbi"),       emit: vcf
     
     script:
     // Allow vcf_list to be either a List or a single item
@@ -27,6 +27,7 @@ process SUBSET_VCF_TO_SITES {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${variant_type} \
         ${interval_hash} \
         ${sites} 
 

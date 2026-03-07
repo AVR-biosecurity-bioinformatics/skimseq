@@ -1,14 +1,13 @@
 #!/bin/bash
-set -e
-set -u
+set -euo pipefail
 ## args are the following:
 # $1 = cpus 
 # $2 = memory 
-# $3 = interval hash
-# $4 = sitelist
+# $3 = variant_type
+# $4 = interval hash
+# $5 = sitelist
 
-SITELIST=${4}
-
+SITELIST=${5}
 REGIONS_BED_GZ="regions.bed.gz"
 
 # Normalize sitelist to bgzipped+tabixed BED (0-based, half-open)
@@ -49,20 +48,25 @@ zcat "$REGIONS_BED_GZ" \
 tabix -f -p bed regions.span_by_chr.bed.gz
 
 # Find genotype vcfs that contain any sites in the sitelist 
-: > vcfs_overlaps.list
+: > vcf_overlaps.list
 
 # quick overlap test to find which genotype vcfs contain those intervals
 while read -r v; do
   [[ -z "$v" ]] && continue
   if  bcftools view -R regions.span_by_chr.bed.gz -H "$v" | head -n 1 | grep -q .; then
-    echo "$v" >> vcfs_overlaps.list
+    echo "$v" >> vcf_overlaps.list
   fi
 done < vcf.list
 
-LC_ALL=C sort -u vcfs_overlaps.list > vcfs_overlaps_sorted.list
+LC_ALL=C sort -u vcf_overlaps.list > vcf_overlaps_sorted.list
 
-# Concatenate and sort
-bcftools concat --threads ${1} --naive -f vcfs_overlaps_sorted.list -Ou \
-  | bcftools view -R "$REGIONS_BED_GZ" -Ou \
-  | bcftools sort -Oz9 -o ${3}.subset.vcf.gz
-tabix -f -p vcf ${3}.subset.vcf.gz
+# Create bcftools format targets file (1 based)
+zcat "$REGIONS_BED_GZ" \
+  | awk 'BEGIN{OFS="\t"} {print $1, ($2+1)}' \
+  > targets.txt
+
+# Concat and subset files - need to use -T rather than -R when streaming from concat
+bcftools concat --threads "${1}" --naive -f vcf_overlaps_sorted.list \
+    | bcftools view --threads "${1}" -T targets.txt -Oz9 -o ${3}.${4}.subset.vcf.gz
+
+tabix -f -p vcf ${3}.${4}.subset.vcf.gz
