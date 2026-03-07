@@ -53,7 +53,8 @@ tabix -f -p bed regions.span_by_chr.bed.gz
 # quick overlap test to find which genotype vcfs contain those intervals
 while read -r v; do
   [[ -z "$v" ]] && continue
-  if  bcftools view -R regions.span_by_chr.bed.gz -H "$v" | head -n 1 | grep -q .; then
+  first_line=$(bcftools view -H -R regions.span_by_chr.bed.gz "$v" 2>/dev/null | head -n 1 || true)
+  if [[ -n "$first_line" ]]; then
     echo "$v" >> vcf_overlaps.list
   fi
 done < vcf.list
