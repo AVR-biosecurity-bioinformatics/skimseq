@@ -45,42 +45,18 @@ bcftools annotate \
   -c CHROM,POS,FORMAT/FT \
   -Ob -o gt_masked.bcf ${3}
 
-# Set failing GTs to missing and drop FT annotation
+# Set failing GTs to missing, drop FT annotation, and update site tags
 bcftools +setGT -Ou gt_masked.bcf -- \
   -t q -n . \
   -i 'FMT/FT!="PASS"' \
-| bcftools annotate -Ob -o gt_filtered.bcf -x FORMAT/FT
-  
-# Re-calculate minor alelle count (MAC) info tag
-# First create an annotation table with minor allele count
-bcftools query -f '%CHROM\t%POS\t%INFO/AC\t%INFO/AN\n' gt_filtered.bcf \
-| awk 'BEGIN{OFS="\t"}
-       {
-         split($3,ac,",")          # AC is comma‑separated if multi‑allelic
-         mac=$4                    # start with AN
-         refCount = $4             # will be AN - sum(AC)
-         for(i in ac){refCount-=ac[i]; mac=(ac[i]<mac?ac[i]:mac)}
-         mac=(refCount<mac?refCount:mac)
-         print $1,$2,mac
-       }'                         \
-| bgzip > MAC.tsv.gz
-tabix -s1 -b2 -e2 MAC.tsv.gz
-
-# Create VCF header line for MAC filter
-cat > MAC.hdr <<'EOF'
-##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor allele count (minimum of each ALT AC and reference allele count)">
-EOF
-
-# Annotate the vcf with INFO/MAC and update site tags
-bcftools annotate -h MAC.hdr -a MAC.tsv.gz -c CHROM,POS,INFO/MAC -Ou gt_filtered.bcf  \
-  | bcftools +fill-tags -- -t MAF,ExcHet,HWE,F_MISSING,NS,TYPE \
+  | bcftools annotate -Ou -x FORMAT/FT \
+  | bcftools +fill-tags -Ou - -- -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING,MAC=int(MAF*AN)' \
   | bcftools view -U -Oz9 -o ${4}.${5}.gtfiltered.vcf.gz
 
 bcftools index -t ${4}.${5}.gtfiltered.vcf.gz
 
 # Create a small summary of the number of sites passing and failing each filter
-bcftools query -f '[%FT\t]' gt_masked.bcf \
-  | tr '\t' '\n' \
+bcftools query -f '[%FT\n]' gt_masked.bcf \
   | awk 'NF' \
   | sort \
   | uniq -c \
