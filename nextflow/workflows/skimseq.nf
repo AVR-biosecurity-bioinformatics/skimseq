@@ -279,9 +279,6 @@ workflow SKIMSEQ {
         ch_sample_names,
         ch_sample_pop
     )
-
-    FILTER_VARIANTS.out.filtered_sitelist
-        .set { ch_sites_to_genotype }
         
     /*
    Genotype Refinement
@@ -295,24 +292,19 @@ workflow SKIMSEQ {
     - use an input vcf of existing sites
     - TODO: Imputation with STITCH etc
     - TODO: PCA based genotype calling using pcangsd
-
     
     */
     
     if ( params.genotyping == "use_discovered" ){
-
-        // Subset to just filtered sites
-        SUBSET_VCF_TO_SITES(
-            ch_sites_to_genotype.map { variant_type, interval_hash, bed, bed_tbi, vcf, vcf_tbi, sites_vcf, sites_tbi ->
-                tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, vcf_tbi)
-            }        
-        )
-
-        SUBSET_VCF_TO_SITES.out.vcf
-            .map { variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi) }
+        // Use the filtered variants as-is 
+        FILTER_VARIANTS.out.filtered_vcf
             .set{ ch_genotyped_all }
 
     } else if (params.genotyping == "pseudohaploid"){
+
+        // TODO: sites to genotype are just the filtered sites
+        FILTER_VARIANTS.out.filtered_sitelist
+            .set { ch_sites_to_genotype }
 
         // Call pseudohaploid genotypes by sampling a single read per individual at each site
         PSEUDOHAPLOID_GENOTYPING (
