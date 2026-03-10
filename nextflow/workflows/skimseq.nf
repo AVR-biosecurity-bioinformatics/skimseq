@@ -44,22 +44,30 @@ workflow SKIMSEQ {
     
     // Parse input samplesheet
     ch_samplesheet
-        .splitCsv(header: true) 
+        .splitCsv(header: true)
         .map { row ->
-             // Fail early if required columns are missing
+            // Fail early if required columns are missing
             def required = ['sample','pop','fwd','rev']
             def present  = row.keySet()*.toString() as Set
             def missing  = required.findAll { !(it in present) }
             if( missing ) {
                 error "Samplesheet is missing required columns: ${missing.join(', ')}. " +
-                        "Found columns: ${present.toList().sort().join(', ')}"
+                    "Found columns: ${present.toList().sort().join(', ')}"
             }
+
             // Parse samplesheet columns
-            def sample = row.sample                                       //sample_name
-            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_') //Population
-            def r1     = file(row.fwd, checkIfExists: true)               //read1
-            def r2     = file(row.rev, checkIfExists: true)               //read2
-            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')  // stable library ID from the R1 basename (minus extensions) to deal with >1 lib per sample
+            def sample = row.sample.toString().trim()
+            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_')
+            def r1     = file(row.fwd, checkIfExists: true)
+            def r2     = file(row.rev, checkIfExists: true)
+
+            // Fail early on short sample names
+            if( sample.size() < 3 ) {
+                error "Invalid sample name '${sample}' in samplesheet. " +
+                    "Sample names must be at least 3 characters long because bcftools +fill-tags fails on 2-character sample IDs."
+            }
+
+            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
             tuple(sample, lib, pop, r1, r2)
         }
         .set { ch_samplesheet_parsed }

@@ -32,6 +32,13 @@ workflow FILTER_VARIANTS {
     if( params.output_indel )      variant_types << 'indel'
     if( params.output_invariant )  variant_types << 'invariant'
 
+    // Duplicate vcf files by variant type
+    Channel.of(*variant_types)
+        .combine(ch_vcfs)
+        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
+        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
+        }
+        .set { ch_vcf_types }
    
     /*
         Calculate depth filters
@@ -84,6 +91,7 @@ workflow FILTER_VARIANTS {
         QUAL_THR:'NA', DPlower:'NA', PCT_LOW:'NA', DPupper:'NA', DIST_INDEL:'NA',
         EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA', 
         GQ:'NA', gtDPmin:'NA', gtDPmax:'NA',
+        MIN_SAMPLES_PER_POP:'NA', N_POPS_FAILING:'NA', PERC_POPS_FAILING:'NA',
     ]
 
     // Function to create cannonical filter string (reused later for population filters)
@@ -111,15 +119,14 @@ workflow FILTER_VARIANTS {
             GQ        : p("gt_qual"),
             gtDPmin   : p("gt_dp_min"),
             gtDPmax   : p("gt_dp_max"),
+            MIN_SAMPLES_PER_POP        : p("min_samples_per_pop"),
+            N_POPS_FAILING   : p("n_pops_failing"),
+            PERC_POPS_FAILING   : p("perc_pops_failing"),
         ]
     }
 
-    // Duplicate vcf files by variant type
-    Channel.of(*variant_types)
-        .combine(ch_vcfs)
-        .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi ->
-        tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi)
-        }
+    // Add filters in key:value format as an extra element
+    ch_vcf_types
         .combine(ch_dp_bounds, by: 0)
         .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi ->
             def gf = FiltersForType(vt)
@@ -128,20 +135,20 @@ workflow FILTER_VARIANTS {
             tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
                     canon(gf, FILTER_DEFAULTS))
         }
-        .set { ch_vcf_types }
+        .set { ch_vcf_types_filters }
 
     // Create popmap tsv file for population based filtering
-    ch_samplesheet_parsed
-        .map { sample, lib, pop, r1, r2 -> "${sample}\t${pop}\n" }
+    ch_sample_pop
+        .map { sample, pop -> "${sample}\t${pop}\n" }
         .collectFile(name: 'popmap.tsv', newLine: false)
         .set { ch_popmap }
 
     // Global sites filters 
     // This has 3 outputs: 1 = filtered VCF, = sitelist vcf tagged with QC (.out.tagged_sitelist), 3 = filtered sitelist vcf (.out.filtered_sitelist)
     FILTER_VCF (
-        ch_vcf_types,
+        ch_vcf_types_filters,
 	    ch_mask_bed_vcf,
-        ch_popmap
+        ch_popmap.first()
     )
 
     // Use counts file to remove those chunks which contain no variants
@@ -170,7 +177,7 @@ workflow FILTER_VARIANTS {
         }
         .filter { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n ->
-            tuple(vt, ih, vcf, tbi)
+            tuple(variant_type, interval_hash, vcf, tbi)
         }
     .set { ch_vcfs_for_qc }
 
@@ -197,11 +204,11 @@ workflow FILTER_VARIANTS {
         }
         .filter { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, vcf, tbi) }
-        .set { ch_sitelist_nonempty }
+        .set { ch_filtered_sites }
 
     // Create a channel of all 3 variant types + all together for merging
-    ch_sitelist_nonempty.map { variant_type, interval_hash, vcf, tbi -> tuple(variant_type, vcf, tbi) }
-        .concat(ch_sitelist_nonempty.map { variant_type, interval_hash, vcf, tbi -> tuple('combined', vcf, tbi) })
+    ch_filtered_sites.map { variant_type, interval_hash, vcf, tbi -> tuple(variant_type, vcf, tbi) }
+        .concat(ch_filtered_sites.map { variant_type, interval_hash, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_sitelists_to_merge }
 

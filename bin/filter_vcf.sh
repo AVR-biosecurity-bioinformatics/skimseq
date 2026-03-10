@@ -55,8 +55,23 @@ PERC_N=$(awk -v p="$PERC_POPS_FAILING" -v n="$N_POPS" '
     print t
   }'
 )
-MIN_POPS=${N_POPS_FAILING}
-if (( PERC_N > N )); then N=$PERC_N; fi
+
+# Need defaults here because the exporting of kv pairs unsets anything thats -1
+N_POPS_FAILING_VAL="${N_POPS_FAILING:--1}"
+PERC_N_VAL="${PERC_N:--1}"
+
+# choose effective minimum number of populations
+if (( N_POPS_FAILING_VAL < 0 && PERC_N_VAL < 0 )); then
+  MIN_POPS=-1
+elif (( N_POPS_FAILING_VAL < 0 )); then
+  MIN_POPS=$PERC_N_VAL
+elif (( PERC_N_VAL < 0 )); then
+  MIN_POPS=$N_POPS_FAILING_VAL
+elif (( PERC_N_VAL > N_POPS_FAILING_VAL )); then
+  MIN_POPS=$PERC_N_VAL
+else
+  MIN_POPS=$N_POPS_FAILING_VAL
+fi
 
 # Helper function to make per-population filter expressions
 make_pop_count_expr() {
