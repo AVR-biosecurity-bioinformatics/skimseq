@@ -26,10 +26,10 @@ case "${4}" in
 esac
 
 # Find samples above the missing fraction filter
-awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${8}" > samples_to_keep.txt
+awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${8}" > ${4}.${6}.samples.txt
 
 # Create sample_groups.tsv:
-# first keep only samples in samples_to_keep.txt
+# first keep only samples in ${4}.${6}.samples.txt
 # then drop populations with fewer than MIN_SAMPLES_PER_POP retained samples
 awk -v n="$MIN_SAMPLES_PER_POP" '
     BEGIN { FS=OFS="\t" }
@@ -49,7 +49,7 @@ awk -v n="$MIN_SAMPLES_PER_POP" '
             }
         }
     }
-' samples_to_keep.txt "${7}" > sample_groups.tsv
+' ${4}.${6}.samples.txt "${7}" > sample_groups.tsv
 
 #TODO: need to rename any samples with 2 letter names
 
@@ -109,18 +109,18 @@ make_pop_count_expr() {
 
 # Per-pop fail expressions:
 # fail if fewer than MIN_POPS populations have tag meeting the criterion
-pop_eh_expr=$(make_pop_count_expr "ExcHet" ">=" "${EH:--1}" "$MIN_POPS" sample_groups.tsv)
-pop_hwe_expr=$(make_pop_count_expr "HWE" ">=" "${HWE:--1}" "$MIN_POPS" sample_groups.tsv)
-pop_maf_expr=$(make_pop_count_expr "MAF" ">=" "${MAF:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_mac_expr=$(make_pop_count_expr "MAC" ">=" "${MAC:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_ns_expr=$(make_pop_count_expr "NS" ">=" "${NS:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_cr_expr=$(make_pop_count_expr "CR" ">=" "${CR:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_eh_expr=$(make_pop_count_expr "ExcHet" ">=" "${POP_EH:--1}" "$MIN_POPS" sample_groups.tsv)
+pop_hwe_expr=$(make_pop_count_expr "HWE" ">=" "${POP_HWE:--1}" "$MIN_POPS" sample_groups.tsv)
+pop_maf_expr=$(make_pop_count_expr "MAF" ">=" "${POP_MAF:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_mac_expr=$(make_pop_count_expr "MAC" ">=" "${POP_MAC:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_ns_expr=$(make_pop_count_expr "NS" ">=" "${POP_NS:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_cr_expr=$(make_pop_count_expr "CR" ">=" "${POP_CR:-0}" "$MIN_POPS" sample_groups.tsv)
 
 # Subset to target variant class and just samples above missing data filter
 # Then add global annotations using fill-tags
 # Then add per-pop annotations  using fill-tags
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
-bcftools view --threads ${1} ${TYPE_ARGS} -S samples_to_keep.txt -Ou "${3}" \
+bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
     -n . \
@@ -134,12 +134,18 @@ bcftools view --threads ${1} ${TYPE_ARGS} -S samples_to_keep.txt -Ou "${3}" \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
   | bcftools filter -Ou -s DIST_INDEL_FAIL -m+ -e "INFO/DIST_INDEL < ${DIST_INDEL:--999999999}" \
-  | bcftools filter -Ou -s EH_FAIL         -m+ -e "$pop_eh_expr" \
-  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "$pop_hwe_expr" \
-  | bcftools filter -Ou -s MAF_FAIL        -m+ -e "$pop_maf_expr" \
-  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "$pop_mac_expr" \
-  | bcftools filter -Ou -s NS_FAIL         -m+ -e "$pop_ns_expr" \
-  | bcftools filter -Ou -s CR_FAIL         -m+ -e "$pop_cr_expr" \
+  | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet < ${EH:--1}" \
+  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE < ${HWE:--1}" \
+  | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/MAC < ${MAC:-0}" \
+  | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS:-0}" \
+  | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR:-0}" \
+  | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "$pop_eh_expr" \
+  | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "$pop_hwe_expr" \
+  | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "$pop_maf_expr" \
+  | bcftools filter -Ou -s POP_MAC_FAIL    -m+ -e "$pop_mac_expr" \
+  | bcftools filter -Ou -s POP_NS_FAIL     -m+ -e "$pop_ns_expr" \
+  | bcftools filter -Ou -s POP_CR_FAIL     -m+ -e "$pop_cr_expr" \
   | bcftools view --threads ${1} -Ob -o tmp.bcf
 
 # Drop failing genotypes to create filtered vcf file (main output)
