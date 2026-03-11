@@ -8,12 +8,12 @@ include { COUNT_VCF_RECORDS                            } from '../modules/count_
 include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites'
 include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
+include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
-include { INTERSECT_FILTERED_SITES                     } from '../modules/intersect_filtered_sites'
-include { MERGE_VCFS as MERGE_UNFILTERED_SITELISTS     } from '../modules/merge_vcfs'
 include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
 include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
+include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
 
 workflow FILTER_VARIANTS {
 
@@ -82,6 +82,17 @@ workflow FILTER_VARIANTS {
     }
     .set { ch_dp_bounds }
 
+    // Merge per-sample missing data and DP histogram from all chunks into a single table
+    MERGE_CHUNK_MISSING (
+         CALC_CHUNK_MISSING.out.chunk_missing.map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
+    )
+
+    // QC plots for sample missing data
+    PLOT_SAMPLE_FILTERS (
+        MERGE_CHUNK_MISSING.out.missing_summary,
+        params.sample_max_missing
+    )
+
     /*
         Filter VCF
     */
@@ -92,6 +103,7 @@ workflow FILTER_VARIANTS {
         EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA', 
         GQ:'NA', gtDPmin:'NA', gtDPmax:'NA',
         MIN_SAMPLES_PER_POP:'NA', N_POPS_FAILING:'NA', PERC_POPS_FAILING:'NA',
+        SAMPLE_MAX_MISSING:'NA',
     ]
 
     // Function to create cannonical filter string (reused later for population filters)
@@ -122,6 +134,7 @@ workflow FILTER_VARIANTS {
             MIN_SAMPLES_PER_POP        : p("min_samples_per_pop"),
             N_POPS_FAILING   : p("n_pops_failing"),
             PERC_POPS_FAILING   : p("perc_pops_failing"),
+            SAMPLE_MAX_MISSING : p("sample_max_missing"),
         ]
     }
 

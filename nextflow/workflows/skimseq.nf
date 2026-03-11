@@ -307,7 +307,6 @@ workflow SKIMSEQ {
         // Use the filtered variants as-is 
         FILTER_VARIANTS.out.filtered_vcf
             .set{ ch_genotyped_all }
-
     } else if (params.genotyping == "pseudohaploid"){
 
         // TODO: sites to genotype are just the filtered sites
@@ -332,12 +331,18 @@ workflow SKIMSEQ {
 
     /*
     Filter genotypes and samples
+    This is only run if a genotying approach other than use_discovered was applied
     */
-    FILTER_GENOTYPES (
-        ch_genotyped_all
-    )
+    if ( params.genotyping == "use_discovered" ){
+        ch_genotype_filtered = ch_genotyped_all
 
-    ch_genotype_filtered = FILTER_GENOTYPES.out.vcf
+    } else {
+        // TODO: this should re-use filter variants subworkflow with different parameters
+        FILTER_GENOTYPES (
+            ch_genotyped_all
+        )
+        ch_genotype_filtered = FILTER_GENOTYPES.out.vcf
+    }
 
     /*
    Create extra outputs and visualisations

@@ -10,6 +10,7 @@ process CALC_CHUNK_DP {
 
     output: 
     tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path("*.dphist.tsv"),  emit: chunk_dp
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path("*.missing.tsv"),  emit: chunk_missing
 
     script:
     def process_script = "${process_name}.sh"
@@ -20,6 +21,7 @@ process CALC_CHUNK_DP {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
+        ${variant_type} \
         ${interval_hash} \
         ${interval_bed} \
         "${vcf}"        

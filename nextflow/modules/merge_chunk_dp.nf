@@ -9,8 +9,9 @@ process MERGE_CHUNK_DP {
     tuple val(variant_type), path(dphist), val(dp_lower), val(dp_upper)
 
     output: 
-   tuple val(variant_type),  path("dphist_dataset.tsv"),   emit: dp_hist
+    tuple val(variant_type),  path("dphist_dataset.tsv"),   emit: dp_hist
     tuple val(variant_type), path("dp_bounds.tsv"),        emit: dp_bounds
+    
     script:
     def process_script = "${process_name}.sh"
     """

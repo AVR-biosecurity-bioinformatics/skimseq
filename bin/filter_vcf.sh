@@ -9,6 +9,7 @@ set -uoe pipefail
 # $5 = mask_bed
 # $6 = interval_hash
 # $7 = sample_groups_tsv
+# $8 = missing data summary
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
@@ -24,20 +25,31 @@ case "${4}" in
   *) echo "variant_type must be snp|indel|invariant"; exit 1;;
 esac
 
-# Create sample_groups.tsv file from input popmap, exlclude any populations below min_samples_per_pop
+# Find samples above the missing fraction filter
+awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${8}" > samples_to_keep.txt
+
+# Create sample_groups.tsv:
+# first keep only samples in samples_to_keep.txt
+# then drop populations with fewer than MIN_SAMPLES_PER_POP retained samples
 awk -v n="$MIN_SAMPLES_PER_POP" '
     BEGIN { FS=OFS="\t" }
-    {
-    count[$2]++
-    lines[NR]=$0
-    pop[NR]=$2
+    NR==FNR {
+        keep[$1] = 1
+        next
+    }
+    ($1 in keep) {
+        count[$2]++
+        sample[NR] = $1
+        pop[NR]    = $2
     }
     END {
-    for (i=1; i<=NR; i++) {
-        if (count[pop[i]] >= n) print lines[i]
+        for (i = 1; i <= NR; i++) {
+            if (sample[i] != "" && count[pop[i]] >= n) {
+                print sample[i], pop[i]
+            }
+        }
     }
-    }
-    ' ${7} > sample_groups.tsv
+' samples_to_keep.txt "${7}" > sample_groups.tsv
 
 #TODO: need to rename any samples with 2 letter names
 
@@ -104,11 +116,11 @@ pop_mac_expr=$(make_pop_count_expr "MAC" ">=" "${MAC:-0}" "$MIN_POPS" sample_gro
 pop_ns_expr=$(make_pop_count_expr "NS" ">=" "${NS:-0}" "$MIN_POPS" sample_groups.tsv)
 pop_cr_expr=$(make_pop_count_expr "CR" ">=" "${CR:-0}" "$MIN_POPS" sample_groups.tsv)
 
-# Subset to target variant class 
+# Subset to target variant class and just samples above missing data filter
 # Then add global annotations using fill-tags
 # Then add per-pop annotations  using fill-tags
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
-bcftools view --threads ${1} ${TYPE_ARGS} -Ou "${3}" \
+bcftools view --threads ${1} ${TYPE_ARGS} -S samples_to_keep.txt -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
     -n . \
