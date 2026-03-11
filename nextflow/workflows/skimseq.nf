@@ -309,7 +309,7 @@ workflow SKIMSEQ {
     if ( params.genotyping == "use_discovered" ){
         // Use the filtered variants as-is 
         FILTER_VARIANTS.out.filtered_vcf
-            .set{ ch_genotyped_all }
+            .set{ ch_genotyped_vcfs }
     } else if (params.genotyping == "pseudohaploid"){
 
         // TODO: sites to genotype are just the filtered sites
@@ -324,7 +324,7 @@ workflow SKIMSEQ {
             ch_sample_names
         )
 
-        ch_genotyped_all = PSEUDOHAPLOID_GENOTYPING.out.vcf
+        ch_genotyped_vcfs = PSEUDOHAPLOID_GENOTYPING.out.vcf
 
     } else if (params.genotyping == "mpileup"){
 
@@ -337,14 +337,19 @@ workflow SKIMSEQ {
     This is only run if a genotying approach other than use_discovered was applied
     */
     if ( params.genotyping == "use_discovered" ){
-        ch_genotype_filtered = ch_genotyped_all
+        ch_genotype_filtered = ch_genotyped_vcfs
 
     } else {
         // TODO: this should re-use filter variants subworkflow with different parameters
         FILTER_GENOTYPED_VARIANTS (
-            ch_genotyped_all
+            ch_genotyped_vcfs,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_vcf,
+            ch_sample_names,
+            ch_sample_pop
         )
-        ch_genotype_filtered = FILTER_GENOTYPED_VARIANTS.out.vcf
+        ch_genotype_filtered = FILTER_GENOTYPED_VARIANTS.out.filtered_vcf
 
         FILTER_GENOTYPED_VARIANTS.out.sample_names_filt
             .set { ch_sample_names_filt }

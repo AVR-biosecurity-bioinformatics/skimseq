@@ -221,9 +221,8 @@ workflow FILTER_VARIANTS {
         .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_filtered_sites }
 
-    // Create a channel of all 3 variant types + all together for merging
-    ch_filtered_sites.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi-> tuple(variant_type, vcf, tbi) }
-        .concat(ch_filtered_sites.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
+    // Merge sitelists back together by interval
+    ch_filtered_sites.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi-> tuple(interval_hash, vcf, tbi) }
         .groupTuple(by: 0)
         .set { ch_sitelists_to_merge }
 
@@ -231,6 +230,17 @@ workflow FILTER_VARIANTS {
     MERGE_FILTERED_SITELISTS (
         ch_sitelists_to_merge
     )
+
+    // Reattach interval metadata
+    MERGE_FILTERED_SITELISTS.out
+        .join(ch_filtered_sites
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi ->
+            tuple(interval_hash, variant_type, interval_bed, bed_tbi)
+        })
+        .map { interval_hash, merged_vcf, merged_tbi, variant_type, interval_bed, bed_tbi ->
+            tuple(variant_type, interval_hash, interval_bed, bed_tbi, merged_vcf, merged_tbi)
+        }
+        .set { ch_filtered_sites_merged }
 
     FILTER_VCF.out.samples_to_keep.first()
         .splitText( by: 1 )
@@ -240,6 +250,6 @@ workflow FILTER_VARIANTS {
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_vcf = ch_filtered_vcf
-    filtered_sitelist = ch_filtered_sites
+    filtered_sitelist = ch_filtered_sites_merged
     sample_names_filt = ch_sample_names_filt
 }

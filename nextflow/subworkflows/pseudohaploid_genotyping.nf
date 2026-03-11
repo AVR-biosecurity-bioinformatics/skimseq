@@ -57,7 +57,7 @@ workflow PSEUDOHAPLOID_GENOTYPING {
          variant_type, interval_hash, interval_bed, bed_tbi, sites_vcf, sites_tbi
           -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi)
         }, by: [0,1] ) 
-    .map { variant_type, interval_hash, vcf, tbi, sites_vcf, sites_tbi -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi) }
+    .map { variant_type, interval_hash, vcf, tbi, sites_vcf, sites_tbi -> tuple(interval_hash, sites_vcf, sites_tbi, vcf, tbi) }
     .set{ ch_pseudohaploid_vcf }
 
     emit: 
