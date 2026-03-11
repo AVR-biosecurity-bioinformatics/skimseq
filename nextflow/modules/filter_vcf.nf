@@ -7,6 +7,7 @@ process FILTER_VCF {
     tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_kv)
     path(mask_bed)
     path(popmap)
+    path(missing_summary)
 
     output: 
     tuple val(variant_type),
@@ -65,7 +66,8 @@ process FILTER_VCF {
         "${variant_type}" \
         "${mask_bed}" \
         "${interval_hash}" \
-        "${popmap}"
+        "${popmap}" \
+        "${missing_summary}"
     """
 
 }

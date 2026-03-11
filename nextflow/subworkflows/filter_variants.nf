@@ -101,6 +101,7 @@ workflow FILTER_VARIANTS {
     def FILTER_DEFAULTS = [
         QUAL_THR:'NA', DPlower:'NA', PCT_LOW:'NA', DPupper:'NA', DIST_INDEL:'NA',
         EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA', 
+        POP_EH:'NA', POP_HWE:'NA', POP_MAF:'NA', POP_MAC:'NA', POP_NS:'NA', POP_CR:'NA', 
         GQ:'NA', gtDPmin:'NA', gtDPmax:'NA',
         MIN_SAMPLES_PER_POP:'NA', N_POPS_FAILING:'NA', PERC_POPS_FAILING:'NA',
         SAMPLE_MAX_MISSING:'NA',
@@ -119,22 +120,28 @@ workflow FILTER_VARIANTS {
         def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
         def p = { String k -> params.containsKey(k) ? params[k] : null }
         [
-            QUAL_THR  : p("${prefix}_global_qual"),
-            DPmin     : p("${prefix}_global_dp_min"),
-            DIST_INDEL: p("${prefix}_global_dist_indel"),
-            EH        : p("${prefix}_pop_eh"),
-            HWE       : p("${prefix}_pop_hwe"),
-            MAF       : p("${prefix}_pop_maf"),
-            MAC       : p("${prefix}_pop_mac"),
-            NS        : p("${prefix}_pop_min_samples"),
-            CR        : p("${prefix}_pop_min_callrate"),
-            GQ        : p("gt_qual"),
-            gtDPmin   : p("gt_dp_min"),
-            gtDPmax   : p("gt_dp_max"),
-            MIN_SAMPLES_PER_POP        : p("min_samples_per_pop"),
-            N_POPS_FAILING   : p("n_pops_failing"),
-            PERC_POPS_FAILING   : p("perc_pops_failing"),
-            SAMPLE_MAX_MISSING : p("sample_max_missing"),
+            QUAL_THR                     : p("${prefix}_global_qual"),
+            DPmin                        : p("${prefix}_global_dp_min"),
+            DIST_INDEL                   : p("${prefix}_global_dist_indel"),
+            EH                           : p("${prefix}_global_eh"),
+            HWE                          : p("${prefix}_global_hwe"),
+            MAF                          : p("${prefix}_global_maf"),
+            MAC                          : p("${prefix}_global_mac"),
+            NS                           : p("${prefix}_global_min_samples"),
+            CR                           : p("${prefix}_global_min_callrate"),
+            POP_EH                       : p("${prefix}_pop_eh"),
+            POP_HWE                      : p("${prefix}_pop_hwe"),
+            POP_MAF                      : p("${prefix}_pop_maf"),
+            POP_MAC                      : p("${prefix}_pop_mac"),
+            POP_NS                       : p("${prefix}_pop_min_samples"),
+            POP_CR                       : p("${prefix}_pop_min_callrate"),
+            GQ                           : p("gt_qual"),
+            gtDPmin                      : p("gt_dp_min"),
+            gtDPmax                      : p("gt_dp_max"),
+            MIN_SAMPLES_PER_POP          : p("min_samples_per_pop"),
+            N_POPS_FAILING               : p("n_pops_failing"),
+            PERC_POPS_FAILING            : p("perc_pops_failing"),
+            SAMPLE_MAX_MISSING           : p("sample_max_missing"),
         ]
     }
 
@@ -161,7 +168,8 @@ workflow FILTER_VARIANTS {
     FILTER_VCF (
         ch_vcf_types_filters,
 	    ch_mask_bed_vcf,
-        ch_popmap.first()
+        ch_popmap.first(),
+        MERGE_CHUNK_MISSING.out.missing_summary
     )
 
     // Use counts file to remove those chunks which contain no variants
@@ -171,13 +179,7 @@ workflow FILTER_VARIANTS {
             tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
         .filter { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, vcf, tbi) }
-        .set { ch_vcfs_nonempty }
-
-
-   // Output channel of variant_type, interval_hash, interval_bed, vcf, tbi, vcf, tbi
-    ch_vcf_types   
-        .join(ch_vcfs_nonempty, by: [0,1] )
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_filtered_vcf }
 
      /*
@@ -216,12 +218,12 @@ workflow FILTER_VARIANTS {
             tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
         .filter { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, vcf, tbi) }
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_filtered_sites }
 
     // Create a channel of all 3 variant types + all together for merging
-    ch_filtered_sites.map { variant_type, interval_hash, vcf, tbi -> tuple(variant_type, vcf, tbi) }
-        .concat(ch_filtered_sites.map { variant_type, interval_hash, vcf, tbi -> tuple('combined', vcf, tbi) })
+    ch_filtered_sites.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi-> tuple(variant_type, vcf, tbi) }
+        .concat(ch_filtered_sites.map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_sitelists_to_merge }
 
@@ -234,7 +236,6 @@ workflow FILTER_VARIANTS {
         .splitText( by: 1 )
         .unique()
         .set { ch_sample_names_filt }
-
    
     // Subset the merged vcf channels to each variant type for emission
     emit:
