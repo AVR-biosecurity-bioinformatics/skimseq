@@ -285,7 +285,8 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_mask_bed_vcf,
         ch_sample_names,
-        ch_sample_pop
+        ch_sample_pop,
+        params.discovered_filter
     )
 
     FILTER_VARIANTS.out.sample_names_filt

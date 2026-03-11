@@ -24,6 +24,7 @@ workflow FILTER_VARIANTS {
     ch_mask_bed_vcf
     ch_sample_names
     ch_sample_pop
+    filter_map
 
     main: 
 
@@ -44,32 +45,32 @@ workflow FILTER_VARIANTS {
         Calculate depth filters
     */
 
-
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP (
         ch_vcf_types
     )
 
-    // Function to switch out dp lower and dp upper by variant type
-    def dpPercForType = { String vt ->
-        switch(vt) {
-            case 'snp':      return [params.snp_global_dp_lower_perc,  params.snp_global_dp_upper_perc]
-            case 'indel':    return [params.indel_global_dp_lower_perc,params.indel_global_dp_upper_perc]
-            case 'invariant':return [params.inv_global_dp_lower_perc,  params.inv_global_dp_upper_perc]
-            default:         return [null, null]
-        }
+    // Function to get dp lower / upper percentiles by variant type from filter map
+    def dpPercForType = { String vt, Map filter_map ->
+        [
+            filter_map.dp_lower_perc?.global?."${vt}",
+            filter_map.dp_upper_perc?.global?."${vt}"
+        ]
     }
-    // Merge chunk_dp by varaint type
+
+    // Merge chunk_dp by variant type
     CALC_CHUNK_DP.out.chunk_dp
-        .map { variant_type, interval_hash, interval_bed, bed_tbi, dphist -> tuple(variant_type, dphist ) }
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, dphist ->
+            tuple(variant_type, dphist)
+        }
         .groupTuple()
         .map { vt, files ->
-        def (lo, hi) = dpPercForType(vt)
+            def (lo, hi) = dpPercForType(vt, filter_map)
             tuple(vt, files, lo, hi)
         }
         .set { ch_chunk_dp_grouped }
 
-    MERGE_CHUNK_DP (
+    MERGE_CHUNK_DP(
         ch_chunk_dp_grouped
     )
 
@@ -90,70 +91,57 @@ workflow FILTER_VARIANTS {
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS (
         MERGE_CHUNK_MISSING.out.missing_summary,
-        params.sample_max_missing
+        filter_map.sample.max_missing
     )
 
     /*
         Filter VCF
     */
 
-    // Set up default emtpy filters
-    def FILTER_DEFAULTS = [
-        QUAL_THR:'NA', DPlower:'NA', PCT_LOW:'NA', DPupper:'NA', DIST_INDEL:'NA',
-        EH:'NA', HWE:'NA', MAF:'NA', MAC:'NA', NS:'NA', CR:'NA', 
-        POP_EH:'NA', POP_HWE:'NA', POP_MAF:'NA', POP_MAC:'NA', POP_NS:'NA', POP_CR:'NA', 
-        GQ:'NA', gtDPmin:'NA', gtDPmax:'NA',
-        MIN_SAMPLES_PER_POP:'NA', N_POPS_FAILING:'NA', PERC_POPS_FAILING:'NA',
-        SAMPLE_MAX_MISSING:'NA',
-    ]
+    // Function to build filter Key:value pairs from map
+    def buildFilterKvFromMap = { String variantType, Map filterMap, dpLo, dpHi ->
+        def fields = [
+            QUAL_THR            : filterMap.qual?.global?."${variantType}",
+            DPmin               : filterMap.dp_min?.global?."${variantType}",
+            DPlower             : dpLo,
+            DPupper             : dpHi,
+            DIST_INDEL          : filterMap.dist_indel?.global?."${variantType}",
 
-    // Function to create cannonical filter string (reused later for population filters)
-    def canon = { Map m, Map defaults = [:] ->
-            def merged = defaults + m  // m overrides defaults
-            merged.collect { k,v -> "${k}=${v == null ? 'NA' : v}" }
-                    .sort()
-                    .join(";")
-        }
+            EH_GLOBAL           : filterMap.eh?.global?."${variantType}",
+            HWE_GLOBAL          : filterMap.hwe?.global?."${variantType}",
+            MAF_GLOBAL          : filterMap.maf?.global?."${variantType}",
+            MAC_GLOBAL          : filterMap.mac?.global?."${variantType}",
+            NS_GLOBAL           : filterMap.min_samples?.global?."${variantType}",
+            CR_GLOBAL           : filterMap.min_callrate?.global?."${variantType}",
 
-    // Function to pull filters from parameters by type
-    def FiltersForType = { String vt ->
-        def prefix = (vt=='snp'?'snp': vt=='indel'?'indel': vt=='invariant'?'inv': null)
-        def p = { String k -> params.containsKey(k) ? params[k] : null }
-        [
-            QUAL_THR                     : p("${prefix}_global_qual"),
-            DPmin                        : p("${prefix}_global_dp_min"),
-            DIST_INDEL                   : p("${prefix}_global_dist_indel"),
-            EH                           : p("${prefix}_global_eh"),
-            HWE                          : p("${prefix}_global_hwe"),
-            MAF                          : p("${prefix}_global_maf"),
-            MAC                          : p("${prefix}_global_mac"),
-            NS                           : p("${prefix}_global_min_samples"),
-            CR                           : p("${prefix}_global_min_callrate"),
-            POP_EH                       : p("${prefix}_pop_eh"),
-            POP_HWE                      : p("${prefix}_pop_hwe"),
-            POP_MAF                      : p("${prefix}_pop_maf"),
-            POP_MAC                      : p("${prefix}_pop_mac"),
-            POP_NS                       : p("${prefix}_pop_min_samples"),
-            POP_CR                       : p("${prefix}_pop_min_callrate"),
-            GQ                           : p("gt_qual"),
-            gtDPmin                      : p("gt_dp_min"),
-            gtDPmax                      : p("gt_dp_max"),
-            MIN_SAMPLES_PER_POP          : p("min_samples_per_pop"),
-            N_POPS_FAILING               : p("n_pops_failing"),
-            PERC_POPS_FAILING            : p("perc_pops_failing"),
-            SAMPLE_MAX_MISSING           : p("sample_max_missing"),
+            EH                  : filterMap.eh?.pop?."${variantType}",
+            HWE                 : filterMap.hwe?.pop?."${variantType}",
+            MAF                 : filterMap.maf?.pop?."${variantType}",
+            MAC                 : filterMap.mac?.pop?."${variantType}",
+            NS                  : filterMap.min_samples?.pop?."${variantType}",
+            CR                  : filterMap.min_callrate?.pop?."${variantType}",
+
+            GQ                  : filterMap.genotype?.qual,
+            gtDPmin             : filterMap.genotype?.dp_min,
+            gtDPmax             : filterMap.genotype?.dp_max,
+
+            MIN_SAMPLES_PER_POP : filterMap.population?.min_samples_per_pop,
+            N_POPS_FAILING      : filterMap.population?.n_pops_failing,
+            PERC_POPS_FAILING   : filterMap.population?.perc_pops_failing,
+
+            SAMPLE_MAX_MISSING  : filterMap.sample?.max_missing
         ]
+
+        fields.collect { k, v -> "${k}=${v == null ? 'NA' : v}" }
+              .sort()
+              .join(';')
     }
 
-    // Add filters in key:value format as an extra element
     ch_vcf_types
         .combine(ch_dp_bounds, by: 0)
         .map { vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi ->
-            def gf = FiltersForType(vt)
-            gf.DPlower = dpLo
-            gf.DPupper = dpHi
-            tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi,
-                    canon(gf, FILTER_DEFAULTS))
+            def filter_kv = buildFilterKvFromMap(vt, filter_map, dpLo, dpHi)
+            tuple(vt, interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_kv)
         }
         .set { ch_vcf_types_filters }
 
