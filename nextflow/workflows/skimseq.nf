@@ -287,7 +287,10 @@ workflow SKIMSEQ {
         ch_sample_names,
         ch_sample_pop
     )
-        
+
+    FILTER_VARIANTS.out.sample_names_filt
+        .set { ch_sample_names_filt }
+
     /*
    Genotype Refinement
    
@@ -342,6 +345,9 @@ workflow SKIMSEQ {
             ch_genotyped_all
         )
         ch_genotype_filtered = FILTER_GENOTYPES.out.vcf
+
+        FILTER_GENOTYPES.out.sample_names_filt
+            .set { ch_sample_names_filt }
     }
 
     /*
@@ -365,7 +371,7 @@ workflow SKIMSEQ {
         ch_reports,
         PROCESS_READS.out.cram,
         OUTPUTS.out.vcf,
-        FILTER_GENOTYPES.out.sample_names_filt,
+        ch_sample_names_filt,
         ch_genome_indexed,
         ch_multiqc_config
     )

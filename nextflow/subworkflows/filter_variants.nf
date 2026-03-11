@@ -84,7 +84,7 @@ workflow FILTER_VARIANTS {
 
     // Merge per-sample missing data and DP histogram from all chunks into a single table
     MERGE_CHUNK_MISSING (
-         CALC_CHUNK_MISSING.out.chunk_missing.map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
+         CALC_CHUNK_DP.out.chunk_missing.map { variant_type, interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
     )
 
     // QC plots for sample missing data
@@ -229,9 +229,16 @@ workflow FILTER_VARIANTS {
     MERGE_FILTERED_SITELISTS (
         ch_sitelists_to_merge
     )
+
+    FILTER_VCF.out.samples_to_keep.first()
+        .splitText( by: 1 )
+        .unique()
+        .set { ch_sample_names_filt }
+
    
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_vcf = ch_filtered_vcf
     filtered_sitelist = ch_filtered_sites
+    sample_names_filt = ch_sample_names_filt
 }
