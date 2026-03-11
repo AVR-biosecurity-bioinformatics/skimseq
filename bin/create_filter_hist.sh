@@ -146,6 +146,8 @@ NBINS=100 # Maximum number of data bins
 
 # Site-level histograms (use tmp.tagged.bcf)
 INPUT_SITE=${3}
+
+# Global filters
 create_pf_histogram SITE "$INPUT_SITE" "QUAL_FAIL"  "%QUAL\n"                QUAL        "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "EH_FAIL"    "%INFO/ExcHet\n"      ExcHet   "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "HWE_FAIL"    "%INFO/HWE\n"      HWE   "$VTYPE" "$NBINS" >> "$out"
@@ -155,6 +157,14 @@ create_pf_histogram SITE "$INPUT_SITE" "MAF_FAIL"   "%INFO/MAF\n"            MAF
 create_pf_histogram SITE "$INPUT_SITE" "MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "NS_FAIL"    "%INFO/NS\n"             NS          "$VTYPE" "$NBINS" >> "$out"
 create_pf_histogram SITE "$INPUT_SITE" "CR_FAIL"    "%INFO/CR\n"             CR          "$VTYPE" "$NBINS" >> "$out"
+
+# pop filters
+create_pf_histogram SITE "$INPUT_SITE" "POP_EH_FAIL"    "%INFO/ExcHet\n"      ExcHet   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "POP_HWE_FAIL"    "%INFO/HWE\n"      HWE   "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "POP_MAF_FAIL"   "%INFO/MAF\n"            MAF         "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "POP_MAC_FAIL"   "%INFO/MAC\n"            MAC         "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "POP_NS_FAIL"    "%INFO/NS\n"             NS          "$VTYPE" "$NBINS" >> "$out"
+create_pf_histogram SITE "$INPUT_SITE" "POP_CR_FAIL"    "%INFO/CR\n"             CR          "$VTYPE" "$NBINS" >> "$out"
 
 # Zip output summary table
 pigz -p ${1} $out

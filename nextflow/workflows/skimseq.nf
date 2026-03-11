@@ -9,7 +9,7 @@ include { GATK_JOINT                                                } from '../s
 include { MPILEUP_CALLING                                           } from '../subworkflows/mpileup_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-include { FILTER_GENOTYPES                                          } from '../subworkflows/filter_genotypes'
+include { FILTER_VARIANTS as FILTER_GENOTYPED_VARIANTS              } from '../subworkflows/filter_variants'
 include { PSEUDOHAPLOID_GENOTYPING                                  } from "../subworkflows/pseudohaploid_genotyping"
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
@@ -341,12 +341,12 @@ workflow SKIMSEQ {
 
     } else {
         // TODO: this should re-use filter variants subworkflow with different parameters
-        FILTER_GENOTYPES (
+        FILTER_GENOTYPED_VARIANTS (
             ch_genotyped_all
         )
-        ch_genotype_filtered = FILTER_GENOTYPES.out.vcf
+        ch_genotype_filtered = FILTER_GENOTYPED_VARIANTS.out.vcf
 
-        FILTER_GENOTYPES.out.sample_names_filt
+        FILTER_GENOTYPED_VARIANTS.out.sample_names_filt
             .set { ch_sample_names_filt }
     }
 

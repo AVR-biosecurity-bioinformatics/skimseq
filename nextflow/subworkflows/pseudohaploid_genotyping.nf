@@ -20,12 +20,12 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     // combine sample-level cram with each interval_bed file and interval chunk
     ch_sample_cram 
         .combine ( ch_sites_to_genotype )
-        .map { sample, cram, crai, variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi -> [ variant_type, interval_hash, cram, crai ] }
+        .map { sample, cram, crai, variant_type, interval_hash, interval_bed, bed_tbi, sites_vcf, sites_tbi -> [ variant_type, interval_hash, cram, crai ] }
         .groupTuple ( by: [0,1] )
         // join to get back interval_file
         .join ( ch_sites_to_genotype, by: [0,1] )
         // variant type and interval hash columns are combined into a single string for compatibility with mpileup
-        .map { variant_type, interval_hash, cram, crai, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi -> 
+        .map { variant_type, interval_hash, cram, crai, interval_bed, bed_tbi, sites_vcf, sites_tbi -> 
             def id = "${variant_type}_${interval_hash}"
             tuple(id, sites_vcf, sites_tbi, cram, crai) 
         }
@@ -54,7 +54,7 @@ workflow PSEUDOHAPLOID_GENOTYPING {
         tuple(variant_type, interval_hash, vcf, tbi)
     }
     .join ( ch_sites_to_genotype.map {
-         variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, sites_vcf, sites_tbi
+         variant_type, interval_hash, interval_bed, bed_tbi, sites_vcf, sites_tbi
           -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi)
         }, by: [0,1] ) 
     .map { variant_type, interval_hash, vcf, tbi, sites_vcf, sites_tbi -> tuple(variant_type, interval_hash, sites_vcf, sites_tbi, vcf, tbi) }
