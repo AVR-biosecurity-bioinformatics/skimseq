@@ -109,12 +109,12 @@ make_pop_count_expr() {
 
 # Per-pop fail expressions:
 # fail if fewer than MIN_POPS populations have tag meeting the criterion
-pop_eh_expr=$(make_pop_count_expr "ExcHet" ">=" "${POP_EH:--1}" "$MIN_POPS" sample_groups.tsv)
-pop_hwe_expr=$(make_pop_count_expr "HWE" ">=" "${POP_HWE:--1}" "$MIN_POPS" sample_groups.tsv)
-pop_maf_expr=$(make_pop_count_expr "MAF" ">=" "${POP_MAF:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_mac_expr=$(make_pop_count_expr "MAC" ">=" "${POP_MAC:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_ns_expr=$(make_pop_count_expr "NS" ">=" "${POP_NS:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_cr_expr=$(make_pop_count_expr "CR" ">=" "${POP_CR:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_eh_expr=$(make_pop_count_expr "ExcHet" ">=" "${EH_POP:--1}" "$MIN_POPS" sample_groups.tsv)
+pop_hwe_expr=$(make_pop_count_expr "HWE" ">=" "${HWE_POP:--1}" "$MIN_POPS" sample_groups.tsv)
+pop_maf_expr=$(make_pop_count_expr "MAF" ">=" "${MAF_POP:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_mac_expr=$(make_pop_count_expr "MAC" ">=" "${MAC_POP:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_ns_expr=$(make_pop_count_expr "NS" ">=" "${NS_POP:-0}" "$MIN_POPS" sample_groups.tsv)
+pop_cr_expr=$(make_pop_count_expr "CR" ">=" "${CR_POP:-0}" "$MIN_POPS" sample_groups.tsv)
 
 # Subset to target variant class and just samples above missing data filter
 # Then add global annotations using fill-tags
@@ -134,12 +134,12 @@ bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
   | bcftools filter -Ou -s DIST_INDEL_FAIL -m+ -e "INFO/DIST_INDEL < ${DIST_INDEL:--999999999}" \
-  | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet < ${EH:--1}" \
-  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE < ${HWE:--1}" \
-  | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF:-0}" \
-  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/MAC < ${MAC:-0}" \
-  | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS:-0}" \
-  | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR:-0}" \
+  | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet < ${EH_GLOBAL:--1}" \
+  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE < ${HWE_GLOBAL:--1}" \
+  | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF_GLOBAL:-0}" \
+  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/MAC < ${MAC_GLOBAL:-0}" \
+  | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS_GLOBAL:-0}" \
+  | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR_GLOBAL:-0}" \
   | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "$pop_eh_expr" \
   | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "$pop_hwe_expr" \
   | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "$pop_maf_expr" \

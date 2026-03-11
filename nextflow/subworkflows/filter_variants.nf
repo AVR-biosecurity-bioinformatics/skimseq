@@ -114,12 +114,12 @@ workflow FILTER_VARIANTS {
             NS_GLOBAL           : filterMap.min_samples?.global?."${variantType}",
             CR_GLOBAL           : filterMap.min_callrate?.global?."${variantType}",
 
-            EH                  : filterMap.eh?.pop?."${variantType}",
-            HWE                 : filterMap.hwe?.pop?."${variantType}",
-            MAF                 : filterMap.maf?.pop?."${variantType}",
-            MAC                 : filterMap.mac?.pop?."${variantType}",
-            NS                  : filterMap.min_samples?.pop?."${variantType}",
-            CR                  : filterMap.min_callrate?.pop?."${variantType}",
+            EH_POP              : filterMap.eh?.pop?."${variantType}",
+            HWE_POP             : filterMap.hwe?.pop?."${variantType}",
+            MAF_POP             : filterMap.maf?.pop?."${variantType}",
+            MAC_POP             : filterMap.mac?.pop?."${variantType}",
+            NS_POP              : filterMap.min_samples?.pop?."${variantType}",
+            CR_POP              : filterMap.min_callrate?.pop?."${variantType}",
 
             GQ                  : filterMap.genotype?.qual,
             gtDPmin             : filterMap.genotype?.dp_min,
