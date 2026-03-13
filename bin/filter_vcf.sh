@@ -81,6 +81,10 @@ else
   MIN_POPS="$N_POPS_FAILING"
 fi
 
+# Fail when greater or equal to MIN_POPS
+MIN_PASS=$(( N_POPS - MIN_POPS + 1 ))
+echo "MIN_PASS=$MIN_PASS"
+
 # Helper functions for per-population fail tags
 # make_pass_tags() determines whether the annotated value for a pop passes the per-pop filter threshold
 # This generates new per-pop tags like: MAF_PASS_Pop1:1=int(MAF_Pop1<0.05)
@@ -198,10 +202,10 @@ bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
   | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF_GLOBAL:-0}" \
   | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS_GLOBAL:-0}" \
   | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR_GLOBAL:-0}" \
-  | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "${MIN_POPS:+INFO/NPASS_ExcHet < ${MIN_POPS}}" \
-  | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "${MIN_POPS:+INFO/NPASS_HWE < ${MIN_POPS}}" \
-  | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "${MIN_POPS:+INFO/NPASS_MAF < ${MIN_POPS}}" \
-  | bcftools filter -Ou -s POP_NS_FAIL     -m+ -e "${MIN_POPS:+INFO/NPASS_NS < ${MIN_POPS}}" \
+  | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "${MIN_PASS:+INFO/NPASS_ExcHet < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "${MIN_PASS:+INFO/NPASS_HWE < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "${MIN_PASS:+INFO/NPASS_MAF < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s POP_NS_FAIL     -m+ -e "${MIN_PASS:+INFO/NPASS_NS < ${MIN_PASS}}" \
   | bcftools view --threads ${1} -Ob -o tmp.bcf
 
 # Drop failing sites to create filtered vcf file (main output)
