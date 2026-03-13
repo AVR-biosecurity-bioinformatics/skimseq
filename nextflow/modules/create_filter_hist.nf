@@ -4,7 +4,7 @@ process CREATE_FILTER_HIST {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(vcf), path(vcf_tbi)
+    tuple val(interval_hash), path(vcf), path(vcf_tbi)
 
     output: 
     path("*_filter_summary.tsv"),  emit: summary
@@ -17,7 +17,6 @@ process CREATE_FILTER_HIST {
         ${task.cpus} \
         ${task.memory.giga} \
         "${vcf}" \
-        "${variant_type}" \
         "${interval_hash}" 
     """
 

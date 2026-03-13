@@ -6,11 +6,11 @@ process MERGE_CHUNK_DP {
     module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), path(dphist), val(dp_lower), val(dp_upper)
+    tuple path(dphist), val(dp_lower), val(dp_upper)
 
     output: 
-    tuple val(variant_type),  path("dphist_dataset.tsv"),   emit: dp_hist
-    tuple val(variant_type), path("dp_bounds.tsv"),        emit: dp_bounds
+    tuple path("dphist_dataset.tsv"),   emit: dp_hist
+    tuple path("dp_bounds.tsv"),        emit: dp_bounds
     
     script:
     def process_script = "${process_name}.sh"

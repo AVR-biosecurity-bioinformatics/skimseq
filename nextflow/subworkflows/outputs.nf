@@ -22,6 +22,8 @@ workflow OUTPUTS {
         Create outputs
     */
 
+    // TODO: need to split vcf into variant types here
+
     // Create a channel of all 3 variant types + all together for merging
     ch_genotype_filtered.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(type, vcf, tbi) }
         .concat(ch_genotype_filtered.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })

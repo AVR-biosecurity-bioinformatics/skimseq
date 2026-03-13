@@ -5,33 +5,23 @@ set -uoe pipefail
 # $1 = cpus 
 # $2 = mem (GB)
 # $3 = vcf
-# $4 = variant_type {snp|indel|invariant}
+# $4 = interval_hash
 # $5 = mask_bed
-# $6 = interval_hash
-# $7 = sample_groups_tsv
-# $8 = missing data summary
+# $6 = sample_groups_tsv
+# $7 = missing data summary
 
 # Make sure mask file is sorted and unique (and 0-based, half-open)
 sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
 
 # TODO: Break out vcf masks into individual components (i.e. Genmap, longdust, etc)
 
-# Map variant type to bcftools selectors
-# TODO: select variants on output of joint genotype
-case "${4}" in
-  snp)       TYPE_ARGS="-v snps   -m2 -M2 -e 'ALT=\"*\"'";;   # biallelic SNPs, drop star alleles
-  indel)     TYPE_ARGS="-v indels -m2 -M2";;                  # biallelic INDELs
-  invariant) TYPE_ARGS="-v ref";;                              # reference-only sites (if present)
-  *) echo "variant_type must be snp|indel|invariant"; exit 1;;
-esac
-
 # Find samples above the missing fraction filter
-awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${8}" > ${4}.${6}.samples.txt
+awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${8}" > ${4}.samples.txt
 
 # Create sample_groups.tsv:
-# first keep only samples in ${4}.${6}.samples.txt
+# first keep only samples in ${4}.samples.txt
 # then drop populations with fewer than MIN_SAMPLES_PER_POP retained samples
-awk -v n="$MIN_SAMPLES_PER_POP" '
+awk -v n="$POPULATION_MIN_SAMPLES_PER_POP" '
     BEGIN { FS=OFS="\t" }
     NR==FNR {
         keep[$1] = 1
@@ -49,14 +39,14 @@ awk -v n="$MIN_SAMPLES_PER_POP" '
             }
         }
     }
-' ${4}.${6}.samples.txt "${7}" > sample_groups.tsv
+' ${4}.samples.txt "${7}" > sample_groups.tsv
 
 # number of pops (one vcf per pop)
 N_POPS=$(cut -f2 sample_groups.tsv | tr ',' '\n' | sort -u | sed '/^$/d' | wc -l)
 
 # Convert the proportional population threshold into an absolute count using ceil
 # (e.g. 0.9 * 5 pops = 4.5 -> 5 pops must pass)
-PERC_N=$(awk -v p="${PERC_POPS_FAILING:-}" -v n="$N_POPS" '
+PERC_N=$(awk -v p="${POPULATION_PERC_POPS_FAILING:-}" -v n="$N_POPS" '
   BEGIN{
     if (p == "" || p == "NA" || p == "na" || n <= 0) { print ""; exit }
     x = p * n
@@ -69,56 +59,56 @@ PERC_N=$(awk -v p="${PERC_POPS_FAILING:-}" -v n="$N_POPS" '
 # Use whichever population-pass threshold is more stringent:
 # - N_POPS_FAILING converted externally to a minimum pass requirement
 # - PERC_N derived from the proportion threshold above
-if [[ -z "${N_POPS_FAILING:-}" && -z "$PERC_N" ]]; then
+if [[ -z "${POPULATION_N_POPS_FAILING:-}" && -z "$PERC_N" ]]; then
   MIN_POPS=""
-elif [[ -z "${N_POPS_FAILING:-}" ]]; then
+elif [[ -z "${POPULATION_N_POPS_FAILING:-}" ]]; then
   MIN_POPS="$PERC_N"
 elif [[ -z "$PERC_N" ]]; then
-  MIN_POPS="$N_POPS_FAILING"
-elif (( PERC_N > N_POPS_FAILING )); then
+  MIN_POPS="$POPULATION_N_POPS_FAILING"
+elif (( PERC_N > POPULATION_N_POPS_FAILING )); then
   MIN_POPS="$PERC_N"
 else
-  MIN_POPS="$N_POPS_FAILING"
+  MIN_POPS="$POPULATION_N_POPS_FAILING"
 fi
 
 # Fail when greater or equal to MIN_POPS
-MIN_PASS=$(( N_POPS - MIN_POPS + 1 ))
-echo "MIN_PASS=$MIN_PASS"
+MIN_PASS=""
+if [[ -n "${MIN_POPS:-}" ]]; then
+  MIN_PASS=$(( N_POPS - MIN_POPS + 1 ))
+fi
 
 # Helper functions for per-population fail tags
-# make_pass_tags() determines whether the annotated value for a pop passes the per-pop filter threshold
+# make_typed_pass_tags() determines whether the annotated value for a pop passes the per-pop filter threshold, in a variant type specfiic way
 # This generates new per-pop tags like: MAF_PASS_Pop1:1=int(MAF_Pop1<0.05)
-make_pass_tags() {
-  local base="$1"      # e.g. MAF, NS, HWE, ExcHet
-  local op="$2"        # pass operator, usually >=
+make_typed_pass_tags() {
+  local base="$1"      # e.g. MAF
+  local op="$2"        # usually >=
   local thr="$3"       # threshold
-  local pops_file="$4"
+  local suffix="$4"    # e.g. SNP / INDEL / INVARIANT
+  local pops_file="$5"
 
-  # disabled
-  if [[ -z "$thr" ]]; then
-    echo ""
-    return
-  fi
+  [[ -z "$thr" ]] && { echo ""; return; }
 
   cut -f2 "$pops_file" \
     | tr ',' '\n' \
     | sed '/^$/d' \
     | sort -u \
-    | awk -v base="$base" -v op="$op" -v thr="$thr" '
+    | awk -v base="$base" -v op="$op" -v thr="$thr" -v suffix="$suffix" '
         BEGIN { first=1 }
         {
           if (!first) printf ","
-          printf "%s_PASS_%s:1=int(%s_%s%s%s)", base, $1, base, $1, op, thr
+          printf "%s_PASS_%s_%s:1=int(%s_%s%s%s)", base, suffix, $1, base, $1, op, thr
           first=0
         }'
 }
 
 
-# make_npass_tag() counts the number of passing populations and adds a new annotation
+# make_typed_npass_tag() counts the number of passing populations and adds a new annotation, in a variant type specific way
 # This generates a single count tag like: NFAIL_MAF:1=int(MAF_FAIL_Pop1+MAF_FAIL_Pop2+...)
-make_npass_tag() {
-  local base="$1"
-  local pops_file="$2"
+make_typed_npass_tag() {
+  local base="$1"      # e.g. MAF
+  local suffix="$2"    # e.g. SNP
+  local pops_file="$3"
 
   local sum_expr
   sum_expr=$(
@@ -126,16 +116,16 @@ make_npass_tag() {
       | tr ',' '\n' \
       | sed '/^$/d' \
       | sort -u \
-      | awk -v base="$base" '
+      | awk -v base="$base" -v suffix="$suffix" '
           BEGIN { first=1 }
           {
             if (!first) printf "+"
-            printf "%s_PASS_%s", base, $1
+            printf "%s_PASS_%s_%s", base, suffix, $1
             first=0
           }'
   )
 
-  printf 'NPASS_%s:1=int(%s)\n' "$base" "$sum_expr"
+  printf 'NPASS_%s_%s:1=int(%s)\n' "$base" "$suffix" "$sum_expr"
 }
 
 # Join non-empty strings with commas
@@ -152,18 +142,34 @@ join_tags() {
 
 # Set up pass flags for each filter and pop and concatenate together into single string for 1 pass annotation
 POP_PASS_TAGS=$(join_tags \
-"$(make_pass_tags "ExcHet" ">=" "${EH_POP:-}"  sample_groups.tsv)" \
-"$(make_pass_tags "HWE"    ">=" "${HWE_POP:-}" sample_groups.tsv)" \
-"$(make_pass_tags "MAF"    ">=" "${MAF_POP:-}" sample_groups.tsv)" \
-"$(make_pass_tags "NS"      ">=" "${NS_POP:-}"  sample_groups.tsv)"
+  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_SNP:-}"        "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_INDEL:-}"      "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_INVARIANT:-}"  "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
 )
 
 # Set up pass counting tags for each filter and concatenate together into single string for 1 pass annotation
-NPASS_TAGS=$(join_tags \
-  "$(make_npass_tag "ExcHet" sample_groups.tsv)" \
-  "$(make_npass_tag "HWE"    sample_groups.tsv)" \
-  "$(make_npass_tag "MAF"    sample_groups.tsv)" \
-  "$(make_npass_tag "NS"      sample_groups.tsv)"
+POP_PASS_TAGS=$(join_tags \
+  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_SNP:-}"        "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_INDEL:-}"      "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_INVARIANT:-}"  "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
 )
 
 echo "POP_PASS_TAGS:"
@@ -179,11 +185,11 @@ echo $NPASS_TAGS
 # Then count the number of populations that pass
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
 # NOTE: bcftools +fill-tags breaks with any samples that have 2 letter names
-bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
+bcftools view --threads ${1} -S ${4}.samples.txt -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
     -n . \
-    -i "FORMAT/GQ < ${GQ:-0} | FORMAT/DP < ${gtDPmin:-0} | FORMAT/DP > ${gtDPmax:-999999999}" \
+    -i "FORMAT/GQ < ${GENOTYPE_QUAL:-0} | FORMAT/DP < ${GENOTYPE_DP_MIN:-0} | FORMAT/DP > ${GENOTYPE_DP_MAX:-999999999}" \
   | bcftools +fill-tags -Ou - -- \
     -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING' \
   | bcftools +fill-tags -Ou - -- \
@@ -193,35 +199,51 @@ bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
     -t "$POP_PASS_TAGS" \
   | bcftools +fill-tags -Ou - -- \
     -t "$NPASS_TAGS" \
-  | bcftools filter -Ou -s MASK_FAIL       -m+ -M vcf_masks.bed \
-  | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL < ${QUAL_THR:-0}" \
-  | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
-  | bcftools filter -Ou -s DIST_INDEL_FAIL -m+ -e "INFO/DIST_INDEL < ${DIST_INDEL:--999999999}" \
-  | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet < ${EH_GLOBAL:--1}" \
-  | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE < ${HWE_GLOBAL:--1}" \
-  | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF_GLOBAL:-0}" \
-  | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS_GLOBAL:-0}" \
-  | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR_GLOBAL:-0}" \
-  | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "${MIN_PASS:+INFO/NPASS_ExcHet < ${MIN_PASS}}" \
-  | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "${MIN_PASS:+INFO/NPASS_HWE < ${MIN_PASS}}" \
-  | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "${MIN_PASS:+INFO/NPASS_MAF < ${MIN_PASS}}" \
-  | bcftools filter -Ou -s POP_NS_FAIL     -m+ -e "${MIN_PASS:+INFO/NPASS_NS < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s MASK_FAIL -m+ -M vcf_masks.bed \
+  | bcftools filter -Ou -s SNP_QUAL_FAIL   -m+ -e 'INFO/TYPE="SNP" && QUAL < '"${QUAL_GLOBAL_SNP:-0}" \
+  | bcftools filter -Ou -s INDEL_QUAL_FAIL -m+ -e 'INFO/TYPE="INDEL" && QUAL < '"${QUAL_GLOBAL_INDEL:-0}" \
+  | bcftools filter -Ou -s INV_QUAL_FAIL   -m+ -e 'INFO/TYPE="REF" && QUAL < '"${QUAL_GLOBAL_INVARIANT:-0}" \
+  | bcftools filter -Ou -s SNP_DP_FAIL     -m+ -e 'INFO/TYPE="SNP" && (INFO/DP < '"${DP_MIN_GLOBAL_SNP:-0}"' || INFO/DP < '"${DP_LOWER_PERC_GLOBAL_SNP:-0}"' || INFO/DP > '"${DP_UPPER_PERC_GLOBAL_SNP:-999999999}"')' \
+  | bcftools filter -Ou -s INDEL_DP_FAIL   -m+ -e 'INFO/TYPE="INDEL" && (INFO/DP < '"${DP_MIN_GLOBAL_INDEL:-0}"' || INFO/DP < '"${DP_LOWER_PERC_GLOBAL_INDEL:-0}"' || INFO/DP > '"${DP_UPPER_PERC_GLOBAL_INDEL:-999999999}"')' \
+  | bcftools filter -Ou -s INV_DP_FAIL     -m+ -e 'INFO/TYPE="REF" && (INFO/DP < '"${DP_MIN_GLOBAL_INVARIANT:-0}"' || INFO/DP < '"${DP_LOWER_PERC_GLOBAL_INVARIANT:-0}"' || INFO/DP > '"${DP_UPPER_PERC_GLOBAL_INVARIANT:-999999999}"')' \
+  | bcftools filter -Ou -s SNP_DIST_INDEL_FAIL -m+ -e 'INFO/TYPE="SNP" && INFO/DIST_INDEL < '"${DIST_INDEL_GLOBAL_SNP:--999999999}" \
+  | bcftools filter -Ou -s SNP_EH_FAIL     -m+ -e 'INFO/TYPE="SNP" && INFO/ExcHet < '"${EH_GLOBAL_SNP:--1}" \
+  | bcftools filter -Ou -s INDEL_EH_FAIL   -m+ -e 'INFO/TYPE="INDEL" && INFO/ExcHet < '"${EH_GLOBAL_INDEL:--1}" \
+  | bcftools filter -Ou -s SNP_HWE_FAIL    -m+ -e 'INFO/TYPE="SNP" && INFO/HWE < '"${HWE_GLOBAL_SNP:--1}" \
+  | bcftools filter -Ou -s INDEL_HWE_FAIL  -m+ -e 'INFO/TYPE="INDEL" && INFO/HWE < '"${HWE_GLOBAL_INDEL:--1}" \
+  | bcftools filter -Ou -s SNP_MAF_FAIL    -m+ -e 'INFO/TYPE="SNP" && INFO/MAF < '"${MAF_GLOBAL_SNP:-0}" \
+  | bcftools filter -Ou -s INDEL_MAF_FAIL  -m+ -e 'INFO/TYPE="INDEL" && INFO/MAF < '"${MAF_GLOBAL_INDEL:-0}" \
+  | bcftools filter -Ou -s SNP_NS_FAIL     -m+ -e 'INFO/TYPE="SNP" && INFO/NS < '"${MIN_SAMPLES_GLOBAL_SNP:-0}" \
+  | bcftools filter -Ou -s INDEL_NS_FAIL   -m+ -e 'INFO/TYPE="INDEL" && INFO/NS < '"${MIN_SAMPLES_GLOBAL_INDEL:-0}" \
+  | bcftools filter -Ou -s INV_NS_FAIL     -m+ -e 'INFO/TYPE="REF" && INFO/NS < '"${MIN_SAMPLES_GLOBAL_INVARIANT:-0}" \
+  | bcftools filter -Ou -s SNP_CR_FAIL     -m+ -e 'INFO/TYPE="SNP" && INFO/CR < '"${MIN_CALLRATE_GLOBAL_SNP:-0}" \
+  | bcftools filter -Ou -s INDEL_CR_FAIL   -m+ -e 'INFO/TYPE="INDEL" && INFO/CR < '"${MIN_CALLRATE_GLOBAL_INDEL:-0}" \
+  | bcftools filter -Ou -s INV_CR_FAIL     -m+ -e 'INFO/TYPE="REF" && INFO/CR < '"${MIN_CALLRATE_GLOBAL_INVARIANT:-0}" \
+  | bcftools filter -Ou -s SNP_POP_EH_FAIL   -m+ -e "${MIN_PASS:+INFO/TYPE=\"SNP\" && INFO/NPASS_ExcHet_SNP < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INDEL_POP_EH_FAIL -m+ -e "${MIN_PASS:+INFO/TYPE=\"INDEL\" && INFO/NPASS_ExcHet_INDEL < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s SNP_POP_HWE_FAIL   -m+ -e "${MIN_PASS:+INFO/TYPE=\"SNP\" && INFO/NPASS_HWE_SNP < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INDEL_POP_HWE_FAIL -m+ -e "${MIN_PASS:+INFO/TYPE=\"INDEL\" && INFO/NPASS_HWE_INDEL < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s SNP_POP_MAF_FAIL   -m+ -e "${MIN_PASS:+INFO/TYPE=\"SNP\" && INFO/NPASS_MAF_SNP < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INDEL_POP_MAF_FAIL -m+ -e "${MIN_PASS:+INFO/TYPE=\"INDEL\" && INFO/NPASS_MAF_INDEL < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s SNP_POP_NS_FAIL    -m+ -e "${MIN_PASS:+INFO/TYPE=\"SNP\" && INFO/NPASS_NS_SNP < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INDEL_POP_NS_FAIL  -m+ -e "${MIN_PASS:+INFO/TYPE=\"INDEL\" && INFO/NPASS_NS_INDEL < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INV_POP_NS_FAIL    -m+ -e "${MIN_PASS:+INFO/TYPE=\"REF\" && INFO/NPASS_NS_INVARIANT < ${MIN_PASS}}" \
   | bcftools view --threads ${1} -Ob -o tmp.bcf
 
 # Drop failing sites to create filtered vcf file (main output)
 bcftools view --threads "${1}" -f PASS -Ou tmp.bcf \
-  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.${6}.filt.vcf.gz 
-bcftools index --threads ${1} -t ${4}.${6}.filt.vcf.gz
+  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.filt.vcf.gz 
+bcftools index --threads ${1} -t ${4}.filt.vcf.gz
 
 # Create filtered sitelist file by dropping non-passing variants and genotypes
 bcftools view --threads "${1}" -G -f PASS -Ou tmp.bcf \
-  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.${6}.sitelist.vcf.gz 
-bcftools index --threads ${1} -t ${4}.${6}.sitelist.vcf.gz
+  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.sitelist.vcf.gz 
+bcftools index --threads ${1} -t ${4}.sitelist.vcf.gz
 
 # Create sites only tagged file for QC histograms
-bcftools view --threads "${1}" -G -Oz9 -o ${4}.${6}.tagged.vcf.gz tmp.bcf
-bcftools index --threads ${1} -t ${4}.${6}.tagged.vcf.gz
+bcftools view --threads "${1}" -G -Oz9 -o ${4}.tagged.vcf.gz tmp.bcf
+bcftools index --threads ${1} -t ${4}.tagged.vcf.gz
 
 # Output number of variant records remaining (non-header lines)
-nvars=$(bcftools index -n ${4}.${6}.filt.vcf.gz | tr -d '[:space:]')
-printf "%s\n" "$nvars" > "${4}.${6}.counts"
+nvars=$(bcftools index -n ${4}.filt.vcf.gz | tr -d '[:space:]')
+printf "%s\n" "$nvars" > "${4}.counts"

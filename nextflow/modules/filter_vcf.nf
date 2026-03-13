@@ -4,28 +4,25 @@ process FILTER_VCF {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_kv)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_map)
     path(mask_bed)
     path(popmap)
     path(missing_summary)
 
     output: 
-    tuple val(variant_type),
-          val(interval_hash),
+    tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.filt.vcf.gz"), 
           path("${variant_type}.${interval_hash}.filt.vcf.gz.tbi"),
           path("*.counts"),        emit: vcf
-    tuple val(variant_type),
-          val(interval_hash),
+    tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.sitelist.vcf.gz"), 
           path("${variant_type}.${interval_hash}.sitelist.vcf.gz.tbi"),
           path("*.counts"),        emit: sitelist
-    tuple val(variant_type),
-          val(interval_hash),
+    tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.tagged.vcf.gz"), 
@@ -33,14 +30,26 @@ process FILTER_VCF {
     path("*samples.txt"), emit: samples_to_keep
 
     script:
+    def flatten = { prefix, obj, out = [:] ->
+      obj.each { k, v ->
+          def key = prefix ? "${prefix}_${k}".toUpperCase() : k.toUpperCase()
+          if (v instanceof Map) {
+              flatten(key, v, out)
+          } else {
+              out[key] = (v == null ? 'NA' : v)
+          }
+      }
+      out
+    }
+
+    def flat = flatten('', filter_map)
+    def filter_kv = flat.collect { k, v -> "${k}=${v}" }.sort().join(';')
+
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    export VARIANT_TYPE='${variant_type}'
-
-    # filter_kv looks like: "QUAL_THR=30;DPmin=6;PCT_LOW=1;PCT_HIGH=99;EH=NA;..."
     FILTER_KV='${filter_kv}'
 
     # Export key=value pairs as environment variables
@@ -62,9 +71,8 @@ process FILTER_VCF {
         ${task.cpus} \
         ${task.memory.giga} \
         "${vcf}" \
-        "${variant_type}" \
-        "${mask_bed}" \
         "${interval_hash}" \
+        "${mask_bed}" \
         "${popmap}" \
         "${missing_summary}"
     """
