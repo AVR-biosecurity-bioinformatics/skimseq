@@ -51,85 +51,144 @@ awk -v n="$MIN_SAMPLES_PER_POP" '
     }
 ' ${4}.${6}.samples.txt "${7}" > sample_groups.tsv
 
-#TODO: need to rename any samples with 2 letter names
-
 # number of pops (one vcf per pop)
 N_POPS=$(cut -f2 sample_groups.tsv | tr ',' '\n' | sort -u | sed '/^$/d' | wc -l)
 
-# percentage-based threshold: Tp = ceil(PERC * n_pops / 100)
-# (use ceil so 1% of 3 pops => 1, not 0; change to floor if you prefer)
-PERC_N=$(awk -v p="$PERC_POPS_FAILING" -v n="$N_POPS" '
+# Convert the proportional population threshold into an absolute count using ceil
+# (e.g. 0.9 * 5 pops = 4.5 -> 5 pops must pass)
+PERC_N=$(awk -v p="${PERC_POPS_FAILING:-}" -v n="$N_POPS" '
   BEGIN{
-    if(p<=0 || n<=0){print 0; exit}
-    x = p*n
+    if (p == "" || p == "NA" || p == "na" || n <= 0) { print ""; exit }
+    x = p * n
     t = int(x)
-    if(t < x) t++
+    if (t < x) t++
     print t
   }'
 )
 
-# Need defaults here because the exporting of kv pairs unsets anything thats -1
-N_POPS_FAILING_VAL="${N_POPS_FAILING:--1}"
-PERC_N_VAL="${PERC_N:--1}"
-
-# choose effective minimum number of populations
-if (( N_POPS_FAILING_VAL < 0 && PERC_N_VAL < 0 )); then
-  MIN_POPS=-1
-elif (( N_POPS_FAILING_VAL < 0 )); then
-  MIN_POPS=$PERC_N_VAL
-elif (( PERC_N_VAL < 0 )); then
-  MIN_POPS=$N_POPS_FAILING_VAL
-elif (( PERC_N_VAL > N_POPS_FAILING_VAL )); then
-  MIN_POPS=$PERC_N_VAL
+# Use whichever population-pass threshold is more stringent:
+# - N_POPS_FAILING converted externally to a minimum pass requirement
+# - PERC_N derived from the proportion threshold above
+if [[ -z "${N_POPS_FAILING:-}" && -z "$PERC_N" ]]; then
+  MIN_POPS=""
+elif [[ -z "${N_POPS_FAILING:-}" ]]; then
+  MIN_POPS="$PERC_N"
+elif [[ -z "$PERC_N" ]]; then
+  MIN_POPS="$N_POPS_FAILING"
+elif (( PERC_N > N_POPS_FAILING )); then
+  MIN_POPS="$PERC_N"
 else
-  MIN_POPS=$N_POPS_FAILING_VAL
+  MIN_POPS="$N_POPS_FAILING"
 fi
 
-# Helper function to make per-population filter expressions
-make_pop_count_expr() {
-  local tag="$1"      # e.g. MAF
-  local op="$2"        # >, >=, <, <=
-  local thr="$3"      # e.g. 0.0005
-  local min_n="$4"    # e.g. 2
-  local pops_file="$5"
+# Helper functions for per-population fail tags
+# make_pass_tags() determines whether the annotated value for a pop passes the per-pop filter threshold
+# This generates new per-pop tags like: MAF_PASS_Pop1:1=int(MAF_Pop1<0.05)
+make_pass_tags() {
+  local base="$1"      # e.g. MAF, NS, HWE, ExcHet
+  local op="$2"        # pass operator, usually >=
+  local thr="$3"       # threshold
+  local pops_file="$4"
+
+  # disabled
+  if [[ -z "$thr" ]]; then
+    echo ""
+    return
+  fi
 
   cut -f2 "$pops_file" \
     | tr ',' '\n' \
+    | sed '/^$/d' \
     | sort -u \
-    | awk -v tag="$tag" -v op="$op" -v thr="$thr" -v n="$min_n" '
+    | awk -v base="$base" -v op="$op" -v thr="$thr" '
         BEGIN { first=1 }
         {
-          if (!first) printf " + "
-          printf "(INFO/%s_%s%s%s)", tag, $1, op, thr
+          if (!first) printf ","
+          printf "%s_PASS_%s:1=int(%s_%s%s%s)", base, $1, base, $1, op, thr
           first=0
-        }
-        END { printf " < %s", n }
-      '
+        }'
 }
 
-# Per-pop fail expressions:
-# fail if fewer than MIN_POPS populations have tag meeting the criterion
-pop_eh_expr=$(make_pop_count_expr "ExcHet" ">=" "${EH_POP:--1}" "$MIN_POPS" sample_groups.tsv)
-pop_hwe_expr=$(make_pop_count_expr "HWE" ">=" "${HWE_POP:--1}" "$MIN_POPS" sample_groups.tsv)
-pop_maf_expr=$(make_pop_count_expr "MAF" ">=" "${MAF_POP:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_mac_expr=$(make_pop_count_expr "MAC" ">=" "${MAC_POP:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_ns_expr=$(make_pop_count_expr "NS" ">=" "${NS_POP:-0}" "$MIN_POPS" sample_groups.tsv)
-pop_cr_expr=$(make_pop_count_expr "CR" ">=" "${CR_POP:-0}" "$MIN_POPS" sample_groups.tsv)
+
+# make_npass_tag() counts the number of passing populations and adds a new annotation
+# This generates a single count tag like: NFAIL_MAF:1=int(MAF_FAIL_Pop1+MAF_FAIL_Pop2+...)
+make_npass_tag() {
+  local base="$1"
+  local pops_file="$2"
+
+  local sum_expr
+  sum_expr=$(
+    cut -f2 "$pops_file" \
+      | tr ',' '\n' \
+      | sed '/^$/d' \
+      | sort -u \
+      | awk -v base="$base" '
+          BEGIN { first=1 }
+          {
+            if (!first) printf "+"
+            printf "%s_PASS_%s", base, $1
+            first=0
+          }'
+  )
+
+  printf 'NPASS_%s:1=int(%s)\n' "$base" "$sum_expr"
+}
+
+# Join non-empty strings with commas
+join_tags() {
+  local out=""
+  local x
+  for x in "$@"; do
+    [[ -z "$x" ]] && continue
+    [[ -n "$out" ]] && out+=","
+    out+="$x"
+  done
+  printf '%s\n' "$out"
+}
+
+# Set up pass flags for each filter and pop and concatenate together into single string for 1 pass annotation
+POP_PASS_TAGS=$(join_tags \
+"$(make_pass_tags "ExcHet" ">=" "${EH_POP:-}"  sample_groups.tsv)" \
+"$(make_pass_tags "HWE"    ">=" "${HWE_POP:-}" sample_groups.tsv)" \
+"$(make_pass_tags "MAF"    ">=" "${MAF_POP:-}" sample_groups.tsv)" \
+"$(make_pass_tags "NS"      ">=" "${NS_POP:-}"  sample_groups.tsv)"
+)
+
+# Set up pass counting tags for each filter and concatenate together into single string for 1 pass annotation
+NPASS_TAGS=$(join_tags \
+  "$(make_npass_tag "ExcHet" sample_groups.tsv)" \
+  "$(make_npass_tag "HWE"    sample_groups.tsv)" \
+  "$(make_npass_tag "MAF"    sample_groups.tsv)" \
+  "$(make_npass_tag "NS"      sample_groups.tsv)"
+)
+
+echo "POP_PASS_TAGS:"
+echo $POP_PASS_TAGS
+
+echo "NPASS_TAGS:"
+echo $NPASS_TAGS
 
 # Subset to target variant class and just samples above missing data filter
 # Then add global annotations using fill-tags
-# Then add per-pop annotations  using fill-tags
+# Then add per-pop threshold annotations using fill-tags
+# Then add per-population pass flags, using the per-population threshold annotations using fill-tags
+# Then count the number of populations that pass
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
+# NOTE: bcftools +fill-tags breaks with any samples that have 2 letter names
 bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
     -n . \
     -i "FORMAT/GQ < ${GQ:-0} || FORMAT/DP < ${gtDPmin:-0} || FORMAT/DP > ${gtDPmax:-999999999}" \
   | bcftools +fill-tags -Ou - -- \
-    -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING,MAC=int(MAF*AN)' \
+    -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING' \
   | bcftools +fill-tags -Ou - -- \
     -S sample_groups.tsv \
-    -t 'AC,AN,NS,MAF,HWE,ExcHet,CR:1=1-F_MISSING,MAC=int(MAF*AN)' \
+    -t 'NS,MAF,HWE,ExcHet' \
+  | bcftools +fill-tags -Ou - -- \
+    -t "$POP_PASS_TAGS" \
+  | bcftools +fill-tags -Ou - -- \
+    -t "$NPASS_TAGS" \
   | bcftools filter -Ou -s MASK_FAIL       -m+ -M vcf_masks.bed \
   | bcftools filter -Ou -s QUAL_FAIL       -m+ -e "QUAL < ${QUAL_THR:-0}" \
   | bcftools filter -Ou -s DP_FAIL         -m+ -e "INFO/DP < ${DPmin:-0} || INFO/DP < ${DPlower:-0} || INFO/DP > ${DPupper:-999999999}" \
@@ -137,23 +196,22 @@ bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
   | bcftools filter -Ou -s EH_FAIL         -m+ -e "INFO/ExcHet < ${EH_GLOBAL:--1}" \
   | bcftools filter -Ou -s HWE_FAIL        -m+ -e "INFO/HWE < ${HWE_GLOBAL:--1}" \
   | bcftools filter -Ou -s MAF_FAIL        -m+ -e "INFO/MAF < ${MAF_GLOBAL:-0}" \
-  | bcftools filter -Ou -s MAC_FAIL        -m+ -e "INFO/MAC < ${MAC_GLOBAL:-0}" \
   | bcftools filter -Ou -s NS_FAIL         -m+ -e "INFO/NS < ${NS_GLOBAL:-0}" \
   | bcftools filter -Ou -s CR_FAIL         -m+ -e "INFO/CR < ${CR_GLOBAL:-0}" \
-  | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "$pop_eh_expr" \
-  | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "$pop_hwe_expr" \
-  | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "$pop_maf_expr" \
-  | bcftools filter -Ou -s POP_MAC_FAIL    -m+ -e "$pop_mac_expr" \
-  | bcftools filter -Ou -s POP_NS_FAIL     -m+ -e "$pop_ns_expr" \
-  | bcftools filter -Ou -s POP_CR_FAIL     -m+ -e "$pop_cr_expr" \
+  | bcftools filter -Ou -s POP_EH_FAIL     -m+ -e "${MIN_POPS:+INFO/NPASS_ExcHet < ${MIN_POPS}}" \
+  | bcftools filter -Ou -s POP_HWE_FAIL    -m+ -e "${MIN_POPS:+INFO/NPASS_HWE < ${MIN_POPS}}" \
+  | bcftools filter -Ou -s POP_MAF_FAIL    -m+ -e "${MIN_POPS:+INFO/NPASS_MAF < ${MIN_POPS}}" \
+  | bcftools filter -Ou -s POP_NS_FAIL     -m+ -e "${MIN_POPS:+INFO/NPASS_NS < ${MIN_POPS}}" \
   | bcftools view --threads ${1} -Ob -o tmp.bcf
 
-# Drop failing genotypes to create filtered vcf file (main output)
-bcftools view --threads "${1}" -f PASS -Oz9 -o ${4}.${6}.filt.vcf.gz tmp.bcf
+# Drop failing sites to create filtered vcf file (main output)
+bcftools view --threads "${1}" -f PASS -Ou tmp.bcf \
+  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.${6}.filt.vcf.gz 
 bcftools index --threads ${1} -t ${4}.${6}.filt.vcf.gz
 
 # Create filtered sitelist file by dropping non-passing variants and genotypes
-bcftools view --threads "${1}" -G -f PASS -Oz9 -o ${4}.${6}.sitelist.vcf.gz tmp.bcf
+bcftools view --threads "${1}" -G -f PASS -Ou tmp.bcf \
+  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.${6}.sitelist.vcf.gz 
 bcftools index --threads ${1} -t ${4}.${6}.sitelist.vcf.gz
 
 # Create sites only tagged file for QC histograms
