@@ -183,7 +183,7 @@ bcftools view --threads ${1} ${TYPE_ARGS} -S ${4}.${6}.samples.txt -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
     -n . \
-    -i "FORMAT/GQ < ${GQ:-0} || FORMAT/DP < ${gtDPmin:-0} || FORMAT/DP > ${gtDPmax:-999999999}" \
+    -i "FORMAT/GQ < ${GQ:-0} | FORMAT/DP < ${gtDPmin:-0} | FORMAT/DP > ${gtDPmax:-999999999}" \
   | bcftools +fill-tags -Ou - -- \
     -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING' \
   | bcftools +fill-tags -Ou - -- \

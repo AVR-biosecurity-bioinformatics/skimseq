@@ -29,8 +29,7 @@ process FILTER_VCF {
           path(interval_bed), 
           path(bed_tbi), 
           path("${variant_type}.${interval_hash}.tagged.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.tagged.vcf.gz.tbi"),
-          path("*.counts"),        emit: tagged_sitelist
+          path("${variant_type}.${interval_hash}.tagged.vcf.gz.tbi"),        emit: tagged_sitelist
     path("*samples.txt"), emit: samples_to_keep
 
     script:

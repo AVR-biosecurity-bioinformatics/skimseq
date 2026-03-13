@@ -174,12 +174,7 @@ workflow FILTER_VARIANTS {
         Create site filtering QC plots
     */
     FILTER_VCF.out.tagged_sitelist
-        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
-            def n = counts_file.text.trim() as Integer
-            tuple(variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
-        }
-        .filter { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi, n ->
+        .map { variant_type, interval_hash, interval_bed, bed_tbi, vcf, tbi ->
             tuple(variant_type, interval_hash, vcf, tbi)
         }
     .set { ch_vcfs_for_qc }
