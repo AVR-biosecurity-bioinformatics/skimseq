@@ -29,7 +29,7 @@ workflow FILTER_VARIANTS {
     main: 
    
     /*
-        Calculate depth filters
+        Calculate depth and per-sample missing data filters
     */
 
     // Calculate missing data and variant DP histogram for each chunk
@@ -37,20 +37,15 @@ workflow FILTER_VARIANTS {
         ch_vcfs
     )
 
-    // Merge all chunk DP histograms together, regardless of variant type
-    CALC_CHUNK_DP.out.chunk_dp
-        .map { interval_hash, interval_bed, bed_tbi, dphist ->
-            tuple('all', dphist)
-        }
-        .groupTuple()
-        .set { ch_chunk_dp_grouped }
-
+    // Merge all chunk DP histograms together
     MERGE_CHUNK_DP(
-        ch_chunk_dp_grouped
+        CALC_CHUNK_DP.out.chunk_dp.map { interval_hash, interval_bed, bed_tbi, dphist -> dphist }.collect(),
+        filter_map.dp_perc.lower,
+        filter_map.dp_perc.upper
     )
 
     MERGE_CHUNK_DP.out.dp_bounds
-        .map { key, f ->
+        .map { f ->
             def lines = f.readLines()
             def hdr = lines[0].split('\t')
             def row = lines[1].split('\t')
@@ -61,9 +56,7 @@ workflow FILTER_VARIANTS {
 
     // Merge per-sample missing data from all chunks into a single table
     MERGE_CHUNK_MISSING(
-        CALC_CHUNK_DP.out.chunk_missing
-            .map { interval_hash, interval_bed, bed_tbi, missing -> missing }
-            .collect()
+        CALC_CHUNK_DP.out.chunk_missing.map { interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
     )
 
     // QC plots for sample missing data
@@ -79,11 +72,7 @@ workflow FILTER_VARIANTS {
     // Attach shared DP bounds and filter_map to each VCF chunk
     ch_vcfs
         .combine(ch_dp_bounds)
-        .map { vcf_tuple, dp_tuple ->
-            def (interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi) = vcf_tuple
-            def (dpLo, dpHi) = dp_tuple
-            tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_map, dpLo, dpHi)
-        }
+        .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi, filter_map ) }
         .set { ch_vcfs_filters }
 
     // Create popmap tsv file for population-based filtering
@@ -123,7 +112,7 @@ workflow FILTER_VARIANTS {
 
     // Create site histograms - uses the tags from the soft filtered vcf
     // TODO: need to update this for new mixed format
-    
+
     //CREATE_FILTER_HIST(
     //    ch_vcfs_for_qc        
     //)

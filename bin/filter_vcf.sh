@@ -16,7 +16,7 @@ sort -k1,1 -k2,2n -k3,3n ${5} | uniq > vcf_masks.bed
 # TODO: Break out vcf masks into individual components (i.e. Genmap, longdust, etc)
 
 # Find samples above the missing fraction filter
-awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${8}" > ${4}.samples.txt
+awk -v thr="$SAMPLE_MAX_MISSING" 'NR==1 {next} $4!="NA" && ($4+0) < thr {print $1}' "${7}" > ${4}.samples.txt
 
 # Create sample_groups.tsv:
 # first keep only samples in ${4}.samples.txt
@@ -39,7 +39,7 @@ awk -v n="$POPULATION_MIN_SAMPLES_PER_POP" '
             }
         }
     }
-' ${4}.samples.txt "${7}" > sample_groups.tsv
+' ${4}.samples.txt "${6}" > sample_groups.tsv
 
 # number of pops (one vcf per pop)
 N_POPS=$(cut -f2 sample_groups.tsv | tr ',' '\n' | sort -u | sed '/^$/d' | wc -l)
@@ -87,8 +87,6 @@ make_typed_pass_tags() {
   local suffix="$4"    # e.g. SNP / INDEL / INVARIANT
   local pops_file="$5"
 
-  [[ -z "$thr" ]] && { echo ""; return; }
-
   cut -f2 "$pops_file" \
     | tr ',' '\n' \
     | sed '/^$/d' \
@@ -97,18 +95,24 @@ make_typed_pass_tags() {
         BEGIN { first=1 }
         {
           if (!first) printf ","
-          printf "%s_PASS_%s_%s:1=int(%s_%s%s%s)", base, suffix, $1, base, $1, op, thr
+
+          if (thr == "" || thr == "NA" || thr == "na") {
+            printf "%s_PASS_%s_%s:1=1", base, suffix, $1
+          } else {
+            printf "%s_PASS_%s_%s:1=int(%s_%s%s%s)", base, suffix, $1, base, $1, op, thr
+          }
+
           first=0
         }'
 }
-
 
 # make_typed_npass_tag() counts the number of passing populations and adds a new annotation, in a variant type specific way
 # This generates a single count tag like: NFAIL_MAF:1=int(MAF_FAIL_Pop1+MAF_FAIL_Pop2+...)
 make_typed_npass_tag() {
   local base="$1"      # e.g. MAF
-  local suffix="$2"    # e.g. SNP
-  local pops_file="$3"
+  local thr="$2"       # threshold used to decide whether this tag is enabled
+  local suffix="$3"    # e.g. SNP
+  local pops_file="$4"
 
   local sum_expr
   sum_expr=$(
@@ -157,26 +161,25 @@ POP_PASS_TAGS=$(join_tags \
 )
 
 # Set up pass counting tags for each filter and concatenate together into single string for 1 pass annotation
-POP_PASS_TAGS=$(join_tags \
-  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_SNP:-}"        "SNP"       sample_groups.tsv)" \
-  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_INDEL:-}"      "INDEL"     sample_groups.tsv)" \
-  "$(make_typed_pass_tags "ExcHet" ">=" "${EH_POP_INVARIANT:-}"  "INVARIANT" sample_groups.tsv)" \
-  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
-  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
-  "$(make_typed_pass_tags "HWE"    ">=" "${HWE_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
-  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
-  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
-  "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
-  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
-  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
-  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
+# Only make npass tags if corrsponding pass_tags is created, i.e. filter is not disabled
+# This avoids error in fill-tags
+NPASS_TAGS=$(join_tags \
+  "$(make_typed_npass_tag "ExcHet" "${EH_POP_SNP:-}"        "SNP"       sample_groups.tsv)" \
+  "$(make_typed_npass_tag "ExcHet" "${EH_POP_INDEL:-}"      "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_npass_tag "ExcHet" "${EH_POP_INVARIANT:-}"  "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_npass_tag "HWE"    "${HWE_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_npass_tag "HWE"    "${HWE_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_npass_tag "HWE"    "${HWE_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_npass_tag "MAF"    "${MAF_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_npass_tag "MAF"    "${MAF_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_npass_tag "MAF"    "${MAF_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
 )
 
-echo "POP_PASS_TAGS:"
-echo $POP_PASS_TAGS
-
-echo "NPASS_TAGS:"
-echo $NPASS_TAGS
+echo "POP_PASS_TAGS=$POP_PASS_TAGS"
+echo "NPASS_TAGS=$NPASS_TAGS" 
 
 # Subset to target variant class and just samples above missing data filter
 # Then add global annotations using fill-tags

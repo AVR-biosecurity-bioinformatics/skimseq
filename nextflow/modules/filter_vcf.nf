@@ -4,7 +4,7 @@ process FILTER_VCF {
     module "BCFtools/1.22-GCC-13.3.0:pigz/2.8-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_map)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(dpLo), val(dpHi), val(filter_map)
     path(mask_bed)
     path(popmap)
     path(missing_summary)
@@ -13,33 +13,37 @@ process FILTER_VCF {
     tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
-          path("${variant_type}.${interval_hash}.filt.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.filt.vcf.gz.tbi"),
+          path("${interval_hash}.filt.vcf.gz"), 
+          path("${interval_hash}.filt.vcf.gz.tbi"),
           path("*.counts"),        emit: vcf
     tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
-          path("${variant_type}.${interval_hash}.sitelist.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.sitelist.vcf.gz.tbi"),
+          path("${interval_hash}.sitelist.vcf.gz"), 
+          path("${interval_hash}.sitelist.vcf.gz.tbi"),
           path("*.counts"),        emit: sitelist
     tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
-          path("${variant_type}.${interval_hash}.tagged.vcf.gz"), 
-          path("${variant_type}.${interval_hash}.tagged.vcf.gz.tbi"),        emit: tagged_sitelist
+          path("${interval_hash}.tagged.vcf.gz"), 
+          path("${interval_hash}.tagged.vcf.gz.tbi"),        emit: tagged_sitelist
     path("*samples.txt"), emit: samples_to_keep
 
     script:
-    def flatten = { prefix, obj, out = [:] ->
-      obj.each { k, v ->
-          def key = prefix ? "${prefix}_${k}".toUpperCase() : k.toUpperCase()
-          if (v instanceof Map) {
-              flatten(key, v, out)
-          } else {
-              out[key] = (v == null ? 'NA' : v)
-          }
-      }
-      out
+    
+    def flatten
+    flatten = { String prefix, Object obj, Map out = [:] ->
+        if (obj instanceof Map || obj instanceof nextflow.config.ConfigMap) {
+            obj.entrySet().each { entry ->
+                def k = entry.key.toString()
+                def v = entry.value
+                def key = prefix ? "${prefix}_${k}".toUpperCase() : k.toUpperCase()
+                flatten(key, v, out)
+            }
+        } else {
+            out[prefix] = (obj == null ? 'NA' : obj)
+        }
+        out
     }
 
     def flat = flatten('', filter_map)
@@ -66,6 +70,14 @@ process FILTER_VCF {
         export "\$k=\$v"
       fi
     done
+
+    # Overwrite the perc filters with the DPlo and DPhigh calculated through the external process ather than a parameter
+    export DP_LOWER_PERC_GLOBAL_SNP=${dpLo}
+    export DP_LOWER_PERC_GLOBAL_INDEL=${dpLo}
+    export DP_LOWER_PERC_GLOBAL_INVARIANT=${dpLo}
+    export DP_UPPER_PERC_GLOBAL_SNP=${dpHi}
+    export DP_UPPER_PERC_GLOBAL_INDEL=${dpHi}
+    export DP_UPPER_PERC_GLOBAL_INVARIANT=${dpHi}
 
     bash ${process_script} \
         ${task.cpus} \

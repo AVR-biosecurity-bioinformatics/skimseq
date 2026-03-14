@@ -12,7 +12,7 @@ include { MERGE_VCFS as MERGE_FINAL                              } from '../modu
 workflow OUTPUTS {
 
     take:
-    ch_genotype_filtered
+    ch_vcfs
     ch_genome_indexed
     ch_sample_pop
 
@@ -24,12 +24,23 @@ workflow OUTPUTS {
 
     // TODO: need to split vcf into variant types here
 
+    // Define the three variant types with optional inclusion of indel and invariant
+    def variant_types = ['snp']
+    if( params.output_indel )      variant_types << 'indel'
+    if( params.output_invariant )  variant_types << 'invariant'
+
+
+    ch_vcfs
+        .combine(Channel.of(*variant_types))
+        .set { ch_vcf_types }
+
     // Create a channel of all 3 variant types + all together for merging
-    ch_genotype_filtered.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(type, vcf, tbi) }
-        .concat(ch_genotype_filtered.map { type, interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
+     ch_vcfs
+        .combine(Channel.of(*variant_types))
+        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi, type -> tuple(type, vcf, tbi) }
+        .concat(ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_filtered_vcfs_to_merge }
-
 
     // Group all filtered sitelists by variant type and merge
     MERGE_FINAL (
@@ -49,7 +60,7 @@ workflow OUTPUTS {
 
     // Create channel containing filtered VCF along with seperate SNP and INDEL vcf
     ch_final_all
-        .mix(ch_final_snp, ch_final_indel)
+        //.mix(ch_final_snp, ch_final_indel)
         .set{ ch_final_vcfs }
 
     // Create beagle GL file
