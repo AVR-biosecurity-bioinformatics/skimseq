@@ -119,7 +119,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for site histograms
     PLOT_VCF_FILTERS (
-        FILTER_VCF.out.metrics.collect(),
+        FILTER_VCF.out.metrics.map { interval_hash, interval_bed, bed_tbi, tsv -> tsv }.collect(),
         "site_filters"
     )
 

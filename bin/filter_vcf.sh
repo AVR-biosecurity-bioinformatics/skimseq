@@ -188,6 +188,7 @@ echo "NPASS_TAGS=$NPASS_TAGS"
 # Then count the number of populations that pass
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
 # NOTE: bcftools +fill-tags breaks with any samples that have 2 letter names
+
 bcftools view --threads ${1} -S ${4}.samples.txt -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
@@ -202,6 +203,7 @@ bcftools view --threads ${1} -S ${4}.samples.txt -Ou "${3}" \
     -t "$POP_PASS_TAGS" \
   | bcftools +fill-tags -Ou - -- \
     -t "$NPASS_TAGS" \
+  | bcftools filter -Ou --SnpGap ${DIST_INDEL_GLOBAL_SNP:--999999999} --IndelGap ${DIST_INDEL_GLOBAL_INDEL:--999999999} \
   | bcftools filter -Ou -s MASK_FAIL -m+ -M vcf_masks.bed \
   | bcftools filter -Ou -s SNP_QUAL_FAIL   -m+ -e 'INFO/TYPE="SNP" && QUAL < '"${QUAL_GLOBAL_SNP:-0}" \
   | bcftools filter -Ou -s INDEL_QUAL_FAIL -m+ -e 'INFO/TYPE="INDEL" && QUAL < '"${QUAL_GLOBAL_INDEL:-0}" \
@@ -209,7 +211,6 @@ bcftools view --threads ${1} -S ${4}.samples.txt -Ou "${3}" \
   | bcftools filter -Ou -s SNP_DP_FAIL     -m+ -e 'INFO/TYPE="SNP" && (INFO/DP < '"${DP_MIN_GLOBAL_SNP:-0}"' || INFO/DP < '"${DP_LOWER_PERC_GLOBAL_SNP:-0}"' || INFO/DP > '"${DP_UPPER_PERC_GLOBAL_SNP:-999999999}"')' \
   | bcftools filter -Ou -s INDEL_DP_FAIL   -m+ -e 'INFO/TYPE="INDEL" && (INFO/DP < '"${DP_MIN_GLOBAL_INDEL:-0}"' || INFO/DP < '"${DP_LOWER_PERC_GLOBAL_INDEL:-0}"' || INFO/DP > '"${DP_UPPER_PERC_GLOBAL_INDEL:-999999999}"')' \
   | bcftools filter -Ou -s INV_DP_FAIL     -m+ -e 'INFO/TYPE="REF" && (INFO/DP < '"${DP_MIN_GLOBAL_INVARIANT:-0}"' || INFO/DP < '"${DP_LOWER_PERC_GLOBAL_INVARIANT:-0}"' || INFO/DP > '"${DP_UPPER_PERC_GLOBAL_INVARIANT:-999999999}"')' \
-  | bcftools filter -Ou -s SNP_DIST_INDEL_FAIL -m+ -e 'INFO/TYPE="SNP" && INFO/DIST_INDEL < '"${DIST_INDEL_GLOBAL_SNP:--999999999}" \
   | bcftools filter -Ou -s SNP_EH_FAIL     -m+ -e 'INFO/TYPE="SNP" && INFO/ExcHet < '"${EH_GLOBAL_SNP:--1}" \
   | bcftools filter -Ou -s INDEL_EH_FAIL   -m+ -e 'INFO/TYPE="INDEL" && INFO/ExcHet < '"${EH_GLOBAL_INDEL:--1}" \
   | bcftools filter -Ou -s SNP_HWE_FAIL    -m+ -e 'INFO/TYPE="SNP" && INFO/HWE < '"${HWE_GLOBAL_SNP:--1}" \
@@ -244,13 +245,33 @@ bcftools view --threads "${1}" -G -f PASS -Ou tmp.bcf \
 bcftools index --threads ${1} -t ${4}.sitelist.vcf.gz
 
 # Create metrics file for QC histograms
+mapfile -t INFO_TAGS < <(
+  bcftools view -h tmp.bcf \
+    | awk -F'[=,]' '/^##INFO=<ID=/{print $3}' \
+    | awk '
+        $0 == "TYPE" ||
+        $0 == "DP" ||
+        $0 == "ExcHet" ||
+        $0 == "HWE" ||
+        $0 == "MAF" ||
+        $0 == "NS" ||
+        $0 == "CR" ||
+        $0 ~ /^(NS|MAF|HWE|ExcHet)_[^_]+$/'
+)
+
+HEADER="CHROM\tPOS\tFILTER\tQUAL"
+FMT='%CHROM\t%POS\t%FILTER\t%QUAL'
+
+for tag in "${INFO_TAGS[@]}"; do
+  HEADER="${HEADER}\t${tag}"
+  FMT="${FMT}\t%INFO/${tag}"
+done
+FMT="${FMT}\n"
+
 {
-  printf "CHROM\tPOS\tFILTER\tTYPE\tQUAL\tDP\tExcHet\tHWE\tMAF\tNS\tCR\tDIST_INDEL\tNPASS_ExcHet\tNPASS_HWE\tNPASS_MAF\tNPASS_NS\n"
-  bcftools query \
-    -f '%CHROM\t%POS\t%FILTER\t%INFO/TYPE\t%QUAL\t%INFO/DP\t%INFO/ExcHet\t%INFO/HWE\t%INFO/MAF\t%INFO/NS\t%INFO/CR\t%INFO/DIST_INDEL\t%INFO/NPASS_ExcHet\t%INFO/NPASS_HWE\t%INFO/NPASS_MAF\t%INFO/NPASS_NS\n' \
-    tmp.bcf
+  printf '%b\n' "$HEADER"
+  bcftools query -f "$FMT" tmp.bcf
 } | bgzip -c > "${4}.metrics.tsv.gz"
-tabix -s 1 -b 2 -e 2 "${4}.metrics.tsv.gz"
 
 # Output number of variant records remaining (non-header lines)
 nvars=$(bcftools index -n ${4}.filt.vcf.gz | tr -d '[:space:]')
