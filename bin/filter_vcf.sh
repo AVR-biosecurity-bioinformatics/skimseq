@@ -181,15 +181,14 @@ NPASS_TAGS=$(join_tags \
 echo "POP_PASS_TAGS=$POP_PASS_TAGS"
 echo "NPASS_TAGS=$NPASS_TAGS" 
 
-# Subset to target variant class and just samples above missing data filter
+# Subset to sites with just 2 alleles and samples above missing data filter
 # Then add global annotations using fill-tags
 # Then add per-pop threshold annotations using fill-tags
 # Then add per-population pass flags, using the per-population threshold annotations using fill-tags
 # Then count the number of populations that pass
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
 # NOTE: bcftools +fill-tags breaks with any samples that have 2 letter names
-
-bcftools view --threads ${1} -S ${4}.samples.txt -Ou "${3}" \
+bcftools view --threads ${1} -S ${4}.samples.txt -m2 -M2 -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
     -n . \

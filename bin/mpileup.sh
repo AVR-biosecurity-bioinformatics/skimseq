@@ -148,4 +148,3 @@ bcftools index -t ${IHASH}.vcf.gz
 # Clean up temporary files
 xargs -r -d '\n' rm -f < <(awk '{print $0; print $0 ".crai"}' cram.filtered.list)
 rm -f cram.filtered.list
-rm *.hdr *.tsv.gz

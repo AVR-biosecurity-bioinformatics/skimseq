@@ -59,6 +59,3 @@ gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
 
 # index output
 bcftools index -t ${IHASH}.vcf.gz
-
-# Clean up
-rm *.hdr *.tsv.gz
