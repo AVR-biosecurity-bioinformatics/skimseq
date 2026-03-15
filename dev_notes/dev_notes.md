@@ -102,11 +102,7 @@ Run the Qfly test dataset using the test profile
 ```
 module purge
 export NXF_VER=23.05.0-edge
-
 module load Java/17
-
-# Make sure permissions are fixed for R scripts
-chmod +777 bin/*.R
 
 # Run tests on local node 
 nextflow run . -profile debug,test -resume

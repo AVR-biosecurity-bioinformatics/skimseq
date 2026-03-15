@@ -194,22 +194,8 @@ tryCatch(
       mutate(PROP = COUNT / sum(COUNT)) %>%
       ungroup()
 
-    # Make sure every facet has more than one record to avoid bug with scale_x_binned
-    global_df_aug <- global_df %>%
-      bind_rows(
-        global_df %>%
-          group_by(VARIANT_TYPE, RULE) %>%
-          filter(dplyr::n() == 1) %>% # singleton facets only
-          slice(1) %>% # duplicate a single row
-          ungroup() %>%
-          mutate(
-            BIN = BIN + 1e-9,
-            PROP = 0 # zero height so it won't change the plot
-          )
-      )
-
     variant_types <- factor(
-      unique(df$VARIANT_TYPE),
+      unique(global_df$VARIANT_TYPE),
       levels = c("snp", "indel", "invariant", "all")
     )
 
@@ -229,12 +215,12 @@ tryCatch(
       }
     }
 
+    # Create global qc plots
     #TODO: add back in  vlines for filter thresholds
-
-    variant_qc_plots <- vector("list", length = length(variant_types))
+    global_qc_plots <- vector("list", length = length(variant_types))
     for (v in 1:length(variant_types)) {
       variant_type <- variant_types[v]
-      variant_qc_plots[[v]] <- global_df_aug %>%
+      global_qc_plots[[v]] <- global_df_aug %>%
         filter(VARIANT_TYPE == variant_type) %>%
         ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
         geom_col() +
@@ -253,8 +239,38 @@ tryCatch(
         )
     }
     # Write out plots
-    pdf(paste0(outname, ".pdf"), width = 11, height = 8)
-    purrr::walk(variant_qc_plots, plot)
+    pdf(paste0(outname, "_global.pdf"), width = 11, height = 8)
+    purrr::walk(global_qc_plots, plot)
+    try(dev.off(), silent = TRUE)
+
+    # Create per-pop qc plots
+    #TODO: add back in  vlines for filter thresholds
+    poprules <- unique(per_pop_df$RULE)
+    pop_qc_plots <- vector("list", length = length(poprules))
+
+    for (p in 1:length(poprules)) {
+      rule <- poprules[[p]]
+      pop_qc_plots[[p]] <- per_pop_df %>%
+        filter(RULE == rule) %>%
+        ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
+        geom_col() +
+        facet_grid(POP ~ paste0(VARIANT_TYPE, ":", RULE), scales = "free") +
+        scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
+        scale_y_continuous(labels = scales::percent) +
+        scale_x_binned(
+          n.breaks = 25, # keep many bins
+          labels = thin_binned_labels(8) # show ~8 labels per facet
+        ) +
+        theme_classic() +
+        labs(x = NULL, y = "Proportion") +
+        theme(
+          legend.position = "none",
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        )
+    }
+    # Write out plots
+    pdf(paste0(outname, "_perpop.pdf"), width = 11, height = 8)
+    purrr::walk(pop_qc_plots, plot)
     try(dev.off(), silent = TRUE)
 
     # Create a joint table of the summary files
