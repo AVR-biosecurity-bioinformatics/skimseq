@@ -29,6 +29,9 @@ tryCatch(
 
     ### run code
 
+    # Find files
+    files <- list.files(pattern = "metrics.tsv.gz$", full.names = TRUE)
+
     # columns to extract from each summary file
     global_cols <- c(
       "CHROM",
@@ -86,26 +89,84 @@ tryCatch(
       list(global = global_df, per_pop = per_pop_df)
     }
 
-    # Define binning rules for each metric
-    # TODO  - estimate these histogram bin sizes from one of the chunk files
+    # Define default binning rules for each metric. NA's will be estimated from files
     metric_specs <- tibble::tribble(
-      ~RULE        , ~COLUMN      , ~FAIL_PATTERN                                 , ~MIN , ~MAX    , ~NBINS ,
-      "QUAL"       , "QUAL"       , "SNP_QUAL_FAIL|INDEL_QUAL_FAIL|INV_QUAL_FAIL" ,    0 ,  5000   ,    100 ,
-      "DP"         , "DP"         , "SNP_DP_FAIL|INDEL_DP_FAIL|INV_DP_FAIL"       ,    0 , 50000   ,    100 ,
-      "ExcHet"     , "ExcHet"     , "SNP_EH_FAIL|INDEL_EH_FAIL"                   ,    0 ,     1   ,    100 ,
-      "HWE"        , "HWE"        , "SNP_HWE_FAIL|INDEL_HWE_FAIL"                 ,    0 ,     1   ,    100 ,
-      "MAF"        , "MAF"        , "SNP_MAF_FAIL|INDEL_MAF_FAIL"                 ,    0 ,     0.5 ,    100 ,
-      "NS"         , "NS"         , "SNP_NS_FAIL|INDEL_NS_FAIL|INV_NS_FAIL"       ,    0 ,  2000   ,    100 ,
-      "CR"         , "CR"         , "SNP_CR_FAIL|INDEL_CR_FAIL|INV_CR_FAIL"       ,    0 ,     1   ,    100 ,
-      "DIST_INDEL" , "DIST_INDEL" , "SNP_DIST_INDEL_FAIL"                         ,    0 ,   100   ,    100
+      ~RULE    , ~COLUMN  , ~FAIL_PATTERN                                 , ~MIN , ~MAX , ~NBINS ,
+      "QUAL"   , "QUAL"   , "SNP_QUAL_FAIL|INDEL_QUAL_FAIL|INV_QUAL_FAIL" ,    0 , NA   ,    100 ,
+      "DP"     , "DP"     , "SNP_DP_FAIL|INDEL_DP_FAIL|INV_DP_FAIL"       ,    0 , NA   ,    100 ,
+      "ExcHet" , "ExcHet" , "SNP_EH_FAIL|INDEL_EH_FAIL"                   ,    0 , 1    ,    100 ,
+      "HWE"    , "HWE"    , "SNP_HWE_FAIL|INDEL_HWE_FAIL"                 ,    0 , 1    ,    100 ,
+      "MAF"    , "MAF"    , "SNP_MAF_FAIL|INDEL_MAF_FAIL"                 ,    0 , 0.5  ,    100 ,
+      "NS"     , "NS"     , "SNP_NS_FAIL|INDEL_NS_FAIL|INV_NS_FAIL"       ,    0 , NA   ,    100 ,
+      "CR"     , "CR"     , "SNP_CR_FAIL|INDEL_CR_FAIL|INV_CR_FAIL"       ,    0 , 1    ,    100
     )
-    per_pop_metric_specs <- tibble::tribble(
-      ~RULE    , ~MIN , ~MAX   , ~NBINS ,
-      "NS"     ,    0 , 2000   ,    100 ,
-      "MAF"    ,    0 ,    0.5 ,    100 ,
-      "HWE"    ,    0 ,    1   ,    100 ,
-      "ExcHet" ,    0 ,    1   ,    100
+
+    # Function to subsample a few files and estimate max
+    estimate_max_from_sample <- function(
+      files,
+      columns,
+      sample_n = 5,
+      seed = 1,
+      buffer_frac = 0.05
+    ) {
+      set.seed(seed)
+      sampled_files <- sample(files, min(sample_n, length(files)))
+
+      max_list <- purrr::map(sampled_files, function(file) {
+        df <- readr::read_tsv(
+          file,
+          show_col_types = FALSE,
+          na = ".",
+          col_select = dplyr::any_of(columns)
+        )
+
+        vapply(
+          df,
+          function(x) {
+            x <- suppressWarnings(as.numeric(x))
+            x <- x[is.finite(x)]
+            if (length(x) == 0) NA_real_ else max(x)
+          },
+          numeric(1)
+        )
+      })
+
+      max_df <- dplyr::bind_rows(lapply(max_list, as.list)) %>%
+        dplyr::summarise(
+          dplyr::across(
+            dplyr::everything(),
+            ~ if (all(is.na(.x))) {
+              NA_real_
+            } else {
+              max(.x, na.rm = TRUE) * (1 + buffer_frac)
+            }
+          )
+        )
+
+      as.list(max_df)
+    }
+
+    cols_to_estimate <- metric_specs %>%
+      dplyr::filter(is.na(MAX)) %>%
+      dplyr::pull(COLUMN) %>%
+      unique()
+
+    sampled_max <- estimate_max_from_sample(
+      files = files,
+      columns = cols_to_estimate,
+      sample_n = 5,
+      buffer_frac = 0.10
     )
+
+    metric_specs <- metric_specs %>%
+      dplyr::mutate(
+        MAX = ifelse(is.na(MAX), unlist(sampled_max[COLUMN]), MAX)
+      )
+
+    # Get just the per-pop ones
+    per_pop_metric_specs <- metric_specs %>%
+      filter(RULE %in% c("NS", "MAF", "HWE", "ExcHet")) %>%
+      dplyr::select(RULE, MIN, MAX, NBINS)
 
     # Function to bin statistic values to reduce file size
     bin_values <- function(x, min_val, max_val, nbins) {
@@ -158,8 +219,6 @@ tryCatch(
         count(RULE, POP, FILTER, VARIANT_TYPE, BIN, name = "COUNT")
     }
 
-    files <- list.files(pattern = "metrics.tsv.gz$", full.names = TRUE)
-
     # Process each chunk at a time
     global_list <- vector("list", length(files))
     per_pop_list <- vector("list", length(files))
@@ -185,18 +244,24 @@ tryCatch(
         PROP = COUNT / sum(COUNT),
         n_grp = dplyr::n()
       ) %>%
-      ungroup()
+      ungroup() %>%
+      left_join(
+        metric_specs %>% select(RULE, MIN, MAX),
+        by = "RULE"
+      )
 
-    per_pop_df <- bind_rows(per_pop_list) %>%
-      group_by(RULE, POP, FILTER, VARIANT_TYPE, BIN) %>%
-      summarise(COUNT = sum(COUNT), .groups = "drop") %>%
-      group_by(POP, VARIANT_TYPE, RULE) %>%
-      mutate(PROP = COUNT / sum(COUNT)) %>%
-      ungroup()
+    global_axis_df <- global_df %>%
+      distinct(VARIANT_TYPE, RULE, MIN, MAX) %>%
+      tidyr::pivot_longer(
+        cols = c(MIN, MAX),
+        names_to = "BOUND",
+        values_to = "X"
+      ) %>%
+      mutate(PROP = 0)
 
-    variant_types <- factor(
-      unique(global_df$VARIANT_TYPE),
-      levels = c("snp", "indel", "invariant", "all")
+    variant_types <- intersect(
+      c("snp", "indel", "invariant", "all"),
+      unique(global_df$VARIANT_TYPE)
     )
 
     # Function to not display all breaks for scale_x_binned
@@ -220,19 +285,30 @@ tryCatch(
     global_qc_plots <- vector("list", length = length(variant_types))
     for (v in 1:length(variant_types)) {
       variant_type <- variant_types[v]
-      global_qc_plots[[v]] <- global_df_aug %>%
+
+      plot_df <- global_df %>%
         filter(VARIANT_TYPE == variant_type) %>%
-        ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
+        filter(is.finite(BIN), !is.na(BIN))
+
+      axis_df <- global_axis_df %>%
+        filter(VARIANT_TYPE == variant_type)
+
+      if (nrow(plot_df) == 0) {
+        next
+      }
+
+      global_qc_plots[[v]] <- ggplot(
+        plot_df,
+        aes(x = BIN, y = PROP, fill = FILTER)
+      ) +
+        geom_blank(data = axis_df, aes(x = X, y = PROP), inherit.aes = FALSE) +
         geom_col() +
-        facet_wrap(VARIANT_TYPE ~ RULE, scales = "free") +
+        facet_wrap(~RULE, scales = "free_x") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_y_continuous(labels = scales::percent) +
-        scale_x_binned(
-          n.breaks = 25, # keep many bins
-          labels = thin_binned_labels(8) # show ~8 labels per facet
-        ) +
+        scale_x_continuous(labels = thin_binned_labels(8)) +
         theme_classic() +
-        labs(x = NULL, y = "Proportion") +
+        labs(title = variant_type, x = NULL, y = "Proportion") +
         theme(
           legend.position = "none",
           axis.text.x = element_text(angle = 45, hjust = 1)
@@ -244,25 +320,67 @@ tryCatch(
     try(dev.off(), silent = TRUE)
 
     # Create per-pop qc plots
+
+    per_pop_df <- bind_rows(per_pop_list) %>%
+      group_by(RULE, POP, FILTER, VARIANT_TYPE, BIN) %>%
+      summarise(COUNT = sum(COUNT), .groups = "drop") %>%
+      group_by(POP, VARIANT_TYPE, RULE) %>%
+      mutate(PROP = COUNT / sum(COUNT)) %>%
+      ungroup() %>%
+      left_join(per_pop_metric_specs, by = "RULE") %>%
+      mutate(
+        FACET_COL = paste0(VARIANT_TYPE, ":", RULE)
+      )
+    per_pop_axis_df <- per_pop_df %>%
+      distinct(POP, RULE, VARIANT_TYPE, FACET_COL, MIN, MAX) %>%
+      tidyr::pivot_longer(
+        cols = c(MIN, MAX),
+        names_to = "BOUND",
+        values_to = "X"
+      ) %>%
+      mutate(PROP = 0)
+
     #TODO: add back in  vlines for filter thresholds
     poprules <- unique(per_pop_df$RULE)
     pop_qc_plots <- vector("list", length = length(poprules))
 
-    for (p in 1:length(poprules)) {
+    for (p in seq_along(poprules)) {
       rule <- poprules[[p]]
-      pop_qc_plots[[p]] <- per_pop_df %>%
+
+      plot_df <- per_pop_df %>%
         filter(RULE == rule) %>%
-        ggplot(aes(x = BIN, y = PROP, fill = FILTER)) +
+        filter(is.finite(BIN), !is.na(BIN))
+
+      axis_df <- per_pop_axis_df %>%
+        filter(RULE == rule)
+
+      if (nrow(plot_df) == 0) {
+        next
+      }
+
+      pop_qc_plots[[p]] <- ggplot(
+        plot_df,
+        aes(x = BIN, y = PROP, fill = FILTER)
+      ) +
+        geom_blank(
+          data = axis_df,
+          aes(x = X, y = PROP),
+          inherit.aes = FALSE
+        ) +
         geom_col() +
-        facet_grid(POP ~ paste0(VARIANT_TYPE, ":", RULE), scales = "free") +
+        facet_grid(POP ~ FACET_COL, scales = "free_x") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_y_continuous(labels = scales::percent) +
-        scale_x_binned(
-          n.breaks = 25, # keep many bins
-          labels = thin_binned_labels(8) # show ~8 labels per facet
+        scale_x_continuous(
+          labels = thin_binned_labels(8),
+          expand = expansion(mult = c(0, 0))
         ) +
         theme_classic() +
-        labs(x = NULL, y = "Proportion") +
+        labs(
+          title = paste("Per-population", rule),
+          x = NULL,
+          y = "Proportion"
+        ) +
         theme(
           legend.position = "none",
           axis.text.x = element_text(angle = 45, hjust = 1)
