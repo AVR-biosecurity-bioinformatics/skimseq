@@ -104,11 +104,11 @@ workflow FILTER_VARIANTS {
      /*
         Create site filtering QC plots
     */
-    FILTER_VCF.out.tagged_sitelist
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi ->
-            tuple( interval_hash, vcf, tbi )
-        }
-    .set { ch_vcfs_for_qc }
+    //FILTER_VCF.out.tagged_sitelist
+    //    .map { interval_hash, interval_bed, bed_tbi, tsv, tbi ->
+    //        tuple( interval_hash, tsv, tbi )
+    //    }
+    //.set { ch_vcfs_for_qc }
 
     // Create site histograms - uses the tags from the soft filtered vcf
     // TODO: need to update this for new mixed format
@@ -118,11 +118,10 @@ workflow FILTER_VARIANTS {
     //)
 
     // QC plots for site histograms
-    //PLOT_VCF_FILTERS (
-    //    CREATE_FILTER_HIST.out.hist.collect(),
-    //    CREATE_FILTER_HIST.out.summary.collect(),
-    //    "site_filters"
-    //)
+    PLOT_VCF_FILTERS (
+        FILTER_VCF.out.metrics.collect(),
+        "site_filters"
+    )
 
      /*
         Create sitelist files for re-genotyping

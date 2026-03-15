@@ -84,7 +84,7 @@ bcftools concat \
   --naive \
   --threads ${1} \
   -f vcf.list \
-  -Ou \
+  -Oz \
 | bcftools view \
   --threads ${1} \
   ${TYPE_ARGS} \

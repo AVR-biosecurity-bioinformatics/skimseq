@@ -29,21 +29,83 @@ tryCatch(
 
     ### run code
 
-    hist_files <- list.files(pattern = "hist.tsv.gz$")
-    hist_files <- hist_files[file.size(hist_files) > 0]
+    # TODO  - estimate these histogram bin sizes from one of the chunk files
+    metric_specs <- tibble::tribble(
+      ~RULE        , ~COLUMN      , ~FAIL_PATTERN                                 , ~MIN , ~MAX    , ~NBINS ,
+      "QUAL"       , "QUAL"       , "SNP_QUAL_FAIL|INDEL_QUAL_FAIL|INV_QUAL_FAIL" ,    0 ,  5000   ,    100 ,
+      "DP"         , "DP"         , "SNP_DP_FAIL|INDEL_DP_FAIL|INV_DP_FAIL"       ,    0 , 50000   ,    100 ,
+      "ExcHet"     , "ExcHet"     , "SNP_EH_FAIL|INDEL_EH_FAIL"                   ,    0 ,     1   ,    100 ,
+      "HWE"        , "HWE"        , "SNP_HWE_FAIL|INDEL_HWE_FAIL"                 ,    0 ,     1   ,    100 ,
+      "MAF"        , "MAF"        , "SNP_MAF_FAIL|INDEL_MAF_FAIL"                 ,    0 ,     0.5 ,    100 ,
+      "NS"         , "NS"         , "SNP_NS_FAIL|INDEL_NS_FAIL|INV_NS_FAIL"       ,    0 ,  2000   ,    100 ,
+      "CR"         , "CR"         , "SNP_CR_FAIL|INDEL_CR_FAIL|INV_CR_FAIL"       ,    0 ,     1   ,    100 ,
+      "DIST_INDEL" , "DIST_INDEL" , "SNP_DIST_INDEL_FAIL"                         ,    0 ,   100   ,    100
+    )
+
+    # Function to Normalise variant names
+    normalise_type <- function(x) {
+      dplyr::case_when(
+        x == "SNP" ~ "snp",
+        x == "INDEL" ~ "indel",
+        x == "REF" ~ "invariant",
+        TRUE ~ tolower(x)
+      )
+    }
+
+    # Function to bin statistic values to reduce file size
+    bin_values <- function(x, min_val, max_val, nbins) {
+      x <- as.numeric(x)
+      x[x < min_val] <- min_val
+      x[x > max_val] <- max_val
+      breaks <- seq(min_val, max_val, length.out = nbins + 1)
+      mids <- head(breaks, -1) + diff(breaks) / 2
+      idx <- cut(x, breaks = breaks, include.lowest = TRUE, labels = FALSE)
+      mids[idx]
+    }
+
+    # Function to summarise metrics for each chunk
+    summarise_one_chunk <- function(file, metric_specs) {
+      df <- readr::read_tsv(file, show_col_types = FALSE) %>%
+        mutate(VARIANT_TYPE = normalise_type(TYPE))
+
+      purrr::map_dfr(seq_len(nrow(metric_specs)), function(i) {
+        spec <- metric_specs[i, ]
+
+        vals <- df[[spec$COLUMN]]
+        keep <- !is.na(vals)
+
+        if (!any(keep)) {
+          return(NULL)
+        }
+
+        tibble(
+          RULE = spec$RULE,
+          VARIANT_TYPE = df$VARIANT_TYPE[keep],
+          FILTER = if_else(
+            stringr::str_detect(df$FILTER[keep], spec$FAIL_PATTERN),
+            "FAIL",
+            "PASS"
+          ),
+          BIN = bin_values(vals[keep], spec$MIN, spec$MAX, spec$NBINS)
+        ) %>%
+          count(RULE, FILTER, VARIANT_TYPE, BIN, name = "COUNT")
+      })
+    }
+
+    files <- list.files(pattern = "tagged_metrics.tsv.gz$", full.names = TRUE)
+
+    chunk_summaries <- lapply(
+      files,
+      summarise_one_chunk,
+      metric_specs = metric_specs
+    )
 
     # Read in all tables and combine
-    df <- readr::read_tsv(
-      hist_files,
-      col_names = c("RULE", "FILTER", "VARIANT_TYPE", "BIN", "COUNT"),
-      col_types = c("cccnn")
-    ) %>%
-      filter(!is.na(BIN)) %>%
-      dplyr::group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>% # Sum the bins from multiple parallel chunks
-      dplyr::summarise(COUNT = sum(COUNT)) %>%
-      ungroup() %>%
+    df <- bind_rows(chunk_summaries) %>%
+      group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>%
+      summarise(COUNT = sum(COUNT), .groups = "drop") %>%
       group_by(VARIANT_TYPE, RULE) %>%
-      mutate(PROP = COUNT / sum(COUNT, na.rm = TRUE)) %>%
+      mutate(PROP = COUNT / sum(COUNT)) %>%
       mutate(n_grp = dplyr::n()) %>% # Count number of groups per facet
       ungroup()
 
@@ -112,18 +174,20 @@ tryCatch(
 
     # Create a joint table of the summary files
     # List filtering summary files
-    summary_files <- list.files(pattern = "filter_summary.tsv$")
-    summary_files <- summary_files[file.size(summary_files) > 0]
-    df_summary <- readr::read_tsv(
-      summary_files,
-      col_names = c("FILTER", "COUNT"),
-      col_types = c("cn")
-    ) %>%
-      group_by(FILTER) %>%
-      summarise(COUNT = sum(COUNT))
+
+    # TODO: this needs to be summarised by variant type
+    #summary_files <- list.files(pattern = "filter_summary.tsv$")
+    #summary_files <- summary_files[file.size(summary_files) > 0]
+    #df_summary <- readr::read_tsv(
+    #  summary_files,
+    #  col_names = c("FILTER", "COUNT"),
+    #  col_types = c("cn")
+    #) %>%
+    #  group_by(FILTER) %>%
+    #  summarise(COUNT = sum(COUNT))
 
     # Write out summary file
-    write_tsv(df_summary, paste0(outname, ".tsv"))
+    #write_tsv(df_summary, paste0(outname, ".tsv"))
   },
   finally = {
     ### save R environment if script throws error code

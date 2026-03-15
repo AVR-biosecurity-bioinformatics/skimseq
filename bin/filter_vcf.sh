@@ -243,9 +243,14 @@ bcftools view --threads "${1}" -G -f PASS -Ou tmp.bcf \
   | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.sitelist.vcf.gz 
 bcftools index --threads ${1} -t ${4}.sitelist.vcf.gz
 
-# Create sites only tagged file for QC histograms
-bcftools view --threads "${1}" -G -Oz9 -o ${4}.tagged.vcf.gz tmp.bcf
-bcftools index --threads ${1} -t ${4}.tagged.vcf.gz
+# Create metrics file for QC histograms
+{
+  printf "CHROM\tPOS\tFILTER\tTYPE\tQUAL\tDP\tExcHet\tHWE\tMAF\tNS\tCR\tDIST_INDEL\tNPASS_ExcHet\tNPASS_HWE\tNPASS_MAF\tNPASS_NS\n"
+  bcftools query \
+    -f '%CHROM\t%POS\t%FILTER\t%INFO/TYPE\t%QUAL\t%INFO/DP\t%INFO/ExcHet\t%INFO/HWE\t%INFO/MAF\t%INFO/NS\t%INFO/CR\t%INFO/DIST_INDEL\t%INFO/NPASS_ExcHet\t%INFO/NPASS_HWE\t%INFO/NPASS_MAF\t%INFO/NPASS_NS\n' \
+    tmp.bcf
+} | bgzip -c > "${4}.metrics.tsv.gz"
+tabix -s 1 -b 2 -e 2 "${4}.metrics.tsv.gz"
 
 # Output number of variant records remaining (non-header lines)
 nvars=$(bcftools index -n ${4}.filt.vcf.gz | tr -d '[:space:]')

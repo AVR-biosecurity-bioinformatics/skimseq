@@ -8,12 +8,12 @@ process PLOT_VCF_FILTERS {
 
     input:
     path(filter_hist)
-    path(filter_summary)
+    //path(filter_summary)
     val(outname)
 
     output: 
     path("*.pdf"),   emit: plots
-    path("*.tsv"),   emit: summary
+    //path("*.tsv"),   emit: summary
 
     script:
     def process_script = "${process_name}.R"

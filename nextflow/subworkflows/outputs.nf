@@ -22,22 +22,15 @@ workflow OUTPUTS {
         Create outputs
     */
 
-    // TODO: need to split vcf into variant types here
-
     // Define the three variant types with optional inclusion of indel and invariant
     def variant_types = ['snp']
     if( params.output_indel )      variant_types << 'indel'
     if( params.output_invariant )  variant_types << 'invariant'
 
-
-    ch_vcfs
-        .combine(Channel.of(*variant_types))
-        .set { ch_vcf_types }
-
     // Create a channel of all 3 variant types + all together for merging
      ch_vcfs
         .combine(Channel.of(*variant_types))
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi, type -> tuple(type, vcf, tbi) }
+        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, type -> tuple(type, vcf, tbi) }
         .concat(ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
         .groupTuple(by: 0)
         .set { ch_filtered_vcfs_to_merge }
@@ -64,7 +57,7 @@ workflow OUTPUTS {
         .set{ ch_final_vcfs }
 
     // Create beagle GL file
-    def ch_beagle_gl_out = Channel.empty()
+    ch_beagle_gl_out = Channel.empty()
     if (params.output_beagle_gl) {
         CREATE_BEAGLE_GL (
             ch_final_vcfs,
