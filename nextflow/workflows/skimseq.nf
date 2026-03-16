@@ -67,12 +67,6 @@ workflow SKIMSEQ {
                     "Sample names must be at least 3 characters long because bcftools +fill-tags fails on 2-character sample IDs."
             }
 
-            // Fail early on sample names less than 3 characters
-            if( pop_raw =~ /\s/ ) {
-                        error "Invalid population name '${pop_raw}' for sample '${sample}' in samplesheet. " +
-                            "Population names must not contain spaces. Please replace spaces with underscores in the input file."
-            }
-
             def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
             tuple(sample, lib, pop, r1, r2)
         }
