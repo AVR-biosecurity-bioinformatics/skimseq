@@ -32,13 +32,6 @@ tryCatch(
     # Find files
     files <- list.files(pattern = "metrics.tsv.gz$", full.names = TRUE)
 
-    # TESTING
-    files <- list.files(
-      path = "metrics",
-      pattern = "metrics.tsv.gz$",
-      full.names = TRUE
-    )
-
     # Define default binning rules for each metric. NA's will be estimated from files
     metric_specs <- tibble::tribble(
       ~RULE    , ~COLUMN  , ~MIN , ~MAX , ~NBINS ,

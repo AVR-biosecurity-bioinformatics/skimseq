@@ -28,9 +28,12 @@ awk -v n="$POPULATION_MIN_SAMPLES_PER_POP" '
         next
     }
     ($1 in keep) {
-        count[$2]++
+        pop_name = $2
+        gsub(/[[:space:]_]+/, "", pop_name)
+
+        count[pop_name]++
         sample[NR] = $1
-        pop[NR]    = $2
+        pop[NR]    = pop_name
     }
     END {
         for (i = 1; i <= NR; i++) {
@@ -39,7 +42,7 @@ awk -v n="$POPULATION_MIN_SAMPLES_PER_POP" '
             }
         }
     }
-' ${4}.samples.txt "${6}" > sample_groups.tsv
+' "${4}.samples.txt" "${6}" > sample_groups.tsv
 
 # number of pops (one vcf per pop)
 N_POPS=$(cut -f2 sample_groups.tsv | tr ',' '\n' | sort -u | sed '/^$/d' | wc -l)
