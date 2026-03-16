@@ -238,7 +238,7 @@ tryCatch(
       ) %>%
       mutate(PROP = 0)
 
-    TYPEs <- intersect(
+    variant_types <- intersect(
       c("SNP", "INDEL", "REF", "ALL"),
       unique(global_df$TYPE)
     )
@@ -261,16 +261,16 @@ tryCatch(
 
     # Create global qc plots
     #TODO: add back in  vlines for filter thresholds
-    global_qc_plots <- vector("list", length = length(TYPEs))
-    for (v in 1:length(TYPEs)) {
-      TYPE <- TYPEs[v]
+    global_qc_plots <- vector("list", length = length(variant_types))
+    for (v in 1:length(variant_types)) {
+      variant_type <- variant_types[v]
 
       plot_df <- global_df %>%
-        filter(TYPE == TYPE) %>%
+        filter(TYPE == variant_type) %>%
         filter(is.finite(BIN), !is.na(BIN))
 
       axis_df <- global_axis_df %>%
-        filter(TYPE == TYPE)
+        filter(TYPE == variant_type)
 
       if (nrow(plot_df) == 0) {
         next
@@ -287,7 +287,7 @@ tryCatch(
         scale_y_continuous(labels = scales::percent) +
         scale_x_continuous(labels = thin_binned_labels(8)) +
         theme_classic() +
-        labs(title = TYPE, x = NULL, y = "Proportion") +
+        labs(title = variant_type, x = NULL, y = "Proportion") +
         theme(
           legend.position = "none",
           axis.text.x = element_text(angle = 45, hjust = 1)
