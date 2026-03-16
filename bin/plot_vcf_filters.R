@@ -32,73 +32,23 @@ tryCatch(
     # Find files
     files <- list.files(pattern = "metrics.tsv.gz$", full.names = TRUE)
 
-    # columns to extract from each summary file
-    global_cols <- c(
-      "CHROM",
-      "POS",
-      "FILTER",
-      "QUAL",
-      "DP",
-      "CR",
-      "NS",
-      "MAF",
-      "HWE",
-      "TYPE",
-      "ExcHet",
-      "DIST_INDEL"
+    # TESTING
+    files <- list.files(
+      path = "metrics",
+      pattern = "metrics.tsv.gz$",
+      full.names = TRUE
     )
-    per_pop_prefixes <- c("NS", "MAF", "HWE", "ExcHet")
-    per_pop_pattern <- paste0(
-      "^(",
-      paste(per_pop_prefixes, collapse = "|"),
-      ")_"
-    )
-
-    # Function to read each chunked metrics file, and split into global and per_pop data frames
-    split_metrics_one_chunk <- function(file) {
-      df <- readr::read_tsv(file, show_col_types = FALSE, na = ".") %>%
-        mutate(
-          VARIANT_TYPE = dplyr::case_when(
-            TYPE == "SNP" ~ "snp",
-            TYPE == "INDEL" ~ "indel",
-            TYPE == "REF" ~ "invariant",
-            TRUE ~ tolower(TYPE)
-          )
-        )
-
-      per_pop_cols <- names(df)[stringr::str_detect(names(df), per_pop_pattern)]
-      global_cols <- setdiff(names(df), per_pop_cols)
-
-      global_df <- df %>%
-        select(all_of(global_cols))
-
-      per_pop_df <- df %>%
-        select(CHROM, POS, FILTER, TYPE, VARIANT_TYPE, all_of(per_pop_cols)) %>%
-        pivot_longer(
-          cols = all_of(per_pop_cols),
-          names_to = "METRIC_POP",
-          values_to = "VALUE"
-        ) %>%
-        tidyr::extract(
-          METRIC_POP,
-          into = c("RULE", "POP"),
-          regex = "^(NS|MAF|HWE|ExcHet)_(.+)$",
-          remove = TRUE
-        )
-
-      list(global = global_df, per_pop = per_pop_df)
-    }
 
     # Define default binning rules for each metric. NA's will be estimated from files
     metric_specs <- tibble::tribble(
-      ~RULE    , ~COLUMN  , ~FAIL_PATTERN                                 , ~MIN , ~MAX , ~NBINS ,
-      "QUAL"   , "QUAL"   , "SNP_QUAL_FAIL|INDEL_QUAL_FAIL|INV_QUAL_FAIL" ,    0 , NA   ,    100 ,
-      "DP"     , "DP"     , "SNP_DP_FAIL|INDEL_DP_FAIL|INV_DP_FAIL"       ,    0 , NA   ,    100 ,
-      "ExcHet" , "ExcHet" , "SNP_EH_FAIL|INDEL_EH_FAIL"                   ,    0 , 1    ,    100 ,
-      "HWE"    , "HWE"    , "SNP_HWE_FAIL|INDEL_HWE_FAIL"                 ,    0 , 1    ,    100 ,
-      "MAF"    , "MAF"    , "SNP_MAF_FAIL|INDEL_MAF_FAIL"                 ,    0 , 0.5  ,    100 ,
-      "NS"     , "NS"     , "SNP_NS_FAIL|INDEL_NS_FAIL|INV_NS_FAIL"       ,    0 , NA   ,    100 ,
-      "CR"     , "CR"     , "SNP_CR_FAIL|INDEL_CR_FAIL|INV_CR_FAIL"       ,    0 , 1    ,    100
+      ~RULE    , ~COLUMN  , ~MIN , ~MAX , ~NBINS ,
+      "QUAL"   , "QUAL"   ,    0 , NA   ,    100 ,
+      "DP"     , "DP"     ,    0 , NA   ,    100 ,
+      "ExcHet" , "ExcHet" ,    0 , 1    ,    100 ,
+      "HWE"    , "HWE"    ,    0 , 1    ,    100 ,
+      "MAF"    , "MAF"    ,    0 , 0.5  ,    100 ,
+      "NS"     , "NS"     ,    0 , NA   ,    100 ,
+      "CR"     , "CR"     ,    0 , 1    ,    100
     )
 
     # Function to subsample a few files and estimate max
@@ -163,10 +113,53 @@ tryCatch(
         MAX = ifelse(is.na(MAX), unlist(sampled_max[COLUMN]), MAX)
       )
 
-    # Get just the per-pop ones
+    # Get just the per-pop metrics
     per_pop_metric_specs <- metric_specs %>%
       filter(RULE %in% c("NS", "MAF", "HWE", "ExcHet")) %>%
       dplyr::select(RULE, MIN, MAX, NBINS)
+
+    # Function to read each chunked metrics file, and split into global and per_pop data frames
+    split_metrics_one_chunk <- function(file) {
+      df <- readr::read_tsv(file, show_col_types = FALSE, na = ".")
+
+      # columns to extract from each summary file
+      per_pop_prefixes <- c("NS", "MAF", "HWE", "ExcHet")
+      per_pop_pattern <- paste0(
+        "^(",
+        paste(per_pop_prefixes, collapse = "|"),
+        ")_"
+      )
+
+      per_pop_cols <- names(df)[stringr::str_detect(names(df), per_pop_pattern)]
+      global_cols <- setdiff(
+        names(df)[!names(df) %in% c("CHROM", "POS", "FILTER", "TYPE")],
+        per_pop_cols
+      )
+
+      global_df <- df %>%
+        select(CHROM, POS, FILTER, TYPE, all_of(global_cols)) %>%
+        pivot_longer(
+          cols = all_of(global_cols),
+          names_to = "RULE",
+          values_to = "VALUE"
+        )
+
+      per_pop_df <- df %>%
+        select(CHROM, POS, FILTER, TYPE, all_of(per_pop_cols)) %>%
+        pivot_longer(
+          cols = all_of(per_pop_cols),
+          names_to = "METRIC_POP",
+          values_to = "VALUE"
+        ) %>%
+        tidyr::extract(
+          METRIC_POP,
+          into = c("RULE", "POP"),
+          regex = "^(NS|MAF|HWE|ExcHet)_(.+)$",
+          remove = TRUE
+        )
+
+      list(global = global_df, per_pop = per_pop_df)
+    }
 
     # Function to bin statistic values to reduce file size
     bin_values <- function(x, min_val, max_val, nbins) {
@@ -179,67 +172,60 @@ tryCatch(
       mids[idx]
     }
 
-    # Function to summarise metrics for each chunk
-    summarise_global_chunk <- function(global_df, metric_specs) {
-      purrr::map_dfr(seq_len(nrow(metric_specs)), function(i) {
-        spec <- metric_specs[i, ]
+    # Function to summarise global and per_pop filter metrics for each chunk
+    summarise_metric_chunk <- function(df, metric_specs, per_pop = FALSE) {
+      fail_tag_fun <- if (per_pop) {
+        function(type, rule) toupper(paste0(type, "_POP_", rule, "_FAIL"))
+      } else {
+        function(type, rule) toupper(paste0(type, "_", rule, "_FAIL"))
+      }
 
-        vals <- global_df[[spec$COLUMN]]
-        keep <- !is.na(vals)
-
-        if (!any(keep)) {
-          return(NULL)
-        }
-
-        tibble(
-          RULE = spec$RULE,
-          VARIANT_TYPE = global_df$VARIANT_TYPE[keep],
-          FILTER = if_else(
-            stringr::str_detect(global_df$FILTER[keep], spec$FAIL_PATTERN),
-            "FAIL",
-            "PASS"
-          ),
-          BIN = bin_values(vals[keep], spec$MIN, spec$MAX, spec$NBINS)
-        ) %>%
-          count(RULE, FILTER, VARIANT_TYPE, BIN, name = "COUNT")
-      })
-    }
-
-    summarise_per_pop_chunk <- function(per_pop_df, per_pop_metric_specs) {
-      per_pop_df %>%
-        left_join(per_pop_metric_specs, by = "RULE") %>%
+      df <- df %>%
         filter(!is.na(VALUE)) %>%
+        left_join(metric_specs, by = "RULE") %>%
         mutate(
-          FILTER = if_else(stringr::str_detect(FILTER, "POP"), "FAIL", "PASS"),
-          BIN = purrr::pmap_dbl(
-            list(VALUE, MIN, MAX, NBINS),
-            ~ bin_values(..1, ..2, ..3, ..4)
-          )
+          EXPECTED_FAIL = fail_tag_fun(TYPE, RULE),
+          FILTER_CLASS = if_else(FILTER == EXPECTED_FAIL, "FAIL", "PASS")
         ) %>%
-        count(RULE, POP, FILTER, VARIANT_TYPE, BIN, name = "COUNT")
+        group_by(RULE) %>%
+        mutate(
+          BIN = bin_values(VALUE, first(MIN), first(MAX), first(NBINS))
+        ) %>%
+        ungroup()
+
+      if (per_pop) {
+        df %>%
+          count(RULE, POP, FILTER = FILTER_CLASS, TYPE, BIN, name = "COUNT")
+      } else {
+        df %>% count(RULE, FILTER = FILTER_CLASS, TYPE, BIN, name = "COUNT")
+      }
     }
 
     # Process each chunk at a time
     global_list <- vector("list", length(files))
     per_pop_list <- vector("list", length(files))
-
     for (i in seq_along(files)) {
+      print(i)
       x <- split_metrics_one_chunk(files[[i]])
 
-      global_list[[i]] <- summarise_global_chunk(x$global, metric_specs)
-      per_pop_list[[i]] <- summarise_per_pop_chunk(
+      global_list[[i]] <- summarise_metric_chunk(
+        x$global,
+        metric_specs,
+        per_pop = FALSE
+      )
+      per_pop_list[[i]] <- summarise_metric_chunk(
         x$per_pop,
-        per_pop_metric_specs
+        per_pop_metric_specs,
+        per_pop = TRUE
       )
 
       rm(x)
-      gc(FALSE)
     }
 
     global_df <- bind_rows(global_list) %>%
-      group_by(RULE, FILTER, VARIANT_TYPE, BIN) %>%
+      group_by(RULE, FILTER, TYPE, BIN) %>%
       summarise(COUNT = sum(COUNT), .groups = "drop") %>%
-      group_by(VARIANT_TYPE, RULE) %>%
+      group_by(TYPE, RULE) %>%
       mutate(
         PROP = COUNT / sum(COUNT),
         n_grp = dplyr::n()
@@ -251,7 +237,7 @@ tryCatch(
       )
 
     global_axis_df <- global_df %>%
-      distinct(VARIANT_TYPE, RULE, MIN, MAX) %>%
+      distinct(TYPE, RULE, MIN, MAX) %>%
       tidyr::pivot_longer(
         cols = c(MIN, MAX),
         names_to = "BOUND",
@@ -259,9 +245,9 @@ tryCatch(
       ) %>%
       mutate(PROP = 0)
 
-    variant_types <- intersect(
-      c("snp", "indel", "invariant", "all"),
-      unique(global_df$VARIANT_TYPE)
+    TYPEs <- intersect(
+      c("SNP", "INDEL", "REF", "ALL"),
+      unique(global_df$TYPE)
     )
 
     # Function to not display all breaks for scale_x_binned
@@ -282,16 +268,16 @@ tryCatch(
 
     # Create global qc plots
     #TODO: add back in  vlines for filter thresholds
-    global_qc_plots <- vector("list", length = length(variant_types))
-    for (v in 1:length(variant_types)) {
-      variant_type <- variant_types[v]
+    global_qc_plots <- vector("list", length = length(TYPEs))
+    for (v in 1:length(TYPEs)) {
+      TYPE <- TYPEs[v]
 
       plot_df <- global_df %>%
-        filter(VARIANT_TYPE == variant_type) %>%
+        filter(TYPE == TYPE) %>%
         filter(is.finite(BIN), !is.na(BIN))
 
       axis_df <- global_axis_df %>%
-        filter(VARIANT_TYPE == variant_type)
+        filter(TYPE == TYPE)
 
       if (nrow(plot_df) == 0) {
         next
@@ -308,7 +294,7 @@ tryCatch(
         scale_y_continuous(labels = scales::percent) +
         scale_x_continuous(labels = thin_binned_labels(8)) +
         theme_classic() +
-        labs(title = variant_type, x = NULL, y = "Proportion") +
+        labs(title = TYPE, x = NULL, y = "Proportion") +
         theme(
           legend.position = "none",
           axis.text.x = element_text(angle = 45, hjust = 1)
@@ -320,19 +306,19 @@ tryCatch(
     try(dev.off(), silent = TRUE)
 
     # Create per-pop qc plots
-
     per_pop_df <- bind_rows(per_pop_list) %>%
-      group_by(RULE, POP, FILTER, VARIANT_TYPE, BIN) %>%
+      group_by(RULE, POP, FILTER, TYPE, BIN) %>%
       summarise(COUNT = sum(COUNT), .groups = "drop") %>%
-      group_by(POP, VARIANT_TYPE, RULE) %>%
+      group_by(POP, TYPE, RULE) %>%
       mutate(PROP = COUNT / sum(COUNT)) %>%
       ungroup() %>%
       left_join(per_pop_metric_specs, by = "RULE") %>%
       mutate(
-        FACET_COL = paste0(VARIANT_TYPE, ":", RULE)
+        FACET_COL = paste0(TYPE, ":", RULE)
       )
+
     per_pop_axis_df <- per_pop_df %>%
-      distinct(POP, RULE, VARIANT_TYPE, FACET_COL, MIN, MAX) %>%
+      distinct(POP, RULE, TYPE, FACET_COL, MIN, MAX) %>%
       tidyr::pivot_longer(
         cols = c(MIN, MAX),
         names_to = "BOUND",
