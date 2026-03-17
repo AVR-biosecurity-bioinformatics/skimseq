@@ -34,14 +34,14 @@ tryCatch(
 
     # Define default binning rules for each metric. NA's will be estimated from files
     metric_specs <- tibble::tribble(
-      ~RULE    , ~COLUMN  , ~MIN , ~MAX , ~NBINS ,
-      "QUAL"   , "QUAL"   ,    0 , NA   ,    100 ,
-      "DP"     , "DP"     ,    0 , NA   ,    100 ,
-      "ExcHet" , "ExcHet" ,    0 , 1    ,    100 ,
-      "HWE"    , "HWE"    ,    0 , 1    ,    100 ,
-      "MAF"    , "MAF"    ,    0 , 0.5  ,    100 ,
-      "NS"     , "NS"     ,    0 , NA   ,    100 ,
-      "CR"     , "CR"     ,    0 , 1    ,    100
+      ~RULE    , ~MIN , ~MAX , ~NBINS ,
+      "QUAL"   ,    0 , NA   ,    100 ,
+      "DP"     ,    0 , NA   ,    100 ,
+      "ExcHet" ,    0 , 1    ,    100 ,
+      "HWE"    ,    0 , 1    ,    100 ,
+      "MAF"    ,    0 , 0.5  ,    100 ,
+      "NS"     ,    0 , NA   ,    100 ,
+      "CR"     ,    0 , 1    ,    100
     )
 
     # Function to subsample a few files and estimate max
@@ -91,7 +91,7 @@ tryCatch(
 
     cols_to_estimate <- metric_specs %>%
       dplyr::filter(is.na(MAX)) %>%
-      dplyr::pull(COLUMN) %>%
+      dplyr::pull(RULE) %>%
       unique()
 
     sampled_max <- estimate_max_from_sample(
@@ -103,7 +103,7 @@ tryCatch(
 
     metric_specs <- metric_specs %>%
       dplyr::mutate(
-        MAX = ifelse(is.na(MAX), unlist(sampled_max[COLUMN]), MAX)
+        MAX = ifelse(is.na(MAX), unlist(sampled_max[RULE]), MAX)
       )
 
     # Get just the per-pop metrics
@@ -173,12 +173,27 @@ tryCatch(
         function(type, rule) toupper(paste0(type, "_", rule, "_FAIL"))
       }
 
-      df <- df %>%
+      df1 <- df %>%
         filter(!is.na(VALUE)) %>%
         left_join(metric_specs, by = "RULE") %>%
         mutate(
-          EXPECTED_FAIL = fail_tag_fun(TYPE, RULE),
-          FILTER_CLASS = if_else(FILTER == EXPECTED_FAIL, "FAIL", "PASS")
+          ROW_ID = dplyr::row_number(),
+          EXPECTED_FAIL = fail_tag_fun(TYPE, RULE)
+        )
+
+      # Expand FILTER tags once, then keep only exact matches to EXPECTED_FAIL
+      fail_ids <- df1 %>%
+        select(ROW_ID, FILTER, EXPECTED_FAIL) %>%
+        tidyr::separate_longer_delim(FILTER, delim = ";") %>%
+        filter(FILTER == EXPECTED_FAIL) %>%
+        distinct(ROW_ID) %>%
+        mutate(FILTER_CLASS = "FAIL")
+
+      df2 <- df1 %>%
+        select(-FILTER) %>%
+        left_join(fail_ids, by = "ROW_ID") %>%
+        mutate(
+          FILTER_CLASS = dplyr::coalesce(FILTER_CLASS, "PASS")
         ) %>%
         group_by(RULE) %>%
         mutate(
@@ -187,10 +202,11 @@ tryCatch(
         ungroup()
 
       if (per_pop) {
-        df %>%
+        df2 %>%
           count(RULE, POP, FILTER = FILTER_CLASS, TYPE, BIN, name = "COUNT")
       } else {
-        df %>% count(RULE, FILTER = FILTER_CLASS, TYPE, BIN, name = "COUNT")
+        df2 %>%
+          count(RULE, FILTER = FILTER_CLASS, TYPE, BIN, name = "COUNT")
       }
     }
 
@@ -206,12 +222,12 @@ tryCatch(
         metric_specs,
         per_pop = FALSE
       )
+
       per_pop_list[[i]] <- summarise_metric_chunk(
         x$per_pop,
         per_pop_metric_specs,
         per_pop = TRUE
       )
-
       rm(x)
     }
 
@@ -236,7 +252,7 @@ tryCatch(
         names_to = "BOUND",
         values_to = "X"
       ) %>%
-      mutate(PROP = 0)
+      mutate(PROP = 0, COUNT = 0)
 
     variant_types <- intersect(
       c("SNP", "INDEL", "REF", "ALL"),
@@ -278,16 +294,15 @@ tryCatch(
 
       global_qc_plots[[v]] <- ggplot(
         plot_df,
-        aes(x = BIN, y = PROP, fill = FILTER)
+        aes(x = BIN, y = COUNT, fill = FILTER)
       ) +
-        geom_blank(data = axis_df, aes(x = X, y = PROP), inherit.aes = FALSE) +
+        geom_blank(data = axis_df, aes(x = X, y = COUNT), inherit.aes = FALSE) +
         geom_col() +
-        facet_wrap(~RULE, scales = "free_x") +
+        facet_wrap(~RULE, scales = "free") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
-        scale_y_continuous(labels = scales::percent) +
-        scale_x_continuous(labels = thin_binned_labels(8)) +
+        scale_x_binned(n.breaks = 100, labels = thin_binned_labels(8)) +
         theme_classic() +
-        labs(title = variant_type, x = NULL, y = "Proportion") +
+        labs(title = variant_type, x = NULL, y = "Number of sites") +
         theme(
           legend.position = "none",
           axis.text.x = element_text(angle = 45, hjust = 1)
@@ -317,7 +332,7 @@ tryCatch(
         names_to = "BOUND",
         values_to = "X"
       ) %>%
-      mutate(PROP = 0)
+      mutate(PROP = 0, COUNT = 0)
 
     #TODO: add back in  vlines for filter thresholds
     poprules <- unique(per_pop_df$RULE)
@@ -339,26 +354,25 @@ tryCatch(
 
       pop_qc_plots[[p]] <- ggplot(
         plot_df,
-        aes(x = BIN, y = PROP, fill = FILTER)
+        aes(x = BIN, y = COUNT, fill = FILTER)
       ) +
         geom_blank(
           data = axis_df,
-          aes(x = X, y = PROP),
+          aes(x = X, y = COUNT),
           inherit.aes = FALSE
         ) +
         geom_col() +
         facet_grid(POP ~ FACET_COL, scales = "free_x") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
-        scale_y_continuous(labels = scales::percent) +
-        scale_x_continuous(
-          labels = thin_binned_labels(8),
-          expand = expansion(mult = c(0, 0))
+        scale_x_binned(
+          n.breaks = 100,
+          labels = thin_binned_labels(8)
         ) +
         theme_classic() +
         labs(
           title = paste("Per-population", rule),
           x = NULL,
-          y = "Proportion"
+          y = "Number of sites"
         ) +
         theme(
           legend.position = "none",

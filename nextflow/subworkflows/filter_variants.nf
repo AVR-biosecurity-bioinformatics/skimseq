@@ -10,7 +10,6 @@ include { CALC_CHUNK_DP                                } from '../modules/calc_c
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
 include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
 include { FILTER_VCF                                   } from '../modules/filter_vcf'
-include { MERGE_VCFS as MERGE_FILTERED_SITELISTS       } from '../modules/merge_vcfs'
 include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
@@ -34,7 +33,7 @@ workflow FILTER_VARIANTS {
 
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP(
-        ch_vcfs
+        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_map ) }
     )
 
     // Merge all chunk DP histograms together
@@ -104,18 +103,6 @@ workflow FILTER_VARIANTS {
      /*
         Create site filtering QC plots
     */
-    //FILTER_VCF.out.tagged_sitelist
-    //    .map { interval_hash, interval_bed, bed_tbi, tsv, tbi ->
-    //        tuple( interval_hash, tsv, tbi )
-    //    }
-    //.set { ch_vcfs_for_qc }
-
-    // Create site histograms - uses the tags from the soft filtered vcf
-    // TODO: need to update this for new mixed format
-
-    //CREATE_FILTER_HIST(
-    //    ch_vcfs_for_qc        
-    //)
 
     // QC plots for site histograms
     PLOT_VCF_FILTERS (
@@ -136,27 +123,6 @@ workflow FILTER_VARIANTS {
         .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple( interval_hash, interval_bed, bed_tbi, vcf, tbi) }
         .set { ch_filtered_sites }
 
-    // Merge sitelists back together by interval
-    ch_filtered_sites.map {  interval_hash, interval_bed, bed_tbi, vcf, tbi-> tuple(interval_hash, vcf, tbi) }
-        .groupTuple(by: 0)
-        .set { ch_sitelists_to_merge }
-
-    // Group all filtered sitelists by variant type and merge
-    MERGE_FILTERED_SITELISTS (
-        ch_sitelists_to_merge
-    )
-
-    // Reattach interval metadata
-    MERGE_FILTERED_SITELISTS.out
-        .join(ch_filtered_sites
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi ->
-            tuple(interval_hash, interval_bed, bed_tbi)
-        })
-        .map { interval_hash, merged_vcf, merged_tbi, interval_bed, bed_tbi ->
-            tuple( interval_hash, interval_bed, bed_tbi, merged_vcf, merged_tbi)
-        }
-        .set { ch_filtered_sites_merged }
-
     FILTER_VCF.out.samples_to_keep.first()
         .splitText( by: 1 )
         .unique()
@@ -165,6 +131,6 @@ workflow FILTER_VARIANTS {
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_vcf = ch_filtered_vcf
-    filtered_sitelist = ch_filtered_sites_merged
+    filtered_sitelist = ch_filtered_sites
     sample_names_filt = ch_sample_names_filt
 }
