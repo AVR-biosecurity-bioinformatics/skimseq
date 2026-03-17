@@ -361,7 +361,7 @@ tryCatch(
           inherit.aes = FALSE
         ) +
         geom_col() +
-        facet_grid(POP ~ ., scales = "free_y") +
+        facet_grid(POP ~ .) +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_x_binned(
           n.breaks = 100,
