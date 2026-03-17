@@ -53,7 +53,7 @@ workflow OUTPUTS {
 
     // Create channel containing filtered VCF along with seperate SNP and INDEL vcf
     ch_final_all
-        //.mix(ch_final_snp, ch_final_indel)
+        .mix(ch_final_snp, ch_final_indel)
         .set{ ch_final_vcfs }
 
     // Create beagle GL file
