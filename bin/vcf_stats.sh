@@ -8,18 +8,11 @@ set -u
 # $4 = Reference genome
 # $5 = Sample
 
-bcftools view \
-  --threads ${1} \
-  -s ${5} \
-  --exclude-uncalled \
-  -Ou ${2} \
-| bcftools stats \
-    --threads ${1} \
-    -F ${4} \
-    -s ${5} \
-    - \
-| awk -v s="${5}" 'BEGIN{FS=OFS="\t"}
-    /^#/ {print; next}
-    $1=="ID" { $3=s ".vcf.gz" }
-    { print }
-' > "${5}.vcfstats.txt"
+# Subset to sample and exclude uncalled
+bcftools view -s ${5} --exclude-uncalled -Ob ${3}.bcf > ${5}.bcf
+bcftools index ${5}.bcf
+
+# Calculate stats
+bcftools stats -F ${4} SAMPLE.bcf > "${5}.vcfstats.txt"
+
+rm ${5}.bcf*
