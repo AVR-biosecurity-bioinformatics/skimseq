@@ -4,15 +4,19 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = vcf file
-# $3 = vcf index file
-# $4 = Reference genome
-# $5 = Sample
+# $3 = Reference genome
+# $4 = Sample
 
 # Subset to sample and exclude uncalled
-bcftools view -s ${5} --exclude-uncalled -Ob ${3}.bcf > ${5}.bcf
-bcftools index ${5}.bcf
+bcftools view -s ${4} --exclude-uncalled -Ob -o ${4}.bcf ${2}
+bcftools index ${4}.bcf
 
 # Calculate stats
-bcftools stats -F ${4} SAMPLE.bcf > "${5}.vcfstats.txt"
+bcftools stats -F ${3} ${4}.bcf \
+| awk -v s="${4}" 'BEGIN{FS=OFS="\t"}
+    /^#/ {print; next}
+    $1=="ID" { $3=s ".vcf.gz" }
+    { print }
+' > "${4}.vcfstats.txt"
 
-rm ${5}.bcf*
+rm ${4}.bcf*

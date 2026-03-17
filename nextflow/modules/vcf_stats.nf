@@ -23,7 +23,6 @@ process VCF_STATS {
     bash ${process_script} \
         ${task.cpus} \
         ${vcf} \
-        ${vcf_tbi} \
         ${ref_genome} \
         ${sample}
 
