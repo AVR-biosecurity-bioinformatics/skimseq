@@ -14,11 +14,10 @@ bcftools query -f '%DP\n' "${5}" \
 | LC_ALL=C sort -n -k1,1 > "${3}.dphist.tsv"
 
 # total records and missing records for chunk
-bcftools +setGT -Ou -- \
+bcftools +setGT "${5}" -- \
     -t q \
     -n . \
-    -i "FORMAT/GQ < ${GENOTYPE_QUAL:-0} | FORMAT/DP < ${GENOTYPE_DP_MIN:-0} | FORMAT/DP > ${GENOTYPE_DP_MAX:-999999999}" 
-    "${5}" \
+    -i "FORMAT/GQ < ${GENOTYPE_QUAL:-0} | FORMAT/DP < ${GENOTYPE_DP_MIN:-0} | FORMAT/DP > ${GENOTYPE_DP_MAX:-999999999}" \
     | bcftools stats --threads ${1} -s - \
     | awk -v out="${3}.missing.tsv" 'BEGIN{OFS="\t"}
     $1=="SN" && $3=="number" && $5=="records:" {

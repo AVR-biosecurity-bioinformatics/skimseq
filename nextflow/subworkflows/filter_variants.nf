@@ -33,7 +33,7 @@ workflow FILTER_VARIANTS {
 
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_map ) }
+        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_map ) }
     )
 
     // Merge all chunk DP histograms together

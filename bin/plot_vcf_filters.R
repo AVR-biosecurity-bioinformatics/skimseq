@@ -320,13 +320,10 @@ tryCatch(
       group_by(POP, TYPE, RULE) %>%
       mutate(PROP = COUNT / sum(COUNT)) %>%
       ungroup() %>%
-      left_join(per_pop_metric_specs, by = "RULE") %>%
-      mutate(
-        FACET_COL = paste0(TYPE, ":", RULE)
-      )
+      left_join(per_pop_metric_specs, by = "RULE")
 
     per_pop_axis_df <- per_pop_df %>%
-      distinct(POP, RULE, TYPE, FACET_COL, MIN, MAX) %>%
+      distinct(POP, RULE, TYPE, MIN, MAX) %>%
       tidyr::pivot_longer(
         cols = c(MIN, MAX),
         names_to = "BOUND",
@@ -335,14 +332,16 @@ tryCatch(
       mutate(PROP = 0, COUNT = 0)
 
     #TODO: add back in  vlines for filter thresholds
-    poprules <- unique(per_pop_df$RULE)
-    pop_qc_plots <- vector("list", length = length(poprules))
+    poprules <- expand_grid(unique(per_pop_df$RULE), unique(per_pop_df$TYPE))
+    colnames(poprules) <- c("RULE", "TYPE")
+    pop_qc_plots <- vector("list", length = nrow(poprules))
 
-    for (p in seq_along(poprules)) {
-      rule <- poprules[[p]]
+    for (p in 1:nrow(poprules)) {
+      rule <- poprules$RULE[[p]]
+      type <- poprules$TYPE[[p]]
 
       plot_df <- per_pop_df %>%
-        filter(RULE == rule) %>%
+        filter(RULE == rule, TYPE == type) %>%
         filter(is.finite(BIN), !is.na(BIN))
 
       axis_df <- per_pop_axis_df %>%
@@ -362,7 +361,7 @@ tryCatch(
           inherit.aes = FALSE
         ) +
         geom_col() +
-        facet_grid(POP ~ FACET_COL, scales = "free_x") +
+        facet_grid(POP ~ ., scales = "free_y") +
         scale_fill_manual(values = c("PASS" = "#619CFF", "FAIL" = "#F8766D")) +
         scale_x_binned(
           n.breaks = 100,
@@ -370,7 +369,7 @@ tryCatch(
         ) +
         theme_classic() +
         labs(
-          title = paste("Per-population", rule),
+          title = paste(type, "per-population", rule),
           x = NULL,
           y = "Number of sites"
         ) +
