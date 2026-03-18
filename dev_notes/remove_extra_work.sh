@@ -17,7 +17,7 @@ find "$(readlink -f $workdir)" -maxdepth 2 -type d -path '**/work/*/*' > /tmp/al
 grep -Fvxf /tmp/preserve_dirs.txt /tmp/all_dirs.txt > /tmp/to_delete_dirs.txt
 
 ## Delete the extraneous work directories
-cat /tmp/to_delete_dirs.txt | xargs -r -P 4 -n 1 rm -rf
+cat /tmp/to_delete_dirs.txt | xargs -r -P 8 -n 1 rm -rf
 
 ## Clean up
 rm -f /tmp/preserve_dirs.txt /tmp/all_dirs.txt /tmp/to_delete_dirs.txt
