@@ -1,5 +1,5 @@
 process SPLIT_VCF_BY_TYPE {
-    def process_name = "split_vcf_by_t"    
+    def process_name = "split_vcf_by_type"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"

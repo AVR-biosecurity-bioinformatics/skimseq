@@ -8,7 +8,7 @@ include { VCF2DIST                                               } from '../modu
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination' 
 include { PLOT_TREE                                              } from '../modules/plot_tree' 
 include { MERGE_VCFS as MERGE_FINAL                              } from '../modules/merge_vcfs'
-include { SPLIT_VCF_BY_TYPE       L                              } from '../modules/split_vcf_by_type'
+include { SPLIT_VCF_BY_TYPE                                      } from '../modules/split_vcf_by_type'
 
 workflow OUTPUTS {
 
@@ -55,10 +55,6 @@ workflow OUTPUTS {
     ch_merge_inputs
         .groupTuple(by: 0)
         .set { ch_filtered_vcfs_to_merge }
-
-    MERGE_FINAL(
-        ch_filtered_vcfs_to_merge
-    )
 
     // Group all filtered sitelists by variant type and merge
     MERGE_FINAL (
