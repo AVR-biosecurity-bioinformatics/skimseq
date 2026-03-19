@@ -36,7 +36,7 @@ process MERGE_VCFS {
     """
     #!/usr/bin/env bash
      
-    # Write list of mask beds to process
+    # Write list of vcf files to process
     printf "%s\n" ${vcf} | sort > vcf.list
 
     ### run process script

@@ -8,6 +8,7 @@ include { VCF2DIST                                               } from '../modu
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination' 
 include { PLOT_TREE                                              } from '../modules/plot_tree' 
 include { MERGE_VCFS as MERGE_FINAL                              } from '../modules/merge_vcfs'
+include { SPLIT_VCF_BY_TYPE       L                              } from '../modules/split_vcf_by_type'
 
 workflow OUTPUTS {
 
@@ -22,18 +23,42 @@ workflow OUTPUTS {
         Create outputs
     */
 
-    // Define the three variant types with optional inclusion of indel and invariant
-    def variant_types = ['snp']
-    if( params.output_indel )      variant_types << 'indel'
-    if( params.output_invariant )  variant_types << 'invariant'
+    // First split chunked vcfs by type
+    SPLIT_VCF_BY_TYPE(
+        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
+    )
 
-    // Create a channel of all 3 variant types + all together for merging
-     ch_vcfs
-        .combine(Channel.of(*variant_types))
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, type -> tuple(type, vcf, tbi) }
-        .concat(ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) })
+    // Build merge input channels from the named emits
+    def ch_merge_inputs = SPLIT_VCF_BY_TYPE.out.snp_vcf
+        .map { interval_hash, vcf, tbi -> tuple('snp', vcf, tbi) }
+
+    if( params.output_indel ) {
+        ch_merge_inputs = ch_merge_inputs.mix(
+            SPLIT_VCF_BY_TYPE.out.indel_vcf
+                .map { interval_hash, vcf, tbi -> tuple('indel', vcf, tbi) }
+        )
+    }
+
+    if( params.output_invariant ) {
+        ch_merge_inputs = ch_merge_inputs.mix(
+            SPLIT_VCF_BY_TYPE.out.invariant_vcf
+                .map { interval_hash, vcf, tbi -> tuple('invariant', vcf, tbi) }
+        )
+    }
+
+    // Keep the combined merge from the original chunk VCFs
+    ch_merge_inputs = ch_merge_inputs.mix(
+        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) }
+    )
+
+    // Group all chunked vcfs by variant type and merge
+    ch_merge_inputs
         .groupTuple(by: 0)
         .set { ch_filtered_vcfs_to_merge }
+
+    MERGE_FINAL(
+        ch_filtered_vcfs_to_merge
+    )
 
     // Group all filtered sitelists by variant type and merge
     MERGE_FINAL (
@@ -67,8 +92,8 @@ workflow OUTPUTS {
         ch_beagle_gl_out = CREATE_BEAGLE_GL.out.beagle
     }
 
-    // Create updated channel for distance matrices
-    ch_final_vcfs
+    // Create updated channel for distance matrices, this can be run on the pre-merged files
+    ch_filtered_vcfs_to_merge
         .set{ ch_vcfs_for_dist }
 
     // Create distance matrices from VCFs

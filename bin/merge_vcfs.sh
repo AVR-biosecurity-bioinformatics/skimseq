@@ -5,15 +5,6 @@ set -euo pipefail
 # $2 = mem (GB)
 # $3 = outname
 
-# Map variant type to bcftools selectors
-# names of "snp", "indel", or "invariant" are special names where we will subset
-# Any unrecognised or empty value means: do not subset by type
-case "${3:-}" in
-  snp)        TYPE_ARGS="-v snps -m2 -M2 -e 'ALT=\"*\"'" ;;    # biallelic SNPs, drop star alleles
-  indel)      TYPE_ARGS="-v indels -m2 -M2" ;;                 # biallelic INDELs
-  invariant)  TYPE_ARGS="-v ref" ;;                            # reference-only sites
-  *)          TYPE_ARGS="" ;;                                  # no subsetting
-esac
 
 # Detect vcf type (.g.vcf.gz or .vcf.gz) from the first file
 first=$(head -n1 vcf.list || true)
@@ -79,15 +70,10 @@ fi
 
 # Run bcftools concat in --naive mode which is much faster when the chunks are already in global genomic order
 # Use z9 for maximum compression, as these files will be stored long term
-# If variant types is set, subset
 bcftools concat \
   --naive \
   --threads ${1} \
   -f vcf.list \
-  -Oz \
-| bcftools view \
-  --threads ${1} \
-  ${TYPE_ARGS} \
   -O z9 \
   -o "${3}${ext}"
 
