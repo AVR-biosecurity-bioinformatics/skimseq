@@ -8,6 +8,11 @@ set -euo pipefail
 
  bcftools view -Ou ${3} \
 | tee \
-    >(bcftools view -Oz -W -v snps   -o ${4}.snp.vcf.gz) \
-    >(bcftools view -Oz -W -v indels -o ${4}.indel.vcf.gz) \
-| bcftools view -Oz -W -v ref -o ${4}.invariant.vcf.gz
+    >(bcftools view -Oz -v snps   -o ${4}.snp.vcf.gz) \
+    >(bcftools view -Oz -v indels -o ${4}.indel.vcf.gz) \
+| bcftools view -Oz -v ref -o ${4}.invariant.vcf.gz
+
+# Index outputs
+bcftools index -t ${4}.snp.vcf.gz
+bcftools index -t ${4}.indel.vcf.gz
+bcftools index -t ${4}.invariant.vcf.gz

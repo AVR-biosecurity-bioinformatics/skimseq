@@ -22,7 +22,7 @@ process VCF2DIST {
 
     ### run process script
     bash ${process_script} \
-        ${task.cpus} \ 
-        ${outname}
+        ${task.cpus} \
+        "${outname}"
     """
 }
