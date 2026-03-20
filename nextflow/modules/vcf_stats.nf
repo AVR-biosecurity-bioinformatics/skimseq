@@ -12,7 +12,7 @@ process VCF_STATS {
     
 
     output: 
-    path("*.vcfstats.txt"),            emit: vcfstats
+    path("vcfstats.txt"),            emit: vcfstats
 
     script:
     def process_script = "${process_name}.sh"
