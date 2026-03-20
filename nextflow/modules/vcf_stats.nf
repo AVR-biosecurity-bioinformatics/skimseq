@@ -7,7 +7,7 @@ process VCF_STATS {
     module "BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi), val(sample)
+    tuple path(vcf), path(vcf_tbi)
     tuple path(ref_genome), path(genome_index_files)    
     
 
@@ -23,8 +23,6 @@ process VCF_STATS {
     bash ${process_script} \
         ${task.cpus} \
         ${vcf} \
-        ${ref_genome} \
-        ${sample}
-
+        ${ref_genome}
     """
 }
