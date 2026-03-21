@@ -6,9 +6,7 @@ set -u
 # $2 = vcf
 # $3 = ref_genome
 # $4 = posterior
-
-# Get prefix of vcf file for output name
-prefix=$(echo ${2} | cut -d'.' -f1)
+# $5 = outname
 
 # Note - beagle output only works for polymorphic sites but indels and nonvariants are supported
 
@@ -25,7 +23,7 @@ if [[ "${4}" == "true" ]]; then
         -x FORMAT/PL \
         --rename-annots rename_file \
         -o tmp.vcf
-    outname=${prefix}.pp
+    outname=${5}.pp
 else
     # keep only sites where *at least one* sample has a PL value
     # TODO: Investigate why a few samples are missing PL values, are these the invariants with multiple alleles in VCF?
@@ -33,7 +31,7 @@ else
         -i 'COUNT(FMT/PL!=".") > 0' \
         -o tmp.vcf \
         ${2}
-    outname=${prefix}.gl
+    outname=${5}.gl
 fi
 
 # Use BCFtools to convert phred scaled likelihoods into probabilities (similar to beagle file)

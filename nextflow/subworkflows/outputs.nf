@@ -62,10 +62,10 @@ workflow OUTPUTS {
     )
    
     // Extract merged variant type vcfs into convenient channels
-    MERGE_FINAL.out.vcf.filter{ it[0]=='combined' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_all }
-    MERGE_FINAL.out.vcf.filter{ it[0]=='snp' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_snp }
-    MERGE_FINAL.out.vcf.filter{ it[0]=='indel' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_indel }
-    MERGE_FINAL.out.vcf.filter{ it[0]=='invariant' }.map{ _, vcf, tbi -> [vcf,tbi] }.first().set { ch_final_inv }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='combined' }.first().set { ch_final_all }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='snp' }.first().set { ch_final_snp }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='indel' }.first().set { ch_final_indel }
+    MERGE_FINAL.out.vcf.filter{ it[0]=='invariant' }.first().set { ch_final_inv }
 
     /* 
         Create outputs
@@ -88,13 +88,9 @@ workflow OUTPUTS {
         ch_beagle_gl_out = CREATE_BEAGLE_GL.out.beagle
     }
 
-    // Create updated channel for distance matrices, this can be run on the pre-merged files
-    ch_final_vcfs
-        .set{ ch_vcfs_for_dist }
-
     // Create distance matrices from VCFs
     VCF2DIST (
-        ch_vcfs_for_dist
+        ch_final_vcfs
     )
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
