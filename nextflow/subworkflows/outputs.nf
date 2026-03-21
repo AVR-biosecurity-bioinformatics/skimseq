@@ -113,5 +113,5 @@ workflow OUTPUTS {
         ch_popmap
     )
     emit:
-    vcf = ch_final_all
+    vcf = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
 }
