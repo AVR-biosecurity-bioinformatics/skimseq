@@ -89,7 +89,7 @@ workflow OUTPUTS {
     }
 
     // Create updated channel for distance matrices, this can be run on the pre-merged files
-    ch_filtered_vcfs_to_merge
+    ch_final_vcfs
         .set{ ch_vcfs_for_dist }
 
     // Create distance matrices from VCFs

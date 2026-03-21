@@ -16,13 +16,11 @@ process VCF2DIST {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
-    
-    # Write list of vcf files to process
-    printf "%s\n" ${vcf} | sort > vcf.list
 
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
-        "${outname}"
+        "${outname}" \
+        ${vcf}
     """
 }
