@@ -267,7 +267,7 @@ mapfile -t INFO_TAGS < <(
         $0 == "MAF" ||
         $0 == "NS" ||
         $0 == "CR" ||
-        $0 ~ /^(NS|MAF|HWE|ExcHet)_[^_]+$/'
+        $0 ~ /^(NS|MAF|HWE|ExcHet|CR)_[^_]+$/'
 )
 
 HEADER="CHROM\tPOS\tFILTER\tQUAL"

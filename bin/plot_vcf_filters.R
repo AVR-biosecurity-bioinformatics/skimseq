@@ -108,7 +108,7 @@ tryCatch(
 
     # Get just the per-pop metrics
     per_pop_metric_specs <- metric_specs %>%
-      filter(RULE %in% c("NS", "MAF", "HWE", "ExcHet")) %>%
+      filter(RULE %in% c("NS", "MAF", "HWE", "ExcHet", "CR")) %>%
       dplyr::select(RULE, MIN, MAX, NBINS)
 
     # Function to read each chunked metrics file, and split into global and per_pop data frames
@@ -116,7 +116,7 @@ tryCatch(
       df <- readr::read_tsv(file, show_col_types = FALSE, na = ".")
 
       # columns to extract from each summary file
-      per_pop_prefixes <- c("NS", "MAF", "HWE", "ExcHet")
+      per_pop_prefixes <- c("NS", "MAF", "HWE", "ExcHet", "CR")
       per_pop_pattern <- paste0(
         "^(",
         paste(per_pop_prefixes, collapse = "|"),
@@ -147,7 +147,7 @@ tryCatch(
         tidyr::extract(
           METRIC_POP,
           into = c("RULE", "POP"),
-          regex = "^(NS|MAF|HWE|ExcHet)_(.+)$",
+          regex = "^(NS|MAF|HWE|ExcHet|CR)_(.+)$",
           remove = TRUE
         )
 
