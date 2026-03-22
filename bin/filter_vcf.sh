@@ -160,7 +160,10 @@ POP_PASS_TAGS=$(join_tags \
   "$(make_typed_pass_tags "MAF"    ">=" "${MAF_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
   "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
   "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
-  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
+  "$(make_typed_pass_tags "NS"     ">=" "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_pass_tags "CR"     ">=" "${MIN_CALLRATE_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_pass_tags "CR"     ">=" "${MIN_CALLRATE_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_pass_tags "CR"     ">=" "${MIN_CALLRATE_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
 )
 
 # Set up pass counting tags for each filter and concatenate together into single string for 1 pass annotation
@@ -178,7 +181,10 @@ NPASS_TAGS=$(join_tags \
   "$(make_typed_npass_tag "MAF"    "${MAF_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
   "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
   "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
-  "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
+  "$(make_typed_npass_tag "NS"     "${MIN_SAMPLES_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)" \
+  "$(make_typed_npass_tag "CR"     "${MIN_CALLRATE_POP_SNP:-}"       "SNP"       sample_groups.tsv)" \
+  "$(make_typed_npass_tag "CR"     "${MIN_CALLRATE_POP_INDEL:-}"     "INDEL"     sample_groups.tsv)" \
+  "$(make_typed_npass_tag "CR"     "${MIN_CALLRATE_POP_INVARIANT:-}" "INVARIANT" sample_groups.tsv)"
 )
 
 echo "POP_PASS_TAGS=$POP_PASS_TAGS"
@@ -200,7 +206,7 @@ bcftools view --threads ${1} -S ${4}.samples.txt -m2 -M2 -Ou "${3}" \
     -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING' \
   | bcftools +fill-tags -Ou - -- \
     -S sample_groups.tsv \
-    -t 'NS,MAF,HWE,ExcHet' \
+    -t 'NS,MAF,HWE,ExcHet,CR:1=1-F_MISSING' \
   | bcftools +fill-tags -Ou - -- \
     -t "$POP_PASS_TAGS" \
   | bcftools +fill-tags -Ou - -- \
@@ -234,6 +240,9 @@ bcftools view --threads ${1} -S ${4}.samples.txt -m2 -M2 -Ou "${3}" \
   | bcftools filter -Ou -s SNP_POP_NS_FAIL    -m+ -e "${MIN_PASS:+INFO/TYPE=\"SNP\" && INFO/NPASS_NS_SNP < ${MIN_PASS}}" \
   | bcftools filter -Ou -s INDEL_POP_NS_FAIL  -m+ -e "${MIN_PASS:+INFO/TYPE=\"INDEL\" && INFO/NPASS_NS_INDEL < ${MIN_PASS}}" \
   | bcftools filter -Ou -s INV_POP_NS_FAIL    -m+ -e "${MIN_PASS:+INFO/TYPE=\"REF\" && INFO/NPASS_NS_INVARIANT < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s SNP_POP_CR_FAIL    -m+ -e "${MIN_PASS:+INFO/TYPE=\"SNP\" && INFO/NPASS_CR_SNP < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INDEL_POP_CR_FAIL  -m+ -e "${MIN_PASS:+INFO/TYPE=\"INDEL\" && INFO/NPASS_CR_INDEL < ${MIN_PASS}}" \
+  | bcftools filter -Ou -s INV_POP_CR_FAIL    -m+ -e "${MIN_PASS:+INFO/TYPE=\"REF\" && INFO/NPASS_CR_INVARIANT < ${MIN_PASS}}" \
   | bcftools view --threads ${1} -Ob -o tmp.bcf
 
 # Drop failing sites to create filtered vcf file (main output)
