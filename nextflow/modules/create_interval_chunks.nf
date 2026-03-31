@@ -3,19 +3,19 @@ process CREATE_INTERVAL_CHUNKS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:parallel/20240722-GCCcore-13.3.0:BCFtools/1.22-GCC-13.3.0"
+    module "BEDTools/2.31.1-GCC-13.3.0:BEDOPS/2.4.42-foss-2024a:parallel/20240722-GCCcore-13.3.0:BCFtools/1.22-GCC-13.3.0"
 
     input:
     tuple val(sample), path(counts_bed), path(counts_tbi)
     tuple path(ref_genome), path(genome_index_files)
-    path(contig_bed)
+    path(include_bed)
     val(counts_per_chunk)
     val(min_interval_gap)
     val(split_large_intervals)
     val(include_zero)
 
     output: 
-    tuple val(sample), path("_*.bed"),              emit: interval_bed
+    tuple val(sample), path("*.bed.gz"), path("*.bed.gz.tbi"),    emit: interval_bed
     
     script:
     def process_script = "${process_name}.sh"
@@ -33,7 +33,7 @@ process CREATE_INTERVAL_CHUNKS {
         ${counts_per_chunk} \
         ${split_large_intervals} \
         ${min_interval_gap} \
-        ${contig_bed} \
+        ${include_bed} \
         ${include_zero} 
 
     """

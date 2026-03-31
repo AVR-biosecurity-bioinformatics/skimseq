@@ -3,14 +3,14 @@ process GENOTYPE_POSTERIORS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
+    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.22-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(vcf), path(vcf_tbi)
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(tbi), path(sites_vcf), path(sites_tbi)
 
 
     output: 
-    tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),      emit: vcf
+    tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path("*.gp.vcf.gz"), path("*.gp.vcf.gz.tbi"),      emit: vcf
     
     script:
     def process_script = "${process_name}.sh"
@@ -21,9 +21,10 @@ process GENOTYPE_POSTERIORS {
     bash ${process_script} \
         ${task.cpus} \
         ${task.memory.giga} \
-        ${vcf} \
         ${interval_hash} \
-        ${interval_bed}
+        ${interval_bed} \
+        ${vcf} \
+        ${sites_vcf}
 
     """
 }

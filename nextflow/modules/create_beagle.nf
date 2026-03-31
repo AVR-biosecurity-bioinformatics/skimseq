@@ -7,7 +7,7 @@ process CREATE_BEAGLE {
     module "BCFtools/1.21-GCC-13.3.0"
 
     input:
-    tuple path(vcf), path(vcf_tbi)
+    tuple val(outname), path(vcf), path(vcf_tbi)
     tuple path(ref_genome), path(genome_index_files)
     val(use_posteriors)
 
@@ -24,7 +24,8 @@ process CREATE_BEAGLE {
         ${task.cpus} \
         ${vcf} \
         ${ref_genome} \
-        ${use_posteriors}
+        ${use_posteriors} \
+        "${outname}"
 
 
     """

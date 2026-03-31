@@ -3,26 +3,20 @@ set -e
 set -u
 ## args are the following:
 # $1 = cpus 
-# $2 = vcf
+# $2 = outname
+# $3 = vcf
 
-# Get prefix of vcf file for output name
-prefix=$(echo ${2} | cut -d'.' -f1)
+# Run VCF2DIS in multithreaded mode on a list of chunked files
+VCF2Dis_multi -Threads ${1} -InPut ${3} -OutPut tmp.mat 
 
-# Rename samples to an ID to fit into VCF2Dis character limits
-bcftools query -l ${2} | awk '{printf "%s\tS%d\n",$0,NR}'> sample.map
-cat sample.map | cut -f2 > newnames.txt
-bcftools reheader -s newnames.txt -o tmp.vcf.gz ${2}
-
-# Run VCF2DIS
-VCF2Dis	-InPut tmp.vcf.gz -OutPut tmp.mat
-
-# Re-add sample names to output file
-awk '{print $2"\t"$1}' sample.map > map.back.tsv
-
-awk 'NR==FNR{m[$1]=$2; next}          # read map into m[]
-     NR==1{print; next}               # keep header if there is one
-     {$1 = (m[$1]?m[$1]:$1); print}'  \
-    OFS='\t' map.back.tsv tmp.mat | tail -n +2 > ${prefix}.mat
+# VCF2DIS renames any samples with >10 characters. Revert to the original naming
+bcftools query -l "$3" \
+| awk 'NR==FNR { names[++n]=$1; next }
+       FNR==1  { next }   # skip the first line containing sample count
+       {
+         $1 = names[FNR-1]
+         print
+       }' OFS='\t' - tmp.mat > "${2}.mat"
 
 # Remove temporary files
-rm tmp.vcf.gz* tmp.mat
+rm tmp.mat

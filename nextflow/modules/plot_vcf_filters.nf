@@ -8,18 +8,20 @@ process PLOT_VCF_FILTERS {
 
     input:
     path(filter_hist)
-    path(filter_summary)
+    //path(filter_summary)
+    val(outname)
 
     output: 
-    path("*.pdf"),                        emit: plots
-    path("variant_filter_summary.tsv"),   emit: summary
+    path("*.pdf"),   emit: plots
+    //path("*.tsv"),   emit: summary
 
     script:
     def process_script = "${process_name}.R"
     """
     shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
-        ${projectDir}/bin/${process_script} \
+        Rscript ${projectDir}/bin/${process_script} \
         ${projectDir} \
-        ${params.rdata}
+        ${params.rdata} \
+        ${outname}
     """
 }

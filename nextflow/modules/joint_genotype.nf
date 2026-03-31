@@ -2,10 +2,10 @@ process JOINT_GENOTYPE {
     def process_name = "joint_genotype"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
+    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(genomicsdb)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
     val(cohort_size)
@@ -23,7 +23,7 @@ process JOINT_GENOTYPE {
     }
 
     output: 
-    tuple val(interval_hash), path(interval_bed), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
     tuple val(interval_hash), path("*.vcf.gz"), path("*.vcf.gz.tbi"), path("*.stderr.log"),  emit: log
 
     script:
@@ -31,7 +31,7 @@ process JOINT_GENOTYPE {
     """
     #!/usr/bin/env bash
     
-    // Export haplotypecaller parameters
+    # Export GenotypeGVCFs parameters
     export EXCLUDE_PAD='${params.exclude_padding}'
     export OUTPUT_INVARIANT='${params.output_invariant}'
     export PLOIDY='${params.ploidy}'

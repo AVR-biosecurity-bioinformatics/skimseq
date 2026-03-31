@@ -4,15 +4,27 @@ set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = vcf file
-# $3 = vcf index file
-# $4 = Reference genome
-# $5 = Sample
+# $3 = Reference genome
+# $4 = Sample
 
-# Subset to target sample
-bcftools view -s ${5} $2 --exclude-uncalled -o ${5}.vcf.gz
+bcftools stats \
+    --threads ${1} \
+    -F ${3} \
+    -s - \
+    ${2} > "vcfstats.txt"
 
-# Calculate Per-sample statistics
-bcftools stats -F ${4} ${5}.vcf.gz > ${5}.vcfstats.txt
-
-# Remove temp file
-rm -f ${5}.vcf.gz
+#bcftools view \
+#  --threads ${1} \
+#  -s ${4} \
+#  --exclude-uncalled \
+#  -Ou ${2} \
+#| bcftools stats \
+#    --threads ${1} \
+#    -F ${3} \
+#    -s ${4} \
+#    - \
+#| awk -v s="${4}" 'BEGIN{FS=OFS="\t"}
+#    /^#/ {print; next}
+#    $1=="ID" { $3=s ".vcf.gz" }
+#    { print }
+#' > "${4}.vcfstats.txt"

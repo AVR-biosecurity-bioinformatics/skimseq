@@ -4,10 +4,9 @@
 
 //// import modules
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
-include { CALL_VARIANTS                                          } from '../modules/call_variants'
+include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller'
 include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
-include { PROFILE_HC                                             } from '../modules/profile_hc'
 include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
 
 workflow GATK_SINGLE {
@@ -117,15 +116,23 @@ workflow GATK_SINGLE {
     // CREATE_INTERVAL_CHUNKS_HC.out.interval_bed emits: tuple(sample, bed)
     // where `bed` is either a List<Path> or a single Path, so has to be normalised to list
     CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
-        .flatMap { sample, beds ->
+        .flatMap { sample, beds, tbis  ->
             // normalize to a list for cases where there are only 1 bed output for a sample
-            def lst = (beds instanceof List) ? beds : [ beds ]
+            def bedList = (beds instanceof List) ? beds : [beds]
+            def tbiList = (tbis instanceof List) ? tbis : [tbis]
+
+            assert bedList.size() == tbiList.size() :
+            "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
+
             // emit one tuple per bed file
-            lst.collect { bed ->
-            bed  = bed as Path
-            def base = bed.baseName
-            def interval_chunk = base.startsWith('_') ? base.substring(1) : base
-            tuple(sample, interval_chunk, bed)
+            (0..<bedList.size()).collect { i ->
+                def bed = bedList[i] as Path
+                def tbiPath = tbiList[i]
+                def base = bed.getFileName().toString()
+                base = base.replaceFirst(/\.gz$/, '')
+                base = base.replaceFirst(/\.bed$/, '')
+                def interval_hash = base.startsWith('_') ? base.substring(1) : base
+                tuple(sample, interval_hash, bed, tbiPath)
             }
         }
         .set { ch_interval_bed_hc }
@@ -140,41 +147,14 @@ workflow GATK_SINGLE {
     */
 
     // call variants for single samples across intervals
-    CALL_VARIANTS (
+    HAPLOTYPECALLER (
         ch_sample_intervals,
         ch_genome_indexed,
         ch_mask_bed_genotype
     )
 
-    if( params.profile_gatk ) {
-
-        // Join back onto cram and gvcf based on first 3 columns
-        CALL_VARIANTS.out.log
-            .join( ch_sample_intervals.map { sample, interval_chunk, interval_bed,cram, crai -> tuple(sample, interval_chunk, cram, crai) }, by:[0,1] )
-            .join( CALL_VARIANTS.out.gvcf_intervals, by:[0,1] )
-            .map { sample, interval_chunk, logfile, assembly_regions, cram, crai, gvcf, tbi -> tuple(sample, interval_chunk, cram, crai, gvcf, tbi, logfile, assembly_regions ) }
-            .set { ch_for_profile }
-
-        // Profile HC runtimes per Sample x Interval
-        PROFILE_HC (
-            ch_for_profile,
-            ch_genome_indexed
-        )
-
-        // Merge and output HC profiles
-        PROFILE_HC.out.summary
-            .collectFile(
-                name: 'hc_profiles.tsv',
-                storeDir: "${launchDir}/output/gatk_profiles",
-                skip: 1,
-                keepHeader: true,
-                newLine: false,
-                sort: true
-            )
-    }
-
     // Merge interval GVCFs by sample
-    CALL_VARIANTS.out.gvcf_intervals
+    HAPLOTYPECALLER.out.gvcf_intervals
         .groupTuple ( by: 0 )
         .set { ch_gvcf_to_merge }
 

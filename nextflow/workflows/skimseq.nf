@@ -6,14 +6,20 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
+include { MPILEUP_CALLING                                           } from '../subworkflows/mpileup_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
+include { FILTER_VARIANTS as FILTER_GENOTYPED_VARIANTS              } from '../subworkflows/filter_variants'
+include { PSEUDOHAPLOID_GENOTYPING                                  } from "../subworkflows/pseudohaploid_genotyping"
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
+include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites'
+include { MERGE_VCFS as MERGE_GENOTYPED_VCFS                        } from '../modules/merge_vcfs'
+include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
 
 // Create default channels
 ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
@@ -36,37 +42,51 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
-    // Reads channel
-    ch_samplesheet 
-        .splitCsv ( by: 1, skip: 1 )
-        .map { row -> [ 
-            row[0],                                 // sample
-            file( row[2], checkIfExists: true ),    // read1 
-            file( row[3], checkIfExists: true )     // read2
-            ] }
-        .map { sample, r1, r2 ->
-            // Derive a stable library ID from the R1 basename (minus extensions)
-            // This is needed when there are multiple libraries for the same sample
-            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
-            [ sample, lib, r1, r2 ]
+    // Parse input samplesheet
+    ch_samplesheet
+        .splitCsv(header: true)
+        .map { row ->
+            // Fail early if required columns are missing
+            def required = ['sample','pop','fwd','rev']
+            def present  = row.keySet()*.toString() as Set
+            def missing  = required.findAll { !(it in present) }
+            if( missing ) {
+                error "Samplesheet is missing required columns: ${missing.join(', ')}. " +
+                    "Found columns: ${present.toList().sort().join(', ')}"
             }
+
+            // Parse samplesheet columns
+            def sample = row.sample.toString().trim()
+            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_')
+            def r1     = file(row.fwd, checkIfExists: true)
+            def r2     = file(row.rev, checkIfExists: true)
+
+            // Fail early if any sample names less than 3 characters
+            if( sample.size() < 3 ) {
+                error "Invalid sample name '${sample}' in samplesheet. " +
+                    "Sample names must be at least 3 characters long because bcftools +fill-tags fails on 2-character sample IDs."
+            }
+
+            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
+            tuple(sample, lib, pop, r1, r2)
+        }
+        .set { ch_samplesheet_parsed }
+
+    // Reads channel
+    ch_samplesheet_parsed
+        .map { sample, lib, pop, r1, r2 -> tuple(sample, lib, r1, r2) }
         .set { ch_reads }
 
-    // Sample names and pops channel
-    ch_samplesheet 
-        .splitCsv ( by: 1, skip: 1 )
-        .map { row -> [
-            row[0], // sample
-            row[1] // pop
-            ] }
-        .unique()
-        .set { ch_sample_pop }
-
     // Sample names channel
-    ch_sample_pop
-        .map { sample, pop -> sample }
+    ch_samplesheet_parsed
+        .map { sample, lib, pop, r1, r2 -> sample }
         .unique()
         .set { ch_sample_names }
+
+    // Sample names and pops channel
+    ch_samplesheet_parsed
+        .map { sample, lib, pop, r1, r2 -> tuple(sample, pop) }
+        .set { ch_sample_pop }
 
     // Reference genome channel
     if ( params.ref_genome ){
@@ -78,16 +98,6 @@ workflow SKIMSEQ {
     } else {
         ch_genome = Channel.empty()
     } 
-    
-    //if ( params.mito_genome ){
-    //    ch_mito = Channel
-    //        .fromPath (
-    //            params.mito_genome, 
-    //            checkIfExists: true
-    //        )
-    //} else {
-    //    ch_mito = Channel.empty()
-    //} 
     
     /*
     Process nuclear genome
@@ -160,7 +170,7 @@ workflow SKIMSEQ {
         ch_genome_indexed
     )
     
-    PROCESS_READS.out.counts
+    PROCESS_READS.out.perbase
         .set{ ch_read_counts }
 
     /*
@@ -187,7 +197,11 @@ workflow SKIMSEQ {
     )
     
     /*
-    Call nuclear variants per sample
+    Discover nuclear variants per sample
+    This first step uses more strict filters to find just the reliable sites
+    Options for variant discovery are:
+    - GATK Haplotypecaller + GenotypeGVCFs
+    - BCFtools mpileup + call
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -197,8 +211,16 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype = ch_mito_bed
     }
     
+        // Create a list of covered perbase tracts
+    SUM_COVERED_INTERVALS(
+        PROCESS_READS.out.perbase,
+        ch_mask_bed_genotype
+    )
+    
+    SUM_COVERED_INTERVALS.out.counts
+        .set { ch_read_counts }
 
-    if ( params.variant_caller == "gatk" ){
+    if ( params.variant_discovery == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
@@ -228,19 +250,22 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-    } else if (params.variant_caller == "mpileup"){
+    } else if (params.variant_discovery == "mpileup"){
 
         // TODO: Mpileup subworkflow goes here
         // Single step mpileup and call on all samples at once
         // Re-use create_chunks_hc with option for summed counts
 
-        //BCFTOOLS_GENOTYPING (
-        //    ch_sample_names,
-        //    PROCESS_READS.out.cram,
-        //    ch_genome_indexed,
-        //    ch_include_bed,
-        //    ch_mask_bed_genotype
-        //)
+        MPILEUP_CALLING (
+            ch_sample_names,
+            PROCESS_READS.out.cram,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype,
+            ch_read_counts
+        )
+        MPILEUP_CALLING.out.vcf
+            .set{ ch_vcfs }
     }
 
     /*
@@ -257,17 +282,89 @@ workflow SKIMSEQ {
     FILTER_VARIANTS (
         ch_vcfs,
         ch_genome_indexed,
-        ch_mask_bed_vcf
+        ch_include_bed,
+        ch_mask_bed_vcf,
+        ch_sample_names,
+        ch_sample_pop,
+        params.discovered_filter
     )
+
+    FILTER_VARIANTS.out.sample_names_filt
+        .set { ch_sample_names_filt }
+
+    /*
+   Genotype Refinement
+   
+   This genotypes individuals at filtered sites, or an existing sitelist
+
+   Here we re-genotype from the original bams at only the high quality sites. 
+   Options for genotyping are:
+    - using genotypes directly from variant discovery
+    - re-genotyping with bcftools mpileup
+    - use an input vcf of existing sites
+    - TODO: Imputation with STITCH etc
+    - TODO: PCA based genotype calling using pcangsd
+    
+    */
+    
+    if ( params.genotyping == "use_discovered" ){
+        // Use the filtered variants as-is 
+        FILTER_VARIANTS.out.filtered_vcf
+            .set{ ch_genotyped_vcfs }
+    } else if (params.genotyping == "pseudohaploid"){
+
+        // TODO: sites to genotype are just the filtered sites
+        FILTER_VARIANTS.out.filtered_sitelist
+            .set { ch_sites_to_genotype }
+
+        // Call pseudohaploid genotypes by sampling a single read per individual at each site
+        PSEUDOHAPLOID_GENOTYPING (
+            ch_sites_to_genotype,
+            PROCESS_READS.out.cram,
+            ch_genome_indexed,
+            ch_sample_names
+        )
+
+        ch_genotyped_vcfs = PSEUDOHAPLOID_GENOTYPING.out.vcf
+
+    } else if (params.genotyping == "mpileup"){
+
+        // TODO: Generate a pileup file at just the filtered sites
+
+    }
+
+    /*
+    Filter genotypes and samples
+    This is only run if a genotying approach other than use_discovered was applied
+    */
+    if ( params.genotyping == "use_discovered" ){
+        ch_genotype_filtered = ch_genotyped_vcfs
+
+    } else {
+        // TODO: this should re-use filter variants subworkflow with different parameters
+        FILTER_GENOTYPED_VARIANTS (
+            ch_genotyped_vcfs,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_vcf,
+            ch_sample_names,
+            ch_sample_pop
+        )
+        ch_genotype_filtered = FILTER_GENOTYPED_VARIANTS.out.filtered_vcf
+
+        FILTER_GENOTYPED_VARIANTS.out.sample_names_filt
+            .set { ch_sample_names_filt }
+    }
 
     /*
    Create extra outputs and visualisations
     */
 
+    // TODO: Split into variant types in here?
+    // OR keep then split and merge them in here
+
     OUTPUTS (
-        FILTER_VARIANTS.out.filtered_combined,
-        FILTER_VARIANTS.out.filtered_snps,
-        FILTER_VARIANTS.out.filtered_indels,
+        ch_genotype_filtered,
         ch_genome_indexed,
         ch_sample_pop
     )
@@ -276,11 +373,11 @@ workflow SKIMSEQ {
     Quality control plots
     */
 
-    // TODO: Pass in fastqs and run FASTQC
-    // TODO: run VCF stats in here?
     QC (
-        ch_reports.mix(FILTER_VARIANTS.out.reports),
+        ch_reports,
         PROCESS_READS.out.cram,
+        OUTPUTS.out.vcf,
+        ch_sample_names_filt,
         ch_genome_indexed,
         ch_multiqc_config
     )

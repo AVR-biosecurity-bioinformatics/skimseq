@@ -1,8 +1,6 @@
 process MAP_TO_GENOME {
     def process_name = "map_to_genome"    
-    // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
     module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
@@ -16,7 +14,11 @@ process MAP_TO_GENOME {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
-    
+
+    # Export variables to script
+    export BWA_k=${params.bwa_min_seed_length}
+    export BWA_c=${ params.bwa_max_seed_occurance}
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \

@@ -5,6 +5,7 @@ set -euo pipefail
 # $2 = mem (GB)
 # $3 = outname
 
+
 # Detect vcf type (.g.vcf.gz or .vcf.gz) from the first file
 first=$(head -n1 vcf.list || true)
 if [[ -z "$first" ]]; then
@@ -70,11 +71,11 @@ fi
 # Run bcftools concat in --naive mode which is much faster when the chunks are already in global genomic order
 # Use z9 for maximum compression, as these files will be stored long term
 bcftools concat \
-    --naive \
-    --threads ${1} \
-    -f vcf.list \
-    -O z9 \
-    -o "${3}${ext}"
+  --naive \
+  --threads ${1} \
+  -f vcf.list \
+  -O z9 \
+  -o "${3}${ext}"
 
 # Index output - catch instances where naive concat has ruined contig order, in which case sort to fix
 # NOTE This is triggered when re-merging indel,snp, and invariant vcfs
