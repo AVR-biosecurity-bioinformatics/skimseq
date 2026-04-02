@@ -6,6 +6,7 @@
 include { EXTRACT_GENOME_MASKS                                      } from '../modules/extract_genome_masks' 
 include { GENMAP                                                    } from '../modules/genmap' 
 include { LONGDUST                                                  } from '../modules/longdust'
+include { NUMT_MASK                                                 } from '../modules/numt_mask'
 include { MERGE_MASKS                                               } from '../modules/merge_masks' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
 
@@ -15,6 +16,7 @@ workflow MASK_GENOME {
     ch_genome_indexed
     ch_include_bed
     ch_exclude_bed
+    ch_mito_indexed
     ch_mito_bed
     ch_read_counts
 
@@ -46,6 +48,14 @@ workflow MASK_GENOME {
        params.longdust_thresh
     )
 
+    // Create NUMT mask
+    NUMT_MASK (
+        ch_genome_indexed,
+        ch_mito_indexed,
+        params.numt_min_length,
+        params.numt_max_gap
+    )
+
     // TODO: Create read depth masks from CRAM counts
 
     /*
@@ -56,6 +66,7 @@ workflow MASK_GENOME {
     EXTRACT_GENOME_MASKS.out.mask_bed
       .concat(GENMAP.out.mask_bed)
       .concat(LONGDUST.out.mask_bed)
+      .concat(NUMT_MASK.out.mask_bed)
       .concat(ch_mito_bed)
       .collect()
       .set{ ch_mask_bed }
@@ -74,5 +85,6 @@ workflow MASK_GENOME {
     
     emit: 
     mask_bed = MERGE_MASKS.out.merged_masks
+    numt_mask_bed = NUMT_MASK.out.mask_bed
 
 }
