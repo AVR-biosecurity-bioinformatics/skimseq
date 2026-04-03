@@ -26,7 +26,7 @@ MINVAF=${8}
 MINDEPTH=${9}
 
 # Extract all reads aligning mitochondrial contig and numt regions from merged bam and convert to FASTQ 
-samtools view -b -T "$REF" --regions-file mt_numt.bed "${Sample}.cram" \
+samtools view -b -T "$REF" --regions-file mt_numt.bed ${3} \
 | samtools collate -Ou - \
 | samtools fastq -o mito.fq 
     
@@ -57,6 +57,8 @@ count_consensus_pileup() {
         if (C > max) {consensus="C"; max=C; tie=0} else if (C==max && max>0) tie=1
         if (G > max) {consensus="G"; max=G; tie=0} else if (G==max && max>0) tie=1
         if (T > max) {consensus="T"; max=T; tie=0} else if (T==max && max>0) tie=1
+
+        # TODO: Max could be used for mito copy number calculations, accepting only matchign ones
 
         # Calculate Variant allele fraction, including insertions
         vaf = max / depth
@@ -142,7 +144,7 @@ END{
 # Extract the consensus column and write to fasta
 cut -f4 allele_counts_combined.txt \
   | tr -d '\n' \
-  | sed -e "1i>${SAMPLE}" -e 's/.\{60\}/&\n/g' \
+  | sed -e "1i>${2}" -e 's/.\{60\}/&\n/g' \
   > ${3}.mito.fa
 
 # TODO: Copy number should be calculated from the count of the consensus base

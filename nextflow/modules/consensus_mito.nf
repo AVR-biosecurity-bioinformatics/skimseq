@@ -5,7 +5,7 @@ process CONSENSUS_MITO {
     publishDir "${launchDir}/output/results/mito", mode: 'copy'
 
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "BCFtools/1.21-GCC-13.3.0"
+    module "BEDTools/2.31.1-GCC-13.3.0:SeqKit/2.8.2:SAMtools/1.23.1-GCC-13.3.0:bwa-mem2/2.2.1-GCC-13.3.0"
 
     input:
     tuple val(sample), path(cram), path(cram_index)
@@ -13,8 +13,8 @@ process CONSENSUS_MITO {
     tuple path(mito_genome), path(mito_index_files)
     path(mito_bed)
     path(numt_bed)
-    value(mito_min_vaf)
-    value(mito_min_depth)
+    val(mito_min_vaf)
+    val(mito_min_depth)
 
     output: 
     tuple val(sample), path("*.mito.fa"),        emit: fasta
