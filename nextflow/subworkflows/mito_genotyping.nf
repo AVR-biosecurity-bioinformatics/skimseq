@@ -12,9 +12,11 @@ workflow MITO_GENOTYPING {
 
     take:
     ch_sample_cram
+    ch_genome_indexed
     ch_mito_indexed
     ch_mito_bed
-    ch_genome_indexed
+    ch_numt_bed
+   
 
     main: 
 
@@ -23,17 +25,25 @@ workflow MITO_GENOTYPING {
     */
 
     // Extract mitochondrial reads from genomic cram
-    PROCESS_CRAM_MITO (
-        ch_sample_cram,
-        ch_mito_bed,
-        ch_genome_indexed
-    )
+    // TODO: also extract numt region reads
+    //PROCESS_CRAM_MITO (
+    //    ch_sample_cram,
+    //   ch_mito_bed,
+    //    ch_genome_indexed
+    //)
 
     // call consensus fasta file from mito bam
     CONSENSUS_MITO (
-        PROCESS_CRAM_MITO.out.bam,
-        ch_mito_indexed
+        ch_sample_cram,
+        ch_genome_indexed,
+        ch_mito_indexed,
+        ch_mito_bed,
+        ch_numt_bed,
+        params.mito_min_vaf,
+        params.mito_min_depth
     )
+
+    // Align consensus mito reads
 
     emit: 
     mito_fasta = CONSENSUS_MITO.out.fasta
