@@ -32,52 +32,100 @@ samtools view -b -T "$REF" --regions-file mt_numt.bed ${3} \
     
 # Fuction for counting alleles using samtools consensus pileup
 # NOTE: this has been tested robustly
-count_consensus_pileup() {
-  samtools consensus --mode simple -aa -c 0 --show-del yes -d 0 -f PILEUP - \
+count_mpileup_alleles() {
+  # mpileup columns: rname pos ref depth bases quals
+  # -aa: emit all positions (including depth 0)
+  # -Q/-q: base and mapQ filters; set as you prefer
+  # -x ignore overlap removal
+  # -A count orphans
+  samtools mpileup -aa -A -q 0 -Q 0 -B --max-depth 10000 -f "$MT" - \
   | awk -v OFS="\t" -v MINVAF="$MINVAF" -v MINDEPTH="$MINDEPTH" '
-      {
-        # columns: rname pos nth depth call conf seqs quals
-        nth  = $3 + 0
-        bases = toupper($7)
+    {
+      rname = $1
+      pos   = $2
+      ref   = toupper($3)
+      bases = $5
 
-        # Sum bases and deletions (ACGT*#)
-        # gsub(/PAT/, "REPL", s) replaces all matches, and returns number of replacements
-        tmp=bases; A = gsub(/A/, "", tmp)
-        tmp=bases; C = gsub(/C/, "", tmp)
-        tmp=bases; G = gsub(/G/, "", tmp)
-        tmp=bases; T = gsub(/T/, "", tmp)
-        tmp=bases; del = gsub(/[*#]/, "", tmp)
+      # mpileup uses: . , for ref matches; ^. for read start; $ for read end
+      # and +nSEQ / -nSEQ indel annotations inside the bases string.
+      # We must strip control characters & indel payload before counting.
 
-        
-        # Recalculate depth 
-        depth =  A + C + G + T + del
-        
-        # Determine major allele and its count
-        consensus="A"; max=A; tie=0
-        if (C > max) {consensus="C"; max=C; tie=0} else if (C==max && max>0) tie=1
-        if (G > max) {consensus="G"; max=G; tie=0} else if (G==max && max>0) tie=1
-        if (T > max) {consensus="T"; max=T; tie=0} else if (T==max && max>0) tie=1
+      # If there are no reads, bases may be "*" or empty depending on flags;
+      # handle robustly after counting.
 
-        # TODO: Max could be used for mito copy number calculations, accepting only matchign ones
+      # Remove start-of-read markers and the following MQ char
+      gsub(/\^./, "", bases)
+      # Remove end-of-read markers
+      gsub(/\$/, "", bases)
 
-        # Calculate Variant allele fraction, including insertions
-        vaf = max / depth
-        
-        # Depth filtering
-        if (depth < MINDEPTH || vaf < MINVAF || tie==1) {
-            if (nth > 0) next       # drop low-support insertion columns
-            consensus = "N"         # downgrade ref-column to N
-          }
+      # Convert ref matches (.,) into the reference base so they count as A/C/G/T
+      if (ref ~ /^[ACGT]$/) {
+        gsub(/\./, ref, bases)
+        gsub(/,/, ref, bases)
+      } else {
+        # If ref is N/other, convert .,/ to N so they don’t inflate A/C/G/T
+        gsub(/\./, "N", bases)
+        gsub(/,/, "N", bases)
+      }
 
-        # Print outputs
-        print $1, $2, $3, consensus, depth, A, C, G, T, del
-      }' 
+      bases = toupper(bases)
+
+      # Optional: count insertion events before stripping them
+      # (each +<len><seq> counts as one event)
+      ins_events = 0
+      tmp2 = bases
+      while (match(tmp2, /\+[0-9]+/)) {
+        ins_events++
+        n = substr(tmp2, RSTART+1, RLENGTH-1) + 0
+        tmp2 = substr(tmp2, 1, RSTART-1) substr(tmp2, RSTART+RLENGTH+n)
+      }
+
+      # Strip all indel annotations (+nSEQ and -nSEQ) from bases
+      # This leaves base calls at this position plus deletion placeholders (*)
+      while (match(bases, /[+-][0-9]+/)) {
+        n = substr(bases, RSTART+1, RLENGTH-1) + 0
+        bases = substr(bases, 1, RSTART-1) substr(bases, RSTART+RLENGTH+n)
+      }
+
+      # Now count A/C/G/T and deletion placeholders (*)
+      tmp=bases; A = gsub(/A/, "", tmp)
+      tmp=bases; C = gsub(/C/, "", tmp)
+      tmp=bases; G = gsub(/G/, "", tmp)
+      tmp=bases; T = gsub(/T/, "", tmp)
+      tmp=bases; del = gsub(/\*/, "", tmp)
+
+      depth = A + C + G + T + del
+      nth = 0
+
+      # Handle positions with no usable observations
+      if (depth == 0) {
+        consensus = "N"
+        vaf = 0
+        print rname, pos, nth, consensus, depth, A, C, G, T, del #, ins_events
+        next
+      }
+
+      # Determine major allele among A/C/G/T (ignore del for consensus call)
+      consensus="A"; max=A; tie=0
+      if (C > max) {consensus="C"; max=C; tie=0} else if (C==max && max>0) tie=1
+      if (G > max) {consensus="G"; max=G; tie=0} else if (G==max && max>0) tie=1
+      if (T > max) {consensus="T"; max=T; tie=0} else if (T==max && max>0) tie=1
+
+      vaf = max / depth
+
+      # Depth/VAF/tie filtering
+      if (depth < MINDEPTH || vaf < MINVAF || tie==1) {
+        consensus = "N"
+      }
+
+      print rname, pos, nth, consensus, depth, A, C, G, T, del #, ins_events
+    }'
 }
 
 # Align to original reference and count alleles
 bwa-mem2 mem -t "$1" -p -a "$MT" mito.fq \
   | samtools sort -@ "$1" -O BAM -o - - \
-  | count_consensus_pileup \
+  | count_mpileup_alleles \
   > allele_counts.txt
 
 # Create shifted mitochondrial reference
@@ -93,7 +141,7 @@ bwa-mem2 index $MT_SHIFTED
 # Shifted
 bwa-mem2 mem -t "$1" -p -a "$MT_SHIFTED" mito.fq \
   | samtools sort -@ "$1" -O BAM -o - - \
-  | count_consensus_pileup \
+  | count_mpileup_alleles \
   > allele_counts_shifted.txt
 
 # unshift the allele counts
@@ -139,12 +187,11 @@ END{
 }
 ' allele_counts.txt allele_counts_unshifted.txt \
 | sort -k2,2n -k3,3n \
-> allele_counts_combined.txt
+> ${3}.allele_counts.txt
 
 # Extract the consensus column and write to fasta
-cut -f4 allele_counts_combined.txt \
+cut -f4 ${3}.allele_counts.txt \
   | tr -d '\n' \
   | sed -e "1i>${2}" -e 's/.\{60\}/&\n/g' \
   > ${3}.mito.fa
 
-# TODO: Copy number should be calculated from the count of the consensus base

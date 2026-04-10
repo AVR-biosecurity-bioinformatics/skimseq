@@ -17,8 +17,9 @@ process CONSENSUS_MITO {
     val(mito_min_depth)
 
     output: 
-    tuple val(sample), path("*.mito.fa"),        emit: fasta
-    
+    tuple val(sample), path("*.mito.fa"),            emit: fasta
+    tuple val(sample), path("*.allele_counts.txt"),  emit: allele_counts
+
     script:
     def process_script = "${process_name}.sh"
     """
