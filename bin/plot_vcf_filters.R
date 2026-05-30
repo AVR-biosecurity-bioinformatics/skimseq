@@ -168,9 +168,9 @@ tryCatch(
     # Function to summarise global and per_pop filter metrics for each chunk
     summarise_metric_chunk <- function(df, metric_specs, per_pop = FALSE) {
       fail_tag_fun <- if (per_pop) {
-        function(type, rule) toupper(paste0(type, "_POP_", rule, "_FAIL"))
+        function(type, rule) toupper(paste0("POP_", rule, "_FAIL"))
       } else {
-        function(type, rule) toupper(paste0(type, "_", rule, "_FAIL"))
+        function(type, rule) toupper(paste0(rule, "_FAIL"))
       }
 
       df1 <- df %>%
@@ -185,6 +185,17 @@ tryCatch(
       fail_ids <- df1 %>%
         select(ROW_ID, FILTER, EXPECTED_FAIL) %>%
         tidyr::separate_longer_delim(FILTER, delim = ";") %>%
+        mutate(
+          FILTER = case_when(
+            FILTER %in%
+              c(
+                "DP_LOWER_PERC_FAIL",
+                "DP_MIN_FAIL",
+                "DP_UPPER_PERC_FAIL"
+              ) ~ "DP_FAIL",
+            TRUE ~ FILTER
+          )
+        ) %>%
         filter(FILTER == EXPECTED_FAIL) %>%
         distinct(ROW_ID) %>%
         mutate(FILTER_CLASS = "FAIL")

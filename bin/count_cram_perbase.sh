@@ -24,6 +24,7 @@ samtools depth \
   -@ ${1} \
   -q ${7} \
   -Q ${8} \
+  -s \
   ${FLAGS} \
   --reference ${5} \
   ${3} \

@@ -181,6 +181,7 @@ workflow SKIMSEQ {
         ch_genome_indexed,
         ch_include_bed,
         ch_exclude_bed,
+        ch_mito_indexed,
         ch_mito_bed,
         ch_read_counts
       )
@@ -191,11 +192,12 @@ workflow SKIMSEQ {
 
     MITO_GENOTYPING (
         PROCESS_READS.out.cram,
+        ch_genome_indexed,
         ch_mito_indexed,
         ch_mito_bed,
-        ch_genome_indexed
+        MASK_GENOME.out.numt_mask_bed
     )
-    
+
     /*
     Discover nuclear variants per sample
     This first step uses more strict filters to find just the reliable sites
