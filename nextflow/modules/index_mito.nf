@@ -11,7 +11,7 @@ process INDEX_MITO {
 
     output: 
     tuple path("*.fa"), path("*.{fa.*,fna.*,dict}"),    emit: fasta_indexed
-    path("*.bed"),                                      emit: bed
+    path("mito.bed"),                                   emit: bed
     
     script:
     def process_script = "${process_name}.sh"
