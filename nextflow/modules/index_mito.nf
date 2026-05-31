@@ -11,7 +11,7 @@ process INDEX_MITO {
 
     output: 
     tuple path("*.fa"), path("*.{fa.*,fna.*,dict}"),    emit: fasta_indexed
-    path("*.bed"),                                      emit: bed
+    path("mito.bed"),                                   emit: bed
     
     script:
     def process_script = "${process_name}.sh"
@@ -22,7 +22,7 @@ process INDEX_MITO {
     bash ${process_script} \
         ${task.cpus} \
         ${ref_genome} \
-        ${mito_contig}
+        "${mito_contig}"
 
     """
 }
