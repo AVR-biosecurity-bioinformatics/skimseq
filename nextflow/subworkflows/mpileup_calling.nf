@@ -3,7 +3,7 @@
 */
 
 //// import modules
-include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                    } from '../modules/merge_vcfs' 
+include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
 include { MPILEUP                                                } from '../modules/mpileup'
 
@@ -100,7 +100,7 @@ workflow MPILEUP_CALLING {
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 
-        MERGE_UNFILTERED_VCFS (
+        CONCAT_UNFILTERED_VCFS (
             ch_vcf_to_merge
         )
     }

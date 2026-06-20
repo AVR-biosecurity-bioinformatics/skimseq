@@ -5,7 +5,7 @@
 //// import modules
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
 include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller'
-include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
+include { CONCAT_VCFS as CONCAT_GVCFS                            } from '../modules/concat_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
 include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
 
@@ -158,13 +158,13 @@ workflow GATK_SINGLE {
         .groupTuple ( by: 0 )
         .set { ch_gvcf_to_merge }
 
-    MERGE_GVCFS (
+    CONCAT_GVCFS (
         ch_gvcf_to_merge.map { sample, interval_chunk, gvcf, tbi -> [ sample, gvcf, tbi ] }
     )
 
     // combine validated existing GVCs with newly created GVCFs for joint calling
     ch_validated_gvcf
-      .mix( MERGE_GVCFS.out.vcf )
+      .mix( CONCAT_GVCFS.out.vcf )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_gvcf }
 

@@ -4,8 +4,7 @@
 
 //// import modules
 include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype' 
-include { MERGE_VCFS as MERGE_GVCFS                                      } from '../modules/merge_vcfs' 
-include { MERGE_VCFS as MERGE_UNFILTERED_VCFS                            } from '../modules/merge_vcfs' 
+include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                          } from '../modules/CONCAT_vcfs' 
 include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records'
 include { SPLIT_BED_BY_CHR                                               } from '../modules/split_bed_by_chr' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks'
@@ -146,7 +145,7 @@ workflow GATK_JOINT {
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 
-        MERGE_UNFILTERED_VCFS (
+        CONCAT_UNFILTERED_VCFS (
             ch_vcf_to_merge
         )
     }

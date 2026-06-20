@@ -1,5 +1,5 @@
-process MERGE_VCFS {
-    def process_name = "merge_vcfs"    
+process CONCAT_VCFS {
+    def process_name = "concat_vcfs"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     // Conditional publishing depending on what the process alias is 
@@ -8,16 +8,16 @@ process MERGE_VCFS {
     saveAs: { fname ->
         def p = task.process
 
-        if( params.output_gvcf?.toString()?.toBoolean() && p.contains('MERGE_GVCFS') )
+        if( params.output_gvcf?.toString()?.toBoolean() && p.contains('CONCAT_GVCFS') )
         return "gvcf/${fname}"
 
-        if( p.contains('MERGE_UNFILTERED_VCFS') )
+        if( p.contains('CONCAT_UNFILTERED_VCFS') )
         return "unfiltered/${fname}"
 
-        if( p.contains('MERGE_FILTERED_SITELISTS') )
+        if( p.contains('CONCAT_FILTERED_SITELISTS') )
         return "filtered_sitelist/${fname}"
 
-        if( p.contains('MERGE_FINAL') )
+        if( p.contains('CONCAT_FINAL') )
         return "filtered/${fname}"
         
         return null
