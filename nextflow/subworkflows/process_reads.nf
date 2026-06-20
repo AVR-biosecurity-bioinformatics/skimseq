@@ -141,9 +141,20 @@ workflow PROCESS_READS {
         ch_genome_indexed
     )
     
-    // Merge chunked .cram files by sample (column 0), filter, and index
-    MERGE_CRAM (
-        MAP_TO_GENOME.out.cram.groupTuple ( by: 0 ),
+    // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all MAP_TO_GENOME to finish
+    MAP_TO_GENOME.out.cram
+        .map { sample, n_chunks, cram, crai ->
+            tuple(groupKey(sample, n_chunks), cram, crai)
+        }
+        .groupTuple()
+        .map { key, crams, crais ->
+            tuple(key.getGroupTarget(), crams, crais)
+        }
+        .set { ch_cram_to_merge }
+
+    // Merge chunked .cram files by sample
+    MERGE_CRAM(
+        ch_cram_to_merge,
         ch_genome_indexed
     )
 
