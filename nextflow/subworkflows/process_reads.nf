@@ -104,12 +104,31 @@ workflow PROCESS_READS {
         params.fastq_chunk_size
     )
 
+    // Parse per-library chunk counts, then sum to per-sample total
+    SPLIT_FASTQ.out.nchunks
+        .map { sample, lib, nchunks_file ->
+            tuple(sample, nchunks_file.text.trim().toInteger())
+        }
+        .groupTuple(by: 0)
+        .map { sample, counts ->
+            tuple(sample, counts.sum())
+        }
+        .set { ch_sample_nchunks }
+
     // Create new channel with each fastq chunk
     SPLIT_FASTQ.out.fastq_interval
-        .splitCsv ( by: 1, elem: 2, sep: "," )
-        .map { sample, lib, intervals -> [ sample, lib, intervals[0], intervals[1] ] }
-        .combine(ch_reads_to_map, by:[0,1] )
-        .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 -> [ sample, lib, fcid, lane, platform, read1, read2, int1, int2 ] }
+        .splitCsv(by: 1, elem: 2, sep: ",")
+        .map { sample, lib, intervals ->
+            tuple(sample, lib, intervals[0], intervals[1])
+        }
+        .combine(ch_reads_to_map, by: [0,1])
+        .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 ->
+            tuple(sample, lib, fcid, lane, platform, read1, read2, int1, int2)
+        }
+        .combine(ch_sample_nchunks, by: 0)
+        .map { sample, lib, fcid, lane, platform, read1, read2, int1, int2, n_chunks ->
+            tuple(sample, n_chunks, lib, fcid, lane, platform, read1, read2, int1, int2)
+        }
         .set { ch_fastq_split }
 
     /* 

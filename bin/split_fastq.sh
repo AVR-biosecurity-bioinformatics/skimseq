@@ -13,7 +13,11 @@ CHUNK_SIZE=$(awk -v x="${5}" 'BEGIN {printf("%d\n",x)}')
 
 # Create a file to store intervals
 INTERVALS_FILE="intervals_${2}.csv"
-touch $INTERVALS_FILE  # Create an empty file for intervals
+touch $INTERVALS_FILE
+
+# Create a file to store number of chunks
+NCHUNKS_FILE="nchunks_${2}.txt"
+touch $NCHUNKS_FILE
 
 # Calculate number of reads in forward and reverse fastqs
 N_READS=$( seqtk size $3 | cut -f1 )
@@ -21,7 +25,7 @@ N_READS=$( seqtk size $3 | cut -f1 )
 # if N_READS is less than CHUNK_SIZE, don't split file
 if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     # calculate number of chunks
-    N_CHUNKS=$(( ( $N_READS / $CHUNK_SIZE ) + 1 ))
+    N_CHUNKS=$(( (N_READS + CHUNK_SIZE - 1) / CHUNK_SIZE ))
     # if number of chunks is larger than number of reads, throw errow
     if [[ $N_CHUNKS -gt $N_READS || $N_CHUNKS -gt 99999 ]]; then
         echo "Too many file chunks (${N_CHUNKS}) -- please lower 'params.fastq_chunk_size'"
@@ -50,5 +54,8 @@ if [[ $N_READS -gt $CHUNK_SIZE ]]; then
     done
 else
     # If only one chunk (all reads), print a single line to the file
+    N_CHUNKS=1
     echo "1,${N_READS}" > $INTERVALS_FILE
 fi
+
+echo "$N_CHUNKS" > "$NCHUNKS_FILE"
