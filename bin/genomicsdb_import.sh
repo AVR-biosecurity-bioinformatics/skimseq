@@ -53,7 +53,7 @@ paste -d '\t' <(echo "$sample_id") <(echo "$vcf") > ${4}.sample_map
 # NOTES from GATK warp pipeline: https://github.com/broadinstitute/warp/blob/develop/tasks/broad/JointGenotypingTasks.wdl
 # testing has shown that the multithreaded reader initialization
 # does not scale well beyond 5 threads, so pointless increase beyond that.
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g" GenomicsDBImport \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -Djava.io.tmpdir=${GATK_TMP}" GenomicsDBImport \
     --genomicsdb-workspace-path ${4} \
     --batch-size 50 \
     -L ${5} \

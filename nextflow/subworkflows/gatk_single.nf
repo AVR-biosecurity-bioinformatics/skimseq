@@ -142,6 +142,11 @@ workflow GATK_SINGLE {
 	    .combine( ch_cram_for_hc, by: [0, 0] )
         .set { ch_sample_intervals }
 
+
+    // TODO: are number of intervals per sample the same?
+    // Can i just count how many intervals there are per sample in ch_sample_intervals?
+    // Or output nchunks from CREATE_INTERVAL_CHUNKS
+
     /* 
        Call variants per sample
     */

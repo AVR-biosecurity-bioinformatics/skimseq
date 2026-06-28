@@ -40,6 +40,7 @@ process JOINT_GENOTYPE {
     export INDEL_HET='${params.indel_heterozygosity}'
     export MAX_ALTERNATE='${params.jc_max_alternate_alleles}'
     export GENOMICSDB_MAX_ALTERNATE='${params.jc_max_alternate_to_import}'
+    export GATK_TMP=${workflow.workDir}/tmp
 
     ### run process script
     bash ${process_script} \

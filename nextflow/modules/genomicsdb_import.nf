@@ -29,7 +29,8 @@ process GENOMICSDB_IMPORT {
     def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
-    
+    export GATK_TMP=${workflow.workDir}/tmp
+
     ### run process script
     bash ${process_script} \
         ${task.cpus} \
