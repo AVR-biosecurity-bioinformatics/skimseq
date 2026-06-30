@@ -107,4 +107,7 @@ module load Java/17
 # Run tests on local node 
 nextflow run . -profile debug,test -resume
 
+
+# Run tests with basc modules 
+nextflow run . -profile basc_modules,debug,test -resume
 ```
