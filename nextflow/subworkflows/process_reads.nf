@@ -143,10 +143,13 @@ workflow PROCESS_READS {
     
     // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all MAP_TO_GENOME to finish
     MAP_TO_GENOME.out.cram
+        // Add expected group size so each sample emits once all interval CRAms are complete
         .map { sample, n_chunks, cram, crai ->
             tuple(groupKey(sample, n_chunks), cram, crai)
         }
+        // Group interval CRAMs by sample, emitting early when n_intervals have arrived
         .groupTuple()
+        // Emit sample with grouped crams and indexes for concatenation
         .map { key, crams, crais ->
             tuple(key.getGroupTarget(), crams, crais)
         }

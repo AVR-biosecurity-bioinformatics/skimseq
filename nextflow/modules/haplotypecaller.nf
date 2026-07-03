@@ -7,12 +7,12 @@ process HAPLOTYPECALLER {
 
 
     input:
-    tuple val(sample), val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
+    tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
 
     output: 
-    tuple val(sample), val(interval_hash), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
+    tuple val(sample), val(interval_hash), val(n_intervals), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
     tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
 
     script: 

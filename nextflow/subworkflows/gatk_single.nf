@@ -124,6 +124,9 @@ workflow GATK_SINGLE {
             assert bedList.size() == tbiList.size() :
             "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
 
+            // Count number of intervals expected for that sample
+            def n_intervals = bedList.size()
+
             // emit one tuple per bed file
             (0..<bedList.size()).collect { i ->
                 def bed = bedList[i] as Path
@@ -132,19 +135,21 @@ workflow GATK_SINGLE {
                 base = base.replaceFirst(/\.gz$/, '')
                 base = base.replaceFirst(/\.bed$/, '')
                 def interval_hash = base.startsWith('_') ? base.substring(1) : base
-                tuple(sample, interval_hash, bed, tbiPath)
+                tuple(sample, interval_hash, n_intervals, bed, tbiPath)
             }
         }
         .set { ch_interval_bed_hc }
 
     // Combine intervals with cram files for genotyping
-    ch_interval_bed_hc 
-	    .combine( ch_cram_for_hc, by: [0, 0] )
+    ch_interval_bed_hc
+        .combine(ch_cram_for_hc, by: 0)
+        .map { sample, interval_hash, n_intervals, bed, tbi, cram, crai ->
+            tuple(sample, interval_hash, n_intervals, bed, tbi, cram, crai)
+        }
         .set { ch_sample_intervals }
 
-
     // TODO: are number of intervals per sample the same?
-    // Can i just count how many intervals there are per sample in ch_sample_intervals?
+    // Can i just count how many intervals there are per sample in ch_sample_intervals? - or does this require waiting too
     // Or output nchunks from CREATE_INTERVAL_CHUNKS
 
     /* 
@@ -158,13 +163,28 @@ workflow GATK_SINGLE {
         ch_mask_bed_genotype
     )
 
-    // Merge interval GVCFs by sample
+    // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all HAPLOTYPECALLER to finish
     HAPLOTYPECALLER.out.gvcf_intervals
-        .groupTuple ( by: 0 )
+        // Add expected group size so each sample emits once all interval GVCFs are complete
+        .map { sample, n_intervals, interval_hash, gvcf, tbi ->
+            tuple(groupKey(sample, n_intervals), gvcf, tbi)
+        }
+        // Group interval GVCFs by sample, emitting early when n_intervals have arrived
+        .groupTuple()
+        // Emit sample with grouped GVCFs and indexes for concatenation
+        .map { key, gvcfs, tbis ->
+            tuple(
+                key.getGroupTarget(),
+                gvcfs,
+                tbis
+            )
+        }
+        // Channel for per-sample GVCF concatenation
         .set { ch_gvcf_to_merge }
 
+
     CONCAT_GVCFS (
-        ch_gvcf_to_merge.map { sample, interval_chunk, gvcf, tbi -> [ sample, gvcf, tbi ] }
+        ch_gvcf_to_merge.map { sample, interval_hash, gvcf, tbi -> [ sample, gvcf, tbi ] }
     )
 
     // combine validated existing GVCs with newly created GVCFs for joint calling
