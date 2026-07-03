@@ -3,7 +3,7 @@
 */
 
 //// import modules
-include { MERGE_VCFS as MERGE_SITELIST                           } from '../modules/merge_vcfs' 
+include { CONCAT_VCFS as CONCAT_SITELIST                         } from '../modules/concat_vcfs' 
 include { MPILEUP as MPILEUP_PSEUDOHAP                           } from '../modules/mpileup'
 include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
 

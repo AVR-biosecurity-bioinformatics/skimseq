@@ -38,10 +38,9 @@ if [[ "${USE_SOFTCLIPPED_BASES}" == "true" ]]; then
 else
   DONT_USE_SOFTCLIPPED="true"
 fi
-
 # call variants by sample * interval chunk
 # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${CPUS}" HaplotypeCaller \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}g -Djava.io.tmpdir=${GATK_TMP} -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${CPUS}" HaplotypeCaller \
     -R "${REF}" \
     -I ${CRAM} \
     -L "${INTERVAL_BED}" \

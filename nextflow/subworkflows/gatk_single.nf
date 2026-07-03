@@ -5,7 +5,7 @@
 //// import modules
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
 include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller'
-include { MERGE_VCFS as MERGE_GVCFS                              } from '../modules/merge_vcfs' 
+include { CONCAT_VCFS as CONCAT_GVCFS                            } from '../modules/concat_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
 include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
 
@@ -124,6 +124,9 @@ workflow GATK_SINGLE {
             assert bedList.size() == tbiList.size() :
             "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
 
+            // Count number of intervals expected for that sample
+            def n_intervals = bedList.size()
+
             // emit one tuple per bed file
             (0..<bedList.size()).collect { i ->
                 def bed = bedList[i] as Path
@@ -132,15 +135,22 @@ workflow GATK_SINGLE {
                 base = base.replaceFirst(/\.gz$/, '')
                 base = base.replaceFirst(/\.bed$/, '')
                 def interval_hash = base.startsWith('_') ? base.substring(1) : base
-                tuple(sample, interval_hash, bed, tbiPath)
+                tuple(sample, interval_hash, n_intervals, bed, tbiPath)
             }
         }
         .set { ch_interval_bed_hc }
 
     // Combine intervals with cram files for genotyping
-    ch_interval_bed_hc 
-	    .combine( ch_cram_for_hc, by: [0, 0] )
+    ch_interval_bed_hc
+        .combine(ch_cram_for_hc, by: 0)
+        .map { sample, interval_hash, n_intervals, bed, tbi, cram, crai ->
+            tuple(sample, interval_hash, n_intervals, bed, tbi, cram, crai)
+        }
         .set { ch_sample_intervals }
+
+    // TODO: are number of intervals per sample the same?
+    // Can i just count how many intervals there are per sample in ch_sample_intervals? - or does this require waiting too
+    // Or output nchunks from CREATE_INTERVAL_CHUNKS
 
     /* 
        Call variants per sample
@@ -153,18 +163,33 @@ workflow GATK_SINGLE {
         ch_mask_bed_genotype
     )
 
-    // Merge interval GVCFs by sample
+    // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all HAPLOTYPECALLER to finish
     HAPLOTYPECALLER.out.gvcf_intervals
-        .groupTuple ( by: 0 )
+        // Add expected group size so each sample emits once all interval GVCFs are complete
+        .map { sample, interval_hash, n_intervals, gvcf, tbi ->
+            tuple(groupKey(sample, n_intervals), gvcf, tbi)
+        }
+        // Group interval GVCFs by sample, emitting early when n_intervals have arrived
+        .groupTuple()
+        // Emit sample with grouped GVCFs and indexes for concatenation
+        .map { key, gvcfs, tbis ->
+            tuple(
+                key.getGroupTarget(),
+                gvcfs,
+                tbis
+            )
+        }
+        // Channel for per-sample GVCF concatenation
         .set { ch_gvcf_to_merge }
 
-    MERGE_GVCFS (
-        ch_gvcf_to_merge.map { sample, interval_chunk, gvcf, tbi -> [ sample, gvcf, tbi ] }
+
+    CONCAT_GVCFS (
+        ch_gvcf_to_merge
     )
 
     // combine validated existing GVCs with newly created GVCFs for joint calling
     ch_validated_gvcf
-      .mix( MERGE_GVCFS.out.vcf )
+      .mix( CONCAT_GVCFS.out.vcf )
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_gvcf }
 

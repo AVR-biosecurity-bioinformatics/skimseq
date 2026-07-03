@@ -5,13 +5,14 @@ process HAPLOTYPECALLER {
     // container "jackscanlan/piperline-multi:0.0.1"
     module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0:SAMtools/1.22.1-GCC-13.3.0"
 
+
     input:
-    tuple val(sample), val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
+    tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     path(exclude_bed)
 
     output: 
-    tuple val(sample), val(interval_hash), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
+    tuple val(sample), val(interval_hash), val(n_intervals), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
     tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
 
     script: 
@@ -38,6 +39,7 @@ process HAPLOTYPECALLER {
     export HET='${params.heterozygosity}'
     export HET_SD='${params.heterozygosity_stdev}'
     export INDEL_HET='${params.indel_heterozygosity}'
+    export GATK_TMP=${workflow.workDir}/tmp
 
     ### run process script
     bash ${process_script} \

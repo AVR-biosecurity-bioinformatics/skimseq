@@ -29,7 +29,7 @@ fi
 
 # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
 # Send stderr to log file for profiling
-gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G" GenotypeGVCFs \
+gatk --java-options "-Xmx${java_mem}G -Xms${java_mem}G -Djava.io.tmpdir=${GATK_TMP}" GenotypeGVCFs \
     -R "${REF}" \
     -V gendb://${GENOMICSDB} \
     -L "${INTERVAL_BED}" \

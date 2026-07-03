@@ -11,6 +11,7 @@ process SPLIT_FASTQ {
 
     output: 
     tuple val(sample), val(lib), path("intervals_${lib}.csv"), emit: fastq_interval 
+    tuple val(sample), val(lib), path("nchunks_${lib}.txt"), emit: nchunks
 
     
     script:

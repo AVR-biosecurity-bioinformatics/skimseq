@@ -7,7 +7,7 @@ include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modu
 include { VCF2DIST                                               } from '../modules/vcf2dist' 
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination' 
 include { PLOT_TREE                                              } from '../modules/plot_tree' 
-include { MERGE_VCFS as MERGE_FINAL                              } from '../modules/merge_vcfs'
+include { CONCAT_VCFS as CONCAT_FINAL                            } from '../modules/concat_vcfs'
 include { SPLIT_VCF_BY_TYPE                                      } from '../modules/split_vcf_by_type'
 
 workflow OUTPUTS {
@@ -57,15 +57,15 @@ workflow OUTPUTS {
         .set { ch_filtered_vcfs_to_merge }
 
     // Group all filtered sitelists by variant type and merge
-    MERGE_FINAL (
+    CONCAT_FINAL (
         ch_filtered_vcfs_to_merge
     )
    
     // Extract merged variant type vcfs into convenient channels
-    MERGE_FINAL.out.vcf.filter{ it[0]=='combined' }.first().set { ch_final_all }
-    MERGE_FINAL.out.vcf.filter{ it[0]=='snp' }.first().set { ch_final_snp }
-    MERGE_FINAL.out.vcf.filter{ it[0]=='indel' }.first().set { ch_final_indel }
-    MERGE_FINAL.out.vcf.filter{ it[0]=='invariant' }.first().set { ch_final_inv }
+    CONCAT_FINAL.out.vcf.filter{ it[0]=='combined' }.first().set { ch_final_all }
+    CONCAT_FINAL.out.vcf.filter{ it[0]=='snp' }.first().set { ch_final_snp }
+    CONCAT_FINAL.out.vcf.filter{ it[0]=='indel' }.first().set { ch_final_indel }
+    CONCAT_FINAL.out.vcf.filter{ it[0]=='invariant' }.first().set { ch_final_inv }
 
     /* 
         Create outputs

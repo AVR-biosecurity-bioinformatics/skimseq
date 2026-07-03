@@ -18,7 +18,6 @@ include { QC                                                        } from '../s
 include { INDEX_GENOME                                              } from '../modules/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito'
 include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites'
-include { MERGE_VCFS as MERGE_GENOTYPED_VCFS                        } from '../modules/merge_vcfs'
 include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
 
 // Create default channels

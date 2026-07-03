@@ -4,11 +4,11 @@ process MAP_TO_GENOME {
     module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
-    tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2), val(start), val(end)
+    tuple val(sample), val(nchunks), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2), val(start), val(end)
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), val(lib), path("*.cram"),                         emit: cram
+    tuple val(sample), val(nchunks), val(lib), path("*.cram"),                         emit: cram
     
     script:
     def process_script = "${process_name}.sh"

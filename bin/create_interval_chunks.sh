@@ -40,7 +40,7 @@ fi
 
 btmp="${TMPDIR}/tmp.bed"
 
-# Extract just included contigs from zipped bed hten lexagraphically sort all counts files
+# Extract just included contigs from zipped bed then`` lexagraphically sort all counts files
 parallel -j "${CPUS}" --line-buffer '
   f={}
   out="${f%.bed.gz}.sorted.bed"
@@ -69,97 +69,206 @@ if [[ ! -s intervals_with_counts.bed ]]; then
   exit 0
 fi
 
-# Split intervals that individually exceed the target counts.
-# Assumes counts are roughly uniform across the interval length.
-if [[ "$SPLIT_OVERWEIGHT" == "true" ]]; then
-  awk -v target="$TARGET_COUNTS_PER_CHUNK" '
-  BEGIN{OFS="\t"}
-  {
-    chrom=$1; start=$2; end=$3; w=$4
-    len=end-start
-
-    # guard against weird zero/negative lengths
-    if (len <= 0) next
-
-    # if not overweight, keep as-is
-    if (w <= target) {
-      print chrom, start, end, w
-      next
-    }
-
-    # number of pieces needed (ceil)
-    n = int((w + target - 1) / target)
-
-    # don’t create more pieces than bases
-    if (n > len) n = len
-
-    base = int(len / n)
-    rem  = len - base * n
-
-    substart = start
-    for (i=1; i<=n; i++) {
-      sz = base + (i <= rem ? 1 : 0)
-      subend = substart + sz
-
-      # proportional weight by length to preserve density
-      subw = w * sz / len
-
-      # round to integer
-      subw = int(subw + 0.5)
-      print chrom, substart, subend, subw
-      substart = subend
-    }
-  }
-  ' intervals_with_counts.bed > intervals_split.bed
-else
-  cat intervals_with_counts.bed > intervals_split.bed
-fi
 
 # Calculate total counts and number of intervals
-TOTAL_COUNTS=$( awk '{s+=$4} END{print s+0}' intervals_split.bed )
-N_INTERVALS=$(cat intervals_split.bed | wc -l)
+TOTAL_COUNTS=$(awk '{s+=$4} END{printf "%.0f\n", s+0}' intervals_with_counts.bed)
+N_INTERVALS=$(wc -l < intervals_with_counts.bed)
 
-# Decide number of file splits (chunks) to keep counts balanced.
-K=$(( (TOTAL_COUNTS + TARGET_COUNTS_PER_CHUNK - 1) / TARGET_COUNTS_PER_CHUNK )) 
-if [ "$K" -lt 1 ]; then K=1; fi
-if [ "$K" -gt "$N_INTERVALS" ]; then K="$N_INTERVALS"; fi
+# Decide number of file splits.
+# Do not cap by N_INTERVALS when SPLIT_OVERWEIGHT=true, because intervals can be
+# split across multiple chunks during assignment.
+if [[ "$TOTAL_COUNTS" -le 0 ]]; then
+  K=1
+else
+  K=$(( (TOTAL_COUNTS + TARGET_COUNTS_PER_CHUNK - 1) / TARGET_COUNTS_PER_CHUNK ))
+fi
 
-# Assign intervals to chunks, keep it contiguous so they are in sorted order
-awk -v outdir="$OUTDIR" -v tot="$TOTAL_COUNTS" -v n="$N_INTERVALS" -v K="$K" '
-function abs(x){ return x<0 ? -x : x }
+if [[ "$K" -lt 1 ]]; then
+  K=1
+fi
 
-BEGIN{
-  chunk=1
-  remK=K
-  remW=tot
-  sum=0
-  ideal = remW / remK
-  fname = sprintf("%s/chunk_%d.bed", outdir, chunk)
+if [[ "$SPLIT_OVERWEIGHT" != "true" && "$K" -gt "$N_INTERVALS" ]]; then
+  K="$N_INTERVALS"
+fi
+
+# Assign intervals to chunks.
+#
+# If SPLIT_OVERWEIGHT=true:
+#   intervals are split during assignment whenever they cross the current
+#   chunk count boundary. Counts are assigned proportionally/approximately
+#   by genomic length, but chunk totals are kept close to the target.
+#
+# If SPLIT_OVERWEIGHT=false:
+#   intervals are kept intact and assigned using cumulative chunk boundaries.
+awk -v outdir="$OUTDIR" \
+    -v tot="$TOTAL_COUNTS" \
+    -v K="$K" \
+    -v split_overweight="$SPLIT_OVERWEIGHT" \
+    -v OFS="\t" '
+function fname(i) {
+  return sprintf("%s/chunk_%d.bed", outdir, i)
+}
+
+function emit(c, chr, s, e, wt) {
+  if (e > s) {
+    printf "%s\t%d\t%d\t%.6f\n", chr, s, e, wt >> fname(c)
+  }
+}
+
+function next_chunk() {
+  close(fname(chunk))
+  chunk++
+  next_cut = chunk * target
+  chunk_sum = 0
+}
+
+BEGIN {
+  if (K < 1) {
+    print "ERROR: K must be >= 1" > "/dev/stderr"
+    exit 2
+  }
+
+  target = tot / K
+  chunk = 1
+  cumulative = 0
+  chunk_sum = 0
+  next_cut = target
+
+  # Create/truncate expected output files up front.
+  for (i = 1; i <= K; i++) {
+    f = fname(i)
+    printf "" > f
+    close(f)
+  }
 }
 
 {
-  chrom=$1; start=$2; end=$3; w=$4+0
-  lines_after = n - FNR
+  chr = $1
+  start = $2 + 0
+  end = $3 + 0
+  w = $4 + 0
 
-  if (sum>0 && remK>1) {
-    stop_now_better = (abs(sum-ideal) <= abs((sum+w)-ideal))
-    enough_left     = (lines_after >= (remK-2))
+  len = end - start
 
-    if (stop_now_better && enough_left) {
-      chunk++
-      remK--
-      sum=0
-      ideal = remW / remK
-      fname = sprintf("%s/chunk_%d.bed", outdir, chunk)
-    }
+  if (len <= 0) {
+    next
   }
 
-  print chrom"\t"start"\t"end"\t"w > fname
-  sum  += w
-  remW -= w
+  # Zero-count intervals do not affect balancing.
+  if (w <= 0) {
+    emit(chunk, chr, start, end, 0)
+    next
+  }
+
+  # ------------------------------------------------------------------
+  # Mode 1: do not split intervals. Assign by cumulative boundaries.
+  # ------------------------------------------------------------------
+  if (split_overweight != "true") {
+    if (chunk < K && chunk_sum > 0) {
+      current_dist = cumulative - next_cut
+      next_dist = cumulative + w - next_cut
+
+      if ((current_dist < 0 ? -current_dist : current_dist) <= \
+          (next_dist < 0 ? -next_dist : next_dist)) {
+        next_chunk()
+      }
+    }
+
+    emit(chunk, chr, start, end, w)
+    cumulative += w
+    chunk_sum += w
+    next
+  }
+
+  # ------------------------------------------------------------------
+  # Mode 2: split intervals during assignment.
+  # ------------------------------------------------------------------
+  pos = start
+  rem_w = w
+  rem_len = len
+
+  while (rem_w > 1e-9 && pos < end) {
+
+    # Last chunk gets all remaining sequence/counts.
+    if (chunk >= K) {
+      emit(chunk, chr, pos, end, rem_w)
+      cumulative += rem_w
+      chunk_sum += rem_w
+      rem_w = 0
+      pos = end
+      break
+    }
+
+    budget = next_cut - cumulative
+
+    # Floating point guard for exact/near-exact boundaries.
+    if (budget <= 1e-9) {
+      next_chunk()
+      continue
+    }
+
+    # Remaining interval fits in the current chunk.
+    if (rem_w <= budget + 1e-9) {
+      emit(chunk, chr, pos, end, rem_w)
+      cumulative += rem_w
+      chunk_sum += rem_w
+      rem_w = 0
+      pos = end
+      break
+    }
+
+    # Remaining interval crosses the chunk boundary, so split it.
+    frac = budget / rem_w
+    seg_len = int(rem_len * frac + 0.5)
+
+    # BED intervals must be integer and non-empty.
+    if (seg_len < 1) {
+      seg_len = 1
+    }
+
+    # Avoid creating a zero-length remainder.
+    if (seg_len >= rem_len) {
+      emit(chunk, chr, pos, end, rem_w)
+      cumulative += rem_w
+      chunk_sum += rem_w
+      rem_w = 0
+      pos = end
+      break
+    }
+
+    split_pos = pos + seg_len
+
+    # Assign exactly the remaining chunk budget to this segment so that
+    # chunk totals remain balanced. This assumes approximate uniform count
+    # density across the original interval.
+    emit(chunk, chr, pos, split_pos, budget)
+
+    pos = split_pos
+    rem_len = end - pos
+    rem_w -= budget
+    cumulative += budget
+    chunk_sum += budget
+
+    next_chunk()
+  }
 }
-' intervals_split.bed
-   
+
+END {
+  for (i = 1; i <= K; i++) {
+    close(fname(i))
+  }
+}
+' intervals_with_counts.bed
+
+# Sanity check - make sure number of bases in input matches output
+# Input
+#awk '{s+=$3-$2} END{print s}' intervals_with_counts.bed
+# Chunks
+#for f in chunk_*.bed; do
+#  awk '{s+=$3-$2} END{print s}' "$f"
+#done | awk '{s+=$1} END{print s}'
+
+
 # Rename each output file
 for i in *chunk_*.bed;do
   # Pad output chunk names
