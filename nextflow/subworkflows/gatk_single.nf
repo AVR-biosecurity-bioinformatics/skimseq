@@ -166,7 +166,7 @@ workflow GATK_SINGLE {
     // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all HAPLOTYPECALLER to finish
     HAPLOTYPECALLER.out.gvcf_intervals
         // Add expected group size so each sample emits once all interval GVCFs are complete
-        .map { sample, n_intervals, interval_hash, gvcf, tbi ->
+        .map { sample, interval_hash, n_intervals, gvcf, tbi ->
             tuple(groupKey(sample, n_intervals), gvcf, tbi)
         }
         // Group interval GVCFs by sample, emitting early when n_intervals have arrived
@@ -184,7 +184,7 @@ workflow GATK_SINGLE {
 
 
     CONCAT_GVCFS (
-        ch_gvcf_to_merge.map { sample, interval_hash, gvcf, tbi -> [ sample, gvcf, tbi ] }
+        ch_gvcf_to_merge
     )
 
     // combine validated existing GVCs with newly created GVCFs for joint calling
