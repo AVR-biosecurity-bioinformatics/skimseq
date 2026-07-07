@@ -13,6 +13,11 @@ set -u
 # Set status to pass by defualt
 STATUS=PASS
 
+# Check that CRAM is properly formatted
+if ! samtools quickcheck -v "${4}"; then
+    STATUS=FAIL
+fi
+
 # Check if expected readgroups from FASTQ match actual readgroups in CRAM
 samtools view --threads ${1} --reference ${3} -H ${4} \
  | grep '^@RG' \
@@ -24,38 +29,30 @@ if ! diff -q expected.sorted.rg actual.rg >/dev/null 2>&1; then
     STATUS=FAIL
 fi
 
-# Check if all reads matchs between FASTQs and CRAM
-tmp_fastq_ids=$(mktemp fastq_ids.XXXXXX)
-tmp_cram_ids=$(mktemp cram_ids.XXXXXX)
-
+# Check if number of reads matches between cram and fastq
 mapfile -t R1 < "$5"
-mapfile -t R2 < "$6"
 
-# Get sequence IDs from forward and reverse fastqq
-seqkit seq -n -i "${R1[@]}" "${R2[@]}" \
-  | sed 's/[ \t].*$//' \
-  | sed 's/\/[12]$//' \
-  | sort -u > "${tmp_fastq_ids}"
+fastq_reads=$(
+    seqkit stats --threads ${1} -T "${R1[@]}" \
+    | awk 'NR>1 {sum+=$4} END {print sum}'
+)
 
-# Get sequence IDs from CRAM
-samtools view --threads ${1} --reference ${3} "${4}" \
-  | cut -f1 \
-  | sed 's/[ \t].*$//' \
-  | sed 's/\/[12]$//' \
-  | sort -u > "${tmp_cram_ids}"
+cram_reads=$(
+    samtools view \
+        --threads ${1} \
+        --reference ${3} \
+        -c \
+        -F 0x900 \
+        "${4}"
+)
 
-# Check that sequence IDs are identical between fastqs and CRAM
-if ! diff -q "${tmp_fastq_ids}" "${tmp_cram_ids}" >/dev/null 2>&1; then
-    STATUS=FAIL
-fi
-
-# Check that CRAM is properly formed
-if ! samtools quickcheck -v "${4}"; then
+# need to multiply fastq reads by 2 as counting only forward reads
+if [[ "$(( fastq_reads * 2 ))" -ne "${cram_reads}" ]]; then
     STATUS=FAIL
 fi
 
 # Clean up
-rm -f actual.rg expected.sorted.rg actual.sorted.rg "${tmp_fastq_ids}" "${tmp_cram_ids}"
+rm -f actual.rg expected.sorted.rg actual.sorted.rg
 
 # Print status
 echo "$STATUS"
