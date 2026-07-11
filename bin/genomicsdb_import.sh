@@ -27,7 +27,7 @@ fi
 # Check how many contigs are in bed file.
 # If there are multiple full contigs, use --merge-contigs-into-num-partitions 1 to group them together which allows parallel processing
 # If there is only a single contig, or multiple parts of contigs, dont merge them
-num_contigs=$(cut -f1 ${5} | sort -u | wc -l)
+num_contigs=$(zcat -f ${5} | cut -f1  | sort -u | wc -l)
 echo "Number of chromosomes: $num_contigs"
 
 # How many merged BED lines are EXACT full-length matches to the FAI?
