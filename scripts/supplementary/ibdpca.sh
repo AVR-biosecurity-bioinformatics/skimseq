@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ibdpca         
 #SBATCH --ntasks=1 
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=16
 #SBATCH --mem=50GB
 #SBATCH --time=240:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
@@ -167,9 +167,19 @@ cd ${tmp_dir}
 pwd
 
 
-## Create list of BAMS for input job
-find "$(/usr/bin/ls -d ${indir})" | grep -F -f "${bamlist}" | grep -E "/($(tr '\n' '|' < ${bamlist} | sed 's/|$//')).bam$" | sort | uniq > "${Sample}_tmp.txt"
-cat ${Sample}_tmp.txt | sed 's!.*/!!' | grep -v  ".bam.bai" | grep ".bam" > ${Sample}_bams.txt
+## Create list of BAMS or crams for input job
+find "$(/usr/bin/ls -d ${indir})" \
+| grep -F -f "${bamlist}" \
+| grep -E "/($(tr '\n' '|' < "${bamlist}" | sed 's/|$//'))\.(bam|cram)$" \
+| sort -u \
+> "${Sample}_tmp.txt"
+
+# Create a list of just filenames (no extension)
+sed 's!.*/!!' "${Sample}_tmp.txt" \
+  | grep -E -v '\.(bai|crai)$' \
+  | grep -E '\.(bam|cram)$' \
+  > "${Sample}_bams.txt"
+  
 [[ ! -z "${Sample}" ]] && echo $(wc -l ${Sample}_bams.txt | awk '{ print$1 }') BAM files to process for ${Sample} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
 
 
@@ -231,11 +241,40 @@ if [[ $sitelist ]]; then
 	echo Sites file contains $(bedtools makewindows -b sites.bed -w 1 | wc -l) sites
 	
 	# Run samtools view in parallel to subset and copy across, then index
-	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
+	cat "${Sample}_tmp.txt" | parallel -j "${SLURM_CPUS_PER_TASK}" '
+	  in={}
+	  base=$(basename "$in")
+	  stem=${base%.*}          # filename without last extension
+	  ext=${base##*.}          # bam or cram
 
+	  if [[ "$ext" == "bam" ]]; then
+		out="./${stem}.bam"
+		samtools view -b -T "'"${ReferenceGenome}"'" -L sites.bed "$in" > "$out"
+		samtools index "$out"
+	  elif [[ "$ext" == "cram" ]]; then
+		out="./${stem}.cram"
+		# for CRAM output, set output format explicitly
+		samtools view -C -T "'"${ReferenceGenome}"'" -L sites.bed "$in" > "$out"
+		samtools index "$out"
+	  else
+		echo "[ERROR] Unknown alignment extension: $in" >&2
+		exit 2
+	  fi
+
+	  echo "subset ${stem} -> ${out}"
+	'
 else
 	# Copy files across, then index
-	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "cp {} . && samtools index ./{/.}.bam && echo copied {/.}"
+	cat "${Sample}_tmp.txt" | parallel -j "${SLURM_CPUS_PER_TASK}" '
+	  in={}
+	  base=$(basename "$in")
+	  stem=${base%.*}
+	  ext=${base##*.}
+
+	  cp "$in" "./$base"
+	  samtools index "./$base"
+	  echo "copied ${stem} (${ext})"
+	'
 fi
 #--------------------------------------------------------------------------------
 #-                                  TEST	                                    -
@@ -282,8 +321,7 @@ if [[ $sitelist ]]; then
 		-out ${outname} 
 else 
     echo 'Sitelist not provided, estimating sites denovo'
-	# Using -sites to subset to target sites
-	
+
 	~/angsd/angsd/angsd -bam ${Sample}_bams.txt \
 		-ref $(basename ${ReferenceGenome}) \
 		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \

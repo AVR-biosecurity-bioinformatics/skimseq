@@ -58,8 +58,8 @@ if [[ ! -f "${Index}" ]]; then
   exit 1
 fi
 
-manifest=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
-echo manifest=${manifest}
+bamlist=$(sed -n ${SLURM_ARRAY_TASK_ID}p ${Index})
+echo bamlist=${bamlist}
 
 #--------------------------------------------------------------------------------
 #-                                  Parse Inputs                                -
@@ -133,36 +133,138 @@ fi
 #--------------------------------------------------------------------------------
 #-                                    Preparation                               -
 #--------------------------------------------------------------------------------
-# Create output name
-outname=$( basename $manifest | sed 's/manifest_//g' |sed 's/\.txt//g'   )
-echo outname=${outname}
+
+# Get sample name from vcf file
+Sample=$(basename ${bamlist} | sed 's/bamlist_//g' | sed 's/manifest_//g' | sed 's/.txt//g')
+echo Sample=${Sample}
+
+
+#set outdir file name
+if [[ $sitelist ]]; then
+    outname=$(echo $Sample $(basename ${sitelist} | sed 's/.sites.*$//g' ) | sed 's/ /-/g' )
+else 
+    outname=$(echo $Sample denovo | sed 's/ /-/g' )
+fi
+
+# Make directories for outputs
+mkdir -p ${output}/${outname}
+
 # Goto tmp
 cd $TMPDIR
 tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
 cd ${tmp_dir}
 pwd
 
-## Create list of BAMS for input job
-find $(/usr/bin/ls -d ${indir}) | grep -F -f ${manifest} | grep "\.bam$" | sort | uniq  > ${outname}_tmp.txt
-cat ${outname}_tmp.txt | sed 's!.*/!!' | grep -v  ".bam.bai" | grep ".bam" > ${outname}_bams.txt
-[[ ! -z "${outname}" ]] && echo $(wc -l ${outname}_tmp.txt | awk '{ print$1 }') BAM files to process for ${outname} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
+## Create list of BAMS or crams for input job
+find "$(/usr/bin/ls -d ${indir})" \
+| grep -F -f "${bamlist}" \
+| grep -E "/($(tr '\n' '|' < "${bamlist}" | sed 's/|$//'))\.(bam|cram)$" \
+| sort -u \
+> "${Sample}_tmp.txt"
+
+# Create a list of just filenames (no extension)
+sed 's!.*/!!' "${Sample}_tmp.txt" \
+  | grep -E -v '\.(bai|crai)$' \
+  | grep -E '\.(bam|cram)$' \
+  > "${Sample}_bams.txt"
+  
+[[ ! -z "${Sample}" ]] && echo $(wc -l ${Sample}_bams.txt | awk '{ print$1 }') BAM files to process for ${Sample} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
 
 # Make directories for outputs
 mkdir -p ${output}
 
 # Copy data files to temp and decompress
+cp ${bamlist} .
 cp ${ReferenceGenome} .
 sleep 5
 cp ${ReferenceGenome}.fai .
 
-#Load Modules
-module purge 
-module load parallel/20240722-GCCcore-13.3.0
-module load SAMtools/1.21-GCC-13.3.0
-module load angsd/20250306-GCC-13.3.0
+export ReferenceGenome
 
-# Copy files across, then index
-cat ${outname}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "cp {} . && samtools index ./{/.}.bam && echo copied {/.}"
+
+#Load Modules
+module purge
+#module load angsd/20250306-GCC-13.3.0
+module load HTSlib/1.21-GCC-13.3.0
+module load SAMtools/1.21-GCC-13.3.0
+module load BCFtools/1.21-GCC-13.3.0
+module load parallel/20240722-GCCcore-13.3.0
+module load BEDTools/2.31.1-GCC-13.3.0
+
+#--------------------------------------------------------------------------------
+#-                          Copy and subset bam files                           -
+#--------------------------------------------------------------------------------
+
+if [[ $sitelist ]]; then
+	# Subset bam files to just those reads overlapping the target sites
+	echo subsetting bams to only reads overlapping target regions
+
+	# Check if the file is compressed
+	if [[ "${sitelist}" =~ \.gz$ ]]; then
+		# If the file is gzipped, use zcat (or gzip -dc or gunzip -c) to decompress it on the fly
+		zcat ${sitelist} > sitelist.txt
+	else
+		# If the file is not gzipped, process it directly
+		cat ${sitelist} > sitelist.txt
+	fi
+
+	# Check if the file matches BED or Sites format
+	if grep -qE '^[^[:space:]:#][^:\t#]*:[0-9]+(\r)?$' sitelist.txt; then
+		echo "Sites file"
+		awk -F':' -v OFS='\t' '
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }          # skip comments/blank
+			{ sub(/\r$/, "", $0) }                                  # strip CR if CRLF
+			NF==2 && $2 ~ /^[0-9]+$/ { print $1, $2-1, $2 }         # 0-based half-open bed
+		' sitelist.txt > sites.bed
+	# Else, check for 3-column BED (and make awk fail if none)
+	elif awk -F'\t' '
+			BEGIN{ ok=0 }
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+			NF==3 { ok=1 }
+			END{ exit ok?0:1 }
+		' sitelist.txt
+	then
+		echo "BED file sitelist"
+		# If CRLF is possible, normalize while copying
+		awk '{ sub(/\r$/, "", $0); print }' sitelist.txt > sites.bed
+
+	else
+		echo "Unknown format"
+	fi
+	echo Sites file contains $(bedtools makewindows -b sites.bed -w 1 | wc -l) sites
+	
+	# Run samtools view in parallel to subset and copy across, then index
+	cat "${Sample}_tmp.txt" | parallel -j "${SLURM_CPUS_PER_TASK}" '
+	  in={}
+	  base=$(basename "$in")
+	  stem=${base%.*}          # filename without last extension
+	  ext=${base##*.}          # bam or cram
+
+	  out="./${stem}.bam"
+	  samtools view -b -T "'"${ReferenceGenome}"'" -L sites.bed "$in" > "$out"
+	  samtools index "$out"
+		
+	  echo "subset ${stem} -> ${out}"
+	'
+else
+	
+	# Copy/convert files across, then index
+	parallel -j "${SLURM_CPUS_PER_TASK}" --linebuffer --halt now,fail=1 --env ReferenceGenome '
+	  in="{}"
+	  base=$(basename -- "$in")
+	  stem=${base%.*}          # filename without last extension
+	  ext=${base##*.}          # bam or cram
+
+	  out="./${stem}.bam"
+
+	  samtools view -b -T "$ReferenceGenome" -- "$in" > "$out"
+	  samtools index -- "$out"
+
+	  echo "copied ${stem} -> ${out}"
+	' :::: "${Sample}_tmp.txt"
+fi
+
+find "$PWD" -maxdepth 1 -type f -name '*.bam' -print > "${Sample}_bams.txt"
 
 # Check BAMs
 samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
@@ -172,13 +274,13 @@ samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
 #--------------------------------------------------------------------------------
 
 # Keep only sites present in half of samples
-nind=$(cat ${outname}_bams.txt | wc -l)
+nind=$(cat ${Sample}_bams.txt | wc -l)
 nind=$(( nind / 2 ))
 
 # launch angsd
 if [[ "$remove_snps" = true ]]; then
 	echo "Removing all sites that are variable"
-	angsd -bam ${outname}_bams.txt \
+	~/angsd/angsd/angsd -bam ${Sample}_bams.txt \
 		-ref $(basename ${ReferenceGenome}) \
 		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
 		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
@@ -192,7 +294,7 @@ if [[ "$remove_snps" = true ]]; then
 		-out ${outname} 		
 else  
 	echo "Keeping all variable sites but selecting most common allele"
-	angsd -bam ${outname}_bams.txt \
+	~/angsd/angsd/angsd -bam ${Sample}_bams.txt \
 		-ref $(basename ${ReferenceGenome}) \
 		-minMapQ ${mapqual} -baq 2 -C 50 -minQ ${basequal} \
 		-remove_bads 1 -only_proper_pairs 1 -checkBamHeaders 1 -uniqueOnly 1 \
