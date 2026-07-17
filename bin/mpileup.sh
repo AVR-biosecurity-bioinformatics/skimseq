@@ -7,6 +7,7 @@ set -u
 # $3 = ref_genome
 # $4 = interval hash
 # $5 = targets_file
+# $6 = popmap
 
 ## Parse positional input args, the rest are xported
 CPUS="${1}"
@@ -14,6 +15,7 @@ MEM_GB="${2}"
 REF="${3}"
 IHASH="${4}"
 TARGETS_FILE="${5}"
+POPMAP="${6}"
 
 # Set up intervals - handle fixed sitelists
 
@@ -48,6 +50,17 @@ else
   echo "${TARGETS_FILE} is in wrong format" >&2
   exit 1
 fi 
+
+# CALLING_MODEL
+#   cohort
+#   individual
+#   population
+#
+# POPMAP only needed for population
+
+SAMPLE_GROUP_FLAGS=""
+[[ "${SAMPLE_GROUPS}" == "sample" ]] && SAMPLE_GROUP_FLAGS="-G -"
+[[ "${SAMPLE_GROUPS}" == "population" ]] && SAMPLE_GROUP_FLAGS="-G ${POPMAP}"
 
 # -----------------------------
 # Pre-filter reads using samtools
@@ -128,6 +141,7 @@ bcftools mpileup \
     --ploidy ${PLOIDY} \
     ${CALL_FLAGS} \
     ${VARIANTS_ONLY} \
+    ${SAMPLE_GROUP_FLAGS} \
     --multiallelic-caller \
     --prior ${MUTATION_RATE} \
   | bcftools +setGT \

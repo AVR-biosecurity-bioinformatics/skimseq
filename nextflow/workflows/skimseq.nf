@@ -87,6 +87,12 @@ workflow SKIMSEQ {
         .map { sample, lib, pop, r1, r2 -> tuple(sample, pop) }
         .set { ch_sample_pop }
 
+    // Create popmap tsv file for population-based calling and filtering
+    ch_sample_pop
+        .map { sample, pop -> "${sample}\t${pop}\n" }
+        .collectFile(name: 'popmap.tsv', newLine: false)
+        .set { ch_popmap }
+
     // Reference genome channel
     if ( params.ref_genome ){
         ch_genome = Channel
@@ -263,7 +269,8 @@ workflow SKIMSEQ {
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_read_counts
+            ch_read_counts,
+            ch_popmap
         )
         MPILEUP_CALLING.out.vcf
             .set{ ch_vcfs }
@@ -286,7 +293,7 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_mask_bed_vcf,
         ch_sample_names,
-        ch_sample_pop,
+        ch_popmap,
         params.discovered_filter
     )
 

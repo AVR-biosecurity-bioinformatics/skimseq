@@ -16,6 +16,7 @@ workflow MPILEUP_CALLING {
     ch_include_bed
     ch_mask_bed_genotype
     ch_read_counts
+    ch_popmap
 
     main: 
 
@@ -90,7 +91,8 @@ workflow MPILEUP_CALLING {
     MPILEUP (
         ch_cram_interval,
         ch_genome_indexed,
-        ch_cohort_size
+        ch_cohort_size,
+        ch_popmap
     )
     
     if ( params.output_unfiltered_vcf ){

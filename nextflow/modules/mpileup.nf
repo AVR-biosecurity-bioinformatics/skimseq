@@ -8,7 +8,8 @@ process MPILEUP {
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     val(cohort_size)
-
+    path(popmap)
+    
     // Scale memory based on cohort size
     memory {
         def n = cohort_size as int
@@ -41,6 +42,7 @@ process MPILEUP {
     export MAX_FRAGMENT_LENGTH='${params.max_fragment_length}'
     export MUTATION_RATE='${params.mutation_rate}'
     export MAXDEPTH='${params.max_depth}'
+    export CALLING_MODEL='${params.calling_model}'
 
     # Write list of cram files to process
     printf "%s\n" ${cram} | LC_ALL=C sort -u > cram.list
@@ -51,7 +53,8 @@ process MPILEUP {
         ${task.memory.giga} \
         ${ref_genome} \
         ${interval_hash} \
-        ${interval_bed} 
+        ${interval_bed} \
+        ${popmap}
 
     """
 }
