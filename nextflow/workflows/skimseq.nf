@@ -85,6 +85,24 @@ workflow SKIMSEQ {
         .map { sample, lib, pop, r1, r2 -> tuple(sample, pop) }
         .set { ch_sample_pop }
 
+    // Validate that there are enough pops for calling_model
+    if( params.calling_model == 'population' ) {
+
+        ch_sample_pop
+            .map { sample, pop -> pop }
+            .unique()
+            .toList()
+            .subscribe { pops ->
+
+                if( pops.size() < 2 ) {
+                    error """
+                    calling_model='population' requires at least two populations.
+                    Found ${pops.size()} population(s): ${pops.join(', ')}
+                    """
+                }
+            }
+    }
+
     // Create popmap tsv file for population-based calling and filtering
     ch_sample_pop
         .map { sample, pop -> "${sample}\t${pop}\n" }
@@ -290,15 +308,15 @@ workflow SKIMSEQ {
     FILTER_VARIANTS.out.sample_names_filt
         .set { ch_sample_names_filt }
 
+    FILTER_VARIANTS.out.filtered_vcf
+        .set { ch_filtered_vcf }
+
     /*
-   Create extra outputs and visualisations
+        Create outputs and visualisations
     */
 
-    // TODO: Split into variant types in here?
-    // OR keep then split and merge them in here
-
     OUTPUTS (
-        ch_genotype_filtered,
+        ch_filtered_vcf,
         ch_genome_indexed,
         ch_sample_pop
     )
