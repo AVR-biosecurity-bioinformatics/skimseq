@@ -92,7 +92,7 @@ workflow MPILEUP_CALLING {
         ch_cram_interval,
         ch_genome_indexed,
         ch_cohort_size,
-        ch_popmap
+        ch_popmap.first()
     )
     
     if ( params.output_unfiltered_vcf ){
