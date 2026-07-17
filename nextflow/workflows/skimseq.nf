@@ -9,8 +9,6 @@ include { GATK_JOINT                                                } from '../s
 include { MPILEUP_CALLING                                           } from '../subworkflows/mpileup_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-include { FILTER_VARIANTS as FILTER_GENOTYPED_VARIANTS              } from '../subworkflows/filter_variants'
-include { PSEUDOHAPLOID_GENOTYPING                                  } from "../subworkflows/pseudohaploid_genotyping"
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 
@@ -204,11 +202,7 @@ workflow SKIMSEQ {
     )
 
     /*
-    Discover nuclear variants per sample
-    This first step uses more strict filters to find just the reliable sites
-    Options for variant discovery are:
-    - GATK Haplotypecaller + GenotypeGVCFs
-    - BCFtools mpileup + call
+    Discover and genotype nuclear variants per sample
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -218,7 +212,7 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype = ch_mito_bed
     }
     
-        // Create a list of covered perbase tracts
+    // Create a list of covered perbase tracts
     SUM_COVERED_INTERVALS(
         PROCESS_READS.out.perbase,
         ch_mask_bed_genotype
@@ -227,7 +221,7 @@ workflow SKIMSEQ {
     SUM_COVERED_INTERVALS.out.counts
         .set { ch_read_counts }
 
-    if ( params.variant_discovery == "gatk" ){
+    if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
@@ -257,11 +251,7 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-    } else if (params.variant_discovery == "mpileup"){
-
-        // TODO: Mpileup subworkflow goes here
-        // Single step mpileup and call on all samples at once
-        // Re-use create_chunks_hc with option for summed counts
+    } else if (params.variant_caller == "mpileup"){
 
         MPILEUP_CALLING (
             ch_sample_names,
@@ -294,75 +284,11 @@ workflow SKIMSEQ {
         ch_mask_bed_vcf,
         ch_sample_names,
         ch_popmap,
-        params.discovered_filter
+        params.vcf_filters
     )
 
     FILTER_VARIANTS.out.sample_names_filt
         .set { ch_sample_names_filt }
-
-    /*
-   Genotype Refinement
-   
-   This genotypes individuals at filtered sites, or an existing sitelist
-
-   Here we re-genotype from the original bams at only the high quality sites. 
-   Options for genotyping are:
-    - using genotypes directly from variant discovery
-    - re-genotyping with bcftools mpileup
-    - use an input vcf of existing sites
-    - TODO: Imputation with STITCH etc
-    - TODO: PCA based genotype calling using pcangsd
-    
-    */
-    
-    if ( params.genotyping == "use_discovered" ){
-        // Use the filtered variants as-is 
-        FILTER_VARIANTS.out.filtered_vcf
-            .set{ ch_genotyped_vcfs }
-    } else if (params.genotyping == "pseudohaploid"){
-
-        // TODO: sites to genotype are just the filtered sites
-        FILTER_VARIANTS.out.filtered_sitelist
-            .set { ch_sites_to_genotype }
-
-        // Call pseudohaploid genotypes by sampling a single read per individual at each site
-        PSEUDOHAPLOID_GENOTYPING (
-            ch_sites_to_genotype,
-            PROCESS_READS.out.cram,
-            ch_genome_indexed,
-            ch_sample_names
-        )
-
-        ch_genotyped_vcfs = PSEUDOHAPLOID_GENOTYPING.out.vcf
-
-    } else if (params.genotyping == "mpileup"){
-
-        // TODO: Generate a pileup file at just the filtered sites
-
-    }
-
-    /*
-    Filter genotypes and samples
-    This is only run if a genotying approach other than use_discovered was applied
-    */
-    if ( params.genotyping == "use_discovered" ){
-        ch_genotype_filtered = ch_genotyped_vcfs
-
-    } else {
-        // TODO: this should re-use filter variants subworkflow with different parameters
-        FILTER_GENOTYPED_VARIANTS (
-            ch_genotyped_vcfs,
-            ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_vcf,
-            ch_sample_names,
-            ch_sample_pop
-        )
-        ch_genotype_filtered = FILTER_GENOTYPED_VARIANTS.out.filtered_vcf
-
-        FILTER_GENOTYPED_VARIANTS.out.sample_names_filt
-            .set { ch_sample_names_filt }
-    }
 
     /*
    Create extra outputs and visualisations

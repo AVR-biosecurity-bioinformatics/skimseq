@@ -146,7 +146,7 @@ bcftools mpileup \
     --multiallelic-caller \
     --prior ${MUTATION_RATE} \
   | bcftools annotate \
-    -x FORMAT/GT \
+    -x FORMAT/GT,FORMAT/QS \
     -Ou \
   | bcftools +tag2tag \
      -Ou \
