@@ -151,6 +151,9 @@ bcftools mpileup \
   | bcftools +tag2tag \
      -Ou \
     -- --GP-to-GT -t ${GENOTYPING_THRESHOLD} \
+  | bcftools +setGT \
+    -Ou -- \
+    -t q -n . -i 'FMT/DP=0' \
   | bcftools annotate \
     --threads "${CPUS}" \
     --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' \
