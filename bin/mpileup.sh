@@ -58,9 +58,9 @@ fi
 #
 # POPMAP only needed for population
 
-SAMPLE_GROUP_FLAGS=""
-[[ "${SAMPLE_GROUPS}" == "sample" ]] && SAMPLE_GROUP_FLAGS="-G -"
-[[ "${SAMPLE_GROUPS}" == "population" ]] && SAMPLE_GROUP_FLAGS="-G ${POPMAP}"
+CALLING_MODEL_FLAGS=""
+[[ "${CALLING_MODEL}" == "sample" ]] && CALLING_MODEL_FLAGS="-G -"
+[[ "${CALLING_MODEL}" == "population" ]] && CALLING_MODEL_FLAGS="-G ${POPMAP}"
 
 # -----------------------------
 # Pre-filter reads using samtools
@@ -141,7 +141,7 @@ bcftools mpileup \
     --ploidy ${PLOIDY} \
     ${CALL_FLAGS} \
     ${VARIANTS_ONLY} \
-    ${SAMPLE_GROUP_FLAGS} \
+    ${CALLING_MODEL_FLAGS} \
     --multiallelic-caller \
     --prior ${MUTATION_RATE} \
   | bcftools +setGT \
