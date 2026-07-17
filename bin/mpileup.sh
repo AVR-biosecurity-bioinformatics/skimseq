@@ -51,16 +51,17 @@ else
   exit 1
 fi 
 
-# CALLING_MODEL
-#   cohort
-#   individual
-#   population
-#
+# CALLING_MODEL (cohort) (individual) (population)
 # POPMAP only needed for population
 
 CALLING_MODEL_FLAGS=""
 [[ "${CALLING_MODEL}" == "sample" ]] && CALLING_MODEL_FLAGS="-G -"
 [[ "${CALLING_MODEL}" == "population" ]] && CALLING_MODEL_FLAGS="-G ${POPMAP}"
+
+# Genotyping threshold
+GENOTYPING_THRESHOLD=$(awk \
+    -v p="${MIN_GENOTYPE_POSTERIOR}" \
+    'BEGIN{print 1-p}')
 
 # -----------------------------
 # Pre-filter reads using samtools
@@ -132,10 +133,10 @@ bcftools mpileup \
     --min-MQ ${MINMQ} \
     ${MPILEUP_TARGETS_FLAGS} \
     ${FILTER_FLAGS} \
-    --annotate FORMAT/DP,FORMAT/AD,INFO/AD \
+    --annotate FORMAT/DP,FORMAT/AD,FORMAT/QS,INFO/AD \
     --indels-cns \
     --indel-size 110 \
-    | bcftools call \
+  | bcftools call \
     -Ou \
     -a FORMAT/GP,FORMAT/GQ \
     --ploidy ${PLOIDY} \
@@ -144,9 +145,12 @@ bcftools mpileup \
     ${CALLING_MODEL_FLAGS} \
     --multiallelic-caller \
     --prior ${MUTATION_RATE} \
-  | bcftools +setGT \
-    -Ou -- \
-    -t q -n . -i 'FMT/DP=0' \
+  | bcftools annotate \
+    -x FORMAT/GT \
+    -Ou \
+  | bcftools +tag2tag \
+     -Ou \
+    -- --GP-to-GT -t ${GENOTYPING_THRESHOLD} \
   | bcftools annotate \
     --threads "${CPUS}" \
     --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' \
@@ -155,9 +159,6 @@ bcftools mpileup \
 # index output
 bcftools index -t ${IHASH}.vcf.gz
 
-# Extra annotatiomns that can be added
-# mpileup: FORMAT/SP
-# call: FORMAT/GP,INFO/PV4
 
 # Clean up temporary files
 xargs -r -d '\n' rm -f < <(awk '{print $0; print $0 ".crai"}' cram.filtered.list)

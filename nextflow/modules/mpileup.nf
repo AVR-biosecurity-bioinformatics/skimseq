@@ -43,6 +43,7 @@ process MPILEUP {
     export MUTATION_RATE='${params.mutation_rate}'
     export MAXDEPTH='${params.max_depth}'
     export CALLING_MODEL='${params.calling_model}'
+    export MIN_GENOTYPE_POSTERIOR='${params.min_genotype_posterior}' 
 
     # Write list of cram files to process
     printf "%s\n" ${cram} | LC_ALL=C sort -u > cram.list
