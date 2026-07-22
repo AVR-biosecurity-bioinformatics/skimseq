@@ -55,7 +55,16 @@ process FILTER_VCF {
     path("*samples.txt"), emit: samples_to_keep
 
     script:
+    def flat = flatten_filter_map(
+        '',
+        filter_map,
+        [:]
+    )
 
+    def filter_kv = flat
+        .collect { key, value -> "${key}=${value}" }
+        .sort()
+        .join(';')
     """
     #!/usr/bin/env bash
     set -euo pipefail

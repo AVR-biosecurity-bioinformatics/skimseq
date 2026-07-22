@@ -38,6 +38,16 @@ process CALC_CHUNK_DP {
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.missing.tsv"),  emit: chunk_missing
 
     script:    
+    def flat = flatten_filter_map(
+        '',
+        filter_map,
+        [:]
+    )
+
+    def filter_kv = flat
+        .collect { key, value -> "${key}=${value}" }
+        .sort()
+        .join(';')
     """
     #!/usr/bin/env bash
 
