@@ -61,13 +61,6 @@ include { SKIMSEQ                                                   } from './ne
 ///// run implicit workflow
 workflow {
 
-    ///// startup messages
-    if( !nextflow.version.matches('=23.05.0-edge') ) {
-        println " "
-        println "*** ERROR ~ This pipeline currently requires Nextflow version 23.05.0-edge -- You are running version ${nextflow.version}. ***"
-        error "*** You can use version 23.05.0-edge by appending 'NXF_VER=23.05.0-edge' to the front of the 'nextflow run' command. ***"
-    }
-
     startupMessage()
 
     // Print summary of supplied parameters (that differ from defaults)
