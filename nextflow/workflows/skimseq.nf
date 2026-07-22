@@ -6,7 +6,7 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
-include { MPILEUP_CALLING                                           } from '../subworkflows/mpileup_calling'
+include { BCFTOOLS_CALLING                                           } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
@@ -269,9 +269,9 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-    } else if (params.variant_caller == "mpileup"){
+    } else if (params.variant_caller == "bcftools"){
 
-        MPILEUP_CALLING (
+        BCFTOOLS_CALLING (
             ch_sample_names,
             PROCESS_READS.out.cram,
             ch_genome_indexed,
@@ -280,7 +280,7 @@ workflow SKIMSEQ {
             ch_read_counts,
             ch_popmap
         )
-        MPILEUP_CALLING.out.vcf
+        BCFTOOLS_CALLING.out.vcf
             .set{ ch_vcfs }
     }
 

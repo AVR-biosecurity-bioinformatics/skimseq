@@ -7,7 +7,7 @@ include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modu
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
 include { MPILEUP                                                } from '../modules/mpileup'
 
-workflow MPILEUP_CALLING {
+workflow BCFTOOLS_CALLING {
 
     take:
     ch_sample_names
