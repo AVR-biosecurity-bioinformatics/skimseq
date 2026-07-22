@@ -22,7 +22,7 @@ workflow FILTER_VARIANTS {
     ch_include_bed
     ch_mask_bed_vcf
     ch_sample_names
-    ch_sample_pop
+    ch_popmap
     filter_map
 
     main: 
@@ -74,11 +74,6 @@ workflow FILTER_VARIANTS {
         .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi, filter_map ) }
         .set { ch_vcfs_filters }
 
-    // Create popmap tsv file for population-based filtering
-    ch_sample_pop
-        .map { sample, pop -> "${sample}\t${pop}\n" }
-        .collectFile(name: 'popmap.tsv', newLine: false)
-        .set { ch_popmap }
 
     // Global site filters
     FILTER_VCF(

@@ -32,7 +32,7 @@ workflow GATK_SINGLE {
     if( params.use_existing_gvcf ) {
         ch_sample_names
             .map { sample ->
-                def gvcf = file("output/results/vcf/gvcf/${sample}.g.vcf.gz")
+                def gvcf = file("${params.gvcf_store}/${sample}.g.vcf.gz")
                 def tbi = file("${gvcf}.tbi")
                 tuple(sample, gvcf, tbi)
             }
@@ -180,11 +180,11 @@ workflow GATK_SINGLE {
             )
         }
         // Channel for per-sample GVCF concatenation
-        .set { ch_gvcf_to_merge }
+        .set { ch_gvcf_to_concat }
 
 
     CONCAT_GVCFS (
-        ch_gvcf_to_merge
+        ch_gvcf_to_concat
     )
 
     // combine validated existing GVCs with newly created GVCFs for joint calling

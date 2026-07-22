@@ -6,11 +6,9 @@ include { PROCESS_READS                                             } from '../s
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
-include { MPILEUP_CALLING                                           } from '../subworkflows/mpileup_calling'
+include { BCFTOOLS_CALLING                                           } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
-include { FILTER_VARIANTS as FILTER_GENOTYPED_VARIANTS              } from '../subworkflows/filter_variants'
-include { PSEUDOHAPLOID_GENOTYPING                                  } from "../subworkflows/pseudohaploid_genotyping"
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 
@@ -87,6 +85,30 @@ workflow SKIMSEQ {
         .map { sample, lib, pop, r1, r2 -> tuple(sample, pop) }
         .set { ch_sample_pop }
 
+    // Validate that there are enough pops for calling_model
+    if( params.calling_model == 'population' ) {
+
+        ch_sample_pop
+            .map { sample, pop -> pop }
+            .unique()
+            .toList()
+            .subscribe { pops ->
+
+                if( pops.size() < 2 ) {
+                    error """
+                    calling_model='population' requires at least two populations.
+                    Found ${pops.size()} population(s): ${pops.join(', ')}
+                    """
+                }
+            }
+    }
+
+    // Create popmap tsv file for population-based calling and filtering
+    ch_sample_pop
+        .map { sample, pop -> "${sample}\t${pop}\n" }
+        .collectFile(name: 'popmap.tsv', newLine: false)
+        .set { ch_popmap }
+
     // Reference genome channel
     if ( params.ref_genome ){
         ch_genome = Channel
@@ -97,7 +119,7 @@ workflow SKIMSEQ {
     } else {
         ch_genome = Channel.empty()
     } 
-    
+
     /*
     Process nuclear genome
     */
@@ -198,11 +220,7 @@ workflow SKIMSEQ {
     )
 
     /*
-    Discover nuclear variants per sample
-    This first step uses more strict filters to find just the reliable sites
-    Options for variant discovery are:
-    - GATK Haplotypecaller + GenotypeGVCFs
-    - BCFtools mpileup + call
+    Discover and genotype nuclear variants per sample
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -212,7 +230,7 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype = ch_mito_bed
     }
     
-        // Create a list of covered perbase tracts
+    // Create a list of covered perbase tracts
     SUM_COVERED_INTERVALS(
         PROCESS_READS.out.perbase,
         ch_mask_bed_genotype
@@ -221,7 +239,7 @@ workflow SKIMSEQ {
     SUM_COVERED_INTERVALS.out.counts
         .set { ch_read_counts }
 
-    if ( params.variant_discovery == "gatk" ){
+    if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
@@ -251,21 +269,18 @@ workflow SKIMSEQ {
         GATK_JOINT.out.vcf
             .set{ ch_vcfs }
 
-    } else if (params.variant_discovery == "mpileup"){
+    } else if (params.variant_caller == "bcftools"){
 
-        // TODO: Mpileup subworkflow goes here
-        // Single step mpileup and call on all samples at once
-        // Re-use create_chunks_hc with option for summed counts
-
-        MPILEUP_CALLING (
+        BCFTOOLS_CALLING (
             ch_sample_names,
             PROCESS_READS.out.cram,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_read_counts
+            ch_read_counts,
+            ch_popmap
         )
-        MPILEUP_CALLING.out.vcf
+        BCFTOOLS_CALLING.out.vcf
             .set{ ch_vcfs }
     }
 
@@ -286,86 +301,22 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_mask_bed_vcf,
         ch_sample_names,
-        ch_sample_pop,
-        params.discovered_filter
+        ch_popmap,
+        params.vcf_filters
     )
 
     FILTER_VARIANTS.out.sample_names_filt
         .set { ch_sample_names_filt }
 
-    /*
-   Genotype Refinement
-   
-   This genotypes individuals at filtered sites, or an existing sitelist
-
-   Here we re-genotype from the original bams at only the high quality sites. 
-   Options for genotyping are:
-    - using genotypes directly from variant discovery
-    - re-genotyping with bcftools mpileup
-    - use an input vcf of existing sites
-    - TODO: Imputation with STITCH etc
-    - TODO: PCA based genotype calling using pcangsd
-    
-    */
-    
-    if ( params.genotyping == "use_discovered" ){
-        // Use the filtered variants as-is 
-        FILTER_VARIANTS.out.filtered_vcf
-            .set{ ch_genotyped_vcfs }
-    } else if (params.genotyping == "pseudohaploid"){
-
-        // TODO: sites to genotype are just the filtered sites
-        FILTER_VARIANTS.out.filtered_sitelist
-            .set { ch_sites_to_genotype }
-
-        // Call pseudohaploid genotypes by sampling a single read per individual at each site
-        PSEUDOHAPLOID_GENOTYPING (
-            ch_sites_to_genotype,
-            PROCESS_READS.out.cram,
-            ch_genome_indexed,
-            ch_sample_names
-        )
-
-        ch_genotyped_vcfs = PSEUDOHAPLOID_GENOTYPING.out.vcf
-
-    } else if (params.genotyping == "mpileup"){
-
-        // TODO: Generate a pileup file at just the filtered sites
-
-    }
+    FILTER_VARIANTS.out.filtered_vcf
+        .set { ch_filtered_vcf }
 
     /*
-    Filter genotypes and samples
-    This is only run if a genotying approach other than use_discovered was applied
+        Create outputs and visualisations
     */
-    if ( params.genotyping == "use_discovered" ){
-        ch_genotype_filtered = ch_genotyped_vcfs
-
-    } else {
-        // TODO: this should re-use filter variants subworkflow with different parameters
-        FILTER_GENOTYPED_VARIANTS (
-            ch_genotyped_vcfs,
-            ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_vcf,
-            ch_sample_names,
-            ch_sample_pop
-        )
-        ch_genotype_filtered = FILTER_GENOTYPED_VARIANTS.out.filtered_vcf
-
-        FILTER_GENOTYPED_VARIANTS.out.sample_names_filt
-            .set { ch_sample_names_filt }
-    }
-
-    /*
-   Create extra outputs and visualisations
-    */
-
-    // TODO: Split into variant types in here?
-    // OR keep then split and merge them in here
 
     OUTPUTS (
-        ch_genotype_filtered,
+        ch_filtered_vcf,
         ch_genome_indexed,
         ch_sample_pop
     )

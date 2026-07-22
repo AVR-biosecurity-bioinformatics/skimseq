@@ -29,7 +29,7 @@ workflow PROCESS_READS {
     if( params.use_existing_cram ) {
         ch_sample_names
             .map { sample ->
-                def cram = file("output/results/cram/${sample}.cram")
+                def cram = file("${params.cram_store}/${sample}.cram")
                 def crai = file("${cram}.crai")
                 tuple(sample, cram, crai)
             }

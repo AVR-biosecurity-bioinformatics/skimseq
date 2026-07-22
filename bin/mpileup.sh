@@ -7,6 +7,7 @@ set -u
 # $3 = ref_genome
 # $4 = interval hash
 # $5 = targets_file
+# $6 = popmap
 
 ## Parse positional input args, the rest are xported
 CPUS="${1}"
@@ -14,6 +15,7 @@ MEM_GB="${2}"
 REF="${3}"
 IHASH="${4}"
 TARGETS_FILE="${5}"
+POPMAP="${6}"
 
 # Set up intervals - handle fixed sitelists
 
@@ -48,6 +50,18 @@ else
   echo "${TARGETS_FILE} is in wrong format" >&2
   exit 1
 fi 
+
+# CALLING_MODEL (cohort) (individual) (population)
+# POPMAP only needed for population
+
+CALLING_MODEL_FLAGS=""
+[[ "${CALLING_MODEL}" == "sample" ]] && CALLING_MODEL_FLAGS="-G -"
+[[ "${CALLING_MODEL}" == "population" ]] && CALLING_MODEL_FLAGS="-G ${POPMAP}"
+
+# Genotyping threshold
+GENOTYPING_THRESHOLD=$(awk \
+    -v p="${MIN_GENOTYPE_POSTERIOR}" \
+    'BEGIN{print 1-p}')
 
 # -----------------------------
 # Pre-filter reads using samtools
@@ -119,17 +133,24 @@ bcftools mpileup \
     --min-MQ ${MINMQ} \
     ${MPILEUP_TARGETS_FLAGS} \
     ${FILTER_FLAGS} \
-    --annotate FORMAT/DP,FORMAT/AD,INFO/AD \
+    --annotate FORMAT/DP,FORMAT/AD,FORMAT/QS,INFO/AD \
     --indels-cns \
     --indel-size 110 \
-    | bcftools call \
+  | bcftools call \
     -Ou \
     -a FORMAT/GP,FORMAT/GQ \
     --ploidy ${PLOIDY} \
     ${CALL_FLAGS} \
     ${VARIANTS_ONLY} \
+    ${CALLING_MODEL_FLAGS} \
     --multiallelic-caller \
     --prior ${MUTATION_RATE} \
+  | bcftools annotate \
+    -x FORMAT/GT,FORMAT/QS \
+    -Ou \
+  | bcftools +tag2tag \
+     -Ou \
+    -- --GP-to-GT -t ${GENOTYPING_THRESHOLD} \
   | bcftools +setGT \
     -Ou -- \
     -t q -n . -i 'FMT/DP=0' \
@@ -140,10 +161,6 @@ bcftools mpileup \
 
 # index output
 bcftools index -t ${IHASH}.vcf.gz
-
-# Extra annotatiomns that can be added
-# mpileup: FORMAT/SP
-# call: FORMAT/GP,INFO/PV4
 
 # Clean up temporary files
 xargs -r -d '\n' rm -f < <(awk '{print $0; print $0 ".crai"}' cram.filtered.list)

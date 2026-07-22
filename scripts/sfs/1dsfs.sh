@@ -2,8 +2,8 @@
 #SBATCH --job-name=1dsfs         
 #SBATCH --ntasks=1 
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=40GB 
-#SBATCH --time=48:00:00
+#SBATCH --mem=80GB 
+#SBATCH --time=72:00:00
 #SBATCH --mail-user=alexander.piper@agriculture.vic.gov.au
 #SBATCH --mail-type=ALL
 #SBATCH --account=fruitfly
@@ -63,7 +63,7 @@ mapqual=20
 
 # Function: Print a help message.
 usage() {                                 
-  echo "Usage: $0 [ -R Reference Genome ] [ -V VCF file ]  [ -S Sitelist ] [ -O output directory ] " 1>&2 
+  echo "Usage: $0 [ -R Reference Genome ] [ -A Ancestral Genome ]  [ -S Sitelist ] [ -I input directory ] [ -O output directory ] " 1>&2 
 }
 # Function: Exit with error.
 exit_abnormal() {                         
@@ -189,11 +189,20 @@ tmp_dir=$(mktemp -d -t ci-XXXXXXXXXX)
 cd ${tmp_dir}
 pwd
 
-## Create list of BAMS for input job
-find "$(/usr/bin/ls -d ${indir})" | grep -F -f "${bamlist}" | grep -E "/($(tr '\n' '|' < ${bamlist} | sed 's/|$//')).bam$" | sort | uniq > "${Sample}_tmp.txt"
-cat ${Sample}_tmp.txt | sed 's!.*/!!' | grep -v  ".bam.bai" | grep ".bam" > ${Sample}_bams.txt
-[[ ! -z "${Sample}" ]] && echo $(wc -l ${Sample}_bams.txt | awk '{ print$1 }') BAM files to process for ${Sample} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
+## Create list of BAMS or crams for input job
+find "$(/usr/bin/ls -d ${indir})" \
+| grep -F -f "${bamlist}" \
+| grep -E "/($(tr '\n' '|' < "${bamlist}" | sed 's/|$//'))\.(bam|cram)$" \
+| sort -u \
+> "${Sample}_tmp.txt"
 
+# Create a list of just filenames (no extension)
+sed 's!.*/!!' "${Sample}_tmp.txt" \
+  | grep -E -v '\.(bai|crai)$' \
+  | grep -E '\.(bam|cram)$' \
+  > "${Sample}_bams.txt"
+  
+[[ ! -z "${Sample}" ]] && echo $(wc -l ${Sample}_bams.txt | awk '{ print$1 }') BAM files to process for ${Sample} || echo "Error array index ${SLURM_ARRAY_TASK_ID} doesnt match up with index file"
 
 # Copy data files to temp and decompress
 cp ${bamlist} .
@@ -241,26 +250,84 @@ if [[ $sitelist ]]; then
 	fi
 
 	# Check if the file matches BED or Sites format
-	if grep -P '^[A-Za-z0-9\.]+:\d+$' "sitelist.txt" > /dev/null; then
+	if grep -qE '^[^[:space:]:#][^:\t#]*:[0-9]+(\r)?$' sitelist.txt; then
 		echo "Sites file"
-		# Processing Sites format assuming each line is like CM028320.1:2010752
-		awk -F':' '{print $1, $2-1, $2}' sitelist.txt > sites.bed
-	# Check if the file matches BED format
-	elif awk -F'\t' 'NF == 3' sitelist.txt > /dev/null; then
+		awk -F':' -v OFS='\t' '
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }          # skip comments/blank
+			{ sub(/\r$/, "", $0) }                                  # strip CR if CRLF
+			NF==2 && $2 ~ /^[0-9]+$/ { print $1, $2-1, $2 }         # 0-based half-open bed
+		' sitelist.txt > sites.bed
+	# Else, check for 3-column BED (and make awk fail if none)
+	elif awk -F'\t' '
+			BEGIN{ ok=0 }
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+			NF==3 { ok=1 }
+			END{ exit ok?0:1 }
+		' sitelist.txt
+	then
 		echo "BED file sitelist"
-		# Assuming sitelist.txt is already in BED format with 3 fields
-		cp sitelist.txt sites.bed
+		# If CRLF is possible, normalize while copying
+		awk '{ sub(/\r$/, "", $0); print }' sitelist.txt > sites.bed
+
 	else
 		echo "Unknown format"
 	fi
 	echo Sites file contains $(bedtools makewindows -b sites.bed -w 1 | wc -l) sites
 	
 	# Run samtools view in parallel to subset and copy across, then index
-	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "samtools view -b -L sites.bed {} > ./{/.}.bam && samtools index ./{/.}.bam && echo subset {/.}"
+	cat "${Sample}_tmp.txt" | parallel -j "${SLURM_CPUS_PER_TASK}" '
+	  in={}
+	  base=$(basename "$in")
+	  stem=${base%.*}          # filename without last extension
+	  ext=${base##*.}          # bam or cram
 
+	  if [[ "$ext" == "bam" ]]; then
+		out="./${stem}.bam"
+		samtools view -b -T "'"${ReferenceGenome}"'" -L sites.bed "$in" > "$out"
+		samtools index "$out"
+	  elif [[ "$ext" == "cram" ]]; then
+		out="./${stem}.cram"
+		# for CRAM output, set output format explicitly
+		samtools view -C -T "'"${ReferenceGenome}"'" -L sites.bed "$in" > "$out"
+		samtools index "$out"
+	  else
+		echo "[ERROR] Unknown alignment extension: $in" >&2
+		exit 2
+	  fi
+
+	  echo "subset ${stem} -> ${out}"
+	'
 else
-	# Copy files across, then index
-	cat ${Sample}_tmp.txt | parallel -j ${SLURM_CPUS_PER_TASK} "cp {} . && samtools index ./{/.}.bam && echo copied {/.}"
+	export ReferenceGenome
+	export SLURM_CPUS_PER_TASK
+
+	parallel --env ReferenceGenome --halt soon,fail=1 -j "${SLURM_CPUS_PER_TASK}" '
+	  in={}
+	  base=$(basename "$in")
+	  stem=${base%.*}
+	  ext=${base##*.}
+
+	  if [[ "$ext" == "bam" ]]; then
+		out="./${stem}.bam"
+		samtools view -@ 1 -b -T "$ReferenceGenome" "$in" > "$out"
+		samtools quickcheck "$out" || { echo "[ERROR] bad BAM: $out" >&2; exit 3; }
+		samtools index -@ 1 "$out"
+
+	  elif [[ "$ext" == "cram" ]]; then
+		out="./${stem}.bam"
+		# CRAM decoding/encoding needs a reference
+		samtools view -@ 1 -C -T "$ReferenceGenome" "$in" > "$out"
+		samtools quickcheck "$out" || { echo "[ERROR] bad CRAM: $out" >&2; exit 3; }
+		samtools index -@ 1 "$out"
+
+	  else
+		echo "[ERROR] Unknown alignment extension: $in" >&2
+		exit 2
+	  fi
+
+	  echo "subset ${stem} -> ${out}"
+	' :::: "${Sample}_tmp.txt"
+
 fi
 
 
@@ -268,63 +335,85 @@ fi
 #-                           Subsample to target coverage                       -
 #--------------------------------------------------------------------------------
 
-# Check if subsampling is specified
-if [[ $subsample ]]; then
-    export subsample  # Export subsample variable for use in parallel jobs
+#--------------------------------------------------------------------------------
+#-                          Copy and subset bam files                           -
+#--------------------------------------------------------------------------------
 
-    if [[ $sitelist ]]; then
-        export sitelist  # Export sitelist if it is defined
-    fi
+if [[ $sitelist ]]; then
+	# Subset bam files to just those reads overlapping the target sites
+	echo subsetting bams to only reads overlapping target regions
+
+	# Check if the file is compressed
+	if [[ "${sitelist}" =~ \.gz$ ]]; then
+		# If the file is gzipped, use zcat (or gzip -dc or gunzip -c) to decompress it on the fly
+		zcat ${sitelist} > sitelist.txt
+	else
+		# If the file is not gzipped, process it directly
+		cat ${sitelist} > sitelist.txt
+	fi
+
+	# Check if the file matches BED or Sites format
+	if grep -qE '^[^[:space:]:#][^:\t#]*:[0-9]+(\r)?$' sitelist.txt; then
+		echo "Sites file"
+		awk -F':' -v OFS='\t' '
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }          # skip comments/blank
+			{ sub(/\r$/, "", $0) }                                  # strip CR if CRLF
+			NF==2 && $2 ~ /^[0-9]+$/ { print $1, $2-1, $2 }         # 0-based half-open bed
+		' sitelist.txt > sites.bed
+	# Else, check for 3-column BED (and make awk fail if none)
+	elif awk -F'\t' '
+			BEGIN{ ok=0 }
+			/^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+			NF==3 { ok=1 }
+			END{ exit ok?0:1 }
+		' sitelist.txt
+	then
+		echo "BED file sitelist"
+		# If CRLF is possible, normalize while copying
+		awk '{ sub(/\r$/, "", $0); print }' sitelist.txt > sites.bed
+
+	else
+		echo "Unknown format"
+	fi
+	echo Sites file contains $(bedtools makewindows -b sites.bed -w 1 | wc -l) sites
 	
-    # Define a function to process a single BAM file
-    subsample_bam() {
-        local bam="$1"
-        local tmp_bam="$(mktemp --suffix=.bam)"  # Create a unique temporary BAM file
+	# Run samtools view in parallel to subset and copy across, then index
+	cat "${Sample}_tmp.txt" | parallel -j "${SLURM_CPUS_PER_TASK}" '
+	  in={}
+	  base=$(basename "$in")
+	  stem=${base%.*}          # filename without last extension
+	  ext=${base##*.}          # bam or cram
 
-        if [[ $sitelist ]]; then
-            # Calculate coverage for sites in BED file
-            cov=$(samtools depth -a -b sites.bed "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
-        else
-            # Calculate coverage for all sites
-            cov=$(samtools depth -a "$bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
-        fi
+	  out="./${stem}.bam"
+	  samtools view -b -T "'"${ReferenceGenome}"'" -L sites.bed "$in" > "$out"
+	  samtools index "$out"
+		
+	  echo "subset ${stem} -> ${out}"
+	'
+else
+	
+	# Copy/convert files across, then index
+	parallel -j "${SLURM_CPUS_PER_TASK}" --linebuffer --halt now,fail=1 --env ReferenceGenome '
+	  in="{}"
+	  base=$(basename -- "$in")
+	  stem=${base%.*}          # filename without last extension
+	  ext=${base##*.}          # bam or cram
 
-        echo "Coverage for $bam: $cov"
+	  out="./${stem}.bam"
 
-        # Check if coverage is higher than the subsample target
-        number_check=$(awk 'BEGIN{ print ('$subsample' < '$cov') }')
-        
-        if [[ "$number_check" -eq 1 ]]; then
-            # Calculate subsample factor
-            keepsample=$(awk -v cov="$cov" -v subsample="$subsample" 'BEGIN {print subsample / cov}')
-            echo "Subsampling $bam with factor: $keepsample"
+	  samtools view -b -T "$ReferenceGenome" -- "$in" > "$out"
+	  samtools index -- "$out"
 
-            # Subsample the BAM file into the unique temporary file
-            samtools view --subsample "$keepsample" -bo "$tmp_bam" "$bam"
-
-            # Calculate coverage after subsampling
-            if [[ $sitelist ]]; then
-                newcov=$(samtools depth -a -b sites.bed "$tmp_bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
-            else
-                newcov=$(samtools depth -a "$tmp_bam" | awk '{sum+=$3} END { if (NR > 0) print sum/NR; else print 0 }')
-            fi
-
-            echo -e "Coverage after subsampling: ${newcov}"
-            mv "$tmp_bam" "$bam"  # Replace original BAM with subsampled BAM
-            samtools index "$bam"
-        else
-            echo "Sample coverage is below subsample value: ${subsample}, not subsampling $bam"
-        fi
-    }
-
-    export -f subsample_bam  # Export the function for GNU Parallel
-
-    # Run the function in parallel for all BAM files listed in ${Sample}_bams.txt
-    cat "${Sample}_bams.txt" | parallel -j "${SLURM_CPUS_PER_TASK:-1}" subsample_bam {}
+	  echo "copied ${stem} -> ${out}"
+	' :::: "${Sample}_tmp.txt"
 fi
 
-samtools quickcheck *.bam && echo 'all bams look ok' || echo 'bams are malformed!'
+find "$PWD" -maxdepth 1 -type f -name '*.bam' -print > "${Sample}_bams.txt"
 
+# Check BAMs
+samtools quickcheck *.bam && echo 'all ok' || echo 'fail!'
+
+  
 #--------------------------------------------------------------------------------
 #-                             Ancestral sites QC		                        -
 #--------------------------------------------------------------------------------
@@ -380,7 +469,7 @@ ancestral_n() {
 export -f ancestral_n
 
 # Run the process in parallel for all BAM files listed in ${sample}_bams.txt
-cat "${Sample}_bams.txt" | parallel -j ${SLURM_CPUS_PER_TASK} ancestral_n {}
+#cat "${Sample}_bams.txt" | parallel -j ${SLURM_CPUS_PER_TASK} ancestral_n {}
 	
 #--------------------------------------------------------------------------------
 #-                             Site allele frequencies                          -
