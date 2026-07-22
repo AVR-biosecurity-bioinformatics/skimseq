@@ -8,3 +8,6 @@
 /output/results
 /work/
 /test/*
+zscaler-root.cer
+zscaler-root.crt
+zscaler-root.pem
