@@ -1,7 +1,5 @@
 process MERGE_CRAM {
-    def process_name = "merge_cram"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/merge_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir params.cram_store, mode: 'copy', pattern: "*.cram*", enabled: "${ params.output_cram ? true : false }"
 
     input:
@@ -13,7 +11,6 @@ process MERGE_CRAM {
     tuple val(sample), path("*.markdup.json"),                                emit: markdup
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -21,7 +18,7 @@ process MERGE_CRAM {
     printf "%s\n" ${cram} > cram.list
     
     ### run process script
-    bash ${process_script} \
+    bash merge_cram.sh \
         ${task.cpus} \
         ${sample} \
         ${ref_genome}

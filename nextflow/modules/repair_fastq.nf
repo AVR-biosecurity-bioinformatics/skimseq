@@ -1,7 +1,5 @@
 process REPAIR_FASTQ {
-    def process_name = "repair_fastq"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/repair_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2)
@@ -10,12 +8,11 @@ process REPAIR_FASTQ {
     tuple val(sample), val(lib), val(fcid), val(lane), val(platform), path("${lib}_R1.repaired.fastq.gz"), path("${lib}_R2.repaired.fastq.gz"), emit: fastq
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash repair_fastq.sh \
         ${task.cpus} \
         ${lib} \
         ${fastq1} \

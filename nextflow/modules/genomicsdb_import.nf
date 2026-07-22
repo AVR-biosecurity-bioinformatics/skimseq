@@ -1,7 +1,5 @@
 process GENOMICSDB_IMPORT {
-    def process_name = "genomicsdb_import"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/genomicsdb_import", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
@@ -24,13 +22,12 @@ process GENOMICSDB_IMPORT {
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("$interval_hash"),      emit: genomicsdb
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     export GATK_TMP=${workflow.workDir}/tmp
 
     ### run process script
-    bash ${process_script} \
+    bash genomicsdb_import.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${ref_genome} \

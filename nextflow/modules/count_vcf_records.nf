@@ -1,7 +1,6 @@
 process COUNT_VCF_RECORDS {
-    def process_name = "count_vcf_records"
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/count_vcf_records", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), path(gvcf), path(tbi)
@@ -15,12 +14,11 @@ process COUNT_VCF_RECORDS {
     tuple val(sample), path("*dphist.tsv"),                                                   emit: dphist
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
     ### run process script
-    bash ${process_script} \
+    bash count_vcf_records.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         "${gvcf}" \

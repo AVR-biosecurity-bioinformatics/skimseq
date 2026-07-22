@@ -1,6 +1,5 @@
 process MAP_TO_GENOME {
-    def process_name = "map_to_genome"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/map_to_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(nchunks), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2), val(start), val(end)
@@ -10,7 +9,6 @@ process MAP_TO_GENOME {
     tuple val(sample), val(nchunks), val(lib), path("*.cram"),                         emit: cram
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -19,7 +17,7 @@ process MAP_TO_GENOME {
     export BWA_c=${ params.bwa_max_seed_occurance}
 
     ### run process script
-    bash ${process_script} \
+    bash map_to_genome.sh \
         ${task.cpus} \
         ${sample} \
         ${lib} \

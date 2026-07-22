@@ -1,7 +1,6 @@
 process CALC_CHUNK_DP {
-    def process_name = "calc_chunk_dp"
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/calc_chunk_dp", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_map)
@@ -29,7 +28,6 @@ process CALC_CHUNK_DP {
     def flat = flatten('', filter_map)
     def filter_kv = flat.collect { k, v -> "${k}=${v}" }.sort().join(';')
 
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -51,7 +49,7 @@ process CALC_CHUNK_DP {
     done
 
     ### run process script
-    bash ${process_script} \
+    bash calc_chunk_dp.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${interval_hash} \

@@ -1,6 +1,5 @@
 process CONCAT_VCFS {
-    def process_name = "concat_vcfs"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/concat_vcfs", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     // gVCF handling
     publishDir(params.gvcf_store ?: "${launchDir}/output/results/gvcf"),
@@ -35,7 +34,6 @@ process CONCAT_VCFS {
     tuple val(outname),  path("${outname}.{vcf,g.vcf}.gz"), path("${outname}.{vcf,g.vcf}.gz.tbi"),       emit: vcf
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
      
@@ -43,7 +41,7 @@ process CONCAT_VCFS {
     printf "%s\n" ${vcf} | sort > vcf.list
 
     ### run process script
-    bash ${process_script} \
+    bash concat_vcfs.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         "${outname}"

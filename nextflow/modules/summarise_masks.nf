@@ -1,7 +1,5 @@
 process SUMMARISE_MASKS {
-    def process_name = "summarise_masks"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/summarise_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
 
     input:
@@ -14,12 +12,11 @@ process SUMMARISE_MASKS {
     path("mask_summary.txt"),              emit: summary_file
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash summarise_masks.sh \
         ${task.cpus} \
         ${include_bed} \
         ${exclude_bed} \

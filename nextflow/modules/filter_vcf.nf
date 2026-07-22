@@ -1,6 +1,5 @@
 process FILTER_VCF {
-    def process_name = "filter_vcf"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/filter_vcf", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(dpLo), val(dpHi), val(filter_map)
@@ -47,7 +46,6 @@ process FILTER_VCF {
     def flat = flatten('', filter_map)
     def filter_kv = flat.collect { k, v -> "${k}=${v}" }.sort().join(';')
 
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -77,7 +75,7 @@ process FILTER_VCF {
     export DP_UPPER_PERC_GLOBAL_INDEL=${dpHi}
     export DP_UPPER_PERC_GLOBAL_INVARIANT=${dpHi}
 
-    bash ${process_script} \
+    bash filter_vcf.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         "${vcf}" \

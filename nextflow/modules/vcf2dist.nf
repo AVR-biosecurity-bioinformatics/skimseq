@@ -1,7 +1,5 @@
 process VCF2DIST {
-    def process_name = "vcf2dist"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/vcf2dist", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/distmat", mode: 'copy'
 
     input:
@@ -11,12 +9,11 @@ process VCF2DIST {
     path("*.mat"),                           emit: mat
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
     ### run process script
-    bash ${process_script} \
+    bash vcf2dist.sh \
         ${task.cpus} \
         "${outname}" \
         ${vcf}

@@ -1,7 +1,5 @@
 process VCF_STATS {
-    def process_name = "vcf_stats"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/vcf_stats", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc/vcf_stats", mode: 'copy'
 
     input:
@@ -13,12 +11,11 @@ process VCF_STATS {
     path("vcfstats.txt"),            emit: vcfstats
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash vcf_stats.sh \
         ${task.cpus} \
         ${vcf} \
         ${ref_genome}

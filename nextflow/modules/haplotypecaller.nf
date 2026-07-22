@@ -1,7 +1,5 @@
 process HAPLOTYPECALLER {
-    def process_name = "haplotypecaller"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/haplotypecaller", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
@@ -13,7 +11,6 @@ process HAPLOTYPECALLER {
     tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
 
     script: 
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -39,7 +36,7 @@ process HAPLOTYPECALLER {
     export GATK_TMP=${workflow.workDir}/tmp
 
     ### run process script
-    bash ${process_script} \
+    bash haplotypecaller.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${sample} \

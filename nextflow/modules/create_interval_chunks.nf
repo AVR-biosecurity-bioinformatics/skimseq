@@ -1,7 +1,6 @@
 process CREATE_INTERVAL_CHUNKS {
-    def process_name = "create_interval_chunks"    
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/create_interval_chunks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), path(counts_bed), path(counts_tbi)
@@ -16,7 +15,6 @@ process CREATE_INTERVAL_CHUNKS {
     tuple val(sample), path("*.bed.gz"), path("*.bed.gz.tbi"),    emit: interval_bed
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -24,7 +22,7 @@ process CREATE_INTERVAL_CHUNKS {
     printf "%s\n" ${counts_bed} > counts_files.list
     
     ### run process script
-    bash ${process_script} \
+    bash create_interval_chunks.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${ref_genome} \

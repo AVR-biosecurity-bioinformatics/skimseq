@@ -1,7 +1,5 @@
 process SPLIT_BED_BY_CHR  {
-    def process_name = "split_bed_by_chr"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/split_bed_by_chr", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(bed)
@@ -10,12 +8,11 @@ process SPLIT_BED_BY_CHR  {
     path("*.bed"),               emit: per_chr_beds
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash split_bed_by_chr.sh \
         ${task.cpus} \
         "${bed}"
 

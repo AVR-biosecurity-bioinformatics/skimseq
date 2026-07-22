@@ -1,7 +1,6 @@
 process SPLIT_FASTQ {
-    def process_name = "split_fastq"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+
+    publishDir "${launchDir}/output/modules/split_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)
@@ -13,12 +12,11 @@ process SPLIT_FASTQ {
 
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash split_fastq.sh \
         ${task.cpus} \
         ${lib} \
         ${fastq1} \

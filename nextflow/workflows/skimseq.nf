@@ -18,12 +18,13 @@ include { INDEX_MITO                                                } from '../m
 include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites'
 include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
 
-// Create default channels
-ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
-ch_reports = Channel.empty()
-ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
 workflow SKIMSEQ {
+
+    // Create default channels
+    ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
+    ch_reports = Channel.empty()
+    ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
     /*
     Input channel parsing

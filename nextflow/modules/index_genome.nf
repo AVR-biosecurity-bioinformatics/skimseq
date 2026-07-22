@@ -1,7 +1,5 @@
 process INDEX_GENOME {
-    def process_name = "index_genome"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/index_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
@@ -15,12 +13,11 @@ process INDEX_GENOME {
     path("short.bed"),                                               emit: short_bed
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash index_genome.sh \
         ${task.cpus} \
         ${ref_genome} \
         ${min_chr_length}

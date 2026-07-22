@@ -1,6 +1,5 @@
 process EXTRACT_VCF_SITES {
-    def process_name = "extract_vcf_sites"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/extract_vcf_sites", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)
@@ -9,12 +8,11 @@ process EXTRACT_VCF_SITES {
     tuple val(outname),  path("${outname}.sites.vcf.gz"), path("${outname}.sites.vcf.gz.tbi"),       emit: vcf
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
      
     ### run process script
-    bash ${process_script} \
+    bash extract_vcf_sites.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         "${vcf}" \

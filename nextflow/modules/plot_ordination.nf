@@ -1,7 +1,5 @@
 process PLOT_ORDINATION {
-    def process_name = "plot_ordination"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/plot_ordination", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/visualisation/ordination", mode: 'copy'
 
     input:
@@ -13,10 +11,9 @@ process PLOT_ORDINATION {
     path("*.pdf"),             emit: plots
 
     script:
-    def process_script = "${process_name}.R"
     """
     shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
-        Rscript ${projectDir}/bin/${process_script} \
+        Rscript ${projectDir}/bin/plot_ordination.R \
         ${projectDir} \
         ${params.rdata} \
         ${distmat} \

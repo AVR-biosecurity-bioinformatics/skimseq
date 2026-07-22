@@ -1,7 +1,5 @@
 process INDEX_MITO {
-    def process_name = "index_mito"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/index_mito", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
@@ -13,12 +11,11 @@ process INDEX_MITO {
     path("mito.bed"),                                   emit: bed
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash index_mito.sh \
         ${task.cpus} \
         ${ref_genome} \
         "${mito_contig}"

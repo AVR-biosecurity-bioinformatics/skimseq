@@ -1,7 +1,5 @@
 process CONSENSUS_MITO {
-    def process_name = "consensus_mito"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/consensus_mito.sh", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/mito", mode: 'copy'
 
     input:
@@ -18,12 +16,11 @@ process CONSENSUS_MITO {
     tuple val(sample), path("*.allele_counts.txt"),  emit: allele_counts
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash consensus_mito.sh \
         ${task.cpus} \
         ${sample} \
         ${cram} \

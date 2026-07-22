@@ -1,7 +1,5 @@
 process CREATE_PSEUDOHAP {
-    def process_name = "create_pseudohap"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/create_pseudohap", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)
@@ -11,12 +9,11 @@ process CREATE_PSEUDOHAP {
     tuple val(outname), path("${outname}.pseudohap.vcf.gz"), path("${outname}.pseudohap.vcf.gz.tbi"),   emit: vcf
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash create_pseudohap.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${outname} \

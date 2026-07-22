@@ -1,7 +1,6 @@
 process EXTRACT_GENOME_MASKS {
-    def process_name = "extract_genome_masks"    
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/extract_genome_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple path(ref_fasta), path(indexes)
@@ -15,12 +14,11 @@ process EXTRACT_GENOME_MASKS {
     path("genome_masks.bed"),                    emit: mask_bed
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash extract_genome_masks.sh \
         ${task.cpus} \
         ${include_bed} \
         ${exclude_bed} \

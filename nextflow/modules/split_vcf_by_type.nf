@@ -1,6 +1,5 @@
 process SPLIT_VCF_BY_TYPE {
-    def process_name = "split_vcf_by_type"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/split_vcf_by_type", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)
@@ -11,12 +10,11 @@ process SPLIT_VCF_BY_TYPE {
     tuple val(outname),  path("${outname}.invariant.{vcf,g.vcf}.gz"), path("${outname}.indel.{vcf,g.vcf}.gz.tbi"),       emit: invariant_vcf
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
      
     ### run process script
-    bash ${process_script} \
+    bash split_vcf_by_type.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${vcf} \

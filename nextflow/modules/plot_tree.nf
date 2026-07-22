@@ -1,7 +1,5 @@
 process PLOT_TREE {
-    def process_name = "plot_tree"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/plot_tree", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/visualisation/trees", mode: 'copy'
 
     input:
@@ -12,10 +10,9 @@ process PLOT_TREE {
     path("*.pdf"),             emit: plots
 
     script:
-    def process_script = "${process_name}.R"
     """
     shifter --image=gmboowa/ggtree:latest -- \
-        Rscript ${projectDir}/bin/${process_script} \
+        Rscript ${projectDir}/bin/plot_tree.R \
         ${projectDir} \
         ${params.rdata} \
         ${distmat} \

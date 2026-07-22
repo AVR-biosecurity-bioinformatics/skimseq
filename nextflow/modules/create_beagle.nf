@@ -1,7 +1,5 @@
 process CREATE_BEAGLE {
-    def process_name = "create_beagle"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/create_beagle", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/beagle", mode: 'copy'
 
     input:
@@ -13,12 +11,11 @@ process CREATE_BEAGLE {
     path("*.beagle.gz"),                           emit: beagle
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash create_beagle.sh \
         ${task.cpus} \
         ${vcf} \
         ${ref_genome} \

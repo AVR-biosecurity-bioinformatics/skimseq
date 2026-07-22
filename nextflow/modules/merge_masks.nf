@@ -1,7 +1,6 @@
 process MERGE_MASKS {
-    def process_name = "merge_masks"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+
+    publishDir "${launchDir}/output/modules/merge_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(exclude_bed)
@@ -10,7 +9,6 @@ process MERGE_MASKS {
     path("merged_masks.bed"),              emit: merged_masks
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -18,7 +16,7 @@ process MERGE_MASKS {
     printf "%s\n" ${exclude_bed} > mask_beds.list
     
     ### run process script
-    bash ${process_script} \
+    bash merge_masks.sh \
         ${task.cpus}
         
     """

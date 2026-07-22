@@ -1,7 +1,5 @@
 process VALIDATE_FASTQ {
-    def process_name = "validate_fastq"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/validate_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)
@@ -10,12 +8,11 @@ process VALIDATE_FASTQ {
     tuple val(sample), val(lib), stdout, emit: status
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash validate_fastq.sh \
         ${task.cpus} \
         ${sample} \
         ${lib} \

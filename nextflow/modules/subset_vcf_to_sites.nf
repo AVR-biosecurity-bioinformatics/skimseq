@@ -1,6 +1,5 @@
 process SUBSET_VCF_TO_SITES {
-    def process_name = "subset_vcf_to_sites"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/subset_vcf_to_sites", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path(vcf_list), path(tbi_list)
@@ -13,7 +12,6 @@ process SUBSET_VCF_TO_SITES {
     def vcf_items = (vcf_list instanceof List) ? vcf_list : [ vcf_list ]
     def vcf_lines = vcf_items.collect { it.toString() }.sort().join('\n') + '\n'
 
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -22,7 +20,7 @@ process SUBSET_VCF_TO_SITES {
 
      
     ### run process script
-    bash ${process_script} \
+    bash subset_vcf_to_sites.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${variant_type} \

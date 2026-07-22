@@ -1,7 +1,6 @@
 process FASTQC {
-    def process_name = "fastqc"    
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/fastqc", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), path(cram), path(cram_index)
@@ -12,12 +11,11 @@ process FASTQC {
     path("*.html"),                       emit: reports
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash fastqc.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${cram} \

@@ -1,7 +1,5 @@
 process MERGE_CHUNK_MISSING {
-    def process_name = "merge_chunk_missing"
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/merge_chunk_missing", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(missing)
@@ -10,7 +8,6 @@ process MERGE_CHUNK_MISSING {
     path("missing_summary.tsv"),           emit: missing_summary
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
@@ -18,7 +15,7 @@ process MERGE_CHUNK_MISSING {
     printf "%s\n" ${missing} | sort > missing_files.list
 
     ### run process script
-    bash ${process_script} \
+    bash merge_chunk_missing.sh \
         ${task.cpus} \
         ${task.memory.giga} 
 

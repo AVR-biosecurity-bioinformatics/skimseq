@@ -1,7 +1,5 @@
 process VALIDATE_CRAM {
-    def process_name = "validate_cram"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/validate_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(cram), path(crai)
@@ -11,7 +9,6 @@ process VALIDATE_CRAM {
     tuple val(sample), stdout, emit: status
     
     script:
-    def process_script = "${process_name}.sh"
 
     // build @RG lines in Groovy
     // @RG\tID:FCID.LANE\tLB:LIB\tPL:PLAT\tPU:FCID.LANE.SAMPLE\tSM:SAMPLE
@@ -33,7 +30,7 @@ process VALIDATE_CRAM {
     printf "%s\n" ${fastq2} > r2.list
 
     ### run process script
-    bash ${process_script} \
+    bash validate_cram.sh \
         ${task.cpus} \
         ${sample} \
         ${ref_genome} \

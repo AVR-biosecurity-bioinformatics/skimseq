@@ -1,7 +1,6 @@
 process EXTRACT_UNMAPPED {
-    def process_name = "extract_unmapped"    
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/extract_unmapped", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/unmapped", mode: 'copy'
 
     input:
@@ -12,12 +11,11 @@ process EXTRACT_UNMAPPED {
     tuple val(sample), path("*.unmapped.R{1,2}.fastq.gz"),  emit: unmapped_fastq
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash extract_unmapped.sh \
         ${task.cpus} \
         ${sample} \
         "${cram}" \

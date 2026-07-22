@@ -1,7 +1,5 @@
 process VALIDATE_GVCF {
-    def process_name = "validate_gvcf"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/validate_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(gvcf), path(tbi)
@@ -11,7 +9,6 @@ process VALIDATE_GVCF {
     tuple val(sample), stdout, emit: status
     
     script:
-    def process_script = "${process_name}.sh"
 
     // build @RG lines in Groovy
     // @RG\tID:FCID.LANE\tLB:LIB\tPL:PLAT\tPU:FCID.LANE.SAMPLE\tSM:SAMPLE
@@ -33,7 +30,7 @@ process VALIDATE_GVCF {
     printf "%s\n" ${fastq2} > r2.list
 
     ### run process script
-    bash ${process_script} \
+    bash validate_fastq.sh \
         ${task.cpus} \
         ${sample} \
         ${ref_genome} \

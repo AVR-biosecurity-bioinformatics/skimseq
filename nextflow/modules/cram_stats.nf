@@ -1,6 +1,4 @@
 process CRAM_STATS {
-    def process_name = "cram_stats"    
-    // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc/alignment_stats", mode: 'copy'
 
@@ -14,12 +12,11 @@ process CRAM_STATS {
     tuple val(sample), path("*.coverage.txt"),            emit: coverage
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash cram_stats.sh \
         ${task.cpus} \
         ${sample} \
         "${cram}" \

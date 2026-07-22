@@ -1,7 +1,5 @@
 process PLOT_VCF_FILTERS {
-    def process_name = "plot_vcf_filters"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/plot_vcf_filters", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
 
     input:
@@ -14,10 +12,9 @@ process PLOT_VCF_FILTERS {
     //path("*.tsv"),   emit: summary
 
     script:
-    def process_script = "${process_name}.R"
     """
     shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
-        Rscript ${projectDir}/bin/${process_script} \
+        Rscript ${projectDir}/bin/plot_vcf_filters.R \
         ${projectDir} \
         ${params.rdata} \
         ${outname}

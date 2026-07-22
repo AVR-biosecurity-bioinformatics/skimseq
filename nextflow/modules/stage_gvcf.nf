@@ -1,7 +1,5 @@
 process STAGE_GVCF {
-    def process_name = "stage_gvcf"
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/stage_gvcf", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     cache 'deep'
 
     input:

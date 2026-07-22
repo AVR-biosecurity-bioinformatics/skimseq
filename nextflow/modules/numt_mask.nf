@@ -1,7 +1,5 @@
 process NUMT_MASK {
-    def process_name = "numt_mask"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/numt_mask", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple path(ref_genome), path(genome_index_files)
@@ -13,12 +11,11 @@ process NUMT_MASK {
     path("numt_mask.bed"),                                              emit: mask_bed
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
     ### run process script
-    bash ${process_script} \
+    bash numt_mask.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${ref_genome} \

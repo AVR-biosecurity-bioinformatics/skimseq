@@ -1,6 +1,5 @@
 process JOINT_GENOTYPE {
-    def process_name = "joint_genotype"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/joint_genotype", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
@@ -25,7 +24,6 @@ process JOINT_GENOTYPE {
     tuple val(interval_hash), path("*.vcf.gz"), path("*.vcf.gz.tbi"), path("*.stderr.log"),  emit: log
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
@@ -41,7 +39,7 @@ process JOINT_GENOTYPE {
     export GATK_TMP=${workflow.workDir}/tmp
 
     ### run process script
-    bash ${process_script} \
+    bash joint_genotype.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${genomicsdb} \

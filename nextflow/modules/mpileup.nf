@@ -1,6 +1,5 @@
 process MPILEUP {
-    def process_name = "mpileup"    
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/mpileup", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
@@ -24,7 +23,6 @@ process MPILEUP {
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
     
@@ -47,7 +45,7 @@ process MPILEUP {
     printf "%s\n" ${cram} | LC_ALL=C sort -u > cram.list
 
     ### run process script
-    bash ${process_script} \
+    bash mpileup.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${ref_genome} \

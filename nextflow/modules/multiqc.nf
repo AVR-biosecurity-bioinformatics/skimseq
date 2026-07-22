@@ -1,7 +1,5 @@
 process MULTIQC {
-    def process_name = "multiqc"    
-    // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/multiqc", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
 
     input:
@@ -15,12 +13,11 @@ process MULTIQC {
     path "*_plots"             , emit: plots
     
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
      
     ### run process script
-    bash ${process_script} \
+    bash multiqc.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         ${multiqc_config} 

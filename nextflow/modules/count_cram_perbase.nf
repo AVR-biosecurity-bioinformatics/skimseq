@@ -1,7 +1,6 @@
 process COUNT_CRAM_PERBASE {
-    def process_name = "count_cram_perbase"
     // tag "-"
-    publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/count_cram_perbase", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc/alignment_stats", mode: 'copy'
 
     input:
@@ -15,12 +14,11 @@ process COUNT_CRAM_PERBASE {
     tuple val(sample), path("${sample}.perbase.bed.gz"),  path("${sample}.perbase.bed.gz.tbi"),   emit: perbase
 
     script:
-    def process_script = "${process_name}.sh"
     """
     #!/usr/bin/env bash
 
     ### run process script
-    bash ${process_script} \
+    bash count_cram_perbase.sh \
         ${task.cpus} \
         ${task.memory.giga} \
         "${cram}" \
