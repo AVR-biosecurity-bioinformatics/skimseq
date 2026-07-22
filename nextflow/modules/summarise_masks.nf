@@ -3,8 +3,6 @@ process SUMMARISE_MASKS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     tuple path(ref_fasta), path(indexes)

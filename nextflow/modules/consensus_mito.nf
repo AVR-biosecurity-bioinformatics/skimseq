@@ -4,9 +4,6 @@ process CONSENSUS_MITO {
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/mito", mode: 'copy'
 
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:SeqKit/2.8.2:SAMtools/1.23.1-GCC-13.3.0:bwa-mem2/2.2.1-GCC-13.3.0"
-
     input:
     tuple val(sample), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)

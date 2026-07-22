@@ -2,8 +2,6 @@ process PROCESS_CRAM_MITO {
     def process_name = "process_cram_mito"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "SAMtools/1.21-GCC-13.3.0"
 
     input:
     tuple val(sample), path(cram), path(cram_index)

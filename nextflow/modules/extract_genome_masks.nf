@@ -2,8 +2,6 @@ process EXTRACT_GENOME_MASKS {
     def process_name = "extract_genome_masks"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
     tuple path(ref_fasta), path(indexes)

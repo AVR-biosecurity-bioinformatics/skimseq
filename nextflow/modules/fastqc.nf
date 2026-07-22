@@ -2,8 +2,6 @@ process FASTQC {
     def process_name = "fastqc"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "FastQC/0.12.1-Java-11:SAMtools/1.22.1-GCC-13.3.0"
 
     input:
     tuple val(sample), path(cram), path(cram_index)

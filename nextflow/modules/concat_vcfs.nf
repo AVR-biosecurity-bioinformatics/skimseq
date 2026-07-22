@@ -28,8 +28,6 @@ process CONCAT_VCFS {
             return null
         }
 
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21:BCFtools/1.21-GCC-13.3.0"
-
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)
     

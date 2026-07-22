@@ -2,8 +2,6 @@ process COUNT_VCF_RECORDS {
     def process_name = "count_vcf_records"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BCFtools/1.22-GCC-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     tuple val(sample), path(gvcf), path(tbi)

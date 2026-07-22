@@ -2,8 +2,6 @@ process MERGE_CHUNK_MISSING {
     def process_name = "merge_chunk_missing"
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0:BCFtools/1.21-GCC-13.3.0"
 
     input:
     path(missing)

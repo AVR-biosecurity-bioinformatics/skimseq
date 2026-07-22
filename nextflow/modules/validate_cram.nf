@@ -2,8 +2,6 @@ process VALIDATE_CRAM {
     def process_name = "validate_cram"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
     tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(cram), path(crai)

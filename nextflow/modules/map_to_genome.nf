@@ -1,7 +1,6 @@
 process MAP_TO_GENOME {
     def process_name = "map_to_genome"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    module "bwa-mem2/2.2.1-GCC-13.3.0:SAMtools/1.21-GCC-13.3.0:SeqKit/2.8.2"
 
     input:
     tuple val(sample), val(nchunks), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2), val(start), val(end)

@@ -2,8 +2,6 @@ process GENMAP {
     def process_name = "genmap"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "GenMap/1.3.0-GCCcore-13.3.0:BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     tuple path(ref_genome), path(genome_index_files)

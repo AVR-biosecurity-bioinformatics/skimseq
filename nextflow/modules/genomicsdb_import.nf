@@ -3,8 +3,6 @@ process GENOMICSDB_IMPORT {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     // container "jackscanlan/piperline-multi:0.0.1"
-    module "GATK/4.6.1.0-GCCcore-13.3.0-Java-21"
-
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
     tuple path(ref_genome), path(genome_index_files)

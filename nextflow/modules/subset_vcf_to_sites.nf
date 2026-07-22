@@ -1,8 +1,6 @@
 process SUBSET_VCF_TO_SITES {
     def process_name = "subset_vcf_to_sites"    
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BCFtools/1.22-GCC-13.3.0"
 
     input:
     tuple val(variant_type), val(interval_hash), path(sites), path(sites_tbi), path(vcf_list), path(tbi_list)

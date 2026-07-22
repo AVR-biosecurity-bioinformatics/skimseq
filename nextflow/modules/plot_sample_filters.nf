@@ -3,8 +3,6 @@ process PLOT_SAMPLE_FILTERS {
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "shifter/22.02.1"
 
     input:
     path(missing_summary)

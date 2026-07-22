@@ -2,8 +2,6 @@ process MERGE_MASKS {
     def process_name = "merge_masks"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BEDTools/2.31.1-GCC-13.3.0"
 
     input:
     path(exclude_bed)

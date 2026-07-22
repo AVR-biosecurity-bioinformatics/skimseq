@@ -32,6 +32,6 @@ seqkit version
 
 
 ## Tag the image for Docker Hub
-docker tag bcftools-test:1.0.0 alexpiper/genomic-utils:1.0.0
+docker tag genomic-utils:1.0.0 alexpiper/genomic-utils:1.0.0
 docker login
 docker push alexpiper/genomic-utils:1.0.0

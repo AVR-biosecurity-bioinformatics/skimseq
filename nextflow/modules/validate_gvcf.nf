@@ -2,8 +2,6 @@ process VALIDATE_GVCF {
     def process_name = "validate_gvcf"    
     // tag "-"
     publishDir "${launchDir}/output/modules/${process_name}", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    module "BCFtools/1.21-GCC-13.3.0"
 
     input:
     tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(gvcf), path(tbi)
