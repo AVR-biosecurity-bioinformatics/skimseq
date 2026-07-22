@@ -4,9 +4,7 @@ process STAGE_GVCF {
 
     input:
     tuple val(sample), path(vcf), path(vcf_tbi)
-    
-    output: 
-    
+        
     output: 
     tuple val(sample),  path("${sample}.g.vcf.gz"), path("${sample}.g.vcf.gz.tbi"),       emit: gvcf
 

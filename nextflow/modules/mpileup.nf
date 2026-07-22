@@ -1,12 +1,6 @@
 process MPILEUP {
     publishDir "${launchDir}/output/modules/mpileup", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
-    input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
-    val(cohort_size)
-    path(popmap)
-    
     // Scale memory based on cohort size
     memory {
         def n = cohort_size as int
@@ -18,7 +12,13 @@ process MPILEUP {
         //  Optional cap: if --max_memory was provided, return the smaller of (mem, max)
         params.max_memory ? [mem, (params.max_memory as MemoryUnit)].min() : mem
     }
-
+    
+    input:
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
+    tuple path(ref_genome), path(genome_index_files)
+    val(cohort_size)
+    path(popmap)
+    
     output: 
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
 

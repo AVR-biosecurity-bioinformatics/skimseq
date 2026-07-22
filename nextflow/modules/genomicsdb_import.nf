@@ -1,11 +1,6 @@
 process GENOMICSDB_IMPORT {
     publishDir "${launchDir}/output/modules/genomicsdb_import", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
-    input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
-    tuple path(ref_genome), path(genome_index_files)
-    val(cohort_size)
-
+    
     // Scale memory based on cohort size
     memory {
         def n = cohort_size as int
@@ -18,6 +13,13 @@ process GENOMICSDB_IMPORT {
         params.max_memory ? [mem, (params.max_memory as MemoryUnit)].min() : mem
     }
     
+
+    input:
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
+    tuple path(ref_genome), path(genome_index_files)
+    val(cohort_size)
+
+
     output: 
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("$interval_hash"),      emit: genomicsdb
     

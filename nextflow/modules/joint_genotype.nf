@@ -1,12 +1,6 @@
 process JOINT_GENOTYPE {
     publishDir "${launchDir}/output/modules/joint_genotype", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
-    input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
-    tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
-    val(cohort_size)
-
     // Scale memory based on cohort size
     memory {
         def n = cohort_size as int
@@ -18,6 +12,12 @@ process JOINT_GENOTYPE {
         //  Optional cap: if --max_memory was provided, return the smaller of (mem, max)
         params.max_memory ? [mem, (params.max_memory as MemoryUnit)].min() : mem
     }
+
+    input:
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
+    tuple path(ref_genome), path(genome_index_files)
+    path(exclude_bed)
+    val(cohort_size)
 
     output: 
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf

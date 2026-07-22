@@ -1,3 +1,31 @@
+def flatten_filter_map(prefix, object, result) {
+
+    if (
+        object instanceof Map ||
+        object instanceof nextflow.config.ConfigMap
+    ) {
+        object.each { key, value ->
+
+            def flattened_key = prefix
+                ? "${prefix}_${key}".toUpperCase()
+                : key.toString().toUpperCase()
+
+            flatten_filter_map(
+                flattened_key,
+                value,
+                result
+            )
+        }
+    }
+    else {
+        result[prefix] = object == null
+            ? 'NA'
+            : object
+    }
+
+    return result
+}
+
 process FILTER_VCF {
     publishDir "${launchDir}/output/modules/filter_vcf", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
@@ -27,24 +55,6 @@ process FILTER_VCF {
     path("*samples.txt"), emit: samples_to_keep
 
     script:
-    
-    def flatten
-    flatten = { String prefix, Object obj, Map out = [:] ->
-        if (obj instanceof Map || obj instanceof nextflow.config.ConfigMap) {
-            obj.entrySet().each { entry ->
-                def k = entry.key.toString()
-                def v = entry.value
-                def key = prefix ? "${prefix}_${k}".toUpperCase() : k.toUpperCase()
-                flatten(key, v, out)
-            }
-        } else {
-            out[prefix] = (obj == null ? 'NA' : obj)
-        }
-        out
-    }
-
-    def flat = flatten('', filter_map)
-    def filter_kv = flat.collect { k, v -> "${k}=${v}" }.sort().join(';')
 
     """
     #!/usr/bin/env bash
