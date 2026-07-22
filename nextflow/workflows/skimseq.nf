@@ -120,6 +120,10 @@ workflow SKIMSEQ {
         ch_genome = Channel.empty()
     } 
     
+    // Set cram_store and gvcf_store defaults
+    params.cram_store = params.cram_store ?: "${launchDir}/output/results/cram"
+    params.gvcf_store = params.gvcf_store ?: "${launchDir}/output/results/gvcf"
+
     /*
     Process nuclear genome
     */
