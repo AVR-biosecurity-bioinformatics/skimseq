@@ -1,34 +1,89 @@
 process MAP_TO_GENOME {
+    tag "${sample}:${lib}:${start}-${end}"
+
     publishDir "${launchDir}/output/modules/map_to_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
-    tuple val(sample), val(nchunks), val(lib), val(fcid), val(lane), val(platform), path(fastq1), path(fastq2), val(start), val(end)
+    tuple val(sample),
+          val(nchunks),
+          val(lib),
+          val(fcid),
+          val(lane),
+          val(platform),
+          path(fastq1),
+          path(fastq2),
+          val(start),
+          val(end)
+    
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), val(nchunks), val(lib), path("*.cram"),                         emit: cram
-    
+    tuple val(sample),
+          val(nchunks),
+          val(lib),
+          path("${lib}.${start}-${end}.cram"),
+          emit: cram
+
     script:
+    def chunk_name = "${start}-${end}"
+
+    def read_group = [
+        "@RG",
+        "ID:${fcid}.${lane}.${lib}",
+        "LB:${lib}",
+        "PL:${platform}",
+        "PU:${fcid}.${lane}",
+        "SM:${sample}"
+    ].join('\\t')
+    
     """
     #!/usr/bin/env bash
+    set -uo pipefail   # no -e so we can inspect PIPESTATUS
 
-    # Export variables to script
-    export BWA_k=${params.bwa_min_seed_length}
-    export BWA_c=${ params.bwa_max_seed_occurance}
+    # Manage threads between processes in the pipe
+    SEQKIT_T=1
 
-    ### run process script
-    bash map_to_genome.sh \
-        ${task.cpus} \
-        ${sample} \
-        ${lib} \
-        ${fastq1} \
-        ${fastq2} \
-        ${start} \
-        ${end} \
-        ${ref_genome} \
-        ${fcid} \
-        ${lane} \
-        ${platform}
-        
+    # leave room for two seqkit processes + sort
+    SORT_T=2
+    BWA_T=\$(( ${task.cpus} - SORT_T - 1 ))
+    if (( BWA_T < 1 )); then
+        BWA_T=1
+        SORT_T=0
+    fi
+
+    bwa-mem2 mem \
+                -t "\${BWA_T}" \
+                -R ${read_group} \
+                -K 100000000 \
+            -Y \
+            -k ${params.bwa_min_seed_length} \
+            -c ${params.bwa_max_seed_occurance} \
+            ${ref_genome} \
+        <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq1}") \
+        <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq2}") \
+    | samtools sort \
+        -M \
+        --threads "\${SORT_T}" \
+        --reference ${ref_genome} \
+        -O CRAM \
+        -o ${lib}.\${CHUNK_NAME}.cram
+
+    # Capture and report individual tool pipe statuses
+    st=("${PIPESTATUS[@]}")
+    names=("bwa-mem2 mem" "samtools sort")
+
+    # Default to exit code 0
+    ec=0
+    for i in "\${!st[@]}"; do
+    if (( st[i] != 0 )); then
+        echo "\${names[i]} failed with exit code \${st[i]}" >&2
+        # take the first failing stage
+        ec=\${st[i]}                         
+        break
+    fi
+    done
+
+    # If any tool returned non-zero, return that exit status to nextflow for retry
+    exit "\${ec}"           
     """
 }

@@ -11,10 +11,21 @@ process SPLIT_BED_BY_CHR  {
     """
     #!/usr/bin/env bash
     
-    ### run process script
-    bash split_bed_by_chr.sh \
-        ${task.cpus} \
-        "${bed}"
+    awk '
+    BEGIN { OFS="\\t"; prev=""; out="" }
+    /^#/ || NF==0 { next }   # skip headers/blank lines
+    {
+        chr=\$1
+        # sanitize contig name for filenames (optional but safe)
+        gsub(/[^A-Za-z0-9_.-]/, "_", chr)
 
+        if (chr != prev) {
+        if (out != "") close(out)
+        out = chr ".bed"
+        prev = chr
+        }
+        print \$0 >> out
+    }
+    ' "${bed}"
     """
 }

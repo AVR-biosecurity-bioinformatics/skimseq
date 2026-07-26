@@ -5,20 +5,35 @@ process SPLIT_VCF_BY_TYPE {
     tuple val(outname), path(vcf), path(vcf_tbi)
     
     output: 
-    tuple val(outname),  path("${outname}.snp.{vcf,g.vcf}.gz"), path("${outname}.snp.{vcf,g.vcf}.gz.tbi"),       emit: snp_vcf
-    tuple val(outname),  path("${outname}.indel.{vcf,g.vcf}.gz"), path("${outname}.indel.{vcf,g.vcf}.gz.tbi"),       emit: indel_vcf
-    tuple val(outname),  path("${outname}.invariant.{vcf,g.vcf}.gz"), path("${outname}.indel.{vcf,g.vcf}.gz.tbi"),       emit: invariant_vcf
+    tuple val(outname),
+          path("${outname}.snp.vcf.gz"),
+          path("${outname}.snp.vcf.gz.tbi"),
+          emit: snp_vcf
 
+    tuple val(outname),
+          path("${outname}.indel.vcf.gz"),
+          path("${outname}.indel.vcf.gz.tbi"),
+          emit: indel_vcf
+
+    tuple val(outname),
+          path("${outname}.invariant.vcf.gz"),
+          path("${outname}.invariant.vcf.gz.tbi"),
+          emit: invariant_vcf
+          
     script:
     """
     #!/usr/bin/env bash
      
-    ### run process script
-    bash split_vcf_by_type.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${vcf} \
-        "${outname}"
 
+    bcftools view -Ou ${vcf} \
+    | tee \
+        >(bcftools view -Oz -v snps   -o ${outname}.snp.vcf.gz) \
+        >(bcftools view -Oz -v indels -o ${outname}.indel.vcf.gz) \
+    | bcftools view -Oz -v ref -o ${outname}.invariant.vcf.gz
+
+    # Index outputs
+    bcftools index -t --threads ${task.cpus} ${outname}.snp.vcf.gz
+    bcftools index -t --threads ${task.cpus} ${outname}.indel.vcf.gz
+    bcftools index -t --threads ${task.cpus} ${outname}.invariant.vcf.gz
     """
 }

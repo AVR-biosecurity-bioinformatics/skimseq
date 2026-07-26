@@ -11,12 +11,14 @@ process EXTRACT_VCF_SITES {
     """
     #!/usr/bin/env bash
      
-    ### run process script
-    bash extract_vcf_sites.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        "${vcf}" \
-        "${outname}"
+    bcftools view \
+        --threads ${task.cpus} \
+        -G \
+        -Oz9 -o "${outname}.sites.vcf.gz" \
+        "${vcf}"
 
+    bcftools index -t \
+        --threads ${task.cpus} \
+        "${outname}.sites.vcf.gz"
     """
 }
