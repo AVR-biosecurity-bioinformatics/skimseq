@@ -13,12 +13,38 @@ process INDEX_MITO {
     script:
     """
     #!/usr/bin/env bash
-    
-    ### run process script
-    bash index_mito.sh \
-        ${task.cpus} \
-        ${ref_genome} \
-        "${mito_contig}"
 
+    ## Extract mitochondrial genome contig
+    echo "${mito_contig}" > name.lst
+    seqtk subseq ${ref_genome} name.lst > mito.fa
+
+    # Ensure the requested contig was present in the reference.
+    if [[ ! -s mito.fa ]] || ! grep -q '^>' mito.fa; then
+        echo \
+            "ERROR: mitochondrial contig '${mito_contig}' was not found in ${ref_genome}" \
+            >&2
+        exit 1
+    fi
+
+    # Ensure exactly one sequence was extracted.
+    N_SEQUENCES=\$(grep -c '^>' mito.fa)
+
+    if (( N_SEQUENCES != 1 )); then
+        printf \
+            "ERROR: expected one mitochondrial sequence for '%s', but extracted %d\\n" \
+            "${mito_contig}" \
+            "\${N_SEQUENCES}" \
+            >&2
+        exit 1
+    fi
+
+    # Build the BWA-MEM2 index.
+    bwa-mem2 index mito.fa
+
+    # Build the FASTA index.
+    samtools faidx mito.fa
+
+    # Create mitochondrial bed
+    awk 'BEGIN { OFS = "\\t" } {print \$1, 0, \$2 , "Mito"}' mito.fa.fai > mito.bed
     """
 }

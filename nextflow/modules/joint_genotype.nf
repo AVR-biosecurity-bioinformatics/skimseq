@@ -28,26 +28,46 @@ process JOINT_GENOTYPE {
     """
     #!/usr/bin/env bash
     
-    # Export GenotypeGVCFs parameters
-    export EXCLUDE_PAD='${params.exclude_padding}'
-    export OUTPUT_INVARIANT='${params.output_invariant}'
-    export PLOIDY='${params.ploidy}'
-    export HET='${params.heterozygosity}'
-    export HET_SD='${params.heterozygosity_stdev}'
-    export INDEL_HET='${params.indel_heterozygosity}'
-    export MAX_ALTERNATE='${params.jc_max_alternate_alleles}'
-    export GENOMICSDB_MAX_ALTERNATE='${params.jc_max_alternate_to_import}'
-    export GATK_TMP=${workflow.workDir}/tmp
+    GATK_TMP=${workflow.workDir}/tmp
 
-    ### run process script
-    bash joint_genotype.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${genomicsdb} \
-        ${ref_genome} \
-        ${interval_hash} \
-        ${interval_bed} \
-        ${exclude_bed} 
+    # Reserve 20% of task memory for native GenomicsDB/TileDB operations and clamp to at least 1GB.
+    JAVA_MEM=\$(( ${task.memory.giga} * 80 / 100 ))
+    if (( JAVA_MEM < 1 )); then
+        JAVA_MEM=1
+    fi
+
+    # First step = use GenotypeGVCFs to joint call genotypes for variant and optionally invariant
+    # Send stderr to log file for profiling
+    gatk --java-options "-Xmx\${JAVA_MEM}G -Xms\${JAVA_MEM}G -Djava.io.tmpdir=\${GATK_TMP}" GenotypeGVCFs \
+        -R "${ref_genome}" \
+        -V gendb://${genomicsdb} \
+        -L "${interval_bed}" \
+        -O /dev/stdout \
+        --exclude-intervals "${exclude_bed}" \
+        --interval-exclusion-padding "${params.exclude_padding}" \
+        --include-non-variant-sites "${params.output_invariant}" \
+        --interval-merging-rule ALL \
+        --merge-input-intervals \
+        --variant-output-filtering STARTS_IN \
+        --max-alternate-alleles "${params.jc_max_alternate_alleles}" \
+        --genomicsdb-max-alternate-alleles "${params.jc_max_alternate_to_import}" \
+        -ploidy "${params.ploidy}" \
+        --heterozygosity "${params.heterozygosity}" \
+        --heterozygosity-stdev "${params.heterozygosity_stdev}" \
+        --indel-heterozygosity "${params.indel_heterozygosity}" \
+        --tmp-dir /tmp \
+        --genomicsdb-shared-posixfs-optimizations true \
+        2> >(tee -a ${interval_hash}.stderr.log >&2) \
+    | bcftools +setGT \
+        -Ou -- \
+        -t q -n . -i 'FMT/DP=0' \
+    | bcftools annotate \
+        --threads ${task.cpus} \
+        --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' \
+        -Oz9 -o "${interval_hash}.vcf.gz"
+
+    # index output
+    bcftools index -t ${interval_hash}.vcf.gz
 
     """
 }

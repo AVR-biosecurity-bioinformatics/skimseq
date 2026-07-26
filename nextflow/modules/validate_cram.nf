@@ -21,7 +21,7 @@ process VALIDATE_CRAM {
             "ID:${fcid}.${lane}.${lib}",
             "LB:${lib}",
             "PL:${platform}",
-            "PU:${fcid}.${lane}",
+            "PU:${fcid}.${lane}.${rg_sample}",
             "SM:${rg_sample}"
         ].join('\t')
     }.sort().join('\n')

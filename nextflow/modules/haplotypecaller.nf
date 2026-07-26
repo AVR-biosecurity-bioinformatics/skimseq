@@ -14,38 +14,110 @@ process HAPLOTYPECALLER {
     script: 
     """
     #!/usr/bin/env bash
+    GATK_TMP=${workflow.workDir}/tmp
 
-    # Export haplotypecaller parameters
-    export INTERVAL_PAD='${params.hc_interval_padding}'
-    export EXCLUDE_PAD='${params.exclude_padding}'
-    export MIN_PRUNING='${params.hc_min_pruning}'
-    export MIN_DANGLE='${params.hc_min_dangling_length}'
-    export MAX_READS_STARTPOS='${params.hc_max_reads_startpos}'
-    export RMDUP='${params.rmdup}'
-    export PCR_FREE='${params.hc_pcr_free}'
-    export USE_SOFTCLIPPED_BASES='${params.hc_use_softclipped_bases}'
-    export MINBQ='${params.minbq}'
-    export MINMQ='${params.minmq}'
-    export MAX_AMBIG_BASES='${params.hc_max_ambig_bases}'
-    export MIN_FRAGMENT_LENGTH='${params.min_fragment_length}'
-    export MAX_FRAGMENT_LENGTH='${params.max_fragment_length}'
-    export MIN_ALIGNED_LENGTH='${params.min_aligned_length}'
-    export PLOIDY='${params.ploidy}'
-    export HET='${params.heterozygosity}'
-    export HET_SD='${params.heterozygosity_stdev}'
-    export INDEL_HET='${params.indel_heterozygosity}'
-    export GATK_TMP=${workflow.workDir}/tmp
+    # 1GB of memory should be retained outside the java heap
+    JAVA_MEM=\$(( ${task.memory.giga} - 1 ))
+    if (( JAVA_MEM < 1 )); then
+        JAVA_MEM=1
+    fi
 
-    ### run process script
-    bash haplotypecaller.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${sample} \
-        "${cram}" \
-        ${ref_genome} \
-        ${interval_hash} \
-        ${interval_bed} \
-        "${exclude_bed}" 
-        
+    # parse filtering options as flags
+    if [[ "${params.rmdup}" == "false" ]]; then
+        RMDUP_ARGS=(
+            -DF
+            NotDuplicateReadFilter
+        )
+    else
+        RMDUP_ARGS=()
+    fi
+
+    # PCR-free true = disable PCR indel error model
+    if [[ "${params.hc_pcr_free}" == "true" ]]; then
+        PCR_FREE_ARGS=(
+            --pcr-indel-model
+            NONE
+        )
+    else
+        PCR_FREE_ARGS=()
+    fi
+
+    # GATK arg is the inverse: dont-use-soft-clipped-bases
+    if [[ "${params.hc_use_softclipped_bases}" == "true" ]]; then
+        DONT_USE_SOFTCLIPPED="false"
+    else
+        DONT_USE_SOFTCLIPPED="true"
+    fi
+
+    # call variants by sample * interval chunk
+    # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
+    gatk --java-options "-Xmx\${JAVA_MEM}G -Xms\${JAVA_MEM}g -Djava.io.tmpdir=\${GATK_TMP} -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${CPUS}" HaplotypeCaller \
+        -R "${ref_genome}" \
+        -I "${cram}" \
+        -L "${interval_bed}" \
+        --native-pair-hmm-threads "${task.cpus}" \
+        --assembly-region-padding "${params.hc_interval_padding}" \
+        --exclude-intervals "${exclude_bed}" \
+        --interval-exclusion-padding "${params.exclude_padding}" \
+        --interval-merging-rule ALL \
+        --min-pruning "${params.hc_min_pruning}" \
+        --min-dangling-branch-length "${params.hc_min_dangling_length}" \
+        --max-reads-per-alignment-start "${params.hc_max_reads_startpos}" \
+        \${RMDUP} \
+        \${PCR_FREE} \
+        --min-base-quality-score "${params.minbq}" \
+        --minimum-mapping-quality "${params.minmq}" \
+        --read-filter AmbiguousBaseReadFilter \
+        --ambig-filter-bases "${params.hc_max_ambig_bases}" \
+        --read-filter FragmentLengthReadFilter \
+        --min-fragment-length "${params.min_fragment_length}" \
+        --max-fragment-length "${params.max_fragment_length}" \
+        --dont-use-soft-clipped-bases "\${DONT_USE_SOFTCLIPPED}" \
+        --read-filter OverclippedReadFilter \
+        --filter-too-short "${params.min_aligned_length}" \
+        --mapping-quality-threshold-for-genotyping "${params.minmq}" \
+        --assembly-region-out "${sample}.${interval_hash}.assembly.tsv" \
+        -ploidy "${params.ploidy}" \
+        --heterozygosity "${params.heterozygosity}" \
+        --heterozygosity-stdev "${params.heterozygosity_stdev}" \
+        --indel-heterozygosity "${params.indel_heterozygosity}" \
+        -ERC GVCF \
+        -GQB 10 \
+        -GQB 20 \
+        -GQB 30 \
+        -GQB 40 \
+        -GQB 50 \
+        -GQB 60 \
+        -GQB 70 \
+        -GQB 80 \
+        -GQB 90 \
+        -O tmp.g.vcf.gz \
+        2> >(tee -a "${interval_hash}.${sample}.stderr.log" >&2)
+
+
+    # Extract readgroups from cram for embedding in VCF header
+    samtools view -H "${cram}"  \
+        | grep '^@RG'  \
+        | awk ' {
+            line=\$0
+            # Escape existing backslashes before converting tabs.
+            gsub(/\\\\/, "\\\\\\\\", line)
+            gsub(/\\t/, "\\\\t", line)
+            print "##RG=" line
+        }' > readgroups.vcf.hdr
+
+
+    # Inject RG header lines into gvcf
+    # NOTE: Haplotypecaller ALWAYS outputs intervals in the GVCF, even if there are no reads - so drop these with bcftools
+    bcftools annotate \
+        --header-lines readgroups.vcf.hdr \
+        tmp.g.vcf.gz \
+    | bcftools view \
+        -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
+        -Oz9 -o "${interval_hash}.${sample}.g.vcf.gz" 
+
+    bcftools index -t "${interval_hash}.${sample}.g.vcf.gz" 
+
+    rm -f tmp.g.vcf.gz tmp.g.vcf.gz.tbi
     """
 }

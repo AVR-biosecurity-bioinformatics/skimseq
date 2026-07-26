@@ -12,15 +12,19 @@ process GENOTYPE_POSTERIORS {
     script:
     """
     #!/usr/bin/env bash
-    
-    ### run process script
-    bash genotype_posteriors.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${interval_hash} \
-        ${interval_bed} \
-        ${vcf} \
-        ${sites_vcf}
 
+    # Subset the genotype vcf to just the sites in the site vcf
+    bcftools isec -n=2 -w1 -Oz -o subset.vcf.gz ${vcf} ${sites_vcf}
+    bcftools index -t subset.vcf.gz
+
+    # calculate genotype posteriors over genomic intervals
+    gatk --java-options "-Xmx${task.memory.giga}G" CalculateGenotypePosteriors \
+        -V subset.vcf.gz \
+        -L ${interval_bed} \
+        -O ${interval_hash}.gp.vcf.gz \
+        --interval-merging-rule ALL \
+        --tmp-dir /tmp
+
+    rm subset.vcf.gz*
     """
 }
