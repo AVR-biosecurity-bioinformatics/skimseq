@@ -14,13 +14,27 @@ process CRAM_STATS {
     script:
     """
     #!/usr/bin/env bash
-    
-    ### run process script
-    bash cram_stats.sh \
-        ${task.cpus} \
-        ${sample} \
+
+    # Output sample coverage statistics
+    samtools coverage \
+        -Q1 \
+        -q1 \
+        --reference ${ref_genome} \
         "${cram}" \
-        ${ref_genome}
+        > ${sample}.coverage.txt
+
+    # Output flag statistics
+    samtools flagstats \
+        --threads ${task.cpus} \
+        "${cram}" \
+        > ${sample}.flagstats.txt
+
+    # Output comprehensive statistics
+    samtools stats \
+        --threads ${task.cpus} \
+        --reference ${ref_genome} \
+        "${cram}" \
+        > ${sample}.stats.txt
 
     """
 }

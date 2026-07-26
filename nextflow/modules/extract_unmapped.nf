@@ -14,12 +14,21 @@ process EXTRACT_UNMAPPED {
     """
     #!/usr/bin/env bash
     
-    ### run process script
-    bash extract_unmapped.sh \
-        ${task.cpus} \
-        ${sample} \
-        "${cram}" \
-        ${ref_genome}
+    # Create empty output files
+    touch ${sample}.unmapped.R1.fastq.gz
+    touch ${sample}.unmapped.R2.fastq.gz
 
+    # Extract reads where only both pairs are unmapped (f12)
+    samtools collate \
+        --threads ${task.cpus} \
+        --reference ${ref_genome} \
+        -O -u ${cram}  \
+    | samtools fastq \
+        --threads ${task.cpus} \
+        -1 ${sample}.unmapped.R1.fastq.gz \
+        -2 ${sample}.unmapped.R2.fastq.gz \
+        -0 /dev/null \
+        -s /dev/null \
+        -f12
     """
 }

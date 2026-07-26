@@ -15,12 +15,11 @@ process MULTIQC {
     script:
     """
     #!/usr/bin/env bash
-     
-    ### run process script
-    bash multiqc.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${multiqc_config} 
 
+    multiqc . \
+        --force \
+        ${multiqc_config} \
+        --filename multiqc_report.html \
+        --clean-up
     """
 }

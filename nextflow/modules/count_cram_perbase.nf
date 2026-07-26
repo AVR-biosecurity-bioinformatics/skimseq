@@ -14,19 +14,28 @@ process COUNT_CRAM_PERBASE {
     tuple val(sample), path("${sample}.perbase.bed.gz"),  path("${sample}.perbase.bed.gz.tbi"),   emit: perbase
 
     script:
+    //  samtools depth excludes duplicates by default. Add them back when duplicate removal is disabled.
+    def flags = hc_rmdup
+        ? '-G UNMAP,SECONDARY,QCFAIL,DUP'
+        : '-g DUP -G UNMAP,SECONDARY,QCFAIL'
+
     """
     #!/usr/bin/env bash
+    set -euo pipefail
 
-    ### run process script
-    bash count_cram_perbase.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
+    # count per-base depths
+    samtools depth \
+        -@ ${task.cpus} \
+        -q ${hc_minbq} \
+        -Q ${hc_minmq} \
+        -s \
+        ${flags} \
+        --reference "${ref_genome}" \
         "${cram}" \
-        ${sample} \
-        ${ref_genome} \
-        ${hc_rmdup} \
-        ${hc_minbq} \
-        ${hc_minmq}
+    | awk 'BEGIN{OFS="\t"} {print \$1, \$2-1, \$2, \$3}' \
+    | bgzip -c --compress-level 9 > "${sample}.perbase.bed.gz"
+    
+    tabix -f -p bed "${sample}.perbase.bed.gz"
         
     """
 }

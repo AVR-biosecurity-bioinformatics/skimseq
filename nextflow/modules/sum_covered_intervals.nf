@@ -12,12 +12,11 @@ process SUM_COVERED_INTERVALS {
     """
     #!/usr/bin/env bash
 
-    ### run process script
-    bash sum_covered_intervals.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${sample} \
-        ${count_bed} \
-        ${exclude_bed}
+    # Exclude mask from perbase counts then merge into covered tracts
+    bedtools subtract -a ${count_bed} -b ${exclude_bed} \
+        | bedtools merge -i - -c 4 -o sum \
+        | bgzip -c --compress-level 9 > "${sample}.covered.bed.gz"
+
+    tabix -f -p bed "${sample}.covered.bed.gz"
     """
 }
