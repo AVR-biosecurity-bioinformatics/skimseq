@@ -25,7 +25,6 @@ process MAP_TO_GENOME {
           emit: cram
 
     script:
-    def chunk_name = "${start}-${end}"
 
     def read_group = [
         "@RG",
@@ -35,7 +34,7 @@ process MAP_TO_GENOME {
         "PU:${fcid}.${lane}",
         "SM:${sample}"
     ].join('\\t')
-    
+
     """
     #!/usr/bin/env bash
     set -uo pipefail   # no -e so we can inspect PIPESTATUS
@@ -45,7 +44,7 @@ process MAP_TO_GENOME {
 
     # leave room for two seqkit processes + sort
     SORT_T=2
-    BWA_T=\$(( ${task.cpus} - SORT_T - 1 ))
+    BWA_T=\$(( ${task.cpus} - SORT_T - 2 * SEQKIT_T ))
     if (( BWA_T < 1 )); then
         BWA_T=1
         SORT_T=0
@@ -53,34 +52,38 @@ process MAP_TO_GENOME {
 
     bwa-mem2 mem \
                 -t "\${BWA_T}" \
-                -R ${read_group} \
+                -R '${read_group}' \
                 -K 100000000 \
             -Y \
             -k ${params.bwa_min_seed_length} \
             -c ${params.bwa_max_seed_occurance} \
-            ${ref_genome} \
+            "${ref_genome}" \
         <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq1}") \
         <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq2}") \
     | samtools sort \
         -M \
         --threads "\${SORT_T}" \
-        --reference ${ref_genome} \
+        --reference "${ref_genome}" \
         -O CRAM \
-        -o ${lib}.\${CHUNK_NAME}.cram
+        -o ${lib}.${start}-${end}.cram
 
     # Capture and report individual tool pipe statuses
-    st=("${PIPESTATUS[@]}")
+    st=("\${PIPESTATUS[@]}")
     names=("bwa-mem2 mem" "samtools sort")
 
     # Default to exit code 0
     ec=0
     for i in "\${!st[@]}"; do
-    if (( st[i] != 0 )); then
-        echo "\${names[i]} failed with exit code \${st[i]}" >&2
-        # take the first failing stage
-        ec=\${st[i]}                         
-        break
-    fi
+        if (( st[i] != 0 )); then
+            printf \
+                'ERROR: %s failed with exit code %d\\n' \
+                "\${names[i]}" \
+                "\${st[i]}" \
+                >&2
+
+            ec=\${st[i]}
+            break
+        fi
     done
 
     # If any tool returned non-zero, return that exit status to nextflow for retry

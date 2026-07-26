@@ -24,7 +24,7 @@ process FASTQC {
     mv ${sample}_fastqc/fastqc_report.html ${sample}_fastqc_report.html
 
     # Clean up
-    rm -rf ${4sample}_fastqc ${sample}_fastqc.zip ${sample}.bam
+    rm -rf ${sample}_fastqc ${sample}_fastqc.zip ${sample}.bam
 
     """
 }

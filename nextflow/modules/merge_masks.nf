@@ -12,13 +12,11 @@ process MERGE_MASKS {
     """
     #!/usr/bin/env bash
 
-    # Write list of mask beds to process
-    printf "%s\n" ${exclude_bed} > mask_beds.list
-    
-    ### run process script
-    bash merge_masks.sh \
-        ${task.cpus}
-        
+    # concatenate and merge any overlapping intervals
+    cut -f 1-4 ${exclude_bed} \
+    | bedtools sort -i concat_mask.bed \
+    | bedtools merge -i - -c 4 -o distinct > merged_masks.bed
+ 
     """
   
 }

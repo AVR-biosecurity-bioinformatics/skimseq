@@ -13,13 +13,20 @@ process PROCESS_CRAM_MITO {
     """
     #!/usr/bin/env bash
     
-    ### run process script
-    bash process_cram_mito.sh \
-        ${task.cpus} \
-        ${sample} \
+    # Extract mitochondrial contig from merged bam
+    samtools view \
+        --reference "${ref_genome}" \
+        --threads ${task.cpus} \
         "${cram}" \
-        ${mito_bed_files} \
-        ${ref_genome}
+        -L ${mito_bed_files} \
+        -b -o ${sample}.mito.bam
+
+    # index bam
+    samtools index --threads ${task.cpus} ${sample}.mito.bam
+
+    # check bam if correctly formatted
+    samtools quickcheck ${sample}.mito.bam \
+        || ( echo "BAM file for sample ${sample} is not formatted correctly" && exit 1 )
 
     """
 }
