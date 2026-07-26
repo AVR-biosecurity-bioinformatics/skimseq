@@ -1,4 +1,5 @@
 process CREATE_BEAGLE {
+    tag "${outname}"
     publishDir "${launchDir}/output/modules/create_beagle", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/beagle", mode: 'copy'
 

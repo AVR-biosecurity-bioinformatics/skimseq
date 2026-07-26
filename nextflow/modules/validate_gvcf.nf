@@ -1,4 +1,5 @@
 process VALIDATE_GVCF {
+    tag "${sample}"
     publishDir "${launchDir}/output/modules/validate_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

@@ -1,4 +1,5 @@
 process VALIDATE_FASTQ {
+    tag "${lib}"
 
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)

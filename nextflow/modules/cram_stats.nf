@@ -1,4 +1,5 @@
 process CRAM_STATS {
+    tag "${sample}"
     publishDir "${launchDir}/output/modules/cram_stats", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc/alignment_stats", mode: 'copy'
 

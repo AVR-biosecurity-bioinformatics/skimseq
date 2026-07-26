@@ -1,4 +1,5 @@
 process PLOT_VCF_FILTERS {
+    // tag "${outname}"
     publishDir "${launchDir}/output/modules/plot_vcf_filters", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
 

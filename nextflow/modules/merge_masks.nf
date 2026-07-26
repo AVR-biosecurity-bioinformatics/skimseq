@@ -1,5 +1,5 @@
 process MERGE_MASKS {
-
+    //tag "${sample}"
     publishDir "${launchDir}/output/modules/merge_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

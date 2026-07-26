@@ -1,4 +1,5 @@
 process MPILEUP {
+    tag "${ref_genome}:${interval_hash}"
     publishDir "${launchDir}/output/modules/mpileup", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     // Scale memory based on cohort size

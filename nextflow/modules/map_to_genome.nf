@@ -31,7 +31,7 @@ process MAP_TO_GENOME {
         "ID:${fcid}.${lane}.${lib}",
         "LB:${lib}",
         "PL:${platform}",
-        "PU:${fcid}.${lane}",
+        "PU:${fcid}.${lane}.${sample}",
         "SM:${sample}"
     ].join('\\t')
 

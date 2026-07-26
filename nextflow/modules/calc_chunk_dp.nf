@@ -27,7 +27,7 @@ def flatten_filter_map(prefix, object, result) {
 }
 
 process CALC_CHUNK_DP {
-    // tag "-"
+    tag "${interval_hash}"
     publishDir "${launchDir}/output/modules/calc_chunk_dp", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

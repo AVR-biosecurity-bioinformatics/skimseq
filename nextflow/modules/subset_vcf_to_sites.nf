@@ -1,4 +1,5 @@
 process SUBSET_VCF_TO_SITES {
+    tag "${variant_type}:${interval_hash}"
     publishDir "${launchDir}/output/modules/subset_vcf_to_sites", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

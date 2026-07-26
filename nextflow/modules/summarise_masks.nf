@@ -1,9 +1,10 @@
 process SUMMARISE_MASKS {
+    tag "${ref_genome}"
     publishDir "${launchDir}/output/modules/summarise_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
 
     input:
-    tuple path(ref_fasta), path(indexes)
+    tuple path(ref_genome), path(indexes)
     path(include_bed)
     path(exclude_bed)
 
@@ -20,7 +21,7 @@ process SUMMARISE_MASKS {
         ${task.cpus} \
         ${include_bed} \
         ${exclude_bed} \
-        ${ref_fasta}
+        ${ref_genome}
 
     """
   

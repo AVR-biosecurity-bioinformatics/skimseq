@@ -1,4 +1,5 @@
 process MERGE_CRAM {
+    tag "${sample}"
     publishDir "${launchDir}/output/modules/merge_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir params.cram_store, mode: 'copy', pattern: "*.cram*", enabled: "${ params.output_cram ? true : false }"
 

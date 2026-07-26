@@ -1,4 +1,5 @@
 process SPLIT_VCF_BY_TYPE {
+    tag "${outname}"
     publishDir "${launchDir}/output/modules/split_vcf_by_type", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
@@ -19,7 +20,7 @@ process SPLIT_VCF_BY_TYPE {
           path("${outname}.invariant.vcf.gz"),
           path("${outname}.invariant.vcf.gz.tbi"),
           emit: invariant_vcf
-          
+
     script:
     """
     #!/usr/bin/env bash

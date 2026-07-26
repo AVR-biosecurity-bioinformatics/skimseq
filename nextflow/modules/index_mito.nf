@@ -1,6 +1,6 @@
 process INDEX_MITO {
+    tag "${ref_genome}"
     publishDir "${launchDir}/output/modules/index_mito", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
     path(ref_genome)

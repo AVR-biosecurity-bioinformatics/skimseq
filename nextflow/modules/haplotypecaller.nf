@@ -1,4 +1,5 @@
 process HAPLOTYPECALLER {
+    tag "${sample}:${interval_hash}"
     publishDir "${launchDir}/output/modules/haplotypecaller", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

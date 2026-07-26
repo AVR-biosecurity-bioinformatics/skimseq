@@ -1,4 +1,5 @@
 process SUM_COVERED_INTERVALS {
+    tag "${sample}"
     publishDir "${launchDir}/output/modules/sum_covered_intervals", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

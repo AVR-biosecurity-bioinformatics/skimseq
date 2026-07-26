@@ -1,4 +1,5 @@
 process GENMAP {
+    tag "${ref_genome}"
     publishDir "${launchDir}/output/modules/genmap", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

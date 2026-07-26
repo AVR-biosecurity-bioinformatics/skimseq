@@ -1,4 +1,5 @@
 process STAGE_GVCF {
+    tag "${sample}"
     publishDir "${launchDir}/output/modules/stage_gvcf", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     cache 'deep'
 

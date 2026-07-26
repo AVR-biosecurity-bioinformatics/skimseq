@@ -1,5 +1,5 @@
 process MERGE_CHUNK_DP {
-    // tag "-"
+    //tag "${ref_genome}:${interval_hash}"
     publishDir "${launchDir}/output/modules/merge_chunk_dp", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

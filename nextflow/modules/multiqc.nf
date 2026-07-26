@@ -1,4 +1,5 @@
 process MULTIQC {
+    //tag "${ref_genome}:${interval_hash}"
     publishDir "${launchDir}/output/modules/multiqc", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc", mode: 'copy'
 

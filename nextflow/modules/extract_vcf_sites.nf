@@ -1,4 +1,5 @@
 process EXTRACT_VCF_SITES {
+    tag "${outname}"
     publishDir "${launchDir}/output/modules/extract_vcf_sites", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

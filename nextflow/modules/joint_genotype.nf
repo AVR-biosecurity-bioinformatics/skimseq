@@ -1,4 +1,5 @@
 process JOINT_GENOTYPE {
+    tag "${ref_genome}:${interval_hash}"
     publishDir "${launchDir}/output/modules/joint_genotype", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     // Scale memory based on cohort size

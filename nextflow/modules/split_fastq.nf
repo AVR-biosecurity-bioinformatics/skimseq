@@ -1,5 +1,5 @@
 process SPLIT_FASTQ {
-
+    tag "${lib}"
     publishDir "${launchDir}/output/modules/split_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

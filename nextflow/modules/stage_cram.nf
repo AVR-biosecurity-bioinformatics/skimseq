@@ -1,4 +1,5 @@
 process STAGE_CRAM {
+    tag "${sample}"
     publishDir "${launchDir}/output/modules/stage_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     cache 'deep'
 

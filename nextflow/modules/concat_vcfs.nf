@@ -1,4 +1,5 @@
 process CONCAT_VCFS {
+    tag "${outname}"
     publishDir "${launchDir}/output/modules/concat_vcfs", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     // gVCF handling
