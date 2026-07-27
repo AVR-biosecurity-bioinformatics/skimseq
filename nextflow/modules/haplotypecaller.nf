@@ -49,11 +49,23 @@ process HAPLOTYPECALLER {
         DONT_USE_SOFTCLIPPED="true"
     fi
 
+    # Current version of GATK is incompatible with CRAM 3.1, so rewrite to BAM for haplotypecaller
+    samtools view \
+        -@ ${task.cpus} \
+        -b \
+        -T "${ref_genome}" \
+        -o "${sample}.bam" \
+        "${cram}"
+
+    samtools index \
+        --threads ${task.cpus} \
+        "${sample}.bam"
+
     # call variants by sample * interval chunk
     # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
     gatk --java-options "-Xmx\${JAVA_MEM}G -Xms\${JAVA_MEM}g -Djava.io.tmpdir=\${GATK_TMP} -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${task.cpus}" HaplotypeCaller \
         -R "${ref_genome}" \
-        -I "${cram}" \
+        -I "${sample}.bam" \
         -L "${interval_bed}" \
         --native-pair-hmm-threads "${task.cpus}" \
         --assembly-region-padding "${params.hc_interval_padding}" \
@@ -118,6 +130,6 @@ process HAPLOTYPECALLER {
 
     bcftools index -t "${interval_hash}.${sample}.g.vcf.gz" 
 
-    rm -f tmp.g.vcf.gz tmp.g.vcf.gz.tbi
+    rm -f tmp.g.vcf.gz tmp.g.vcf.gz.tbi ${sample}.bam ${sample}.bam.bai
     """
 }
