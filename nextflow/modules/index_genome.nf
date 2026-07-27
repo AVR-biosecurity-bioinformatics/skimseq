@@ -14,6 +14,7 @@ process INDEX_GENOME {
     path("short.bed"),                                               emit: short_bed
 
     script:
+    def dict_name = "${ref_genome.baseName}.dict"
     """
     #!/usr/bin/env bash
     
@@ -23,31 +24,36 @@ process INDEX_GENOME {
     REAL_DICT_PATH="\${REAL_REF_PATH%.*}.dict"
 
     # BWA-MEM2 index filenames relative to the staged FASTA.
-    BWA_AMB="${ref_genome}.amb"
-    BWA_ANN="${ref_genome}.ann"
-    BWA_BWT="${ref_genome}.bwt.2bit.64"
-    BWA_PAC="${ref_genome}.pac"
-    BWA_0123="${ref_genome}.0123"
-    BWA_ALT="${ref_genome}.alt"
+    BWA_SUFFIXES=(
+        amb
+        ann
+        bwt.2bit.64
+        pac
+        0123
+    )
 
-    # Reuse the BWA-MEM2 index only when all required files exist.
-    if [[
-        -f "\${REAL_REF_PATH}.amb" &&
-        -f "\${REAL_REF_PATH}.ann" &&
-        -f "\${REAL_REF_PATH}.bwt.2bit.64" &&
-        -f "\${REAL_REF_PATH}.pac" &&
-        -f "\${REAL_REF_PATH}.0123"
-    ]]; then
+    # Check whether every required BWA-MEM2 index exists.
+    BWA_INDEX_COMPLETE=1
+    for suffix in "\${BWA_SUFFIXES[@]}"; do
+        if [[ ! -f "\${REAL_REF_PATH}.\${suffix}" ]]; then
+            BWA_INDEX_COMPLETE=0
+            break
+        fi
+    done
+
+    if (( BWA_INDEX_COMPLETE )); then
         echo "Copying existing BWA-MEM2 index files"
 
-        cp "\${REAL_REF_PATH}.amb"       "\${BWA_AMB}"
-        cp "\${REAL_REF_PATH}.ann"       "\${BWA_ANN}"
-        cp "\${REAL_REF_PATH}.bwt.2bit.64" "\${BWA_BWT}"
-        cp "\${REAL_REF_PATH}.pac"       "\${BWA_PAC}"
-        cp "\${REAL_REF_PATH}.0123"      "\${BWA_0123}"
+        for suffix in "\${BWA_SUFFIXES[@]}"; do
+            cp \
+                "\${REAL_REF_PATH}.\${suffix}" \
+                "${ref_genome}.\${suffix}"
+        done
 
         if [[ -f "\${REAL_REF_PATH}.alt" ]]; then
-            cp "\${REAL_REF_PATH}.alt" "\${BWA_ALT}"
+            cp \
+                "\${REAL_REF_PATH}.alt" \
+                "${ref_genome}.alt"
         fi
     else
         echo "Building BWA-MEM2 index"

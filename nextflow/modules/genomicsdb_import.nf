@@ -48,7 +48,7 @@ process GENOMICSDB_IMPORT {
     # If there are multiple full contigs, use --merge-contigs-into-num-partitions 1 to group them together which allows parallel processing
     # If there is only a single contig, or multiple parts of contigs, dont merge them
     NUM_CONTIGS=\$(zcat -f ${interval_bed} | cut -f1  | sort -u | wc -l)
-    echo "Number of contigs: $NUM_CONTIGS"
+    echo "Number of contigs: \$NUM_CONTIGS"
 
     # How many merged BED lines are EXACT full-length matches to the FAI?
     MATCHES=\$(
@@ -99,7 +99,7 @@ process GENOMICSDB_IMPORT {
         --sample-name-map ${interval_hash}.sample_map \
         --tmp-dir /tmp \
         --merge-input-intervals \
-        $MERGE_CONTIGS \
+        \$MERGE_CONTIGS \
         --interval-merging-rule ALL \
         --bypass-feature-reader \
         --reader-threads \$READER_THREADS \

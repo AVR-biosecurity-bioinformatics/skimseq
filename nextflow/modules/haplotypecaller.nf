@@ -51,7 +51,7 @@ process HAPLOTYPECALLER {
 
     # call variants by sample * interval chunk
     # NOTE: need to use assembly region padding rather than interval_padding to avoid overlapping variants
-    gatk --java-options "-Xmx\${JAVA_MEM}G -Xms\${JAVA_MEM}g -Djava.io.tmpdir=\${GATK_TMP} -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${CPUS}" HaplotypeCaller \
+    gatk --java-options "-Xmx\${JAVA_MEM}G -Xms\${JAVA_MEM}g -Djava.io.tmpdir=\${GATK_TMP} -XX:GCTimeLimit=50 -XX:GCHeapFreeLimit=10 -XX:ParallelGCThreads=${task.cpus}" HaplotypeCaller \
         -R "${ref_genome}" \
         -I "${cram}" \
         -L "${interval_bed}" \
