@@ -12,6 +12,7 @@ process VALIDATE_GVCF {
     script:
 
     // Construct expected read-group records from  channel metadata.
+    // NOTE: GVCF embeds literal characters \t so this differs from VALIDATE_CRAM
     def rg_lines = rg_list.collect { rg ->
         def (rg_sample, lib, fcid, lane, platform) = rg
 
@@ -20,9 +21,9 @@ process VALIDATE_GVCF {
             "ID:${fcid}.${lane}.${lib}",
             "LB:${lib}",
             "PL:${platform}",
-            "PU:${fcid}.${lane}",
+            "PU:${fcid}.${lane}.${rg_sample}",
             "SM:${rg_sample}"
-        ].join('\t')
+        ].join('\\t')
     }.sort().join('\n')
 
 
@@ -36,10 +37,15 @@ process VALIDATE_GVCF {
     STATUS="PASS"
 
     # Check if expected readgroups from gvcf match actual readgroups in CRAM
-    bcftools view -h "${gvcf}" \
-    | awk -F= '\$1=="##RG"{print substr(\$0, index(\$0,"=")+1)}' \
-    | sed -e 's/\\t/\t/g' -e 's/\\\\/\\/g' \
-    | sort > actual.rg
+    bcftools view --header-only "${gvcf}" |
+    awk '
+        /^##RG=/ {
+            sub(/^##RG=/, "")
+            print
+        }
+    ' |
+    LC_ALL=C sort \
+    > actual.rg
 
     if ! diff -q expected.rg actual.rg >/dev/null 2>&1; then
         STATUS=FAIL

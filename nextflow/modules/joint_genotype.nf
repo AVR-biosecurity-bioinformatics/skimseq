@@ -62,8 +62,8 @@ process JOINT_GENOTYPE {
         -Ou -- \
         -t q -n . -i 'FMT/DP=0' \
     | bcftools annotate \
-        --threads ${task.cpus} \
-        --set-id '%CHROM\_%POS\_%REF\_%FIRST_ALT' \
+        --threads "${task.cpus}" \
+        --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
         -Oz9 -o "${interval_hash}.vcf.gz"
 
     # index output

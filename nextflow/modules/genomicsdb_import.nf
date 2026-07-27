@@ -64,29 +64,10 @@ process GENOMICSDB_IMPORT {
     MERGE_CONTIGS=""
     fi
 
-    # Build sample_name<TAB>gVCF_path entries from the sample names stored
-    # in each gVCF, rather than deriving sample IDs from filenames.
-    : > "${interval_hash}.sample_map"
-    while IFS= read -r GVCF; do
-        mapfile -t SAMPLES < <(
-            bcftools query \
-                --list-samples \
-                "\${GVCF}"
-        )
-        if (( \${#SAMPLES[@]} != 1 )); then
-            printf \
-                'ERROR: expected exactly one sample in %s, found %d\\n' \
-                "\${GVCF}" \
-                "\${#SAMPLES[@]}" \
-                >&2
-            exit 1
-        fi
-        printf \
-            '%s\\t%s\\n' \
-            "\${SAMPLES[0]}" \
-            "\${GVCF}" \
-            >> "${interval_hash}.sample_map"
-    done < gvcf_files.list
+    # Create sample map file
+    VCF_LIST=\$(ls *.g.vcf.gz | sort | uniq )
+    SAMPLE_ID=\$(echo "\$VCF_LIST" | cut -f1 -d '.')
+    paste -d '\t' <(echo "\$SAMPLE_ID") <(echo "\$VCF_LIST") > ${interval_hash}.sample_map
 
     # Import gvcfs into genomicsdb
     # NOTES from GATK warp pipeline: https://github.com/broadinstitute/warp/blob/develop/tasks/broad/JointGenotypingTasks.wdl
