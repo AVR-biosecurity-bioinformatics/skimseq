@@ -41,7 +41,6 @@ process VALIDATE_CRAM {
 
     # Check that the CRAM has a valid header and intact EOF structure.
     if ! samtools quickcheck -v "${cram}"; then
-        echo "ERROR: samtools quickcheck failed for ${cram}" >&2
         STATUS="FAIL"
     fi
 
@@ -57,7 +56,6 @@ process VALIDATE_CRAM {
 
     # Compare expected and observed read groups.
     if ! diff -q expected.rg actual.rg >/dev/null 2>&1; then
-        echo "ERROR: CRAM read groups do not match expected read groups" >&2
         diff -u expected.rg actual.rg >&2 || true
         STATUS="FAIL"
     fi
