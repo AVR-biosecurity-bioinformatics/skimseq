@@ -16,13 +16,29 @@ process MERGE_CRAM {
     #!/usr/bin/env bash
 
     # Write list of cram files to process
-    printf "%s\n" ${cram} > cram.list
+    printf "%s\\n" ${cram} > cram.list
     
-    ### run process script
-    bash merge_cram.sh \
-        ${task.cpus} \
-        ${sample} \
-        ${ref_genome}
+    # With samtools merge, use -c and -p to ensure duplicate RG and PG tags arent made for the chunked input samples, which will violate cram validation
+    samtools merge --threads ${task.cpus} -b cram.list -c -p --reference ${ref_genome} -u -o - \
+        | samtools collate --threads ${task.cpus} -O -u - - \
+        | samtools fixmate --threads ${task.cpus} -m -u - - \
+        | samtools sort -M --threads ${task.cpus} -o - - \
+        | samtools markdup --threads ${task.cpus} \
+            -s -f  ${sample}.markdup.json --json \
+            -l 300 \
+            -d 2500 \
+            -S --include-fails \
+            -O CRAM \
+            --use-read-groups \
+            --reference ${ref_genome} \
+            - ${sample}.cram 
+
+    # index cram
+    samtools index --threads ${task.cpus} ${sample}.cram 
+
+    # check cram is correctly formatted
+    samtools quickcheck ${sample}.cram \
+        || ( echo "CRAM file for sample ${sample} is not formatted correctly" && exit 1 )
 
     """
 }

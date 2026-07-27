@@ -37,7 +37,6 @@ process MAP_TO_GENOME {
 
     """
     #!/usr/bin/env bash
-    set -uo pipefail   # no -e so we can inspect PIPESTATUS
 
     # Manage threads between processes in the pipe
     SEQKIT_T=1
@@ -67,26 +66,5 @@ process MAP_TO_GENOME {
         -O CRAM \
         -o ${lib}.${start}-${end}.cram
 
-    # Capture and report individual tool pipe statuses
-    st=("\${PIPESTATUS[@]}")
-    names=("bwa-mem2 mem" "samtools sort")
-
-    # Default to exit code 0
-    ec=0
-    for i in "\${!st[@]}"; do
-        if (( st[i] != 0 )); then
-            printf \
-                'ERROR: %s failed with exit code %d\\n' \
-                "\${names[i]}" \
-                "\${st[i]}" \
-                >&2
-
-            ec=\${st[i]}
-            break
-        fi
-    done
-
-    # If any tool returned non-zero, return that exit status to nextflow for retry
-    exit "\${ec}"           
     """
 }
