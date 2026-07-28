@@ -12,6 +12,7 @@ process VALIDATE_FASTQ {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Returns 0 (true) if gzip is valid AND does NOT have trailing garbage
     check_trailing() {
