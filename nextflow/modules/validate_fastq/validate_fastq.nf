@@ -1,6 +1,8 @@
 process VALIDATE_FASTQ {
     tag "${lib}"
 
+    conda "${moduleDir}/environment.yml"
+    
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)
 
