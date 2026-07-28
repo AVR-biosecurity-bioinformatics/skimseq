@@ -50,6 +50,7 @@ process CALC_CHUNK_DP {
         .join(';')
     """
     #!/usr/bin/env bash
+    set -euo pipefail
 
     FILTER_KV='${filter_kv}'
 

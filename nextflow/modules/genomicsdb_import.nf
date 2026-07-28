@@ -30,6 +30,8 @@ process GENOMICSDB_IMPORT {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
+    
     GATK_TMP=${workflow.workDir}/tmp
 
     # Reserve 20% of task memory for native GenomicsDB/TileDB operations and clamp to at least 1GB.

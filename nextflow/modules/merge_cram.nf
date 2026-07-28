@@ -14,7 +14,8 @@ process MERGE_CRAM {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Write list of cram files to process
     printf "%s\\n" ${cram} > cram.list
     

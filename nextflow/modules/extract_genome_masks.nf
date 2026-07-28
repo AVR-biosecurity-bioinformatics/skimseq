@@ -16,6 +16,7 @@ process EXTRACT_GENOME_MASKS {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Included intervals is just the reference genome bed if specific intervals were not provided
     # Just keep the important columns

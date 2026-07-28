@@ -11,7 +11,8 @@ process MERGE_MASKS {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # concatenate and merge any overlapping intervals
     cut -f 1-4 ${exclude_bed} \
     | bedtools sort -i concat_mask.bed \

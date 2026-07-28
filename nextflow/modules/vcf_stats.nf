@@ -14,6 +14,7 @@ process VCF_STATS {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     bcftools stats \
     --threads ${task.cpus} \

@@ -14,7 +14,8 @@ process MERGE_CHUNK_DP {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     ### run process script
     bash merge_chunk_dp.sh \
         ${task.cpus} \

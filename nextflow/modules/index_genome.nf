@@ -17,6 +17,7 @@ process INDEX_GENOME {
     def dict_name = "${ref_genome.baseName}.dict"
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Nextflow normally stages the FASTA as a symlink. Resolve that symlink
     # to locate any existing indexes beside the original reference.

@@ -11,7 +11,8 @@ process MERGE_CHUNK_MISSING {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     {
         printf "SAMPLE\\tPRESENT_BASES\\tTARGET_BASES\\tMISSING_FRACTION\\n"
         awk '

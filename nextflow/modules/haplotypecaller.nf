@@ -14,6 +14,8 @@ process HAPLOTYPECALLER {
     script: 
     """
     #!/usr/bin/env bash
+    set -euo pipefail
+    
     GATK_TMP=${workflow.workDir}/tmp
 
     # 1GB of memory should be retained outside the java heap

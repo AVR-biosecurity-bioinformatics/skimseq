@@ -11,6 +11,7 @@ process SPLIT_BED_BY_CHR  {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     awk '
     BEGIN { OFS="\\t"; prev=""; out="" }

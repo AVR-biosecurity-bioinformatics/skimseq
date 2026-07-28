@@ -13,7 +13,8 @@ process INDEX_MITO {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     ## Extract mitochondrial genome contig
     echo "${mito_contig}" > name.lst
     seqtk subseq ${ref_genome} name.lst > mito.fa

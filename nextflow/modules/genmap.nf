@@ -14,6 +14,7 @@ process GENMAP {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Create genmap index of reference genome
     genmap index \

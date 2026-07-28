@@ -12,7 +12,8 @@ process VCF2DIST {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Run VCF2DIS in multithreaded mode on a list of chunked files
     VCF2Dis_multi -Threads ${task.cpus} -InPut ${vcf} -OutPut tmp.mat 
 

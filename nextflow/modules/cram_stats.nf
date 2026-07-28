@@ -15,6 +15,7 @@ process CRAM_STATS {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
 
     # Output sample coverage statistics
     samtools coverage \

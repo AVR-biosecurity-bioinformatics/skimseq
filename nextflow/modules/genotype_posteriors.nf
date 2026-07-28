@@ -12,7 +12,8 @@ process GENOTYPE_POSTERIORS {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Subset the genotype vcf to just the sites in the site vcf
     bcftools isec -n=2 -w1 -Oz -o subset.vcf.gz ${vcf} ${sites_vcf}
     bcftools index -t subset.vcf.gz

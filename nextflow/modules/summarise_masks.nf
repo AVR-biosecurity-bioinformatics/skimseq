@@ -15,6 +15,7 @@ process SUMMARISE_MASKS {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Normalise and sort the included analysis intervals.
     awk 'BEGIN { OFS = "\\t" } NF >= 3 { print \$1, \$2, \$3 }' "${include_bed}" \

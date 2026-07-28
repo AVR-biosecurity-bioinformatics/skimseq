@@ -29,6 +29,7 @@ process VALIDATE_GVCF {
 
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Write the expected read groups in sorted order.
     printf '%s\\n' '${rg_lines}' > expected.rg

@@ -14,6 +14,7 @@ process SPLIT_FASTQ {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Convert any scientific notation to integers
     CHUNK_SIZE=\$(awk -v x="${chunk_size}" 'BEGIN {printf("%d\\n",x)}')

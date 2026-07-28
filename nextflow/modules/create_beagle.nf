@@ -14,7 +14,8 @@ process CREATE_BEAGLE {
     script:
     """
     #!/usr/bin/env bash
-    
+    set -euo pipefail
+ 
     ### run process script
     bash create_beagle.sh \
         ${task.cpus} \

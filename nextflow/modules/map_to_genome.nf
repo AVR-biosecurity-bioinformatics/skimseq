@@ -37,7 +37,8 @@ process MAP_TO_GENOME {
 
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Manage threads between processes in the pipe
     SEQKIT_T=1
 

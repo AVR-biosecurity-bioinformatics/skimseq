@@ -24,7 +24,7 @@ process SPLIT_VCF_BY_TYPE {
     script:
     """
     #!/usr/bin/env bash
-     
+    set -euo pipefail
 
     bcftools view -Ou ${vcf} \
     | tee \

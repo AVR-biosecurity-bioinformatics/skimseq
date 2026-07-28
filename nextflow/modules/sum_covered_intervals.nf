@@ -12,7 +12,8 @@ process SUM_COVERED_INTERVALS {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Exclude mask from perbase counts then merge into covered tracts
     bedtools subtract -a ${count_bed} -b ${exclude_bed} \
         | bedtools merge -i - -c 4 -o sum \

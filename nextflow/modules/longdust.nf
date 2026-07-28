@@ -14,7 +14,7 @@ process LONGDUST {
     script:
     """
     #!/usr/bin/env bash
-    set -euo pipefail;
+    set -euo pipefail
     
     GC_PERC=\$(seqkit fx2tab -n -i -l -g "${ref_genome}" \
     | awk 'BEGIN{FS=OFS="\\t"} {L=\$(NF-1); GC=\$(NF); gc += L*GC/100; tot += L}

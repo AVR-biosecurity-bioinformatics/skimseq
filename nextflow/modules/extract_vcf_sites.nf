@@ -11,7 +11,8 @@ process EXTRACT_VCF_SITES {
     script:
     """
     #!/usr/bin/env bash
-     
+    set -euo pipefail
+    
     bcftools view \
         --threads ${task.cpus} \
         -G \

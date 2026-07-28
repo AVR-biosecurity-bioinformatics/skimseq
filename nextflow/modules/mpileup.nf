@@ -26,6 +26,7 @@ process MPILEUP {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Export Mpileup parameters
     export RMDUP='${params.rmdup}'

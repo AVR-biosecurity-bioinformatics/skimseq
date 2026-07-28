@@ -13,6 +13,7 @@ process EXTRACT_UNMAPPED {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Create empty output files
     touch ${sample}.unmapped.R1.fastq.gz

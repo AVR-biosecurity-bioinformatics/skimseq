@@ -20,7 +20,8 @@ process SUBSET_VCF_TO_SITES {
         .join('\n')
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Write list of mask beds to process
     printf '%s\\n' '${vcf_lines}' > vcf.list
 

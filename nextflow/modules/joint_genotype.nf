@@ -27,6 +27,7 @@ process JOINT_GENOTYPE {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     GATK_TMP=${workflow.workDir}/tmp
 

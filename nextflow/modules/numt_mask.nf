@@ -14,7 +14,8 @@ process NUMT_MASK {
     script:
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Align mitogenome to nuclear genome using MUMMER
     nucmer \
     --threads ${task.cpus} \

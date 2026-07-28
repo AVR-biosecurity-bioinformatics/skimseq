@@ -13,6 +13,7 @@ process PROCESS_CRAM_MITO {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Extract mitochondrial contig from merged bam
     samtools view \

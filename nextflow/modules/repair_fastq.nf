@@ -11,6 +11,7 @@ process REPAIR_FASTQ {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Sanatise forward and reverse fastq files
     zcat ${fastq1} | seqkit sana --threads ${task.cpus} -o rescued_1.fq.gz

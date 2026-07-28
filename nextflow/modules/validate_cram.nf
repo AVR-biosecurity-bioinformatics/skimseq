@@ -28,7 +28,8 @@ process VALIDATE_CRAM {
 
     """
     #!/usr/bin/env bash
-
+    set -euo pipefail
+    
     # Set status to pass by defualt
     STATUS="PASS"
 

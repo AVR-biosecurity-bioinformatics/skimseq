@@ -13,6 +13,7 @@ process FASTQC {
     script:
     """
     #!/usr/bin/env bash
+    set -euo pipefail
     
     # Convert cram to bam for fastqc
     samtools view -@ ${task.cpus} -T ${ref_genome} -b -o ${sample}.bam "${cram}"
