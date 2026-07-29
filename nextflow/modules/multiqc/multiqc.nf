@@ -18,10 +18,16 @@ process MULTIQC {
     """
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
+    # Prevent any loaded HPC Python modules and user packages from contaminating the Nextflow Conda environment.
+    unset PYTHONPATH
+    unset PYTHONHOME
+    export PYTHONNOUSERSITE=1
+
+
     multiqc . \
         --force \
-        ${multiqc_config} \
+        --config ${multiqc_config} \
         --filename multiqc_report.html \
         --clean-up
     """
