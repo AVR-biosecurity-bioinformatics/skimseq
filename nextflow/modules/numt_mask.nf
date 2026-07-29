@@ -46,7 +46,7 @@ process NUMT_MASK {
         > mito_blocks.clustered.bed
 
     # Output final numt mask, removing mito contig if present
-    MT_CONTIG=\$(awk 'NR==1{print \$1}' "${mito_index_files}")
+    MT_CONTIG=\$(awk 'NR==1{print \$1}' "${mito_genome}.fai")
     awk -v OFS="\t" -v mt="\$MT_CONTIG" '\$1 != mt {print \$1, \$2, \$3, "NUMT"}' mito_blocks.clustered.bed \
     > numt_mask.bed
 

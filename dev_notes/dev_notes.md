@@ -101,13 +101,68 @@ paste -d ',' <(echo "$sample_id") <(echo "$pop")  <(echo "$fwd") <(echo "$rev") 
 Run the Qfly test dataset using the test profile
 ```
 module purge
-export NXF_VER=23.05.0-edge
+export NXF_VER=26.07.0-edge
 module load Java/17
 
 # Run tests on local node 
-nextflow run . -profile debug,test -resume
-
+nextflow run . -profile local,debug,test -resume
 
 # Run tests with basc modules 
-nextflow run . -profile basc_modules,debug,test -resume
+nextflow run . -profile basc_modules,debug,test --slurm_account=fruitfly -resume
+
+# Run tests with basc shifter
+nextflow run . -profile basc_shifter,debug,test --slurm_account=fruitfly -resume
+
+# Run tests with basc conda
+ml Miniconda3/24.7.1-0
+mkdir -p /group/pathogens/IAWS/Personal/Alexp/.conda/pkgs
+mkdir -p /group/pathogens/IAWS/Personal/Alexp/.conda/envs
+conda config --remove-key pkgs_dirs
+conda config --add pkgs_dirs /group/pathogens/IAWS/Personal/Alexp/.conda/pkgs
+
+conda config --remove-key envs_dirs
+conda config --add envs_dirs /group/pathogens/IAWS/Personal/Alexp/.conda/envs
+
+# Check only writable package directories are set
+conda config --show pkgs_dirs
+conda config --show envs_dirs
+
+nextflow run . -profile basc_conda,debug,test --slurm_account=fruitfly -resume 
+
+# Run tests with charliecloud  
+nextflow run . -profile basc_charliecloud,debug,test --slurm_account=fruitfly -resume
 ```
+
+
+Can use sequera containers: https://seqera.io/containers/?packages=bioconda::bcftools=1.24+bioconda::samtools=1.24+bioconda::riker=0.4.1+bioconda::htslib=1.24+bioconda::bedtools=2.31.1+bioconda::bedops=2.4.42+bioconda::seqkit=2.13.0+bioconda::seqtk=r93+bioconda::dupblaster=0.1.1+bioconda::minibwa=0.5
+
+# Containers 
+skimseq-core
+- bwa-mem2 
+- Riker
+- bcftools
+- SAMtools
+- BEDtools
+- BEDOPS
+- SeqKit
+- GenMap
+- longdust
+- MUMmer
+- seqtk
+- pigz
+- GNU parallel
+- VCF2DIS
+
+skimseq-gatk
+-bcftools
+-SAMtools
+-BEDtools
+-GATK
+-Java
+
+skimseq-reporting
+-R
+- required R packages
+- MultiQC 
+- Python
+- FASTQC / Riker

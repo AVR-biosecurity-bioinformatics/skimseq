@@ -10,8 +10,6 @@ process MPILEUP {
         // Scale that tier by the retry number (task.attempt) - mimics mem_scale function in config file
         def need = (tier.toBytes() * task.attempt) as long
         def mem  = need.B
-        //  Optional cap: if --max_memory was provided, return the smaller of (mem, max)
-        params.max_memory ? [mem, (params.max_memory as MemoryUnit)].min() : mem
     }
     
     input:
