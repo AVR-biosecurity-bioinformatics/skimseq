@@ -13,8 +13,13 @@ process PLOT_SAMPLE_FILTERS {
 
     script:
     """
-    shifter --image=jackscanlan/piperline-multi:0.0.1 -- \
-        Rscript ${projectDir}/bin/plot_sample_filters.R \
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
+    unset R_LIBS R_LIBS_USER R_LIBS_SITE
+
+    Rscript ${projectDir}/bin/plot_sample_filters.R \
         ${projectDir} \
         ${params.rdata} \
         "${sample_max_missing}" 

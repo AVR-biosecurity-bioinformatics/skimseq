@@ -12,8 +12,13 @@ process PLOT_TREE {
 
     script:
     """
-    shifter --image=gmboowa/ggtree:latest -- \
-        Rscript ${projectDir}/bin/plot_tree.R \
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
+    unset R_LIBS R_LIBS_USER R_LIBS_SITE
+
+    Rscript ${projectDir}/bin/plot_tree.R \
         ${projectDir} \
         ${params.rdata} \
         ${distmat} \
