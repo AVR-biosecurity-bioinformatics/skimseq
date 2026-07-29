@@ -1,7 +1,8 @@
 process INDEX_GENOME {
     tag "${ref_genome}"
+
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/index_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    // container "jackscanlan/piperline-multi:0.0.1"
 
     input:
     path(ref_genome)
