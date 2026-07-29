@@ -5,6 +5,7 @@
 //// import modules
 include { FASTQC                                } from '../modules/fastqc/fastqc'
 include { CRAM_STATS                            } from '../modules/cram_stats/cram_stats'
+include { CRAM_STATS_RIKER                      } from '../modules/cram_stats_riker/cram_stats_riker'
 include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped/extract_unmapped'
 include { VCF_STATS                             } from '../modules/vcf_stats/vcf_stats'
 include { MULTIQC                               } from '../modules/multiqc/multiqc'
@@ -30,6 +31,12 @@ workflow QC {
 
     // generate QC statistics for the merged .cram files
     CRAM_STATS (
+        ch_sample_cram,
+        ch_genome_indexed
+    )
+
+    // generate QC statistics for the merged .cram files
+    CRAM_STATS_RIKER (
         ch_sample_cram,
         ch_genome_indexed
     )
