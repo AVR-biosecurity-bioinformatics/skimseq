@@ -115,54 +115,31 @@ nextflow run . -profile basc_shifter,debug,test --slurm_account=fruitfly -resume
 
 # Run tests with basc conda
 ml Miniconda3/24.7.1-0
-mkdir -p /group/pathogens/IAWS/Personal/Alexp/.conda/pkgs
-mkdir -p /group/pathogens/IAWS/Personal/Alexp/.conda/envs
-conda config --remove-key pkgs_dirs
-conda config --add pkgs_dirs /group/pathogens/IAWS/Personal/Alexp/.conda/pkgs
-
-conda config --remove-key envs_dirs
-conda config --add envs_dirs /group/pathogens/IAWS/Personal/Alexp/.conda/envs
-
-# Check only writable package directories are set
-conda config --show pkgs_dirs
-conda config --show envs_dirs
-
 nextflow run . -profile basc_conda,debug,test --slurm_account=fruitfly -resume 
+
+# Run tests with local conda
+ml Miniconda3/24.7.1-0
+nextflow run . -profile local_conda,debug,test --slurm_account=fruitfly -resume 
 
 # Run tests with charliecloud  
 nextflow run . -profile basc_charliecloud,debug,test --slurm_account=fruitfly -resume
 ```
 
+# Current conda dependencies:
+  - bioconda::bedtools=2.31.1
+  - bioconda::gatk4=4.6.2.0
+  - bioconda::bedtools=2.31.1
+  - bioconda::bcftools=1.24
+  - bioconda::samtools=1.24
+  - bioconda::bwa-mem2=2.3
+  - bioconda::seqkit=2.13.0
+  - conda-forge::pigz=2.8
+  - bioconda::bedops=2.4.42
+  - bioconda::fastqc=0.12.1
+  - bioconda::genmap=1.3.0
+  - bioconda::seqtk=r93
+  - bioconda::longdust=1.4
+  - bioconda::multiqc=1.35
 
-Can use sequera containers: https://seqera.io/containers/?packages=bioconda::bcftools=1.24+bioconda::samtools=1.24+bioconda::riker=0.4.1+bioconda::htslib=1.24+bioconda::bedtools=2.31.1+bioconda::bedops=2.4.42+bioconda::seqkit=2.13.0+bioconda::seqtk=r93+bioconda::dupblaster=0.1.1+bioconda::minibwa=0.5
-
-# Containers 
-skimseq-core
-- bwa-mem2 
-- Riker
-- bcftools
-- SAMtools
-- BEDtools
-- BEDOPS
-- SeqKit
-- GenMap
-- longdust
-- MUMmer
-- seqtk
-- pigz
-- GNU parallel
-- VCF2DIS
-
-skimseq-gatk
--bcftools
--SAMtools
--BEDtools
--GATK
--Java
-
-skimseq-reporting
--R
-- required R packages
-- MultiQC 
-- Python
-- FASTQC / Riker
+Note: VCF2DIS is not currently covered in conda
+Can transfer these to sequera containers once container issue is fixed

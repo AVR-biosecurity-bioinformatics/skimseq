@@ -3,19 +3,18 @@ process GENOMICSDB_IMPORT {
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/genomicsdb_import", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     
-    /*
-     * Scale memory by cohort size and retry attempt.
-     */
+    // Scale memory based on cohort size
     memory {
         def n = cohort_size as int
-        //Pick a base memory tier from the cohort size
-        def tier = (n<=50 ? 24.GB : n<=500 ? 48.GB : n<=1000 ? 64.GB : 128.GB)
-        // Scale that tier by the retry number (task.attempt) - mimics mem_scale function in config file
-        def need = (tier.toBytes() * task.attempt) as long
-        def mem  = need.B
+
+        def tier = n <= 50   ? 24.GB  :
+                n <= 500  ? 48.GB  :
+                n <= 1000 ? 64.GB  :
+                            128.GB
+
+        tier * task.attempt
     }
     
-
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
     tuple path(ref_genome), path(genome_index_files)
