@@ -1,5 +1,6 @@
 process SPLIT_BED_BY_CHR  {
     // tag "${bed}"
+    //conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/split_bed_by_chr", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

@@ -1,6 +1,6 @@
 process VALIDATE_CRAM {
     tag "${sample}"
-
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/validate_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

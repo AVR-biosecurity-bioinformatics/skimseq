@@ -1,5 +1,6 @@
 process CONSENSUS_MITO {
     tag "${sample}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/consensus_mito.sh", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/mito", mode: 'copy'
 

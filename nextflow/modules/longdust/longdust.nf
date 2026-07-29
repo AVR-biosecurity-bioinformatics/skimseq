@@ -1,5 +1,6 @@
 process LONGDUST {
     tag "${ref_genome}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/longdust", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

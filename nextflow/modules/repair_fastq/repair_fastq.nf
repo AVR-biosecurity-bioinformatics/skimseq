@@ -1,5 +1,6 @@
 process REPAIR_FASTQ {
     tag "${lib}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/repair_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

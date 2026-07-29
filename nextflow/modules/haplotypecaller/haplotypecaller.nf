@@ -1,5 +1,6 @@
 process HAPLOTYPECALLER {
     tag "${sample}:${interval_hash}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/haplotypecaller", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

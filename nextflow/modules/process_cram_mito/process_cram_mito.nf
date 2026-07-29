@@ -1,5 +1,6 @@
 process PROCESS_CRAM_MITO {
     tag "${sample}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/process_cram_mito", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

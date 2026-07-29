@@ -1,5 +1,6 @@
 process GENMAP {
     tag "${ref_genome}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/genmap", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

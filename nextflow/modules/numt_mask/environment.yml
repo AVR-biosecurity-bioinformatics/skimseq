@@ -1,0 +1,10 @@
+# environment.yml
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - bioconda::seqkit=2.13.0
+  - bioconda::bedtools=2.31.1
+  - bioconda::mummer=3.23

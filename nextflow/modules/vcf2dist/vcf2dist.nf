@@ -1,5 +1,6 @@
 process VCF2DIST {
     tag "${outname}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/vcf2dist", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/distmat", mode: 'copy'
 

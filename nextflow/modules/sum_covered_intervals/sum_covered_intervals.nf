@@ -1,5 +1,6 @@
 process SUM_COVERED_INTERVALS {
     tag "${sample}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/sum_covered_intervals", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

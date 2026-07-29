@@ -1,5 +1,6 @@
 process SPLIT_VCF_BY_TYPE {
     tag "${outname}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/split_vcf_by_type", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

@@ -28,6 +28,7 @@ def flatten_filter_map(prefix, object, result) {
 
 process CALC_CHUNK_DP {
     tag "${interval_hash}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/calc_chunk_dp", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

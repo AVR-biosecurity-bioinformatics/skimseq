@@ -1,5 +1,6 @@
 process EXTRACT_UNMAPPED {
     tag "${sample}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/extract_unmapped", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/unmapped", mode: 'copy'
 

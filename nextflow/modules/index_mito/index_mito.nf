@@ -1,5 +1,6 @@
 process INDEX_MITO {
     tag "${ref_genome}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/index_mito", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

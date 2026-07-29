@@ -28,6 +28,7 @@ def flatten_filter_map(prefix, object, result) {
 
 process FILTER_VCF {
     tag "${interval_hash}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/filter_vcf", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

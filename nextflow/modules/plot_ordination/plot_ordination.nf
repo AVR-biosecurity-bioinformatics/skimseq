@@ -1,4 +1,5 @@
 process PLOT_ORDINATION {
+    //conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/plot_ordination", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/visualisation/ordination", mode: 'copy'
 

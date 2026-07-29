@@ -1,5 +1,6 @@
 process COUNT_CRAM_PERBASE {
     tag "${sample}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/count_cram_perbase", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc/alignment_stats", mode: 'copy'
 

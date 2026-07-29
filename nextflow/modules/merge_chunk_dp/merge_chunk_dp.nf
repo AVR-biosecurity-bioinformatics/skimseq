@@ -1,5 +1,6 @@
 process MERGE_CHUNK_DP {
     //tag "${ref_genome}:${interval_hash}"
+    conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/merge_chunk_dp", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:

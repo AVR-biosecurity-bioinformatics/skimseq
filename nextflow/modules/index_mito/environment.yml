@@ -1,0 +1,9 @@
+# environment.yml
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - bioconda::bcftools=1.24
+  - bioconda::seqtk=r93
