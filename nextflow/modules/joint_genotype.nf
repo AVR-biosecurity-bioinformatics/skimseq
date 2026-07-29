@@ -42,6 +42,7 @@ process JOINT_GENOTYPE {
         -V gendb://${genomicsdb} \
         -L "${interval_bed}" \
         -O /dev/stdout \
+        --create-output-variant-index false \
         --exclude-intervals "${exclude_bed}" \
         --interval-exclusion-padding "${params.exclude_padding}" \
         --include-non-variant-sites "${params.output_invariant}" \

@@ -77,8 +77,8 @@ process HAPLOTYPECALLER {
         --min-pruning "${params.hc_min_pruning}" \
         --min-dangling-branch-length "${params.hc_min_dangling_length}" \
         --max-reads-per-alignment-start "${params.hc_max_reads_startpos}" \
-        \${RMDUP} \
-        \${PCR_FREE} \
+        "\${RMDUP_ARGS[@]}" \
+        "\${PCR_FREE_ARGS[@]}" \
         --min-base-quality-score "${params.minbq}" \
         --minimum-mapping-quality "${params.minmq}" \
         --read-filter AmbiguousBaseReadFilter \

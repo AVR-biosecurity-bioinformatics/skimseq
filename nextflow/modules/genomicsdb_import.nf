@@ -4,7 +4,6 @@ process GENOMICSDB_IMPORT {
     
     /*
      * Scale memory by cohort size and retry attempt.
-     * Leave the final cap controlled by params.max_memory.
      */
     memory {
         def n = cohort_size as int
@@ -52,16 +51,17 @@ process GENOMICSDB_IMPORT {
 
     # How many merged BED lines are EXACT full-length matches to the FAI?
     MATCHES=\$(
-    awk 'BEGIN{OFS="\t"} {print \$1,0,\$2}' "${ref_genome}.fai" \
-        | grep -Fx -f - "${interval_bed}" \
-        | wc -l | awk '{print \$1}'
+        comm -12 \
+            <(awk 'BEGIN {OFS="\\t"} {print \$1, 0, \$2}' "${ref_genome}.fai" | sort) \
+            <(zcat -f "${interval_bed}" | cut -f1-3 | sort -u) \
+            | wc -l
     )
 
     # Decide flag: need >1 contig AND all present contigs full-length
     if (( NUM_CONTIGS > 1 )) && (( MATCHES == NUM_CONTIGS )); then
-    MERGE_CONTIGS="--merge-contigs-into-num-partitions 1"
-    else
-    MERGE_CONTIGS=""
+        MERGE_CONTIGS_ARGS=(
+            --merge-contigs-into-num-partitions 1
+        )
     fi
 
     # Create sample map file
@@ -80,7 +80,7 @@ process GENOMICSDB_IMPORT {
         --sample-name-map ${interval_hash}.sample_map \
         --tmp-dir /tmp \
         --merge-input-intervals \
-        \$MERGE_CONTIGS \
+        "\${MERGE_CONTIGS_ARGS[@]}" \
         --interval-merging-rule ALL \
         --bypass-feature-reader \
         --reader-threads \$READER_THREADS \
