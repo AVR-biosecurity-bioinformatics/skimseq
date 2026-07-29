@@ -22,7 +22,6 @@ tryCatch(
       "readr",
       "ggplot2",
       "stringr",
-      "patchwork",
       NULL
     )
     invisible(lapply(

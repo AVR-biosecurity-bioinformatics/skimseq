@@ -70,10 +70,8 @@ process MPILEUP {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    OUTPUT_VCF="${interval_hash}.vcf.gz"
-
     # Write one staged CRAM filename per line.
-    printf '%b\\n' '${cram_list}' > cram.list
+    printf '%s\\n' '${cram_list}' > cram.list
 
     if [[ ! -s cram.list ]]; then
         echo "ERROR: no CRAM files were supplied" >&2
@@ -145,14 +143,14 @@ process MPILEUP {
         --min-BQ ${params.minbq} \
         --min-MQ ${params.minmq} \
         "\${MPILEUP_TARGET_ARGS[@]}" \
-        --required-flags PROPER_PAIR \
+        --skip-any-unset PROPER_PAIR \
         --skip-any-set ${skip_flags} \
         --annotate FORMAT/DP,FORMAT/AD,FORMAT/QS,INFO/AD \
         --indels-cns \
         --indel-size 110 \
-        --output-type u \
+        -Ou \
         | bcftools call \
-            --output-type u \
+            -Ou \
             --annotate FORMAT/GP,FORMAT/GQ \
             --ploidy ${params.ploidy} \
             "\${CALL_TARGET_ARGS[@]}" \
@@ -161,24 +159,18 @@ process MPILEUP {
             --multiallelic-caller \
             --prior ${params.mutation_rate} \
         | bcftools annotate \
-            --remove FORMAT/GT,FORMAT/QS \
-            --output-type u \
+            -x FORMAT/GT,FORMAT/QS \
+            -Ou \
         | bcftools +tag2tag \
-            --output-type u \
-            -- \
-            --GP-to-GT \
-            --threshold "\${GENOTYPING_THRESHOLD}" \
+            -Ou \
+            -- --GP-to-GT -t \${GENOTYPING_THRESHOLD} \
         | bcftools +setGT \
-            --output-type u \
-            -- \
-            --target-genotypes q \
-            --new-gt . \
-            --include 'FMT/DP=0' \
+            -Ou -- \
+            -t q -n . -i 'FMT/DP=0' \
         | bcftools annotate \
             --threads ${task.cpus} \
             --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
-            --output-type z \
-            --output "${interval_hash}.vcf.gz"
+            -Oz9 --output "${interval_hash}.vcf.gz"
 
     bcftools index \
         --tbi \

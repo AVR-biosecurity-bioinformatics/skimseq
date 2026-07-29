@@ -19,7 +19,6 @@ tryCatch(
       "readr",
       "ggplot2",
       "stringr",
-      "vegan",
       NULL
     )
     invisible(lapply(
