@@ -32,8 +32,6 @@ workflow QC {
         ch_genome_indexed
     )
 
-    // TODO: Generate QC statistics for vcf files
-
     // Optional: extract unmapped reads 
     if( params.output_unmapped_reads ) {
         EXTRACT_UNMAPPED (
@@ -46,7 +44,6 @@ workflow QC {
     ch_reports
         .mix(
             CRAM_STATS_RIKER.out.stats.map { sample, files -> files },
-            FASTQC.out.results,
             VCF_STATS.out.vcfstats
         )
         .flatten()
