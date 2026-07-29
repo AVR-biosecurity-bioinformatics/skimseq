@@ -63,6 +63,7 @@ workflow QC {
             CRAM_STATS.out.stats.map { sample,path -> [ path ] }, 
             CRAM_STATS.out.flagstats.map { sample,path -> [ path ] }, 
             CRAM_STATS.out.coverage.map { sample,path -> [ path ] },  
+            CRAM_STATS_RIKER.stats.map { sample,path -> [ path ] }, 
             FASTQC.out.results.collect(),
             VCF_STATS.out.vcfstats
             )

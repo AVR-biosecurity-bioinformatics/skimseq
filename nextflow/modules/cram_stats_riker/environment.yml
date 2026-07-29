@@ -5,6 +5,5 @@ channels:
   - bioconda
 
 dependencies:
-  - bioconda::samtools=1.24
-
+  - bioconda::riker=0.4.1
   

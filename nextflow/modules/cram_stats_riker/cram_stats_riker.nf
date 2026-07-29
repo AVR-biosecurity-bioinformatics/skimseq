@@ -1,7 +1,7 @@
-process CRAM_STATS {
+process CRAM_STATS_RIKER {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/cram_stats", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+    publishDir "${launchDir}/output/modules/cram_stats_riker", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     publishDir "${launchDir}/output/results/qc/alignment_stats", mode: 'copy'
 
     input:
@@ -9,9 +9,8 @@ process CRAM_STATS {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("*.stats.txt"),               emit: stats
-    tuple val(sample), path("*.flagstats.txt"),           emit: flagstats
-    tuple val(sample), path("*.coverage.txt"),            emit: coverage
+    tuple val(sample), path("*.txt"),           emit: stats
+    tuple val(sample), path("*.pdf"),           emit: plots
     
     script:
     """
@@ -25,7 +24,6 @@ process CRAM_STATS {
         -o ${sample} \
         --tools alignment isize basic gcbias wgs error \
         --error::stratify-by read_num,cycle bq
-
 
     """
 }
