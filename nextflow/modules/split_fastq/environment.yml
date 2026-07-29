@@ -5,4 +5,4 @@ channels:
   - bioconda
 
 dependencies:
-  - bioconda::seqtk=r93
+  - bioconda::seqtk=1.5

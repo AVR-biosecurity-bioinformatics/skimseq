@@ -40,12 +40,22 @@ fi
 
 btmp="${TMPDIR}/tmp.bed"
 
-# Extract just included contigs from zipped bed then`` lexagraphically sort all counts files
-parallel -j "${CPUS}" --line-buffer '
-  f={}
-  out="${f%.bed.gz}.sorted.bed"
-  tabix "$f" -R contigs.bed | LC_ALL=C sort -k1,1 -k2,2n -k3,3n > "$out"
-' :::: counts_files.list
+# Extract included regions from each compressed BED, then sort by BED coordinates.
+xargs \
+    -r \
+    -P "${CPUS}" \
+    -n 1 \
+    bash -c '
+        set -euo pipefail
+
+        f="$1"
+        out="${f%.bed.gz}.sorted.bed"
+
+        tabix "$f" -R contigs.bed \
+            | LC_ALL=C sort -k1,1 -k2,2n -k3,3n \
+            > "$out"
+    ' _ \
+    < counts_files.list
 
 # Merge pre-sorted files with bedops, then sum across GAP_BP, sort back into genome (can be non lexagraphical) order.
 bedops --everything *.sorted.bed \

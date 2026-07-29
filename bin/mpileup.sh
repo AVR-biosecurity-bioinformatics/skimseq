@@ -92,19 +92,33 @@ THREADS_PER_JOB=2
 JOBS=$(( CPUS / THREADS_PER_JOB )) # how many CRAMs in parallel
 (( JOBS < 1 )) && JOBS=1
 
-# Subset and filter CRAMs in parallel
-parallel --jobs "${JOBS}" --line-buffer '
-  cram={}
-  out="${cram%.cram}.filt.cram"
+# Subset and filter CRAMs sequentially.
+: > cram.filtered.list
 
-  samtools view -@ '"${THREADS_PER_JOB}"' -T "${REF}" \
-    --regions-file "${INTERVAL_BED}" \
-    -e "${EXPR}" \
-    -O cram -o "${out}" "${cram}"
+while IFS= read -r cram; do
+    [[ -n "$cram" ]] || continue
 
-  samtools index -@ '"${THREADS_PER_JOB}"' "${out}"
-  echo "${out}"
-' :::: cram.list | sort > cram.filtered.list
+    out="${cram%.cram}.filt.cram"
+
+    samtools view \
+        --threads "${CPUS}" \
+        --reference "${REF}" \
+        --regions-file "${INTERVAL_BED}" \
+        --expr "${EXPR}" \
+        --output-fmt cram \
+        --output "${out}" \
+        "${cram}"
+
+    samtools index \
+        --threads "${CPUS}" \
+        "${out}"
+
+    printf '%s\n' "${out}" >> cram.filtered.list
+done < cram.list
+
+LC_ALL=C sort \
+    -o cram.filtered.list \
+    cram.filtered.list
 
 # -----------------------------
 # Variant calling using pre-filtered crams

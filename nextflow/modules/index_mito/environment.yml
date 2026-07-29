@@ -6,4 +6,4 @@ channels:
 
 dependencies:
   - bioconda::bcftools=1.24
-  - bioconda::seqtk=r93
+  - bioconda::seqtk=1.5
