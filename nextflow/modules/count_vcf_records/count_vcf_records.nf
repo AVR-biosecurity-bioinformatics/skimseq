@@ -83,12 +83,8 @@ process COUNT_VCF_RECORDS {
             | awk '{sum += \$NF} END {print sum + 0}'
     )
 
-    MISSING_FRACTION=\$(
-        awk \
-            -v present="\$PRESENT_BASES" \
-            -v target="\$TARGET_BASES" \
-            'BEGIN {printf "%.6f", target > 0 ? 1 - present / target : 1}'
-    )
+    MISSING_FRACTION=\$(awk -v p="\$PRESENT_BASES" -v t="\$TARGET_BASES" \
+        'BEGIN {if (t > 0) printf "%.6f", 1 - p/t; else printf "%.6f", 1}')
 
     printf 'SAMPLE\\tPRESENT_BASES\\tTARGET_BASES\\tMISSING_FRACTION\\n' \
         > "${sample}.missing.tsv"
