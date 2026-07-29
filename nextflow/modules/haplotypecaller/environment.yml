@@ -7,3 +7,4 @@ channels:
 dependencies:
   - bioconda::bcftools=1.24
   - bioconda::gatk4=4.6.2.0
+  - bioconda::samtools=1.24
