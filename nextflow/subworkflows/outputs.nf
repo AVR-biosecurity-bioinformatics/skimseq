@@ -3,12 +3,12 @@
 */
 
 //// import modules
-include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle' 
-include { VCF2DIST                                               } from '../modules/vcf2dist' 
-include { PLOT_ORDINATION                                        } from '../modules/plot_ordination' 
-include { PLOT_TREE                                              } from '../modules/plot_tree' 
-include { CONCAT_VCFS as CONCAT_FINAL                            } from '../modules/concat_vcfs'
-include { SPLIT_VCF_BY_TYPE                                      } from '../modules/split_vcf_by_type'
+include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle/create_beagle' 
+include { VCF2DIST                                               } from '../modules/vcf2dist/vcf2dist' 
+include { PLOT_ORDINATION                                        } from '../modules/plot_ordination/plot_ordination' 
+include { PLOT_TREE                                              } from '../modules/plot_tree/plot_tree' 
+include { CONCAT_VCFS as CONCAT_FINAL                            } from '../modules/concat_vcfs/concat_vcfs'
+include { SPLIT_VCF_BY_TYPE                                      } from '../modules/split_vcf_by_type/split_vcf_by_type'
 
 workflow OUTPUTS {
 

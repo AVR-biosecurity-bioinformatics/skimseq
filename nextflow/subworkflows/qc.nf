@@ -3,11 +3,11 @@
 */
 
 //// import modules
-include { FASTQC                                } from '../modules/fastqc'
-include { CRAM_STATS                            } from '../modules/cram_stats'
-include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped'
-include { VCF_STATS                             } from '../modules/vcf_stats'
-include { MULTIQC                               } from '../modules/multiqc'
+include { FASTQC                                } from '../modules/fastqc/fastqc'
+include { CRAM_STATS                            } from '../modules/cram_stats/cram_stats'
+include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped/extract_unmapped'
+include { VCF_STATS                             } from '../modules/vcf_stats/vcf_stats'
+include { MULTIQC                               } from '../modules/multiqc/multiqc'
 
 workflow QC {
 

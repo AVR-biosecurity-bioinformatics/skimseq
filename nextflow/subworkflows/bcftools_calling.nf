@@ -3,9 +3,9 @@
 */
 
 //// import modules
-include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs' 
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
-include { MPILEUP                                                } from '../modules/mpileup'
+include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks/create_interval_chunks'
+include { MPILEUP                                                } from '../modules/mpileup/mpileup'
 
 workflow BCFTOOLS_CALLING {
 

@@ -3,16 +3,16 @@
 */
 
 //// import modules
-include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
-include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records'
-include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites'
-include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
-include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
-include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
-include { FILTER_VCF                                   } from '../modules/filter_vcf'
-include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist'
-include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
-include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
+include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites/extract_vcf_sites'
+include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records/count_vcf_records'
+include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
+include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp/calc_chunk_dp'
+include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp/merge_chunk_dp'
+include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing/merge_chunk_missing'
+include { FILTER_VCF                                   } from '../modules/filter_vcf/filter_vcf'
+include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist/create_filter_hist'
+include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters/plot_vcf_filters'
+include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters/plot_sample_filters'
 
 workflow FILTER_VARIANTS {
 

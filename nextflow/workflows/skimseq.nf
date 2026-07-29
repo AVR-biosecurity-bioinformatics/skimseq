@@ -14,9 +14,9 @@ include { QC                                                        } from '../s
 
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome/index_genome' 
-include { INDEX_MITO                                                } from '../modules/index_mito'
-include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites'
-include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
+include { INDEX_MITO                                                } from '../modules/index_mito/index_mito'
+include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
+include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals/sum_covered_intervals'
 
 
 workflow SKIMSEQ {

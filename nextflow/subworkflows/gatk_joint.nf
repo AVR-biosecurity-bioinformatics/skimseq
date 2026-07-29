@@ -3,13 +3,13 @@
 */
 
 //// import modules
-include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype' 
-include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                          } from '../modules/concat_vcfs' 
-include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records'
-include { SPLIT_BED_BY_CHR                                               } from '../modules/split_bed_by_chr' 
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks'
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks'
-include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
+include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype/joint_genotype' 
+include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                          } from '../modules/concat_vcfs/concat_vcfs' 
+include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records/count_vcf_records'
+include { SPLIT_BED_BY_CHR                                               } from '../modules/split_bed_by_chr/split_bed_by_chr' 
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks/create_interval_chunks'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks/create_interval_chunks'
+include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import/genomicsdb_import' 
 
 workflow GATK_JOINT {
 

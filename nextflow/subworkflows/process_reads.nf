@@ -3,12 +3,12 @@
 */
 
 //// import modules
-include { VALIDATE_CRAM                         } from '../modules/validate_cram'
-include { MAP_TO_GENOME                         } from '../modules/map_to_genome'
-include { SPLIT_FASTQ                           } from '../modules/split_fastq'
-include { MERGE_CRAM                            } from '../modules/merge_cram'
-include { STAGE_CRAM                            } from '../modules/stage_cram'
-include { COUNT_CRAM_PERBASE                    } from '../modules/count_cram_perbase'
+include { VALIDATE_CRAM                         } from '../modules/validate_cram/validate_cram'
+include { MAP_TO_GENOME                         } from '../modules/map_to_genome/map_to_genome'
+include { SPLIT_FASTQ                           } from '../modules/split_fastq/split_fastq'
+include { MERGE_CRAM                            } from '../modules/merge_cram/merge_cram'
+include { STAGE_CRAM                            } from '../modules/stage_cram/stage_cram'
+include { COUNT_CRAM_PERBASE                    } from '../modules/count_cram_perbase/count_cram_perbase'
 
 workflow PROCESS_READS {
 
