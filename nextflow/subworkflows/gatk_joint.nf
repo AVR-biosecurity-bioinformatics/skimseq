@@ -136,6 +136,7 @@ workflow GATK_JOINT {
         ch_cohort_size
     )
 
+    ch_merged_unfiltered_vcf = Channel.empty()
     if ( params.output_unfiltered_vcf ){
 
         // TODO: Make this output seperate files for each variant type
@@ -148,9 +149,12 @@ workflow GATK_JOINT {
         CONCAT_UNFILTERED_VCFS (
             ch_vcf_to_merge
         )
+
+        CONCAT_UNFILTERED_VCFS.out.vcf
+            .set { ch_merged_unfiltered_vcf}
     }
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
-    gatk_unfiltered_vcf = CONCAT_UNFILTERED_VCFS.out.vcf
+    merged_unfiltered_vcf = ch_merged_unfiltered_vcf
 }

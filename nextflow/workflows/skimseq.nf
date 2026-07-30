@@ -244,7 +244,7 @@ workflow SKIMSEQ {
 
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_gvcf = Channel.empty()
-
+    ch_merged_unfiltered_vcf = Channel.empty()
     if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
@@ -276,7 +276,10 @@ workflow SKIMSEQ {
         )
 
         GATK_JOINT.out.vcf
-            .set{ ch_unfiltered_vcf }
+            .set{ ch_unfiltered_vcfs }
+
+        GATK_JOINT.out.merged_unfiltered_vcf
+            .set{ ch_merged_unfiltered_vcf }
 
     } else if (params.variant_caller == "bcftools"){
 
@@ -290,7 +293,10 @@ workflow SKIMSEQ {
             ch_popmap
         )
         BCFTOOLS_CALLING.out.vcf
-            .set{ ch_unfiltered_vcf }
+            .set{ ch_unfiltered_vcfs }
+
+        BCFTOOLS_CALLING.out.merged_unfiltered_vcf
+            .set{ ch_merged_unfiltered_vcf }
     }
 
     /*
@@ -305,7 +311,7 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        ch_unfiltered_vcf,
+        ch_unfiltered_vcfs,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_vcf,
@@ -336,7 +342,7 @@ workflow SKIMSEQ {
     QC (
         ch_reports,
         PROCESS_READS.out.cram,
-        OUTPUTS.out.final_vcf,
+        OUTPUTS.out.final_vcf_all,
         ch_sample_names_filt,
         ch_genome_indexed,
         ch_multiqc_config
@@ -355,7 +361,7 @@ workflow SKIMSEQ {
     mito_fasta      = MITO_GENOTYPING.out.mito_fasta
 
     // VCF outputs
-    unfiltered_vcf = ch_unfiltered_vcf
+    unfiltered_vcf = ch_merged_unfiltered_vcf
     gvcf = ch_gvcf
     final_vcf = OUTPUTS.out.final_vcf
 

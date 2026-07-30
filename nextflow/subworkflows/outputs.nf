@@ -145,6 +145,7 @@ workflow OUTPUTS {
     )
 
     emit:
+    final_vcf_all    = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
     final_vcf        = CONCAT_FINAL.out.vcf
     beagle_gl        = ch_beagle_gl
     plink            = PLINK_IMPORT.out.plink
