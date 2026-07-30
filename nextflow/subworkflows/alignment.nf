@@ -16,7 +16,8 @@ workflow ALIGNMENT {
     ch_sample_names
     ch_reads
     ch_rg_to_validate
-    ch_genome_indexed    
+    ch_genome_indexed
+    ch_exclude_bed
 
     main: 
     
@@ -177,12 +178,14 @@ workflow ALIGNMENT {
     // Count per-base depths in cram, used for masking and creating interval chunks
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_exclude_bed
     )
 
     emit: 
     cram = STAGE_CRAM.out.cram
     perbase = COUNT_CRAM_PERBASE.out.perbase
+    counts = COUNT_CRAM_PERBASE.out.counts
 
 }
 

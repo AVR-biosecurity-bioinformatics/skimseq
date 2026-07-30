@@ -15,8 +15,6 @@ include { QC                                                        } from '../s
 //// import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito/index_mito'
-include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
-include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals/sum_covered_intervals'
 
 
 workflow SKIMSEQ {
@@ -191,10 +189,11 @@ workflow SKIMSEQ {
         ch_sample_names,
         VALIDATE_INPUTS.out.validated_fastq,
         VALIDATE_INPUTS.out.rg_to_validate,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_exclude_bed
     )
     
-    ALIGNMENT.out.perbase
+    ALIGNMENT.out.counts
         .set{ ch_read_counts }
 
     /*
@@ -233,15 +232,6 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype = ch_mito_bed
     }
     
-    // Create a list of covered perbase tracts
-    SUM_COVERED_INTERVALS(
-        ALIGNMENT.out.perbase,
-        ch_mask_bed_genotype
-    )
-    
-    SUM_COVERED_INTERVALS.out.counts
-        .set { ch_read_counts }
-
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_gvcf = Channel.empty()
     ch_merged_unfiltered_vcf = Channel.empty()
