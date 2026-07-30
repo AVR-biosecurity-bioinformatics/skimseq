@@ -27,6 +27,12 @@
           "default": null,
           "description": "SLURM account used for job submission.",
           "hidden": true
+        },
+        "scratch": {
+        "type": "boolean",
+        "default": false,
+        "description": "Use task-local scratch storage when supported by the selected execution environment.",
+        "hidden": true
         }
       }
     },

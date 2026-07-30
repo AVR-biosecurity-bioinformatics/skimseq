@@ -42,76 +42,76 @@ process FILTER_VCF {
     export DP_UPPER_PERC_GLOBAL_INVARIANT=${dpHi}
 
     // Population-level filtering logic
-    POPULATION_MIN_SAMPLES_PER_POP=${vcf_population_min_samples}
-    POPULATION_FAIL_MODE=${vcf_population_fail_mode}
+    POPULATION_MIN_SAMPLES_PER_POP=${params.vcf_population_min_samples}
+    POPULATION_FAIL_MODE=${params.vcf_population_fail_mode}
 
     // Genotype-level masking
-    GENOTYPE_QUAL=${vcf_genotype_qual}
-    GENOTYPE_DP_MIN=${vcf_genotype_dp_min}
-    GENOTYPE_DP_MIN=${vcf_genotype_dp_max}
+    GENOTYPE_QUAL=${params.vcf_genotype_qual}
+    GENOTYPE_DP_MIN=${params.vcf_genotype_dp_min}
+    GENOTYPE_DP_MIN=${params.vcf_genotype_dp_max}
 
     // Sample-level filtering
-    SAMPLE_MAX_MISSING=${vcf_sample_max_missing}
+    SAMPLE_MAX_MISSING=${params.vcf_sample_max_missing}
 
     // Minimum site QUAL
-    QUAL_GLOBAL_SNP=${vcf_qual_global_snp}
-    QUAL_GLOBAL_INDEL=${vcf_qual_global_indel}
-    QUAL_GLOBAL_INVARIANT=${vcf_qual_global_invariant}
+    QUAL_GLOBAL_SNP=${params.vcf_qual_global_snp}
+    QUAL_GLOBAL_INDEL=${params.vcf_qual_global_indel}
+    QUAL_GLOBAL_INVARIANT=${params.vcf_qual_global_invariant}
 
     // Minimum site depth
-    DP_MIN_GLOBAL_SNP=${vcf_dp_min_global_snp}
-    DP_MIN_GLOBAL_INDEL=${vcf_dp_min_global_indel}
-    DP_MIN_GLOBAL_INVARIANT=${vcf_dp_min_global_invariant}
+    DP_MIN_GLOBAL_SNP=${params.vcf_dp_min_global_snp}
+    DP_MIN_GLOBAL_INDEL=${params.vcf_dp_min_global_indel}
+    DP_MIN_GLOBAL_INVARIANT=${params.vcf_dp_min_global_invariant}
 
     // Minimum distance from an indel
-    DIST_INDEL_GLOBAL_SNP=${vcf_dist_indel_global_snp}
-    DIST_INDEL_GLOBAL_INDEL=${vcf_dist_indel_global_indel}
-    DIST_INDEL_GLOBAL_INVARIANT=${vcf_dist_indel_global_invariant}
+    DIST_INDEL_GLOBAL_SNP=${params.vcf_dist_indel_global_snp}
+    DIST_INDEL_GLOBAL_INDEL=${params.vcf_dist_indel_global_indel}
+    DIST_INDEL_GLOBAL_INVARIANT=${params.vcf_dist_indel_global_invariant}
 
     // Excess heterozygosity p-value threshold
-    EH_GLOBAL_SNP=${vcf_eh_global_snp}
-    EH_GLOBAL_INDEL=${vcf_eh_global_indel}
-    EH_GLOBAL_INVARIANT=${vcf_eh_global_invariant}
+    EH_GLOBAL_SNP=${params.vcf_eh_global_snp}
+    EH_GLOBAL_INDEL=${params.vcf_eh_global_indel}
+    EH_GLOBAL_INVARIANT=${params.vcf_eh_global_invariant}
 
-    EH_POP_SNP=${vcf_eh_pop_snp}
-    EH_POP_INDEL=${vcf_eh_pop_indel}
-    EH_POP_INVARIANT=${vcf_eh_pop_invariant}
+    EH_POP_SNP=${params.vcf_eh_pop_snp}
+    EH_POP_INDEL=${params.vcf_eh_pop_indel}
+    EH_POP_INVARIANT=${params.vcf_eh_pop_invariant}
 
     // Hardy-Weinberg equilibrium p-value threshold
-    HWE_GLOBAL_SNP=${vcf_hwe_global_snp}
-    HWE_GLOBAL_INDEL=${vcf_hwe_global_indel}
-    HWE_GLOBAL_INVARIANT=${vcf_hwe_global_invariant}
+    HWE_GLOBAL_SNP=${params.vcf_hwe_global_snp}
+    HWE_GLOBAL_INDEL=${params.vcf_hwe_global_indel}
+    HWE_GLOBAL_INVARIANT=${params.vcf_hwe_global_invariant}
 
-    HWE_POP_SNP=${vcf_hwe_pop_snp}
-    HWE_POP_INDEL=${vcf_hwe_pop_indel}
-    HWE_POP_INVARIANT=${vcf_hwe_pop_invariant}
+    HWE_POP_SNP=${params.vcf_hwe_pop_snp}
+    HWE_POP_INDEL=${params.vcf_hwe_pop_indel}
+    HWE_POP_INVARIANT=${params.vcf_hwe_pop_invariant}
 
     // Minor allele frequency
-    MAF_GLOBAL_SNP=${vcf_maf_global_snp}
-    MAF_GLOBAL_INDEL=${vcf_maf_global_indel}
-    MAF_GLOBAL_INVARIANT=${vcf_maf_global_invariant}
+    MAF_GLOBAL_SNP=${params.vcf_maf_global_snp}
+    MAF_GLOBAL_INDEL=${params.vcf_maf_global_indel}
+    MAF_GLOBAL_INVARIANT=${params.vcf_maf_global_invariant}
 
-    MAF_POP_SNP=${vcf_maf_pop_snp}
-    MAF_POP_INDEL=${vcf_maf_pop_indel}
-    MAF_POP_INVARIANT=${vcf_maf_pop_invariant}
+    MAF_POP_SNP=${params.vcf_maf_pop_snp}
+    MAF_POP_INDEL=${params.vcf_maf_pop_indel}
+    MAF_POP_INVARIANT=${params.vcf_maf_pop_invariant}
 
     // Minimum number of called samples
-    MIN_SAMPLES_GLOBAL_SNP=${vcf_min_samples_global_snp}
-    MIN_SAMPLES_GLOBAL_INDEL=${vcf_min_samples_global_indel}
-    MIN_SAMPLES_GLOBAL_INVARIANT=${vcf_min_samples_global_indel}
+    MIN_SAMPLES_GLOBAL_SNP=${params.vcf_min_samples_global_snp}
+    MIN_SAMPLES_GLOBAL_INDEL=${params.vcf_min_samples_global_indel}
+    MIN_SAMPLES_GLOBAL_INVARIANT=${params.vcf_min_samples_global_indel}
 
-    MIN_SAMPLES_POP_SNP=${vcf_min_samples_pop_snp}
-    MIN_SAMPLES_POP_INDEL=${vcf_min_samples_pop_indel}
-    MIN_SAMPLES_POP_INVARIANT=${vcf_min_samples_pop_invariant}
+    MIN_SAMPLES_POP_SNP=${params.vcf_min_samples_pop_snp}
+    MIN_SAMPLES_POP_INDEL=${params.vcf_min_samples_pop_indel}
+    MIN_SAMPLES_POP_INVARIANT=${params.vcf_min_samples_pop_invariant}
 
     // Minimum call rate
-    MIN_CALLRATE_GLOBAL_SNP=${vcf_min_callrate_global_snp}
-    MIN_CALLRATE_GLOBAL_INDEL=${vcf_min_callrate_global_indel}
-    MIN_CALLRATE_GLOBAL_INVARIANT=${vcf_min_callrate_global_invariant}
+    MIN_CALLRATE_GLOBAL_SNP=${params.vcf_min_callrate_global_snp}
+    MIN_CALLRATE_GLOBAL_INDEL=${params.vcf_min_callrate_global_indel}
+    MIN_CALLRATE_GLOBAL_INVARIANT=${params.vcf_min_callrate_global_invariant}
 
-    MIN_CALLRATE_POP_SNP=${vcf_min_callrate_pop_snp}
-    MIN_CALLRATE_POP_INDEL=${vcf_min_callrate_pop_indel}
-    MIN_CALLRATE_POP_INVARIANT=${vcf_min_callrate_pop_invariant}
+    MIN_CALLRATE_POP_SNP=${params.vcf_min_callrate_pop_snp}
+    MIN_CALLRATE_POP_INDEL=${params.vcf_min_callrate_pop_indel}
+    MIN_CALLRATE_POP_INVARIANT=${params.vcf_min_callrate_pop_invariant}
 
     bash filter_vcf.sh \
         ${task.cpus} \
