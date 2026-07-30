@@ -145,7 +145,7 @@ workflow OUTPUTS {
     )
 
     emit:
-    final_vcfs        = CONCAT_FINAL.out.vcf
+    final_vcf        = CONCAT_FINAL.out.vcf
     beagle_gl        = ch_beagle_gl
     plink            = PLINK_IMPORT.out.plink
     pca              = PLINK_PCA.out.pca

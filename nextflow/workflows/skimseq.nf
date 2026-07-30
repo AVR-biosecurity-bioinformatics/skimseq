@@ -242,6 +242,9 @@ workflow SKIMSEQ {
     SUM_COVERED_INTERVALS.out.counts
         .set { ch_read_counts }
 
+    // Set empty channels to recieve publishing outputs for optional workflows
+    ch_gvcf = Channel.empty()
+
     if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
@@ -257,9 +260,12 @@ workflow SKIMSEQ {
             ch_read_counts
         )
 
+        GATK_SINGLE.out.gvcf
+            .set{ ch_gvcf }
+
         // Joint call genotypes        
         GATK_JOINT (
-            GATK_SINGLE.out.gvcf,
+            ch_gvcf,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
@@ -270,7 +276,7 @@ workflow SKIMSEQ {
         )
 
         GATK_JOINT.out.vcf
-            .set{ ch_vcfs }
+            .set{ ch_unfiltered_vcf }
 
     } else if (params.variant_caller == "bcftools"){
 
@@ -284,7 +290,7 @@ workflow SKIMSEQ {
             ch_popmap
         )
         BCFTOOLS_CALLING.out.vcf
-            .set{ ch_vcfs }
+            .set{ ch_unfiltered_vcf }
     }
 
     /*
@@ -299,7 +305,7 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        ch_vcfs,
+        ch_unfiltered_vcf,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_vcf,
@@ -349,10 +355,9 @@ workflow SKIMSEQ {
     mito_fasta      = MITO_GENOTYPING.out.mito_fasta
 
     // VCF outputs
-    bcftools_unfiltered_vcf = BCFTOOLS_CALLING.out.bcftools_unfiltered_vcf
-    gatk_unfiltered_vcf = GATK_JOINT.out.gatk_unfiltered_vcf
-    gvcf = GATK_SINGLE.out.gvcf
-    final_vcfs = OUTPUTS.out.final_vcfs
+    unfiltered_vcf = ch_unfiltered_vcf
+    gvcf = ch_gvcf
+    final_vcf = OUTPUTS.out.final_vcf
 
     // Outputs subworkflow
     beagle_gl       = OUTPUTS.out.beagle_gl

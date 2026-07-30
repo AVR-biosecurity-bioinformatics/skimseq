@@ -95,10 +95,9 @@ workflow {
     perbase         = SKIMSEQ.out.perbase
     mito_fasta      = SKIMSEQ.out.mito_fasta
 
-    bcftools_unfiltered_vcf = SKIMSEQ.out.bcftools_unfiltered_vcf
-    gatk_unfiltered_vcf = SKIMSEQ.out.gatk_unfiltered_vcf
+    unfiltered_vcf = SKIMSEQ.out.unfiltered_vcf
     gvcf = SKIMSEQ.out.gvcf
-    final_vcfs = SKIMSEQ.out.final_vcfs
+    final_vcf = SKIMSEQ.out.final_vcf
 
     beagle_gl       = SKIMSEQ.out.beagle_gl
     plink           = SKIMSEQ.out.plink
@@ -126,7 +125,11 @@ output {
     }
     cram {
         enabled params.output_cram
-        path params.${cram_store}
+        path params.cram_store
+    }
+    gvcf {
+        enabled params.output_gvcf
+        path params.gvcf_store
     }
     perbase {
         path 'qc/cram_stats'
@@ -134,19 +137,13 @@ output {
     mito_fasta {
         path 'mito'
     }
-    bcftools_unfiltered_vcf {
+    unfiltered_vcf {
         path 'vcf/unfiltered'
     }
-    gatk_unfiltered_vcf {
-        path 'vcf/unfiltered'
-    }
-    final_vcfs {
+    final_vcf {
         path 'vcf/filtered'
     }
-    gvcf {
-        enabled params.output_gvcf
-        path params.${gvcf_store}
-    }
+
     beagle_gl {
         enabled params.output_beagle_gl
         path 'beagle'
