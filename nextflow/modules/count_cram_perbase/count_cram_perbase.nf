@@ -6,36 +6,34 @@ process COUNT_CRAM_PERBASE {
     input:
     tuple val(sample), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
-    val(hc_rmdup)
-    val(hc_minbq)
-    val(hc_minmq)
-    
+   
     output: 
-    tuple val(sample), path("${sample}.perbase.bed.gz"),  path("${sample}.perbase.bed.gz.tbi"),   emit: perbase
-
+    tuple val(sample),
+        path("${sample}.per-base.bed.gz"),
+        path("${sample}.per-base.bed.gz.csi"),
+        emit: perbase
+        
     script:
-    //  samtools depth excludes duplicates by default. Add them back when duplicate removal is disabled.
-    def flags = hc_rmdup
-        ? '-G UNMAP,SECONDARY,QCFAIL,DUP'
-        : '-g DUP -G UNMAP,SECONDARY,QCFAIL'
+    /*
+     * mosdepth defaults to excluding:
+     * UNMAP (4), SECONDARY (256), QCFAIL (512), DUP (1024)
+     *
+     * Exclude duplicates: 4 + 256 + 512 + 1024 = 1796
+     * Include duplicates: 4 + 256 + 512 = 772
+     */
 
+    def exclude_flags = params.rmdup ? 1796 : 772
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # count per-base depths
-    samtools depth \
-        -@ ${task.cpus} \
-        -q ${hc_minbq} \
-        -Q ${hc_minmq} \
-        -s \
-        ${flags} \
-        --reference "${ref_genome}" \
-        "${cram}" \
-    | awk 'BEGIN{OFS="\t"} {print \$1, \$2-1, \$2, \$3}' \
-    | bgzip -c --compress-level 9 > "${sample}.perbase.bed.gz"
-    
-    tabix -f -p bed "${sample}.perbase.bed.gz"
+    mosdepth \
+        --threads ${task.cpus} \
+        --fasta "${ref_genome}" \
+        --mapq ${params.minmq} \
+        --flag ${exclude_flags} \
+        "${sample}" \
+        "${cram}"
         
     """
 }

@@ -177,10 +177,7 @@ workflow ALIGNMENT {
     // Count per-base depths in cram, used for masking and creating interval chunks
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
-        ch_genome_indexed,
-        params.rmdup,
-        params.minbq,
-        params.minmq
+        ch_genome_indexed
     )
 
     emit: 
