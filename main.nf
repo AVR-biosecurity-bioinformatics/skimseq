@@ -67,7 +67,7 @@ workflow {
     // Print summary of supplied parameters (that differ from defaults)
     log.info paramsSummaryLog(workflow)
 
-    // 
+    // validate inpiut params
     validateParameters()
     log.info paramsSummaryLog(workflow)
 
@@ -82,7 +82,7 @@ workflow {
     // Print help message, supply typical command line usage for the pipeline
     if (params.help) {
         //    log.info startupMessage()
-        log.info paramsHelp("nextflow run AVR-biosecurity-bioinformatics/mimir") // TODO: add typical commands for pipeline
+        log.info paramsHelp("nextflow run AVR-biosecurity-bioinformatics/skimseq") // TODO: add typical commands for pipeline
         exit 0
     }
 

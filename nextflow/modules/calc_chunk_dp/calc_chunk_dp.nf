@@ -1,31 +1,3 @@
-def flatten_filter_map(prefix, object, result) {
-
-    if (
-        object instanceof Map ||
-        object instanceof nextflow.config.ConfigMap
-    ) {
-        object.each { key, value ->
-
-            def flattened_key = prefix
-                ? "${prefix}_${key}".toUpperCase()
-                : key.toString().toUpperCase()
-
-            flatten_filter_map(
-                flattened_key,
-                value,
-                result
-            )
-        }
-    }
-    else {
-        result[prefix] = object == null
-            ? 'NA'
-            : object
-    }
-
-    return result
-}
-
 process CALC_CHUNK_DP {
     tag "${interval_hash}"
     conda "${moduleDir}/environment.yml"
@@ -39,43 +11,34 @@ process CALC_CHUNK_DP {
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.missing.tsv"),  emit: chunk_missing
 
     script:    
-    def flat = flatten_filter_map(
-        '',
-        filter_map,
-        [:]
-    )
-
-    def filter_kv = flat
-        .collect { key, value -> "${key}=${value}" }
-        .sort()
-        .join(';')
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    FILTER_KV='${filter_kv}'
+    # DP histogram for this chunk
+    bcftools query -f '%DP\\n' "${vcf}" \
+    | awk '{d=$1+0; c[d]++} END{for (d in c) print d"\\t"c[d]}' \
+    | LC_ALL=C sort -n -k1,1 > "${interval_hash}.dphist.tsv"
 
-    # Export key=value pairs as environment variables
-    IFS=';' read -ra KV <<< "\$FILTER_KV"
-    for kv in "\${KV[@]}"; do
-      [[ -z "\$kv" ]] && continue
-      k="\${kv%%=*}"
-      v="\${kv#*=}"
-
-      # Treat NA / -1 / empty as disabled: do not export (so bash can test [[ -v VAR ]])
-      if [[ -z "\$v" || "\$v" == "NA" || "\$v" == "na" || "\$v" == "-1" ]]; then
-        unset "\$k" || true
-      else
-        export "\$k=\$v"
-      fi
-    done
-
-    ### run process script
-    bash calc_chunk_dp.sh \
-        ${task.cpus} \
-        ${task.memory.giga} \
-        ${interval_hash} \
-        ${interval_bed} \
-        "${vcf}"        
+    # total records and missing records for chunk
+    bcftools +setGT "${vcf}" -- \
+        -t q \
+        -n . \
+        -i "FORMAT/GQ < ${vcf_genotype_qual:-0} | FORMAT/DP < ${vcf_genotype_dp_min:-0} | FORMAT/DP > ${vcf_genotype_dp_max:-999999999}" \
+        | bcftools stats --threads ${1} -s - \
+        | awk -v out="${interval_hash}.missing.tsv" 'BEGIN{OFS="\\t"}
+        \$1=="SN" && \$3=="number" && \$5=="records:" {
+            total=$6
+            next
+        }
+        \$1=="PSC" {
+            if(!printed_header){
+                print "#TOTAL_RECORDS", total > out
+                print "SAMPLE","NMISS" > out
+                printed_header=1
+            }
+            print \$3, \$14 > out
+        }
+'
     """
 }

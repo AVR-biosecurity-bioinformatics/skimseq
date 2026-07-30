@@ -1,0 +1,385 @@
+# skimseq default parameter values
+# Copy this file, edit the required values, and run with:
+# nextflow run . -params-file params.yml -profile <profiles>
+#
+# Parameters set to null must be supplied by the user or an active profile.
+
+# General options
+
+# Display pipeline help.
+help: null
+
+# SLURM account used for job submission.
+slurm_account: null
+
+# Primary input options
+
+# CSV samplesheet describing input samples and FASTQ files.
+samplesheet: null
+
+# Reference genome in FASTA format.
+ref_genome: null
+
+# Name of the mitochondrial contig in the reference genome.
+mito_contig: null
+
+# Intermediate input options
+
+# Absolute path, or path relative to launchDir, containing reusable CRAM files.
+cram_store: 'output/results/cram'
+
+# Absolute path, or path relative to launchDir, containing reusable GVCF files.
+gvcf_store: 'output/results/gvcf'
+
+# Reuse CRAM files in cram_store when available.
+use_existing_cram: true
+
+# Reuse GVCF files in gvcf_store when available.
+use_existing_gvcf: true
+
+# Skip validation of existing CRAM files.
+skip_cram_validation: false
+
+# Skip validation of existing GVCF files.
+skip_gvcf_validation: false
+
+# Parallelisation options
+
+# Number of reads per FASTQ chunk.
+fastq_chunk_size: 10000000
+
+# Approximate aligned bases per GATK HaplotypeCaller interval.
+hc_bases_per_chunk: 100000000
+
+# Approximate genotypes per GATK GenotypeGVCFs interval.
+jc_genotypes_per_chunk: 100000000
+
+# Approximate aligned bases per bcftools mpileup interval.
+mp_bases_per_chunk: 1000000000
+
+# Approximate variants per filtering interval.
+filt_var_per_chunk: 10000000
+
+# Split intervals larger than hc_bases_per_chunk.
+split_large_intervals: true
+
+# Minimum missing-data gap used to separate genomic intervals.
+min_interval_gap: 100
+
+# Reference masking options
+
+# Minimum contig length used to classify a contig as a chromosome.
+min_chr_length: 50000000
+
+# Optional BED file defining intervals to include for genotyping.
+include_bed: null
+
+# Use hard-masked N bases already present in the reference genome.
+use_reference_hardmasks: true
+
+# Use soft-masked lowercase bases already present in the reference genome.
+use_reference_softmasks: false
+
+# Optional BED file defining intervals to exclude.
+exclude_bed: null
+
+# Padding added to excluded intervals in base pairs.
+exclude_padding: 0
+
+# Genotype bases masked by selected masking methods.
+genotype_masked_bases: false
+
+# Remove variants overlapping masked bases from the VCF.
+filter_masked_variants: true
+
+# K-mer length used by GenMap.
+genmap_kmer_length: 100
+
+# Mismatches tolerated when calculating mappability.
+genmap_error_tol: 2
+
+# Minimum mappability score.
+genmap_thresh: 0.99
+
+# K-mer length used by Longdust.
+longdust_kmer_length: 7
+
+# Longdust context window length.
+longdust_window_size: 5000
+
+# Minimum Longdust complexity threshold.
+longdust_thresh: 0.6
+
+# Minimum NUMT alignment length.
+numt_min_length: 100
+
+# Maximum gap between NUMT alignments in one region.
+numt_max_gap: 1000
+
+# BWA-MEM2 alignment options
+
+# Minimum seed length used by BWA-MEM2.
+bwa_min_seed_length: 19
+
+# Skip seeds occurring more than this many times.
+bwa_max_seed_occurrence: 250
+
+# Mitochondrial variant-calling options
+
+# Minimum mitochondrial consensus VAF.
+mito_min_vaf: 0.9
+
+# Minimum mitochondrial consensus depth.
+mito_min_depth: 100
+
+# Generic variant-calling options
+
+# Variant caller used by the pipeline.
+variant_caller: 'bcftools'
+
+# Exclude duplicate reads from genotyping.
+rmdup: true
+
+# Minimum base quality.
+minbq: 10
+
+# Minimum mapping quality.
+minmq: 20
+
+# Minimum fragment length.
+min_fragment_length: 15
+
+# Maximum fragment length.
+max_fragment_length: 10000
+
+# Minimum aligned, non-soft-clipped bases.
+min_aligned_length: 30
+
+# Sample ploidy.
+ploidy: 2
+
+# Emit indel sites.
+output_indel: true
+
+# Emit invariant sites.
+output_invariant: false
+
+# GATK options
+
+# HaplotypeCaller interval padding.
+hc_interval_padding: 100
+
+# Minimum assembly-graph path support.
+hc_min_pruning: 2
+
+# Minimum dangling-branch recovery length.
+hc_min_dangling_length: 4
+
+# Maximum reads per alignment start.
+hc_max_reads_startpos: 50
+
+# Use PCR-free indel model.
+hc_pcr_free: false
+
+# Maximum ambiguous bases per read.
+hc_max_ambig_bases: 5
+
+# Use soft-clipped bases during calling.
+hc_use_softclipped_bases: true
+
+# Heterozygosity prior.
+heterozygosity: 0.001
+
+# Heterozygosity-prior standard deviation.
+heterozygosity_stdev: 0.01
+
+# Indel heterozygosity prior.
+indel_heterozygosity: 0.000125
+
+# Maximum alternate alleles genotyped.
+jc_max_alternate_alleles: 6
+
+# Maximum alternate alleles imported.
+jc_max_alternate_to_import: 10
+
+# BCFtools options
+
+# Mutation-rate prior.
+mutation_rate: 0.0011
+
+# Maximum reads used per input file.
+max_depth: 250
+
+# Grouping used for genotype calling.
+calling_model: 'cohort'
+
+# Minimum genotype posterior.
+min_genotype_posterior: 0.9
+
+# VCF filtering options
+
+# Minimum population size used for per-population filtering.
+vcf_population_min_samples: 1
+
+# Whether all or any eligible populations must fail a population-level filter.
+vcf_population_fail_mode: 'ALL'
+
+# Minimum genotype quality (GQ); null disables this mask.
+vcf_genotype_qual: 0
+
+# Minimum genotype depth; null disables this mask.
+vcf_genotype_dp_min: 1
+
+# Maximum genotype depth; null disables this mask.
+vcf_genotype_dp_max: 1000
+
+# Maximum missing-genotype fraction per sample; null disables this filter.
+vcf_sample_max_missing: 0.5
+
+# Lower depth percentile; null disables it.
+vcf_dp_percentile_lower: 1.0
+
+# Upper depth percentile; null disables it.
+vcf_dp_percentile_upper: 99.0
+
+# Minimum site QUAL for snp sites evaluated globally; null disables this filter.
+vcf_qual_global_snp: 30.0
+
+# Minimum site QUAL for indel sites evaluated globally; null disables this filter.
+vcf_qual_global_indel: 30.0
+
+# Minimum site QUAL for invariant sites evaluated globally; null disables this filter.
+vcf_qual_global_invariant: null
+
+# Minimum site depth (INFO/DP) for snp sites evaluated globally; null disables this filter.
+vcf_dp_min_global_snp: 6
+
+# Minimum site depth (INFO/DP) for indel sites evaluated globally; null disables this filter.
+vcf_dp_min_global_indel: 6
+
+# Minimum site depth (INFO/DP) for invariant sites evaluated globally; null disables this filter.
+vcf_dp_min_global_invariant: 6
+
+# Minimum distance from an indel for snp sites evaluated globally; null disables this filter.
+vcf_dist_indel_global_snp: 5
+
+# Minimum distance from an indel for indel sites evaluated globally; null disables this filter.
+vcf_dist_indel_global_indel: null
+
+# Minimum distance from an indel for invariant sites evaluated globally; null disables this filter.
+vcf_dist_indel_global_invariant: null
+
+# Excess-heterozygosity p-value threshold for snp sites evaluated globally; null disables this filter.
+vcf_eh_global_snp: null
+
+# Excess-heterozygosity p-value threshold for indel sites evaluated globally; null disables this filter.
+vcf_eh_global_indel: null
+
+# Excess-heterozygosity p-value threshold for invariant sites evaluated globally; null disables this filter.
+vcf_eh_global_invariant: null
+
+# Excess-heterozygosity p-value threshold for snp sites evaluated within each population; null disables this filter.
+vcf_eh_pop_snp: null
+
+# Excess-heterozygosity p-value threshold for indel sites evaluated within each population; null disables this filter.
+vcf_eh_pop_indel: null
+
+# Excess-heterozygosity p-value threshold for invariant sites evaluated within each population; null disables this filter.
+vcf_eh_pop_invariant: null
+
+# HWE p-value threshold for snp sites evaluated globally; null disables this filter.
+vcf_hwe_global_snp: null
+
+# HWE p-value threshold for indel sites evaluated globally; null disables this filter.
+vcf_hwe_global_indel: null
+
+# HWE p-value threshold for invariant sites evaluated globally; null disables this filter.
+vcf_hwe_global_invariant: null
+
+# HWE p-value threshold for snp sites evaluated within each population; null disables this filter.
+vcf_hwe_pop_snp: null
+
+# HWE p-value threshold for indel sites evaluated within each population; null disables this filter.
+vcf_hwe_pop_indel: null
+
+# HWE p-value threshold for invariant sites evaluated within each population; null disables this filter.
+vcf_hwe_pop_invariant: null
+
+# Minimum allele frequency for snp sites evaluated globally; null disables this filter.
+vcf_maf_global_snp: 0.05
+
+# Minimum allele frequency for indel sites evaluated globally; null disables this filter.
+vcf_maf_global_indel: 0.05
+
+# Minimum allele frequency for invariant sites evaluated globally; null disables this filter.
+vcf_maf_global_invariant: null
+
+# Minimum allele frequency for snp sites evaluated within each population; null disables this filter.
+vcf_maf_pop_snp: null
+
+# Minimum allele frequency for indel sites evaluated within each population; null disables this filter.
+vcf_maf_pop_indel: null
+
+# Minimum allele frequency for invariant sites evaluated within each population; null disables this filter.
+vcf_maf_pop_invariant: null
+
+# Minimum called samples for snp sites evaluated globally; null disables this filter.
+vcf_min_samples_global_snp: 1
+
+# Minimum called samples for indel sites evaluated globally; null disables this filter.
+vcf_min_samples_global_indel: 1
+
+# Minimum called samples for invariant sites evaluated globally; null disables this filter.
+vcf_min_samples_global_invariant: 1
+
+# Minimum called samples for snp sites evaluated within each population; null disables this filter.
+vcf_min_samples_pop_snp: null
+
+# Minimum called samples for indel sites evaluated within each population; null disables this filter.
+vcf_min_samples_pop_indel: null
+
+# Minimum called samples for invariant sites evaluated within each population; null disables this filter.
+vcf_min_samples_pop_invariant: null
+
+# Minimum call rate for snp sites evaluated globally; null disables this filter.
+vcf_min_callrate_global_snp: 0.5
+
+# Minimum call rate for indel sites evaluated globally; null disables this filter.
+vcf_min_callrate_global_indel: 0.5
+
+# Minimum call rate for invariant sites evaluated globally; null disables this filter.
+vcf_min_callrate_global_invariant: 0.5
+
+# Minimum call rate for snp sites evaluated within each population; null disables this filter.
+vcf_min_callrate_pop_snp: null
+
+# Minimum call rate for indel sites evaluated within each population; null disables this filter.
+vcf_min_callrate_pop_indel: null
+
+# Minimum call rate for invariant sites evaluated within each population; null disables this filter.
+vcf_min_callrate_pop_invariant: null
+
+# Output options
+
+# Publish unmapped reads as FASTQ.
+output_unmapped_reads: false
+
+# Publish CRAM files.
+output_cram: true
+
+# Publish GVCF files.
+output_gvcf: true
+
+# Publish unfiltered VCF files.
+output_unfiltered_vcf: false
+
+# Publish BEAGLE genotype likelihoods.
+output_beagle_gl: false
+
+# Debugging options
+
+# Publish module-level outputs.
+debug_mode: false
+
+# Save process-level R workspaces.
+rdata: false

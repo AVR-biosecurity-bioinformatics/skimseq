@@ -1,0 +1,8 @@
+# environment.yml
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - bioconda::ngsrelate=2.0

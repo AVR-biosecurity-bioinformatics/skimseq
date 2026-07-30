@@ -23,7 +23,6 @@ workflow FILTER_VARIANTS {
     ch_mask_bed_vcf
     ch_sample_names
     ch_popmap
-    filter_map
 
     main: 
    
@@ -33,14 +32,14 @@ workflow FILTER_VARIANTS {
 
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_map ) }
+        ch_vcfs
     )
 
     // Merge all chunk DP histograms together
     MERGE_CHUNK_DP(
         CALC_CHUNK_DP.out.chunk_dp.map { interval_hash, interval_bed, bed_tbi, dphist -> dphist }.collect(),
-        filter_map.dp_perc.lower,
-        filter_map.dp_perc.upper
+        params.vcf_dp_percentile_lower,
+        params.vcf_dp_percentile_upper
     )
 
     MERGE_CHUNK_DP.out.dp_bounds
@@ -61,23 +60,16 @@ workflow FILTER_VARIANTS {
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS(
         MERGE_CHUNK_MISSING.out.missing_summary,
-        filter_map.sample.max_missing
+        params.vcf_sample_max_missing
     )
 
     /*
         Filter VCF
     */
 
-    // Attach shared DP bounds and filter_map to each VCF chunk
-    ch_vcfs
-        .combine(ch_dp_bounds)
-        .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi, filter_map ) }
-        .set { ch_vcfs_filters }
-
-
     // Global site filters
     FILTER_VCF(
-        ch_vcfs_filters,
+        ch_vcfs.combine(ch_dp_bounds),
         ch_mask_bed_vcf,
         ch_popmap.first(),
         MERGE_CHUNK_MISSING.out.missing_summary
