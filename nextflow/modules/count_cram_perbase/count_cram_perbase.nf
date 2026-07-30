@@ -43,9 +43,11 @@ process COUNT_CRAM_PERBASE {
         "${cram}"
 
     # Exclude regions and merge abutting intervals into joint count
+    # Note mosdepth outputs are run-length encoded, so need to Weight each depth by the interval length before merging
     bedtools subtract \
         -a "${sample}.per-base.bed.gz" \
         -b "${exclude_bed}" \
+    | awk ' BEGIN { OFS="\t" } { print \$1, \$2, \$3, (\$3-\$2)*\$4 }' \
     | bedtools merge \
         -i - \
         -c 4 \
