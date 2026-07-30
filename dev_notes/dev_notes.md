@@ -104,25 +104,30 @@ module purge
 export NXF_VER=26.07.0-edge
 module load Java/17
 
-# Run tests on local node 
-nextflow run . -profile local,debug,test -resume
+# Local execution on a BASC node using Conda
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . -profile local,basc_conda,debug,test -resume
 
-# Run tests with basc modules 
-nextflow run . -profile basc_modules,debug,test --slurm_account=fruitfly -resume
+# BASC SLURM execution using Conda
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . -profile basc_slurm,basc_conda,debug,test --slurm_account fruitfly -resume
 
-# Run tests with basc shifter
-nextflow run . -profile basc_shifter,debug,test --slurm_account=fruitfly -resume
 
-# Run tests with basc conda
-ml Miniconda3/24.7.1-0
-nextflow run . -profile basc_conda,debug,test --slurm_account=fruitfly -resume 
+# BASC SLURM execution using installed software modules - NOT CURRENTLY WORKING DUE TO LACK OF MODULES
+nextflow run . -profile basc_slurm,modules,debug,test --slurm_account fruitfly -resume
 
-# Run tests with local conda
-ml Miniconda3/24.7.1-0
-nextflow run . -profile local_conda,debug,test --slurm_account=fruitfly -resume 
+# Local execution on a BASC node using installed software modules - NOT CURRENTLY WORKING DUE TO LACK OF MODULES
+nextflow run . -profile local,modules,debug,test -resume
 
-# Run tests with charliecloud  
-nextflow run . -profile basc_charliecloud,debug,test --slurm_account=fruitfly -resume
+# BASC SLURM execution using Shifter - NOT CURRENTLY WORKING DUE TO SHIFTER NEXTFLOW INCOMPATIBILITY
+nextflow run . -profile basc_slurm,shifter,debug,test --slurm_account fruitfly -resume
+
+# BASC SLURM execution using Charliecloud - NOT CURRENTLY WORKING
+nextflow run . -profile basc_slurm,charliecloud,debug,test --slurm_account fruitfly -resume
+
+
 ```
 
 # Current conda dependencies:
@@ -141,5 +146,8 @@ nextflow run . -profile basc_charliecloud,debug,test --slurm_account=fruitfly -r
   - bioconda::longdust=1.4
   - bioconda::multiqc=1.35
 
+# Extra avaiable conda packages
+  - bioconda:angsd=0.940
+  - bioconda::pcangsd
 Note: VCF2DIS is not currently covered in conda
 Can transfer these to sequera containers once container issue is fixed
