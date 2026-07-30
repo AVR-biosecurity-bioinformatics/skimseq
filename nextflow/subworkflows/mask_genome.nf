@@ -86,5 +86,6 @@ workflow MASK_GENOME {
     emit: 
     mask_bed = MERGE_MASKS.out.merged_masks
     numt_mask_bed = NUMT_MASK.out.mask_bed
+    mask_summary = SUMMARISE_MASKS.out.mask_summary
 
 }

@@ -2,7 +2,6 @@ process CRAM_STATS {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/cram_stats", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    publishDir "${launchDir}/output/results/qc/alignment_stats", mode: 'copy'
 
     input:
     tuple val(sample), path(cram), path(cram_index)

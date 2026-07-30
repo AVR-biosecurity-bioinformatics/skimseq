@@ -2,7 +2,6 @@ process VCF_STATS {
     tag "${vcf}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/vcf_stats", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    publishDir "${launchDir}/output/results/qc/vcf_stats", mode: 'copy'
 
     input:
     tuple path(vcf), path(vcf_tbi)

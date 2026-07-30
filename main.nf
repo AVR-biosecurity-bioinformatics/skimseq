@@ -61,11 +61,8 @@ include { SKIMSEQ                                                   } from './ne
 ///// run implicit workflow
 workflow {
 
+    main:
     startupMessage()
-    
-
-    // Print summary of supplied parameters (that differ from defaults)
-    log.info paramsSummaryLog(workflow)
 
     // validate inpiut params
     validateParameters()
@@ -91,10 +88,18 @@ workflow {
     SKIMSEQ ()
 
     publish:
-    final_vcf       = SKIMSEQ.out.final_vcf
-    snp_vcf         = SKIMSEQ.out.snp_vcf
-    indel_vcf       = SKIMSEQ.out.indel_vcf
-    invariant_vcf   = SKIMSEQ.out.invariant_vcf
+
+    mask_summary    = SKIMSEQ.out.mask_summary
+
+    cram            = SKIMSEQ.out.cram
+    perbase         = SKIMSEQ.out.perbase
+    mito_fasta      = SKIMSEQ.out.mito_fasta
+
+    bcftools_unfiltered_vcf = SKIMSEQ.out.bcftools_unfiltered_vcf
+    gatk_unfiltered_vcf = SKIMSEQ.out.gatk_unfiltered_vcf
+    gvcf = SKIMSEQ.out.gvcf
+    final_vcfs = SKIMSEQ.out.final_vcfs
+
     beagle_gl       = SKIMSEQ.out.beagle_gl
     plink           = SKIMSEQ.out.plink
     pca             = SKIMSEQ.out.pca
@@ -104,24 +109,43 @@ workflow {
     ordination_plot = SKIMSEQ.out.ordination_plot
     pca_plot        = SKIMSEQ.out.pca_plot
     tree_plot       = SKIMSEQ.out.tree_plot
-    popmap           = SKIMSEQ.out.popmap
+    popmap          = SKIMSEQ.out.popmap
+
+    cram_stats      = SKIMSEQ.out.cram_stats
+    cram_plots      = SKIMSEQ.out.cram_plots
+    vcf_stats       = SKIMSEQ.out.vcf_stats
+    multiqc_report  = SKIMSEQ.out.multiqc_report
+    multiqc_plots   = SKIMSEQ.out.multiqc_plots
+    multiqc_data    = SKIMSEQ.out.multiqc_data
 
 }
 
 output {
-    final_vcf {
+    mask_summary {
+        path 'qc'
+    }
+    cram {
+        enabled params.output_cram
+        path params.${cram_store}
+    }
+    perbase {
+        path 'qc/cram_stats'
+    }
+    mito_fasta {
+        path 'mito'
+    }
+    bcftools_unfiltered_vcf {
+        path 'vcf/unfiltered'
+    }
+    gatk_unfiltered_vcf {
+        path 'vcf/unfiltered'
+    }
+    final_vcfs {
         path 'vcf/filtered'
     }
-    snp_vcf {
-        path 'vcf/filtered'
-    }
-    indel_vcf {
-        enabled params.output_indel
-        path 'vcf/filtered'
-    }
-    invariant_vcf {
-        enabled params.output_invariant
-        path 'vcf/filtered'
+    gvcf {
+        enabled params.output_gvcf
+        path params.${gvcf_store}
     }
     beagle_gl {
         enabled params.output_beagle_gl
@@ -139,7 +163,6 @@ output {
     king {
         path 'plink'
     }
-
     distance {
         path 'distmat'
     }
@@ -155,4 +178,22 @@ output {
     popmap {
         path 'metadata'
     }
+    cram_stats {
+        path 'qc/cram_stats'
+    }
+    cram_plots {
+        path 'qc/cram_stats'
+    }
+    vcf_stats {
+        path 'qc/vcf_stats'
+    }
+    multiqc_report {
+        path 'qc/vcf_stats'
+    }   
+    multiqc_plots {
+        path 'qc/multiqc_report_plots'
+    }    
+    multiqc_data {
+        path 'qc/multiqc_report_data'
+    }    
 }

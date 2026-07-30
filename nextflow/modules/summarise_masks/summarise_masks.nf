@@ -2,7 +2,6 @@ process SUMMARISE_MASKS {
     tag "${ref_genome}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/summarise_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    publishDir "${launchDir}/output/results/qc", mode: 'copy'
 
     input:
     tuple path(ref_genome), path(indexes)
@@ -11,7 +10,7 @@ process SUMMARISE_MASKS {
 
     output: 
     path("mask_summary.bed"),              emit: interval_bed
-    path("mask_summary.txt"),              emit: summary_file
+    path("mask_summary.txt"),              emit: mask_summary
     
     script:
     """

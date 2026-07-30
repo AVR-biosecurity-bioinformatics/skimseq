@@ -169,8 +169,7 @@ workflow PROCESS_READS {
       .distinct { it[0] }      // dedupe by sample if needed
       .set{ ch_sample_cram }
 
-    // Helper process to publish CRAMs to output directory. 
-    // NOTE: This process (using deep caching) is necessary to avoid violating cache of later steps when inputs switch to existing cram on resume
+    // Helper process to stage intermediate CRAMs 
     STAGE_CRAM(
         ch_sample_cram
     )

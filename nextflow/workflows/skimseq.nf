@@ -21,6 +21,8 @@ include { SUM_COVERED_INTERVALS                                     } from '../m
 
 workflow SKIMSEQ {
 
+    main: 
+
     // Create default channels
     ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
     ch_reports = Channel.empty()
@@ -336,10 +338,23 @@ workflow SKIMSEQ {
 
 
     emit:
-    final_vcf       = OUTPUTS.out.final_vcf
-    snp_vcf         = OUTPUTS.out.snp_vcf
-    indel_vcf       = OUTPUTS.out.indel_vcf
-    invariant_vcf   = OUTPUTS.out.invariant_vcf
+    // Masking subworkflow
+    mask_summary   = MASK_GENOME.out.mask_summary
+
+    // Alignment subworkflow
+    cram            = PROCESS_READS.out.cram
+    perbase         = PROCESS_READS.out.perbase
+
+    // Mito subowrkflow
+    mito_fasta      = MITO_GENOTYPING.out.mito_fasta
+
+    // VCF outputs
+    bcftools_unfiltered_vcf = BCFTOOLS_CALLING.out.bcftools_unfiltered_vcf
+    gatk_unfiltered_vcf = GATK_JOINT.out.gatk_unfiltered_vcf
+    gvcf = GATK_SINGLE.out.gvcf
+    final_vcfs = OUTPUTS.out.final_vcfs
+
+    // Outputs subworkflow
     beagle_gl       = OUTPUTS.out.beagle_gl
     plink           = OUTPUTS.out.plink
     pca             = OUTPUTS.out.pca
@@ -350,4 +365,14 @@ workflow SKIMSEQ {
     pca_plot        = OUTPUTS.out.pca_plot
     tree_plot       = OUTPUTS.out.tree_plot
     popmap          = OUTPUTS.out.popmap
+
+    // QC subworkflow
+    cram_stats       = QC.out.cram_stats
+    cram_plots       = QC.out.cram_plots
+    vcf_stats        = QC.out.vcf_stats
+    multiqc_report   = QC.out.multiqc_report
+    multiqc_plots    = QC.out.multiqc_plots
+    multiqc_data     = QC.out.multiqc_data
+
+
 }

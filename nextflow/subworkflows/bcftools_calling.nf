@@ -109,5 +109,6 @@ workflow BCFTOOLS_CALLING {
 
     emit: 
     vcf = MPILEUP.out.vcf
+    bcftools_unfiltered_vcf = CONCAT_UNFILTERED_VCFS.out.vcf
 
 }

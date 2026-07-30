@@ -83,14 +83,14 @@ workflow OUTPUTS {
         .set{ ch_final_vcfs }
 
     // Create beagle GL file
-    ch_beagle_gl_out = Channel.empty()
+    ch_beagle_gl = Channel.empty()
     if (params.output_beagle_gl) {
         CREATE_BEAGLE_GL (
             ch_final_vcfs,
             ch_genome_indexed,
             false
         )
-        ch_beagle_gl_out = CREATE_BEAGLE_GL.out.beagle
+        ch_beagle_gl = CREATE_BEAGLE_GL.out.beagle
     }
 
     // Import PLINK file
@@ -145,10 +145,7 @@ workflow OUTPUTS {
     )
 
     emit:
-    final_vcf        = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
-    snp_vcf          = ch_final_snp
-    indel_vcf        = ch_final_indel
-    invariant_vcf    = ch_final_invariant
+    final_vcfs        = CONCAT_FINAL.out.vcf
     beagle_gl        = ch_beagle_gl
     plink            = PLINK_IMPORT.out.plink
     pca              = PLINK_PCA.out.pca

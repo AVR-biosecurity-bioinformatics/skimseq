@@ -152,4 +152,5 @@ workflow GATK_JOINT {
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
+    gatk_unfiltered_vcf = CONCAT_UNFILTERED_VCFS.out.vcf
 }

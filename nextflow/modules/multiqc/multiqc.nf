@@ -2,7 +2,6 @@ process MULTIQC {
     //tag "${ref_genome}:${interval_hash}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/multiqc", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    publishDir "${launchDir}/output/results/qc", mode: 'copy'
 
     input:
     path(multiqc_files)
