@@ -78,6 +78,10 @@ process MPILEUP {
         exit 1
     fi
 
+    # NOTE: it seems faster to use coarse contiguous regions than the input BED
+    # This may change with https://github.com/samtools/htslib/pull/2052
+
+    # TODO: Test if it is faster to pre-subest CRAMs > target region BAMs
 
     # Target options are Bash arrays because panel targets must first be generated.
     MPILEUP_TARGET_ARGS=()
@@ -86,26 +90,22 @@ process MPILEUP {
     if [[ "${is_panel}" == "true" ]]; then
         echo "[targets] Detected VCF panel: ${interval_bed}" >&2
 
-        bcftools view \
-            --min-alleles 2 \
-            --max-alleles 2 \
-            --output-type u \
-            "${interval_bed}" \
-            | bcftools query \
-                --format '%CHROM\\t%POS\\t%REF,%ALT\\n' \
-            | bgzip \
-                --threads ${task.cpus} \
-                --stdout \
-            > panel.alleles.tsv.gz
+        # Build allele targets: CHROM POS REF,ALT  (tabix indexed)
+        bcftools view -m2 -M2 "${interval_bed}" \
+            | bcftools query -f '%CHROM\\t%POS\\t%REF,%ALT\\n' \
+            | bgzip -c > panel.alleles.tsv.gz
+        tabix -s1 -b2 -e2 panel.alleles.tsv.gz
 
-        tabix \
-            --sequence 1 \
-            --begin 2 \
-            --end 2 \
-            panel.alleles.tsv.gz
+        # Build a BED (0-based) of the panel, coarsen it into contiguous chunks
+        bcftools view -m2 -M2 "${interval_bed}" \
+            | bcftools query -f'%CHROM\\t%POS0\\t%POS\\n' \
+            | bedtools merge -d 1000000000 -i - \
+            | bgzip -c > contiguous_regions.bed.gz
+        tabix -p bed contiguous_regions.bed.gz
 
-        MPILEUP_TARGET_ARGS=(
+        MPILEUP_REGION_ARGS=(
             --targets-file panel.alleles.tsv.gz
+            --regions-file contiguous_regions.bed.gz
         )
 
         CALL_TARGET_ARGS=(
@@ -117,8 +117,17 @@ process MPILEUP {
     else
         echo "[targets] Detected BED intervals: ${interval_bed}" >&2
 
-        MPILEUP_TARGET_ARGS=(
-            --regions-file "${interval_bed}"
+        # Create a coarse regions file containing contiguous chunks
+        bedtools merge \
+            -d 1000000000 \
+            -i <(zcat "${interval_bed}") \
+        | bgzip -c \
+        > contiguous_regions.bed.gz
+        tabix -p bed contiguous_regions.bed.gz
+
+        MPILEUP_REGION_ARGS=(
+            --targets-file "${interval_bed}"
+            --regions-file "contiguous_regions.bed.gz"
         )
     fi
 
@@ -142,7 +151,7 @@ process MPILEUP {
         --fasta-ref "${ref_genome}" \
         --min-BQ ${params.minbq} \
         --min-MQ ${params.minmq} \
-        "\${MPILEUP_TARGET_ARGS[@]}" \
+        "\${MPILEUP_REGION_ARGS[@]}" \
         --skip-any-unset PROPER_PAIR \
         --skip-any-set ${skip_flags} \
         --annotate FORMAT/DP,FORMAT/AD,FORMAT/QS,INFO/AD \
@@ -170,11 +179,9 @@ process MPILEUP {
         | bcftools annotate \
             --threads ${task.cpus} \
             --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
-            -Oz9 --output "${interval_hash}.vcf.gz"
+            -Oz --output "${interval_hash}.vcf.gz"
 
-    bcftools index \
-        --tbi \
-        "${interval_hash}.vcf.gz"
+    bcftools index -t "${interval_hash}.vcf.gz"
 
     """
 }
