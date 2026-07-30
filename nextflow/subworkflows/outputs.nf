@@ -6,6 +6,7 @@
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle/create_beagle' 
 include { VCF2DIST                                               } from '../modules/vcf2dist/vcf2dist' 
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination/plot_ordination' 
+include { PLOT_PCA                                               } from '../modules/plot_pca/plot_pca' 
 include { PLOT_TREE                                              } from '../modules/plot_tree/plot_tree' 
 include { CONCAT_VCFS as CONCAT_FINAL                            } from '../modules/concat_vcfs/concat_vcfs'
 include { SPLIT_VCF_BY_TYPE                                      } from '../modules/split_vcf_by_type/split_vcf_by_type'
@@ -102,11 +103,6 @@ workflow OUTPUTS {
         PLINK_IMPORT.out.plink
     )   
 
-    // Create distance matrix from plink bed
-    //PLINK_DIST (
-    //    PLINK_IMPORT.out.plink
-    //)   
-
     // Create relationship matrix from plink bed
     PLINK_REL (
         PLINK_IMPORT.out.plink
@@ -134,6 +130,12 @@ workflow OUTPUTS {
         VCF2DIST.out.mat,
         ch_popmap,
         false
+    )
+
+    // create PCA plot from PLINK outputs
+    PLOT_PCA (
+        PLINK_PCA.out.pca,
+        ch_popmap
     )
 
     // Create NJ tree
