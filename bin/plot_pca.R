@@ -9,8 +9,8 @@ tryCatch(
 
     projectDir <- args[1]
     params.rdata <- tolower(args[2])
-    eigenvec_file <- args[3]
-    eigenval_file <- args[4]
+  eigenval_file <- args[3]
+  eigenvec_file <- args[4]
     popmap_file <- args[5]
 
     sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
@@ -36,8 +36,7 @@ tryCatch(
     eigenvec <- readr::read_table(
       eigenvec_file,
       show_col_types = FALSE,
-      progress = FALSE,
-      name_repair = "minimal"
+      progress = FALSE
     )
 
     # PLINK 2 normally writes #FID, IID, and PC columns. Remove the leading
