@@ -2,7 +2,7 @@
 
 //// import subworkflows
 include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
-include { ALIGNMENT                                                 } from '../subworkflows/ALIGNMENT'
+include { ALIGNMENT                                                 } from '../subworkflows/alignment'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
