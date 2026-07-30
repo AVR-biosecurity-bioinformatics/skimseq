@@ -4,7 +4,7 @@ process CALC_CHUNK_DP {
     publishDir "${launchDir}/output/modules/calc_chunk_dp", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(filter_map)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
 
     output: 
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.dphist.tsv"),  emit: chunk_dp

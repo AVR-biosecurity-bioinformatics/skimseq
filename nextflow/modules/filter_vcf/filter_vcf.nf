@@ -33,85 +33,80 @@ process FILTER_VCF {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Overwrite the perc filters with the DPlo and DPhigh calculated through the external process ather than a parameter
-    export DP_LOWER_PERC_GLOBAL_SNP=${dpLo}
-    export DP_LOWER_PERC_GLOBAL_INDEL=${dpLo}
-    export DP_LOWER_PERC_GLOBAL_INVARIANT=${dpLo}
-    export DP_UPPER_PERC_GLOBAL_SNP=${dpHi}
-    export DP_UPPER_PERC_GLOBAL_INDEL=${dpHi}
-    export DP_UPPER_PERC_GLOBAL_INVARIANT=${dpHi}
+      set_param() {
+            local name="\$1"
+            local value="\$2"
 
-    // Population-level filtering logic
-    POPULATION_MIN_SAMPLES_PER_POP=${params.vcf_population_min_samples}
-    POPULATION_FAIL_MODE=${params.vcf_population_fail_mode}
+            if [[ -z "\${value}" || "\${value}" == "null" ]]; then
+                  unset "\${name}"
+            else
+                  printf -v "\${name}" '%s' "\${value}"
+                  export "\${name}"
+            fi
+      }
 
-    // Genotype-level masking
-    GENOTYPE_QUAL=${params.vcf_genotype_qual}
-    GENOTYPE_DP_MIN=${params.vcf_genotype_dp_min}
-    GENOTYPE_DP_MIN=${params.vcf_genotype_dp_max}
+      set_param DP_LOWER_PERC_GLOBAL_SNP       '${dpLo}'
+      set_param DP_LOWER_PERC_GLOBAL_INDEL     '${dpLo}'
+      set_param DP_LOWER_PERC_GLOBAL_INVARIANT '${dpLo}'
+      set_param DP_UPPER_PERC_GLOBAL_SNP       '${dpHi}'
+      set_param DP_UPPER_PERC_GLOBAL_INDEL     '${dpHi}'
+      set_param DP_UPPER_PERC_GLOBAL_INVARIANT '${dpHi}'
 
-    // Sample-level filtering
-    SAMPLE_MAX_MISSING=${params.vcf_sample_max_missing}
+      set_param POPULATION_MIN_SAMPLES_PER_POP '${params.vcf_population_min_samples}'
+      set_param POPULATION_FAIL_MODE           '${params.vcf_population_fail_mode}'
 
-    // Minimum site QUAL
-    QUAL_GLOBAL_SNP=${params.vcf_qual_global_snp}
-    QUAL_GLOBAL_INDEL=${params.vcf_qual_global_indel}
-    QUAL_GLOBAL_INVARIANT=${params.vcf_qual_global_invariant}
+      set_param GENOTYPE_QUAL   '${params.vcf_genotype_qual}'
+      set_param GENOTYPE_DP_MIN '${params.vcf_genotype_dp_min}'
+      set_param GENOTYPE_DP_MAX '${params.vcf_genotype_dp_max}'
 
-    // Minimum site depth
-    DP_MIN_GLOBAL_SNP=${params.vcf_dp_min_global_snp}
-    DP_MIN_GLOBAL_INDEL=${params.vcf_dp_min_global_indel}
-    DP_MIN_GLOBAL_INVARIANT=${params.vcf_dp_min_global_invariant}
+      set_param SAMPLE_MAX_MISSING '${params.vcf_sample_max_missing}'
 
-    // Minimum distance from an indel
-    DIST_INDEL_GLOBAL_SNP=${params.vcf_dist_indel_global_snp}
-    DIST_INDEL_GLOBAL_INDEL=${params.vcf_dist_indel_global_indel}
-    DIST_INDEL_GLOBAL_INVARIANT=${params.vcf_dist_indel_global_invariant}
+      set_param QUAL_GLOBAL_SNP       '${params.vcf_qual_global_snp}'
+      set_param QUAL_GLOBAL_INDEL     '${params.vcf_qual_global_indel}'
+      set_param QUAL_GLOBAL_INVARIANT '${params.vcf_qual_global_invariant}'
 
-    // Excess heterozygosity p-value threshold
-    EH_GLOBAL_SNP=${params.vcf_eh_global_snp}
-    EH_GLOBAL_INDEL=${params.vcf_eh_global_indel}
-    EH_GLOBAL_INVARIANT=${params.vcf_eh_global_invariant}
+      set_param DP_MIN_GLOBAL_SNP       '${params.vcf_dp_min_global_snp}'
+      set_param DP_MIN_GLOBAL_INDEL     '${params.vcf_dp_min_global_indel}'
+      set_param DP_MIN_GLOBAL_INVARIANT '${params.vcf_dp_min_global_invariant}'
 
-    EH_POP_SNP=${params.vcf_eh_pop_snp}
-    EH_POP_INDEL=${params.vcf_eh_pop_indel}
-    EH_POP_INVARIANT=${params.vcf_eh_pop_invariant}
+      set_param DIST_INDEL_GLOBAL_SNP       '${params.vcf_dist_indel_global_snp}'
+      set_param DIST_INDEL_GLOBAL_INDEL     '${params.vcf_dist_indel_global_indel}'
+      set_param DIST_INDEL_GLOBAL_INVARIANT '${params.vcf_dist_indel_global_invariant}'
 
-    // Hardy-Weinberg equilibrium p-value threshold
-    HWE_GLOBAL_SNP=${params.vcf_hwe_global_snp}
-    HWE_GLOBAL_INDEL=${params.vcf_hwe_global_indel}
-    HWE_GLOBAL_INVARIANT=${params.vcf_hwe_global_invariant}
+      set_param EH_GLOBAL_SNP       '${params.vcf_eh_global_snp}'
+      set_param EH_GLOBAL_INDEL     '${params.vcf_eh_global_indel}'
+      set_param EH_GLOBAL_INVARIANT '${params.vcf_eh_global_invariant}'
+      set_param EH_POP_SNP          '${params.vcf_eh_pop_snp}'
+      set_param EH_POP_INDEL        '${params.vcf_eh_pop_indel}'
+      set_param EH_POP_INVARIANT    '${params.vcf_eh_pop_invariant}'
 
-    HWE_POP_SNP=${params.vcf_hwe_pop_snp}
-    HWE_POP_INDEL=${params.vcf_hwe_pop_indel}
-    HWE_POP_INVARIANT=${params.vcf_hwe_pop_invariant}
+      set_param HWE_GLOBAL_SNP       '${params.vcf_hwe_global_snp}'
+      set_param HWE_GLOBAL_INDEL     '${params.vcf_hwe_global_indel}'
+      set_param HWE_GLOBAL_INVARIANT '${params.vcf_hwe_global_invariant}'
+      set_param HWE_POP_SNP          '${params.vcf_hwe_pop_snp}'
+      set_param HWE_POP_INDEL        '${params.vcf_hwe_pop_indel}'
+      set_param HWE_POP_INVARIANT    '${params.vcf_hwe_pop_invariant}'
 
-    // Minor allele frequency
-    MAF_GLOBAL_SNP=${params.vcf_maf_global_snp}
-    MAF_GLOBAL_INDEL=${params.vcf_maf_global_indel}
-    MAF_GLOBAL_INVARIANT=${params.vcf_maf_global_invariant}
+      set_param MAF_GLOBAL_SNP       '${params.vcf_maf_global_snp}'
+      set_param MAF_GLOBAL_INDEL     '${params.vcf_maf_global_indel}'
+      set_param MAF_GLOBAL_INVARIANT '${params.vcf_maf_global_invariant}'
+      set_param MAF_POP_SNP          '${params.vcf_maf_pop_snp}'
+      set_param MAF_POP_INDEL        '${params.vcf_maf_pop_indel}'
+      set_param MAF_POP_INVARIANT    '${params.vcf_maf_pop_invariant}'
 
-    MAF_POP_SNP=${params.vcf_maf_pop_snp}
-    MAF_POP_INDEL=${params.vcf_maf_pop_indel}
-    MAF_POP_INVARIANT=${params.vcf_maf_pop_invariant}
+      set_param MIN_SAMPLES_GLOBAL_SNP       '${params.vcf_min_samples_global_snp}'
+      set_param MIN_SAMPLES_GLOBAL_INDEL     '${params.vcf_min_samples_global_indel}'
+      set_param MIN_SAMPLES_GLOBAL_INVARIANT '${params.vcf_min_samples_global_invariant}'
+      set_param MIN_SAMPLES_POP_SNP          '${params.vcf_min_samples_pop_snp}'
+      set_param MIN_SAMPLES_POP_INDEL        '${params.vcf_min_samples_pop_indel}'
+      set_param MIN_SAMPLES_POP_INVARIANT    '${params.vcf_min_samples_pop_invariant}'
 
-    // Minimum number of called samples
-    MIN_SAMPLES_GLOBAL_SNP=${params.vcf_min_samples_global_snp}
-    MIN_SAMPLES_GLOBAL_INDEL=${params.vcf_min_samples_global_indel}
-    MIN_SAMPLES_GLOBAL_INVARIANT=${params.vcf_min_samples_global_indel}
-
-    MIN_SAMPLES_POP_SNP=${params.vcf_min_samples_pop_snp}
-    MIN_SAMPLES_POP_INDEL=${params.vcf_min_samples_pop_indel}
-    MIN_SAMPLES_POP_INVARIANT=${params.vcf_min_samples_pop_invariant}
-
-    // Minimum call rate
-    MIN_CALLRATE_GLOBAL_SNP=${params.vcf_min_callrate_global_snp}
-    MIN_CALLRATE_GLOBAL_INDEL=${params.vcf_min_callrate_global_indel}
-    MIN_CALLRATE_GLOBAL_INVARIANT=${params.vcf_min_callrate_global_invariant}
-
-    MIN_CALLRATE_POP_SNP=${params.vcf_min_callrate_pop_snp}
-    MIN_CALLRATE_POP_INDEL=${params.vcf_min_callrate_pop_indel}
-    MIN_CALLRATE_POP_INVARIANT=${params.vcf_min_callrate_pop_invariant}
+      set_param MIN_CALLRATE_GLOBAL_SNP       '${params.vcf_min_callrate_global_snp}'
+      set_param MIN_CALLRATE_GLOBAL_INDEL     '${params.vcf_min_callrate_global_indel}'
+      set_param MIN_CALLRATE_GLOBAL_INVARIANT '${params.vcf_min_callrate_global_invariant}'
+      set_param MIN_CALLRATE_POP_SNP          '${params.vcf_min_callrate_pop_snp}'
+      set_param MIN_CALLRATE_POP_INDEL        '${params.vcf_min_callrate_pop_indel}'
+      set_param MIN_CALLRATE_POP_INVARIANT    '${params.vcf_min_callrate_pop_invariant}'
 
     bash filter_vcf.sh \
         ${task.cpus} \
