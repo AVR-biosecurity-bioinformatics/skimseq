@@ -39,9 +39,10 @@ process EXTRACT_GENOME_MASKS {
         seqkit locate \
             --only-positive-strand \
             --use-regexp \
+            --non-greedy \
             --pattern "N+" \
             --bed \
-            --id-regexp "^(\\\\S+)" \
+            --id-regexp '^(\\S+)' \
             "${ref_genome}" \
             | awk ' BEGIN { OFS = "\\t" } NF >= 3 { print \$1, \$2, \$3, "NRef" } ' \
             >> concat_masks.bed
@@ -52,6 +53,7 @@ process EXTRACT_GENOME_MASKS {
             seqkit locate \
                 --only-positive-strand \
                 --use-regexp \
+                --non-greedy \
                 --pattern "[a-z]+" \
                 --bed \
                 --id-regexp "^(\\\\S+)" \
