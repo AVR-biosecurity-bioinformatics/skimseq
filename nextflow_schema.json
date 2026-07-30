@@ -1,8 +1,972 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://github.com/AVR-biosecurity-bioinformatics/skimseq",
-    "title": "AVR-biosecurity-bioinformatics/skimseq pipeline parameters",
-    "description": "[IN DEVELOPMENT]",
-    "type": "object",
-    "defs": {}
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AVR-biosecurity-bioinformatics/skimseq/nextflow_schema.json",
+  "title": "skimseq pipeline parameters",
+  "description": "Parameters for analysing low- or variable-coverage whole-genome sequencing data with skimseq.",
+  "type": "object",
+  "$defs": {
+    "general_options": {
+      "title": "General options",
+      "description": "General help and execution settings.",
+      "type": "object",
+      "properties": {
+        "help": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null,
+          "description": "Display pipeline help.",
+          "hidden": true
+        },
+        "slurm_account": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "SLURM account used for job submission.",
+          "hidden": true
+        }
+      }
+    },
+    "input_options": {
+      "title": "Primary input options",
+      "description": "Primary samplesheet and reference-genome inputs.",
+      "type": "object",
+      "properties": {
+        "samplesheet": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "CSV samplesheet describing input samples and FASTQ files.",
+          "format": "file-path",
+          "exists": true,
+          "pattern": "^.+\\.csv$"
+        },
+        "ref_genome": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Reference genome in FASTA format.",
+          "format": "file-path",
+          "exists": true,
+          "pattern": "^.+\\.(fa|fasta|fna)(\\.gz)?$"
+        },
+        "mito_contig": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Name of the mitochondrial contig in the reference genome.",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "samplesheet",
+        "ref_genome",
+        "mito_contig"
+      ]
+    },
+    "intermediate_input_options": {
+      "title": "Intermediate input options",
+      "description": "Locations and validation behaviour for reusable intermediate files.",
+      "type": "object",
+      "properties": {
+        "cram_store": {
+          "type": "string",
+          "default": "output/results/cram",
+          "description": "Absolute path, or path relative to launchDir, containing reusable CRAM files.",
+          "format": "directory-path"
+        },
+        "gvcf_store": {
+          "type": "string",
+          "default": "output/results/gvcf",
+          "description": "Absolute path, or path relative to launchDir, containing reusable GVCF files.",
+          "format": "directory-path"
+        },
+        "use_existing_cram": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reuse CRAM files in cram_store when available."
+        },
+        "use_existing_gvcf": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reuse GVCF files in gvcf_store when available."
+        },
+        "skip_cram_validation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip validation of existing CRAM files."
+        },
+        "skip_gvcf_validation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip validation of existing GVCF files."
+        }
+      }
+    },
+    "parallelisation_options": {
+      "title": "Parallelisation options",
+      "description": "Controls for dividing reads, genomic intervals, genotypes and variants into chunks.",
+      "type": "object",
+      "properties": {
+        "fastq_chunk_size": {
+          "type": "integer",
+          "default": 10000000,
+          "description": "Number of reads per FASTQ chunk.",
+          "minimum": 1
+        },
+        "hc_bases_per_chunk": {
+          "type": "integer",
+          "default": 100000000,
+          "description": "Approximate number of aligned bases per GATK HaplotypeCaller interval.",
+          "minimum": 1
+        },
+        "jc_genotypes_per_chunk": {
+          "type": "integer",
+          "default": 100000000,
+          "description": "Approximate number of genotypes per GATK GenotypeGVCFs interval.",
+          "minimum": 1
+        },
+        "mp_bases_per_chunk": {
+          "type": "integer",
+          "default": 1000000000,
+          "description": "Approximate number of aligned bases per bcftools mpileup interval.",
+          "minimum": 1
+        },
+        "filt_var_per_chunk": {
+          "type": "integer",
+          "default": 10000000,
+          "description": "Approximate number of variants per filtering interval.",
+          "minimum": 1
+        },
+        "split_large_intervals": {
+          "type": "boolean",
+          "default": true,
+          "description": "Split intervals larger than hc_bases_per_chunk."
+        },
+        "min_interval_gap": {
+          "type": "integer",
+          "default": 100,
+          "description": "Minimum missing-data gap used to separate genomic intervals.",
+          "minimum": 0
+        }
+      }
+    },
+    "reference_masking_options": {
+      "title": "Reference masking options",
+      "description": "Reference masking and mappability settings used for genotyping, not alignment.",
+      "type": "object",
+      "properties": {
+        "min_chr_length": {
+          "type": "integer",
+          "default": 50000000,
+          "description": "Minimum contig length used to classify a contig as a chromosome.",
+          "minimum": 0
+        },
+        "include_bed": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Optional BED file defining intervals to include for genotyping.",
+          "format": "file-path",
+          "exists": true,
+          "pattern": "^.+\\.bed(\\.gz)?$"
+        },
+        "use_reference_hardmasks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use hard-masked N bases already present in the reference genome."
+        },
+        "use_reference_softmasks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use soft-masked lowercase bases already present in the reference genome."
+        },
+        "exclude_bed": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Optional BED file defining intervals to exclude.",
+          "format": "file-path",
+          "exists": true,
+          "pattern": "^.+\\.bed(\\.gz)?$"
+        },
+        "exclude_padding": {
+          "type": "integer",
+          "default": 0,
+          "description": "Padding added to excluded intervals in base pairs.",
+          "minimum": 0
+        },
+        "genotype_masked_bases": {
+          "type": "boolean",
+          "default": false,
+          "description": "Genotype bases that are masked by the selected masking methods."
+        },
+        "filter_masked_variants": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remove variants overlapping masked bases from the VCF."
+        },
+        "genmap_kmer_length": {
+          "type": "integer",
+          "default": 100,
+          "description": "K-mer length used by GenMap; normally similar to mapped read length.",
+          "minimum": 1
+        },
+        "genmap_error_tol": {
+          "type": "integer",
+          "default": 2,
+          "description": "Number of mismatches tolerated when calculating mappability.",
+          "minimum": 0
+        },
+        "genmap_thresh": {
+          "type": "number",
+          "default": 0.99,
+          "description": "Minimum mappability score; 1 indicates a completely unique k-mer.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "longdust_kmer_length": {
+          "type": "integer",
+          "default": 7,
+          "description": "K-mer length used by Longdust.",
+          "minimum": 1
+        },
+        "longdust_window_size": {
+          "type": "integer",
+          "default": 5000,
+          "description": "Longdust context window length in base pairs.",
+          "minimum": 1
+        },
+        "longdust_thresh": {
+          "type": "number",
+          "default": 0.6,
+          "description": "Minimum Longdust sequence-complexity threshold.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "numt_min_length": {
+          "type": "integer",
+          "default": 100,
+          "description": "Minimum NUMT alignment length in base pairs.",
+          "minimum": 1
+        },
+        "numt_max_gap": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Maximum gap between NUMT alignments considered part of the same region.",
+          "minimum": 0
+        }
+      }
+    },
+    "alignment_options": {
+      "title": "BWA-MEM2 alignment options",
+      "description": "BWA-MEM2 seeding and repetitive-seed controls.",
+      "type": "object",
+      "properties": {
+        "bwa_min_seed_length": {
+          "type": "integer",
+          "default": 19,
+          "description": "Minimum seed length used by BWA-MEM2.",
+          "minimum": 1
+        },
+        "bwa_max_seed_occurrence": {
+          "type": "integer",
+          "default": 250,
+          "description": "Skip seeds occurring more than this number of times in the reference.",
+          "minimum": 1
+        }
+      }
+    },
+    "mitochondrial_options": {
+      "title": "Mitochondrial variant-calling options",
+      "description": "Thresholds used to generate the mitochondrial consensus sequence.",
+      "type": "object",
+      "properties": {
+        "mito_min_vaf": {
+          "type": "number",
+          "default": 0.9,
+          "description": "Minimum variant allele fraction for the mitochondrial consensus.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mito_min_depth": {
+          "type": "integer",
+          "default": 100,
+          "description": "Minimum read depth supporting the mitochondrial consensus.",
+          "minimum": 0
+        }
+      }
+    },
+    "variant_caller_options": {
+      "title": "Generic variant-calling options",
+      "description": "Variant-caller selection and settings shared across callers.",
+      "type": "object",
+      "properties": {
+        "variant_caller": {
+          "type": "string",
+          "default": "bcftools",
+          "description": "Variant caller used by the pipeline.",
+          "enum": [
+            "bcftools",
+            "gatk"
+          ]
+        },
+        "rmdup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exclude duplicate aligned reads from genotyping."
+        },
+        "minbq": {
+          "type": "integer",
+          "default": 10,
+          "description": "Minimum base quality used for genotyping.",
+          "minimum": 0
+        },
+        "minmq": {
+          "type": "integer",
+          "default": 20,
+          "description": "Minimum mapping quality used for genotyping.",
+          "minimum": 0
+        },
+        "min_fragment_length": {
+          "type": "integer",
+          "default": 15,
+          "description": "Minimum fragment or insert length.",
+          "minimum": 0
+        },
+        "max_fragment_length": {
+          "type": "integer",
+          "default": 10000,
+          "description": "Maximum fragment or insert length.",
+          "minimum": 0
+        },
+        "min_aligned_length": {
+          "type": "integer",
+          "default": 30,
+          "description": "Minimum number of aligned, non-soft-clipped bases per read.",
+          "minimum": 0
+        },
+        "ploidy": {
+          "type": "integer",
+          "default": 2,
+          "description": "Sample ploidy.",
+          "minimum": 1
+        },
+        "output_indel": {
+          "type": "boolean",
+          "default": true,
+          "description": "Emit indel sites."
+        },
+        "output_invariant": {
+          "type": "boolean",
+          "default": false,
+          "description": "Emit invariant sites."
+        }
+      }
+    },
+    "gatk_options": {
+      "title": "GATK options",
+      "description": "GATK HaplotypeCaller and joint-genotyping settings.",
+      "type": "object",
+      "properties": {
+        "hc_interval_padding": {
+          "type": "integer",
+          "default": 100,
+          "description": "Interval padding used for HaplotypeCaller, in base pairs.",
+          "minimum": 0
+        },
+        "hc_min_pruning": {
+          "type": "integer",
+          "default": 2,
+          "description": "Minimum read support required to retain paths in the assembly graph.",
+          "minimum": 1
+        },
+        "hc_min_dangling_length": {
+          "type": "integer",
+          "default": 4,
+          "description": "Minimum dangling-branch length considered for recovery.",
+          "minimum": 0
+        },
+        "hc_max_reads_startpos": {
+          "type": "integer",
+          "default": 50,
+          "description": "Maximum reads retained per alignment start position.",
+          "minimum": 1
+        },
+        "hc_pcr_free": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the PCR-free indel model."
+        },
+        "hc_max_ambig_bases": {
+          "type": "integer",
+          "default": 5,
+          "description": "Maximum ambiguous N bases allowed per read.",
+          "minimum": 0
+        },
+        "hc_use_softclipped_bases": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use soft-clipped bases during calling."
+        },
+        "heterozygosity": {
+          "type": "number",
+          "default": 0.001,
+          "description": "Heterozygosity prior used for variant calling.",
+          "minimum": 0
+        },
+        "heterozygosity_stdev": {
+          "type": "number",
+          "default": 0.01,
+          "description": "Standard deviation of the heterozygosity prior.",
+          "minimum": 0
+        },
+        "indel_heterozygosity": {
+          "type": "number",
+          "default": 0.000125,
+          "description": "Indel heterozygosity prior.",
+          "minimum": 0
+        },
+        "jc_max_alternate_alleles": {
+          "type": "integer",
+          "default": 6,
+          "description": "Maximum alternate alleles genotyped at a site.",
+          "minimum": 1
+        },
+        "jc_max_alternate_to_import": {
+          "type": "integer",
+          "default": 10,
+          "description": "Maximum alternate alleles imported from GenomicsDB.",
+          "minimum": 1
+        }
+      }
+    },
+    "bcftools_options": {
+      "title": "BCFtools options",
+      "description": "BCFtools calling model, priors and thresholds.",
+      "type": "object",
+      "properties": {
+        "mutation_rate": {
+          "type": "number",
+          "default": 0.0011,
+          "description": "Mutation-rate prior used for genotype calling.",
+          "minimum": 0
+        },
+        "max_depth": {
+          "type": "integer",
+          "default": 250,
+          "description": "Maximum reads used per input file.",
+          "minimum": 1
+        },
+        "calling_model": {
+          "type": "string",
+          "default": "cohort",
+          "description": "Grouping used for genotype calling.",
+          "enum": [
+            "cohort",
+            "population",
+            "sample"
+          ]
+        },
+        "min_genotype_posterior": {
+          "type": "number",
+          "default": 0.9,
+          "description": "Minimum posterior probability required to emit a genotype call.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "filter_variant_number": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snp": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        },
+        "indel": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        },
+        "invariant": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null
+        }
+      }
+    },
+    "filter_variant_integer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snp": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0
+        },
+        "indel": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0
+        },
+        "invariant": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0
+        }
+      }
+    },
+    "filter_variant_proportion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snp": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "indel": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "maximum": 1
+        },
+        "invariant": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "filter_scope_number": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "global": {
+          "$ref": "#/$defs/filter_variant_number"
+        },
+        "pop": {
+          "$ref": "#/$defs/filter_variant_number"
+        }
+      }
+    },
+    "filter_scope_integer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "global": {
+          "$ref": "#/$defs/filter_variant_integer"
+        },
+        "pop": {
+          "$ref": "#/$defs/filter_variant_integer"
+        }
+      }
+    },
+    "filter_scope_proportion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "global": {
+          "$ref": "#/$defs/filter_variant_proportion"
+        },
+        "pop": {
+          "$ref": "#/$defs/filter_variant_proportion"
+        }
+      }
+    },
+    "vcf_filtering_options": {
+      "title": "VCF filtering options",
+      "description": "Nested VCF filtering policy.",
+      "type": "object",
+      "properties": {
+        "vcf_filters": {
+          "type": "object",
+          "description": "Structured genotype-, sample-, population- and site-level VCF filtering configuration. Null disables a filter for that scope and variant type.",
+          "default": {
+            "population": {
+              "min_samples_per_pop": 1,
+              "fail_mode": "ALL"
+            },
+            "genotype": {
+              "qual": 0,
+              "dp_min": 1,
+              "dp_max": 1000
+            },
+            "sample": {
+              "max_missing": 0.5
+            },
+            "dp_perc": {
+              "lower": 1.0,
+              "upper": 99.0
+            },
+            "qual": {
+              "global": {
+                "snp": 30.0,
+                "indel": 30.0,
+                "invariant": null
+              }
+            },
+            "dp_min": {
+              "global": {
+                "snp": 6,
+                "indel": 6,
+                "invariant": 6
+              }
+            },
+            "dist_indel": {
+              "global": {
+                "snp": 5,
+                "indel": null,
+                "invariant": null
+              }
+            },
+            "eh": {
+              "global": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              },
+              "pop": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              }
+            },
+            "hwe": {
+              "global": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              },
+              "pop": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              }
+            },
+            "maf": {
+              "global": {
+                "snp": 0.05,
+                "indel": 0.05,
+                "invariant": null
+              },
+              "pop": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              }
+            },
+            "min_samples": {
+              "global": {
+                "snp": 1,
+                "indel": 1,
+                "invariant": 1
+              },
+              "pop": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              }
+            },
+            "min_callrate": {
+              "global": {
+                "snp": 0.5,
+                "indel": 0.5,
+                "invariant": 0.5
+              },
+              "pop": {
+                "snp": null,
+                "indel": null,
+                "invariant": null
+              }
+            }
+          },
+          "additionalProperties": false,
+          "properties": {
+            "population": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "min_samples_per_pop": {
+                  "type": "integer",
+                  "default": 1,
+                  "description": "Populations smaller than this are ignored in per-population calculations.",
+                  "minimum": 1
+                },
+                "fail_mode": {
+                  "type": "string",
+                  "default": "ALL",
+                  "description": "Whether a filter must fail in all or any eligible populations.",
+                  "enum": [
+                    "ALL",
+                    "ANY"
+                  ]
+                }
+              },
+              "required": [
+                "min_samples_per_pop",
+                "fail_mode"
+              ]
+            },
+            "genotype": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "qual": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "default": 0,
+                  "minimum": 0,
+                  "description": "Minimum genotype quality (GQ)."
+                },
+                "dp_min": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "default": 1,
+                  "minimum": 0,
+                  "description": "Minimum genotype depth."
+                },
+                "dp_max": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "default": 1000,
+                  "minimum": 0,
+                  "description": "Maximum genotype depth."
+                }
+              }
+            },
+            "sample": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "max_missing": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "default": 0.5,
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Maximum missing-genotype fraction per sample."
+                }
+              }
+            },
+            "dp_perc": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "lower": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "default": 1.0,
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Lower depth percentile."
+                },
+                "upper": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "default": 99.0,
+                  "minimum": 0,
+                  "maximum": 100,
+                  "description": "Upper depth percentile."
+                }
+              }
+            },
+            "qual": {
+              "$ref": "#/$defs/filter_scope_number",
+              "description": "Minimum site QUAL."
+            },
+            "dp_min": {
+              "$ref": "#/$defs/filter_scope_integer",
+              "description": "Minimum site depth (INFO/DP)."
+            },
+            "dist_indel": {
+              "$ref": "#/$defs/filter_scope_integer",
+              "description": "Minimum distance from an indel."
+            },
+            "eh": {
+              "$ref": "#/$defs/filter_scope_proportion",
+              "description": "Excess-heterozygosity test p-value threshold."
+            },
+            "hwe": {
+              "$ref": "#/$defs/filter_scope_proportion",
+              "description": "Hardy-Weinberg equilibrium test p-value threshold."
+            },
+            "maf": {
+              "$ref": "#/$defs/filter_scope_proportion",
+              "description": "Minimum allele frequency."
+            },
+            "min_samples": {
+              "$ref": "#/$defs/filter_scope_integer",
+              "description": "Minimum number of called samples."
+            },
+            "min_callrate": {
+              "$ref": "#/$defs/filter_scope_proportion",
+              "description": "Minimum call rate."
+            }
+          },
+          "required": [
+            "population",
+            "genotype",
+            "sample",
+            "dp_perc",
+            "qual",
+            "dp_min",
+            "dist_indel",
+            "eh",
+            "hwe",
+            "maf",
+            "min_samples",
+            "min_callrate"
+          ]
+        }
+      },
+      "required": [
+        "vcf_filters"
+      ]
+    },
+    "output_options": {
+      "title": "Output options",
+      "description": "Optional output files retained by the pipeline.",
+      "type": "object",
+      "properties": {
+        "output_unmapped_reads": {
+          "type": "boolean",
+          "default": false,
+          "description": "Publish unmapped reads as FASTQ files."
+        },
+        "output_cram": {
+          "type": "boolean",
+          "default": true,
+          "description": "Publish CRAM files."
+        },
+        "output_gvcf": {
+          "type": "boolean",
+          "default": true,
+          "description": "Publish GVCF files."
+        },
+        "output_unfiltered_vcf": {
+          "type": "boolean",
+          "default": false,
+          "description": "Publish unfiltered VCF files."
+        },
+        "output_beagle_gl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Publish genotype likelihoods in BEAGLE format."
+        }
+      }
+    },
+    "debugging_options": {
+      "title": "Debugging options",
+      "description": "Controls for retaining process-level diagnostic outputs.",
+      "type": "object",
+      "properties": {
+        "debug_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Publish module-level outputs under output/modules."
+        },
+        "rdata": {
+          "type": "boolean",
+          "default": false,
+          "description": "Save process-level R workspaces as RData files."
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/general_options"
+    },
+    {
+      "$ref": "#/$defs/input_options"
+    },
+    {
+      "$ref": "#/$defs/intermediate_input_options"
+    },
+    {
+      "$ref": "#/$defs/parallelisation_options"
+    },
+    {
+      "$ref": "#/$defs/reference_masking_options"
+    },
+    {
+      "$ref": "#/$defs/alignment_options"
+    },
+    {
+      "$ref": "#/$defs/mitochondrial_options"
+    },
+    {
+      "$ref": "#/$defs/variant_caller_options"
+    },
+    {
+      "$ref": "#/$defs/gatk_options"
+    },
+    {
+      "$ref": "#/$defs/bcftools_options"
+    },
+    {
+      "$ref": "#/$defs/vcf_filtering_options"
+    },
+    {
+      "$ref": "#/$defs/output_options"
+    },
+    {
+      "$ref": "#/$defs/debugging_options"
+    }
+  ]
 }

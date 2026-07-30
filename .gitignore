@@ -1,7 +1,6 @@
 *.log
 .nextflow/
 *.log.[0-9]
-*.slurm
 *.out
 /output/modules
 /output/run_info

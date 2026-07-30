@@ -56,7 +56,7 @@ process MAP_TO_GENOME {
                 -K 100000000 \
             -Y \
             -k ${params.bwa_min_seed_length} \
-            -c ${params.bwa_max_seed_occurance} \
+            -c ${params.bwa_max_seed_occurrence} \
             "${ref_genome}" \
         <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq1}") \
         <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq2}") \

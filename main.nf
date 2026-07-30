@@ -15,13 +15,13 @@
 */
 
 // include functions from nf-schema
-include { validateParameters; paramsHelp; paramsSummaryLog; samplesheetToList } from 'plugin/nf-schema' 
 
-
-// Validate input parameters using schema
-// validateParameters( parameters_schema: 'nextflow_schema.json' )
-
-
+include {
+    paramsHelp
+    validateParameters
+    paramsSummaryLog
+    samplesheetToList
+} from 'plugin/nf-schema'
 
 ///// define functions 
 
@@ -62,8 +62,13 @@ include { SKIMSEQ                                                   } from './ne
 workflow {
 
     startupMessage()
+    
 
     // Print summary of supplied parameters (that differ from defaults)
+    log.info paramsSummaryLog(workflow)
+
+    // 
+    validateParameters()
     log.info paramsSummaryLog(workflow)
 
     workflow.onComplete = {
