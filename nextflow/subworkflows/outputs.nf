@@ -9,6 +9,10 @@ include { PLOT_ORDINATION                                        } from '../modu
 include { PLOT_TREE                                              } from '../modules/plot_tree/plot_tree' 
 include { CONCAT_VCFS as CONCAT_FINAL                            } from '../modules/concat_vcfs/concat_vcfs'
 include { SPLIT_VCF_BY_TYPE                                      } from '../modules/split_vcf_by_type/split_vcf_by_type'
+include { PLINK_IMPORT                                           } from '../modules/plink_import/plink_import' 
+include { PLINK_PCA                                              } from '../modules/plink_pca/plink_pca' 
+include { PLINK_REL                                              } from '../modules/plink_rel/plink_rel' 
+include { PLINK_KING                                             } from '../modules/plink_king/plink_king' 
 
 workflow OUTPUTS {
 
@@ -87,6 +91,31 @@ workflow OUTPUTS {
         )
         ch_beagle_gl_out = CREATE_BEAGLE_GL.out.beagle
     }
+
+    // Import PLINK file
+    PLINK_IMPORT (
+        ch_final_vcfs
+    )
+
+    // Run PCA on plink bed
+    PLINK_PCA (
+        PLINK_IMPORT.out.plink
+    )   
+
+    // Create distance matrix from plink bed
+    //PLINK_DIST (
+    //    PLINK_IMPORT.out.plink
+    //)   
+
+    // Create relationship matrix from plink bed
+    PLINK_REL (
+        PLINK_IMPORT.out.plink
+    )   
+    
+    // Create KING relationship matrix from plink bed
+    PLINK_KING (
+        PLINK_IMPORT.out.plink
+    )   
 
     // Create distance matrices from VCFs
     VCF2DIST (
