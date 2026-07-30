@@ -2,11 +2,11 @@
 
 //// import subworkflows
 include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
-include { PROCESS_READS                                             } from '../subworkflows/process_reads'
+include { ALIGNMENT                                                 } from '../subworkflows/ALIGNMENT'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
-include { BCFTOOLS_CALLING                                           } from '../subworkflows/bcftools_calling'
+include { BCFTOOLS_CALLING                                          } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
@@ -187,14 +187,14 @@ workflow SKIMSEQ {
     Process reads per sample, aligning to the genome, and merging
     */
 
-    PROCESS_READS (
+    ALIGNMENT (
         ch_sample_names,
         VALIDATE_INPUTS.out.validated_fastq,
         VALIDATE_INPUTS.out.rg_to_validate,
         ch_genome_indexed
     )
     
-    PROCESS_READS.out.perbase
+    ALIGNMENT.out.perbase
         .set{ ch_read_counts }
 
     /*
@@ -215,7 +215,7 @@ workflow SKIMSEQ {
     */
 
     MITO_GENOTYPING (
-        PROCESS_READS.out.cram,
+        ALIGNMENT.out.cram,
         ch_genome_indexed,
         ch_mito_indexed,
         ch_mito_bed,
@@ -235,7 +235,7 @@ workflow SKIMSEQ {
     
     // Create a list of covered perbase tracts
     SUM_COVERED_INTERVALS(
-        PROCESS_READS.out.perbase,
+        ALIGNMENT.out.perbase,
         ch_mask_bed_genotype
     )
     
@@ -250,7 +250,7 @@ workflow SKIMSEQ {
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
             ch_sample_names,
-            PROCESS_READS.out.cram,
+            ALIGNMENT.out.cram,
             VALIDATE_INPUTS.out.rg_to_validate,
             ch_genome_indexed,
             ch_include_bed,
@@ -285,7 +285,7 @@ workflow SKIMSEQ {
 
         BCFTOOLS_CALLING (
             ch_sample_names,
-            PROCESS_READS.out.cram,
+            ALIGNMENT.out.cram,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
@@ -341,7 +341,7 @@ workflow SKIMSEQ {
 
     QC (
         ch_reports,
-        PROCESS_READS.out.cram,
+        ALIGNMENT.out.cram,
         OUTPUTS.out.final_vcf_all,
         ch_sample_names_filt,
         ch_genome_indexed,
@@ -354,8 +354,8 @@ workflow SKIMSEQ {
     mask_summary   = MASK_GENOME.out.mask_summary
 
     // Alignment subworkflow
-    cram            = PROCESS_READS.out.cram
-    perbase         = PROCESS_READS.out.perbase
+    cram            = ALIGNMENT.out.cram
+    perbase         = ALIGNMENT.out.perbase
 
     // Mito subowrkflow
     mito_fasta      = MITO_GENOTYPING.out.mito_fasta

@@ -127,7 +127,6 @@ nextflow run . -profile basc_slurm,shifter,debug,test --slurm_account fruitfly -
 # BASC SLURM execution using Charliecloud - NOT CURRENTLY WORKING
 nextflow run . -profile basc_slurm,charliecloud,debug,test --slurm_account fruitfly -resume
 
-
 ```
 
 # Current conda dependencies:

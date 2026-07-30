@@ -131,9 +131,6 @@ output {
         enabled params.output_gvcf
         path params.gvcf_store
     }
-    perbase {
-        path 'qc/cram_stats'
-    }
     mito_fasta {
         path 'mito'
     }
@@ -175,22 +172,25 @@ output {
     popmap {
         path 'metadata'
     }
+    perbase {
+        path 'qc/cram_stats/perbase_depth'
+    }
     cram_stats {
-        path 'qc/cram_stats'
+        path 'qc/cram_stats/cram_qc_data'
     }
     cram_plots {
-        path 'qc/cram_stats'
+        path 'qc/cram_stats/cram_qc_plots'
     }
     vcf_stats {
         path 'qc/vcf_stats'
     }
     multiqc_report {
-        path 'qc/vcf_stats'
+        path 'qc'
     }   
     multiqc_plots {
-        path 'qc/multiqc_report_plots'
+        path 'qc'
     }    
     multiqc_data {
-        path 'qc/multiqc_report_data'
+        path 'qc'
     }    
 }

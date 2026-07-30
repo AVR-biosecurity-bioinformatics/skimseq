@@ -10,7 +10,7 @@ include { MERGE_CRAM                            } from '../modules/merge_cram/me
 include { STAGE_CRAM                            } from '../modules/stage_cram/stage_cram'
 include { COUNT_CRAM_PERBASE                    } from '../modules/count_cram_perbase/count_cram_perbase'
 
-workflow PROCESS_READS {
+workflow ALIGNMENT {
 
     take:
     ch_sample_names
