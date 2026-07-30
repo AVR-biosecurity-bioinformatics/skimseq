@@ -47,4 +47,9 @@ export NXF_VER=26.07.0-edge
 
 nextflow run . -profile basc_slurm,basc_conda \
    -ansi-log false \
-   --samplesheet sample_sheet.csv -c qfly.config -resume -with-trace trace.txt 
+   --samplesheet sample_sheet.csv \
+   -params-file params.yml \
+   --slurm_account fruitfly \
+   -work-dir work-dir \
+   -with-trace trace.txt \
+   -resume

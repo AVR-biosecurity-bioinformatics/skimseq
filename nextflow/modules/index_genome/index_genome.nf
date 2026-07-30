@@ -1,6 +1,5 @@
 process INDEX_GENOME {
     tag "${ref_genome}"
-
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/index_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 

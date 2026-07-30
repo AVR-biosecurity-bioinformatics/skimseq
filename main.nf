@@ -90,4 +90,69 @@ workflow {
     ///// run main skimseq workflow
     SKIMSEQ ()
 
+    publish:
+    final_vcf       = SKIMSEQ.out.final_vcf
+    snp_vcf         = SKIMSEQ.out.snp_vcf
+    indel_vcf       = SKIMSEQ.out.indel_vcf
+    invariant_vcf   = SKIMSEQ.out.invariant_vcf
+    beagle_gl       = SKIMSEQ.out.beagle_gl
+    plink           = SKIMSEQ.out.plink
+    pca             = SKIMSEQ.out.pca
+    relationship    = SKIMSEQ.out.relationship
+    king            = SKIMSEQ.out.king
+    distance        = SKIMSEQ.out.distance
+    ordination_plot = SKIMSEQ.out.ordination_plot
+    pca_plot        = SKIMSEQ.out.pca_plot
+    tree_plot       = SKIMSEQ.out.tree_plot
+    popmap           = SKIMSEQ.out.popmap
+
+}
+
+output {
+    final_vcf {
+        path 'vcf/filtered'
+    }
+    snp_vcf {
+        path 'vcf/filtered'
+    }
+    indel_vcf {
+        enabled params.output_indel
+        path 'vcf/filtered'
+    }
+    invariant_vcf {
+        enabled params.output_invariant
+        path 'vcf/filtered'
+    }
+    beagle_gl {
+        enabled params.output_beagle_gl
+        path 'beagle'
+    }
+    plink {
+        path 'plink'
+    }
+    pca {
+        path 'plink'
+    }
+    relationship {
+        path 'plink'
+    }
+    king {
+        path 'plink'
+    }
+
+    distance {
+        path 'distmat'
+    }
+    ordination_plot {
+        path 'visualisation/ordination'
+    }
+    pca_plot {
+        path 'visualisation/ordination'
+    }
+    tree_plot {
+        path 'visualisation/trees'
+    }
+    popmap {
+        path 'metadata'
+    }
 }

@@ -143,6 +143,21 @@ workflow OUTPUTS {
         VCF2DIST.out.mat,
         ch_popmap
     )
+
     emit:
-    vcf = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
+    final_vcf        = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
+    snp_vcf          = ch_final_snp
+    indel_vcf        = ch_final_indel
+    invariant_vcf    = ch_final_invariant
+    beagle_gl        = ch_beagle_gl
+    plink            = PLINK_IMPORT.out.plink
+    pca              = PLINK_PCA.out.pca
+    relationship     = PLINK_REL.out.rel
+    king             = PLINK_KING.out.king
+    distance         = VCF2DIST.out.mat
+    ordination_plot  = PLOT_ORDINATION.out.plots
+    pca_plot         = PLOT_PCA.out.plots
+    tree_plot        = PLOT_TREE.out.plots
+    popmap           = ch_popmap
+
 }

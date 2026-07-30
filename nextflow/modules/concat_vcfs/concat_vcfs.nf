@@ -3,32 +3,6 @@ process CONCAT_VCFS {
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/concat_vcfs", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
-    // gVCF handling
-    publishDir(params.gvcf_store ?: "${launchDir}/output/results/gvcf"),
-        mode: 'copy',
-        enabled: params.output_gvcf,
-        saveAs: { fname ->
-            task.process.contains('CONCAT_GVCFS') ? fname : null
-        }
-
-    // regular VCF outputs
-    publishDir "${launchDir}/output/results/vcf",
-        mode: 'copy',
-        saveAs: { fname ->
-            def p = task.process
-
-            if( p.contains('CONCAT_UNFILTERED_VCFS') )
-                return "unfiltered/${fname}"
-
-            if( p.contains('CONCAT_FILTERED_SITELISTS') )
-                return "filtered_sitelist/${fname}"
-
-            if( p.contains('CONCAT_FINAL') )
-                return "filtered/${fname}"
-
-            return null
-        }
-
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)
     

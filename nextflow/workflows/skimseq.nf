@@ -328,12 +328,26 @@ workflow SKIMSEQ {
     QC (
         ch_reports,
         PROCESS_READS.out.cram,
-        OUTPUTS.out.vcf,
+        OUTPUTS.out.final_vcf,
         ch_sample_names_filt,
         ch_genome_indexed,
         ch_multiqc_config
     )
 
 
-
+    emit:
+    final_vcf       = OUTPUTS.out.final_vcf
+    snp_vcf         = OUTPUTS.out.snp_vcf
+    indel_vcf       = OUTPUTS.out.indel_vcf
+    invariant_vcf   = OUTPUTS.out.invariant_vcf
+    beagle_gl       = OUTPUTS.out.beagle_gl
+    plink           = OUTPUTS.out.plink
+    pca             = OUTPUTS.out.pca
+    relationship    = OUTPUTS.out.relationship
+    king            = OUTPUTS.out.king
+    distance        = OUTPUTS.out.distance
+    ordination_plot = OUTPUTS.out.ordination_plot
+    pca_plot        = OUTPUTS.out.pca_plot
+    tree_plot       = OUTPUTS.out.tree_plot
+    popmap          = OUTPUTS.out.popmap
 }

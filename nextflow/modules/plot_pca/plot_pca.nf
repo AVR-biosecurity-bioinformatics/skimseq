@@ -1,7 +1,6 @@
 process PLOT_PCA {
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/plot_pca", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    publishDir "${launchDir}/output/results/visualisation/ordination", mode: 'copy'
 
     input:
     tuple val(outname), path(eigval), path(eigvec)

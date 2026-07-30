@@ -2,7 +2,6 @@ process PLINK_REL {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/plink_rel", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
-    publishDir "${launchDir}/output/results/plink", mode: 'copy'
 
     input:
     tuple val(outname), path(plinkfiles)
