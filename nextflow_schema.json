@@ -172,14 +172,10 @@
           "minimum": 0
         },
         "include_bed": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": [ "string", "null" ],
           "default": null,
           "description": "Optional BED file defining intervals to include for genotyping.",
           "format": "file-path",
-          "exists": true,
           "pattern": "^.+\\.bed(\\.gz)?$"
         },
         "use_reference_hardmasks": {
@@ -193,14 +189,10 @@
           "description": "Use soft-masked lowercase bases already present in the reference genome."
         },
         "exclude_bed": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "default": null,
           "description": "Optional BED file defining intervals to exclude.",
           "format": "file-path",
-          "exists": true,
           "pattern": "^.+\\.bed(\\.gz)?$"
         },
         "exclude_padding": {

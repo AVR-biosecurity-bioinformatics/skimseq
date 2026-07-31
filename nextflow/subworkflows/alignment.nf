@@ -179,7 +179,7 @@ workflow ALIGNMENT {
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
         ch_genome_indexed,
-        ch_exclude_bed.first()
+        ch_exclude_bed
     )
 
     emit: 

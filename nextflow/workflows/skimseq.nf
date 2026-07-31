@@ -22,7 +22,7 @@ workflow SKIMSEQ {
     main: 
 
     // Create default channels
-    ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
+    ch_dummy_file = Channel.fromPath("$baseDir/assets/dummy_file.txt", checkIfExists: true)
     ch_reports = Channel.empty()
     ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
@@ -149,14 +149,12 @@ workflow SKIMSEQ {
     } 
 
     // Handle optional exclude_bed
-    if ( params.exclude_bed ){
-        ch_exclude_bed = Channel
-            .fromPath (
-                params.exclude_bed, 
-                checkIfExists: true
-            )
+    if (params.exclude_bed) {
+    ch_exclude_bed = Channel
+        .fromPath(params.exclude_bed, checkIfExists: true)
+        .first()
     } else {
-        ch_exclude_bed = ch_dummy_file
+        ch_exclude_bed = ch_dummy_file.first()
     }
     
     /*
@@ -261,7 +259,6 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype,
             ch_long_bed,
             ch_short_bed,
-            ch_dummy_file,
             ch_sample_names
         )
 

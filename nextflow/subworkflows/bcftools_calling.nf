@@ -67,6 +67,16 @@ workflow BCFTOOLS_CALLING {
             }
         }
         .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
+        .ifEmpty {
+            log.warn(
+                "No mpileup intervals remained after coverage & inclusion filtering, " +
+                "Variant calling will be skipped. Check your max_depth argument"
+            )
+            tuple('__NO_INTERVALS__', null, null)
+        }
+        .filter { interval_hash, interval_bed, bed_tbi ->
+            interval_hash != '__NO_INTERVALS__'
+        }
         .set { ch_interval_bed_mp }
 
     // combine sample-level cran with each interval_bed file and interval chunk
