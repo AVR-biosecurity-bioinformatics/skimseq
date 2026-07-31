@@ -7,12 +7,11 @@ process MPILEUP {
     memory {
         def n = cohort_size as int
 
-        def tier = n <= 50   ? 24.GB  :
-                n <= 500  ? 48.GB  :
-                n <= 1000 ? 64.GB  :
-                            128.GB
+        def base = 8.GB
+        def per_sample = 30.MB * n
+        def requested = base + per_sample
 
-        tier * task.attempt
+        requested * task.attempt
     }
     
     input:
@@ -166,7 +165,7 @@ process MPILEUP {
             ${variant_flag} \
             ${calling_model_args} \
             --multiallelic-caller \
-            --prior ${params.mutation_rate} \
+            --prior ${params.bcftools_variant_prior} \
         | bcftools annotate \
             -x FORMAT/GT,FORMAT/QS \
             -Ou \
