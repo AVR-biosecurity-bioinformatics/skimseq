@@ -33,6 +33,7 @@ mito_min_depth: 100
 
 #Variant calling options
 variant_caller: 'bcftools'
+min_depth: 1
 rmdup: true
 minbq: 10
 minmq: 20

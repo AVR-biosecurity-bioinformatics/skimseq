@@ -47,7 +47,12 @@ process COUNT_CRAM_PERBASE {
     bedtools subtract \
         -a "${sample}.per-base.bed.gz" \
         -b "${exclude_bed}" \
-    | awk ' BEGIN { OFS="\t" } { print \$1, \$2, \$3, (\$3-\$2)*\$4 }' \
+    | awk \
+        -v min_depth="${params.min_depth}" \
+        'BEGIN { OFS="\t" }
+        \$4 >= min_depth {
+            print \$1, \$2, \$3, (\$3-\$2)*\$4
+        }' \
     | bedtools merge \
         -i - \
         -c 4 \
