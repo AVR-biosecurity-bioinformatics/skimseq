@@ -59,7 +59,7 @@ jc_max_alternate_alleles: 6
 jc_max_alternate_to_import: 10
 
 # BCFtools specific options
-mutation_rate: 0.0011
+bcftools_variant_prior: 0.0011
 max_depth: 250
 calling_model: 'cohort'
 min_genotype_posterior: 0.9

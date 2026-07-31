@@ -23,7 +23,7 @@ process CALC_CHUNK_DP {
     bcftools +setGT "${vcf}" -Ou -- \
         -t q \
         -n . \
-        -i 'FORMAT/GQ < ${params.vcf_genotype_qual} || FORMAT/DP < ${params.vcf_genotype_dp_min} || FORMAT/DP > ${params.vcf_genotype_dp_max}' |
+        -i 'FORMAT/GQ < ${params.vcf_genotype_qual} | FORMAT/DP < ${params.vcf_genotype_dp_min} | FORMAT/DP > ${params.vcf_genotype_dp_max}' |
         bcftools stats --threads ${task.cpus} -s - |
         awk -v out="${interval_hash}.missing.tsv" '
             BEGIN { OFS="\\t" }
