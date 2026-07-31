@@ -324,6 +324,12 @@
             "gatk"
           ]
         },
+        "min_depth": {
+          "type": "integer",
+          "default": 1,
+          "description": "Minimum depth to count a position as covered.",
+          "minimum": 0
+        },
         "rmdup": {
           "type": "boolean",
           "default": true,
