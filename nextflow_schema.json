@@ -86,13 +86,13 @@
       "properties": {
         "cram_store": {
           "type": "string",
-          "default": "cram",
+          "default": "output/results/cram",
           "description": "Absolute path, or path relative to launchDir, containing reusable CRAM files.",
           "format": "directory-path"
         },
         "gvcf_store": {
           "type": "string",
-          "default": "gvcf",
+          "default": "output/results/gvcf",
           "description": "Absolute path, or path relative to launchDir, containing reusable GVCF files.",
           "format": "directory-path"
         },
