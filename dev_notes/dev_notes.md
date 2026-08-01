@@ -107,12 +107,12 @@ module load Java/17
 # Local execution on a BASC node using Conda
 module load Miniconda3/24.7.1-0
 export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
-nextflow run . -profile local,basc_conda,debug,test -resume
+nextflow run . -profile local,conda,debug,test -resume
 
 # BASC SLURM execution using Conda
 module load Miniconda3/24.7.1-0
 export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
-nextflow run . -profile basc_slurm,basc_conda,debug,test --slurm_account fruitfly -resume
+nextflow run . -profile debug,test -c conf/basc.config --slurm_account fruitfly -resume
 
 
 # BASC SLURM execution using installed software modules - NOT CURRENTLY WORKING DUE TO LACK OF MODULES

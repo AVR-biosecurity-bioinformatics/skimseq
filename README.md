@@ -59,15 +59,19 @@ export PATH="$HOME/.local/bin:$PATH"
 ```
 
 # Configuration profiles
-Profiles are composable and should generally be supplied in the following order:
-`execution backend, software backend, optional development profiles`
 
-## Execution profiles:
-- `local`: execute processes directly on the current machine
-- `basc_slurm`: submit processes to BASC using SLURM
-- **TODO** Add support for other schedulers
+Profiles are composable. In most cases an institutional profile should be specified first, followed by any optional development profiles.
+
+## Institutional profiles
+These profiles configure the execution environment for a specific HPC system, including scheduler settings, resource limits, queues, and software environment.
+
+- `basc`: Agriculture Victoria BASC cluster (SLURM + Conda)
+  - Requires `--slurm_account ACCOUNT`
+- `gadi`: NCI Gadi cluster (PBS Pro + Singularity)
+- config files for oher HPCs can be obtained from [nf-core/configs](https://github.com/nf-core/configs)
 
 ## Software profiles:
+These profiles are primarily intended for local execution or unsupported HPC environments
 - `conda`: use module-level Conda environments
 - `docker`: use Docker with Wave-provisioned containers
 - `singularity`: use Singularity with Wave-provisioned containers **UNTESTED**
@@ -75,15 +79,15 @@ Profiles are composable and should generally be supplied in the following order:
 - `podman`: use Podman with Wave-provisioned containers **UNTESTED**
 
 ## Development profiles:
-- test: use the bundled minimal Queensland fruit fly test dataset and reduced resources
 - debug: retain intermediate process outputs and R session data
-The test profile should be specified last so that its reduced resource limits override production settings.
+- test: use the bundled minimal Queensland fruit fly test dataset and reduced resources
+  - The test profile should be specified last so that its reduced resource limits override production settings.
 
 # Usage examples:
 
 ## Running on AgVic BASC HPC using SLURM
 
-The currently supported approach for running on AgVic BASC HPC uses the basc_conda software profile, and requires setting --slurm-account
+The currently supported approach for running on AgVic BASC HPC uses `conf/basc.config` institutional profile, and requires setting --slurm-account
 
 ```
 # Load modules for launching job
@@ -97,7 +101,7 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
-    -profile basc \
+    -c conf/basc.config \
     --slurm_account YOUR_ACCOUNT \
     -resume
 ```
@@ -117,7 +121,6 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 # Launch the job
 nextflow run . \
     -profile local,conda,debug,test \
-    --slurm_account YOUR_ACCOUNT \
     -resume
 ```
 
