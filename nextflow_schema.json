@@ -273,7 +273,7 @@
           "default": "adap",
           "description": "Alignment preset: adap (adaptive short reads), sr (short reads), or lr (long reads).",
           "enum": [
-            "adapt",
+            "adap",
             "sr",
             "lr"
           ]       

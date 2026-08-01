@@ -8,7 +8,7 @@ process INDEX_GENOME {
     val(min_chr_length)
     
     output: 
-    tuple path(ref_genome), path("*.{fai,sa,12b,dict}"),             emit: fasta_indexed
+    tuple path(ref_genome), path("*.{fai,l2b,mbw,dict}"),            emit: fasta_indexed
     path("genome.bed"),                                              emit: genome_bed
     path("long.bed"),                                                emit: long_bed
     path("short.bed"),                                               emit: short_bed
@@ -32,8 +32,8 @@ process INDEX_GENOME {
 
     # Check whether every required minibwa index exists.
     MINIBWA_INDEX_COMPLETE=1
-    for suffix in "${MINIBWA_SUFFIXES[@]}"; do
-        if [[ ! -f "${REAL_REF_PATH}.${suffix}" ]]; then
+    for SUFFIX in "\${MINIBWA_SUFFIXES[@]}"; do
+        if [[ ! -f "\${REAL_REF_PATH}.\${SUFFIX}" ]]; then
             MINIBWA_INDEX_COMPLETE=0
             break
         fi
@@ -42,10 +42,10 @@ process INDEX_GENOME {
     if (( MINIBWA_INDEX_COMPLETE )); then
         echo "Copying existing minibwa index files"
 
-        for suffix in "${MINIBWA_SUFFIXES[@]}"; do
+        for SUFFIX in "\${MINIBWA_SUFFIXES[@]}"; do
             cp \
-                "${REAL_REF_PATH}.${suffix}" \
-                "${ref_genome}.${suffix}"
+                "\${REAL_REF_PATH}.\${SUFFIX}" \
+                "${ref_genome}.\${SUFFIX}"
         done
     else
         echo "Building minibwa index"

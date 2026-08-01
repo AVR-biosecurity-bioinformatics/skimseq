@@ -54,11 +54,11 @@ process MAP_TO_GENOME {
         -x ${params.minibwa_preset} \
         -k ${params.minibwa_min_seed_length} \
         -c ${params.minibwa_max_seed_occurrence} \
-        -t "${ALN_THREADS}" \
+        -t "\${ALN_THREADS}" \
         -R '${read_group}' \
         "${ref_genome}" \
-        <(seqkit range --threads "${SEQKIT_THREADS}" -r "${start}:${end}" "${fastq1}") \
-        <(seqkit range --threads "${SEQKIT_THREADS}" -r "${start}:${end}" "${fastq2}") \
+        <(seqkit range --threads "\${SEQKIT_THREADS}" -r "${start}:${end}" "${fastq1}") \
+        <(seqkit range --threads "\${SEQKIT_THREADS}" -r "${start}:${end}" "${fastq2}") \
     | samtools sort \
         -M \
         --threads "\${SORT_THREADS}" \

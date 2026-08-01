@@ -8,7 +8,7 @@ process INDEX_MITO {
     val(mito_contig)
 
     output: 
-    tuple path(ref_genome), path("*.{fai,sa,12b,dict}"),   emit: fasta_indexed
+    tuple path("mito.fa"), path("*.{fai,l2b,mbw,dict}"),   emit: fasta_indexed
     path("mito.bed"),                                      emit: bed
     
     script:
@@ -41,7 +41,7 @@ process INDEX_MITO {
     fi
 
     # Build the minibwa index.
-    minibwa index "${ref_genome}"
+    minibwa index mito.fa
 
     # Build the FASTA index.
     samtools faidx mito.fa
