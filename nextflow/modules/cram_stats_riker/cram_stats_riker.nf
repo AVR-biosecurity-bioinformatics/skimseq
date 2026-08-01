@@ -6,12 +6,15 @@ process CRAM_STATS_RIKER {
     input:
     tuple val(sample), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
+    path(interval_bed)
+    path(exclude_bed)
 
     output: 
     tuple val(sample), path("*.txt"),           emit: stats
     tuple val(sample), path("*.pdf"),           emit: plots
     
     script:
+    def include_dup = params.rmdup ? 'false' : 'true'
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -22,7 +25,10 @@ process CRAM_STATS_RIKER {
         -r ${ref_genome} \
         -o ${sample} \
         --tools alignment isize basic gcbias wgs error \
-        --error::stratify-by read_num,cycle bq
+        --error::stratify-by read_num,cycle bq \
+        --wgs::intervals ${interval_bed} \
+        --wgs::include_duplicates ${include_dup} \
+        --gcbias::exclude_intervals ${exclude_bed} 
 
     """
 }

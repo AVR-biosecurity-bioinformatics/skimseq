@@ -17,13 +17,17 @@ workflow QC {
     ch_sample_names
     ch_genome_indexed
     ch_multiqc_config
+    ch_include_bed
+    ch_exclude_bed
 
     main: 
 
     // generate QC statistics for the merged .cram files
     CRAM_STATS_RIKER (
         ch_sample_cram,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_include_bed,
+        ch_exclude_bed
     )
 
     // Calculate VCF statistics on the final file

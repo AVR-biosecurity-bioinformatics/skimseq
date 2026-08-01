@@ -332,7 +332,9 @@ workflow SKIMSEQ {
         OUTPUTS.out.final_vcf_all,
         ch_sample_names_filt,
         ch_genome_indexed,
-        ch_multiqc_config
+        ch_multiqc_config,
+        ch_include_bed,
+        ch_exclude_bed
     )
 
 
