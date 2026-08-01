@@ -4,7 +4,7 @@
 
 //// import modules
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle/create_beagle' 
-include { VCF2DIST                                               } from '../modules/vcf2dist/vcf2dist' 
+//include { VCF2DIST                                               } from '../modules/vcf2dist/vcf2dist' 
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination/plot_ordination' 
 include { PLOT_PCA                                               } from '../modules/plot_pca/plot_pca' 
 include { PLOT_TREE                                              } from '../modules/plot_tree/plot_tree' 
@@ -14,6 +14,7 @@ include { PLINK_IMPORT                                           } from '../modu
 include { PLINK_PCA                                              } from '../modules/plink_pca/plink_pca' 
 include { PLINK_REL                                              } from '../modules/plink_rel/plink_rel' 
 include { PLINK_KING                                             } from '../modules/plink_king/plink_king' 
+include { PLINK_DIST                                             } from '../modules/plink_dist/plink_dist' 
 
 workflow OUTPUTS {
 
@@ -113,10 +114,15 @@ workflow OUTPUTS {
         PLINK_IMPORT.out.plink
     )   
 
+    // Create PLINK IBS dist matrix matrix from plink bed
+    PLINK_DIST (
+        PLINK_IMPORT.out.plink
+    )   
+
     // Create distance matrices from VCFs
-    VCF2DIST (
-        ch_final_vcfs
-    )
+    //VCF2DIST (
+    //    ch_final_vcfs
+    //)
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
     ch_sample_pop
@@ -127,7 +133,7 @@ workflow OUTPUTS {
 
     // create ordination plot from distance matrices
     PLOT_ORDINATION (
-        VCF2DIST.out.mat,
+        PLINK_DIST.out.mat,
         ch_popmap,
         false
     )
@@ -140,7 +146,7 @@ workflow OUTPUTS {
 
     // Create NJ tree
     PLOT_TREE (
-        VCF2DIST.out.mat,
+        PLINK_DIST.out.mat,
         ch_popmap
     )
 
@@ -152,7 +158,7 @@ workflow OUTPUTS {
     pca              = PLINK_PCA.out.pca
     relationship     = PLINK_REL.out.rel
     king             = PLINK_KING.out.king
-    distance         = VCF2DIST.out.mat
+    distance         = PLINK_DIST.out.mat
     ordination_plot  = PLOT_ORDINATION.out.plots
     pca_plot         = PLOT_PCA.out.plots
     tree_plot        = PLOT_TREE.out.plots
