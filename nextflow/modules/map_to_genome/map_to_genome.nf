@@ -40,29 +40,28 @@ process MAP_TO_GENOME {
     set -euo pipefail
     
     # Manage threads between processes in the pipe
-    SEQKIT_T=1
+    SEQKIT_THREADS=1
 
     # leave room for two seqkit processes + sort
-    SORT_T=2
-    BWA_T=\$(( ${task.cpus} - SORT_T - 2 * SEQKIT_T ))
-    if (( BWA_T < 1 )); then
-        BWA_T=1
-        SORT_T=0
+    SORT_THREADS=2
+    ALN_THREADS=\$(( ${task.cpus} - SORT_THREADS - 2 * SEQKIT_THREADS ))
+    if (( ALN_THREADS < 1 )); then
+        ALN_THREADS=1
+        SORT_THREADS=0
     fi
 
-    bwa-mem2 mem \
-                -t "\${BWA_T}" \
-                -R '${read_group}' \
-                -K 100000000 \
-            -Y \
-            -k ${params.bwa_min_seed_length} \
-            -c ${params.bwa_max_seed_occurrence} \
-            "${ref_genome}" \
-        <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq1}") \
-        <(seqkit range --threads "\${SEQKIT_T}" -r "${start}:${end}" "${fastq2}") \
+    minibwa map \
+        -x ${params.minibwa_preset} \
+        -k ${params.minibwa_min_seed_length} \
+        -c ${params.minibwa_max_seed_occurrence} \
+        -t "${ALN_THREADS}" \
+        -R '${read_group}' \
+        "${ref_genome}" \
+        <(seqkit range --threads "${SEQKIT_THREADS}" -r "${start}:${end}" "${fastq1}") \
+        <(seqkit range --threads "${SEQKIT_THREADS}" -r "${start}:${end}" "${fastq2}") \
     | samtools sort \
         -M \
-        --threads "\${SORT_T}" \
+        --threads "\${SORT_THREADS}" \
         --reference "${ref_genome}" \
         -O CRAM \
         -o ${lib}.${start}-${end}.cram

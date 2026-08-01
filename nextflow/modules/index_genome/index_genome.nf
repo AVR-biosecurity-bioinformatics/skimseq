@@ -8,7 +8,7 @@ process INDEX_GENOME {
     val(min_chr_length)
     
     output: 
-    tuple path(ref_genome), path("*.{fa.*,fna.*,fasta.*,dict}"),     emit: fasta_indexed
+    tuple path(ref_genome), path("*.{fai,sa,12b,dict}"),             emit: fasta_indexed
     path("genome.bed"),                                              emit: genome_bed
     path("long.bed"),                                                emit: long_bed
     path("short.bed"),                                               emit: short_bed
@@ -24,41 +24,32 @@ process INDEX_GENOME {
     REAL_REF_PATH=\$(realpath "${ref_genome}")
     REAL_DICT_PATH="\${REAL_REF_PATH%.*}.dict"
 
-    # BWA-MEM2 index filenames relative to the staged FASTA.
-    BWA_SUFFIXES=(
-        amb
-        ann
-        bwt.2bit.64
-        pac
-        0123
+    # Minibwa index filenames relative to the staged FASTA.
+    MINIBWA_SUFFIXES=(
+        sa
+        l2b
     )
 
-    # Check whether every required BWA-MEM2 index exists.
-    BWA_INDEX_COMPLETE=1
-    for suffix in "\${BWA_SUFFIXES[@]}"; do
-        if [[ ! -f "\${REAL_REF_PATH}.\${suffix}" ]]; then
-            BWA_INDEX_COMPLETE=0
+    # Check whether every required minibwa index exists.
+    MINIBWA_INDEX_COMPLETE=1
+    for suffix in "${MINIBWA_SUFFIXES[@]}"; do
+        if [[ ! -f "${REAL_REF_PATH}.${suffix}" ]]; then
+            MINIBWA_INDEX_COMPLETE=0
             break
         fi
     done
 
-    if (( BWA_INDEX_COMPLETE )); then
-        echo "Copying existing BWA-MEM2 index files"
+    if (( MINIBWA_INDEX_COMPLETE )); then
+        echo "Copying existing minibwa index files"
 
-        for suffix in "\${BWA_SUFFIXES[@]}"; do
+        for suffix in "${MINIBWA_SUFFIXES[@]}"; do
             cp \
-                "\${REAL_REF_PATH}.\${suffix}" \
-                "${ref_genome}.\${suffix}"
+                "${REAL_REF_PATH}.${suffix}" \
+                "${ref_genome}.${suffix}"
         done
-
-        if [[ -f "\${REAL_REF_PATH}.alt" ]]; then
-            cp \
-                "\${REAL_REF_PATH}.alt" \
-                "${ref_genome}.alt"
-        fi
     else
-        echo "Building BWA-MEM2 index"
-        bwa-mem2 index "${ref_genome}"
+        echo "Building minibwa index"
+        minibwa index "${ref_genome}"
     fi
 
     # Reuse or create the FASTA index.
