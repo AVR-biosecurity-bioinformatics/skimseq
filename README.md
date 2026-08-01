@@ -97,7 +97,7 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
-    -profile basc_slurm,basc_conda \
+    -profile basc \
     --slurm_account YOUR_ACCOUNT \
     -resume
 ```
@@ -116,7 +116,7 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
-    -profile local,basc_conda,debug,test \
+    -profile local,conda,debug,test \
     --slurm_account YOUR_ACCOUNT \
     -resume
 ```

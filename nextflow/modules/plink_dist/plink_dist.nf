@@ -1,10 +1,7 @@
-process PLINK_DISTANCE {
+process PLINK_DIST {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-
-    publishDir "${launchDir}/output/modules/plink_distance",
-        mode: 'copy',
-        enabled: params.debug_mode
+    publishDir "${launchDir}/output/modules/plink_dist", mode: 'copy', enabled: params.debug_mode
 
     input:
     tuple val(outname), path(plinkfiles)
