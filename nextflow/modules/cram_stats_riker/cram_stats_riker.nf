@@ -8,13 +8,18 @@ process CRAM_STATS_RIKER {
     tuple path(ref_genome), path(genome_index_files)
     path(interval_bed)
     path(exclude_bed)
+    path(vcf)
 
     output: 
     tuple val(sample), path("*.txt"),           emit: stats
     tuple val(sample), path("*.pdf"),           emit: plots
     
     script:
-    def include_dup = params.rmdup ? 'false' : 'true'
+    def riker_duplicate_args = params.rmdup ? '' : [
+        '--wgs::include-duplicates',
+        '--error::include-duplicates',
+        '--isize::include-duplicates'
+    ].join(' ')
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -25,10 +30,21 @@ process CRAM_STATS_RIKER {
         -r ${ref_genome} \
         -o ${sample} \
         --tools alignment isize basic gcbias wgs error \
+        --aln::min-mapq ${params.minmq} \
+        --aln::max-insert-size 10000 \
+        --wgs::intervals "${interval_bed}" \
+        --wgs::min-mapq ${params.minmq} \
+        --wgs::min-bq ${params.minbq} \
+        --wgs::coverage-cap 250 \
+        --error::intervals "${interval_bed}" \
+        --error::vcf "${vcf}" \
+        --error::min-mapq ${params.minmq} \
+        --error::min-bq ${params.minbq} \
         --error::stratify-by read_num,cycle bq \
-        --wgs::intervals ${interval_bed} \
-        --wgs::include_duplicates ${include_dup} \
-        --gcbias::exclude_intervals ${exclude_bed} 
+        --gcbias::exclude-intervals "${exclude_bed}" \
+        --isize::min-frac 0.05 \
+        --isize::deviations 10 \
+        ${riker_duplicate_args}
 
     """
 }
