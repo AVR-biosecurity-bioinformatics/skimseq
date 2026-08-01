@@ -101,7 +101,7 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
-    -c conf/basc.config \
+    -config conf/basc.config \
     --slurm_account YOUR_ACCOUNT \
     -resume
 ```
@@ -120,7 +120,7 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
-    -profile local,conda,debug,test \
+    -profile conda,debug,test \
     -resume
 ```
 
@@ -129,7 +129,7 @@ This assumes you already have WSL and a linux distribution installed (i.e. Ubunt
 
 ```
 nextflow run . \
-    -profile local,conda \
+    -profile conda \
     -resume
 ```
 
@@ -151,8 +151,8 @@ Supply it using `params-file`
 ```
 # Launch the job
 nextflow run . \
-    -profile basc_slurm,basc_conda \
-    --slurm_account YOUR_ACCOUNT \
+    -config conf/basc.config \
     -params-file params.yml \
+    --slurm_account YOUR_ACCOUNT \
     -resume
 ```

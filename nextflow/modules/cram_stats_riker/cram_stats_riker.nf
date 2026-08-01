@@ -37,7 +37,6 @@ process CRAM_STATS_RIKER {
         --wgs::min-bq ${params.minbq} \
         --wgs::coverage-cap 250 \
         --error::intervals "${interval_bed}" \
-        --error::vcf "${vcf}" \
         --error::min-mapq ${params.minmq} \
         --error::min-bq ${params.minbq} \
         --error::stratify-by read_num,cycle bq \
@@ -45,6 +44,9 @@ process CRAM_STATS_RIKER {
         --isize::min-frac 0.05 \
         --isize::deviations 10 \
         ${riker_duplicate_args}
+
+    # Disabled for now as causes error: region reference sequence does not exist in reference sequences:
+    # --error::vcf "${vcf}" \
 
     """
 }
