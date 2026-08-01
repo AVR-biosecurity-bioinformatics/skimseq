@@ -46,7 +46,7 @@ tryCatch(
     # Function to subsample a few files and estimate max
     estimate_max_from_sample <- function(
       files,
-      rules,
+      columns,
       sample_n = 5,
       seed = 1,
       buffer_frac = 0.05
@@ -54,39 +54,34 @@ tryCatch(
       set.seed(seed)
       sampled_files <- sample(files, min(sample_n, length(files)))
 
-      max_one_file <- function(file) {
-        df_names <- names(readr::read_tsv(file, n_max = 0, show_col_types = FALSE))
+      max_list <- purrr::map(sampled_files, function(file) {
+        df <- readr::read_tsv(
+          file,
+          show_col_types = FALSE,
+          na = ".",
+          col_select = dplyr::any_of(columns)
+        )
 
-        purrr::map_dbl(rules, function(rule) {
-          cols <- df_names[df_names == rule | stringr::str_detect(df_names, paste0("^", rule, "_"))]
-
-          if (length(cols) == 0) {
-            return(NA_real_)
-          }
-
-          df <- readr::read_tsv(
-            file,
-            show_col_types = FALSE,
-            na = ".",
-            col_select = dplyr::any_of(cols)
-          )
-
-          x <- unlist(df, use.names = FALSE)
-          x <- suppressWarnings(as.numeric(x))
-          x <- x[is.finite(x)]
-
-          if (length(x) == 0) NA_real_ else max(x)
-        }) %>%
-          stats::setNames(rules)
-      }
-
-      max_list <- purrr::map(sampled_files, max_one_file)
+        vapply(
+          df,
+          function(x) {
+            x <- suppressWarnings(as.numeric(x))
+            x <- x[is.finite(x)]
+            if (length(x) == 0) NA_real_ else max(x)
+          },
+          numeric(1)
+        )
+      })
 
       max_df <- dplyr::bind_rows(lapply(max_list, as.list)) %>%
         dplyr::summarise(
           dplyr::across(
             dplyr::everything(),
-            ~ if (all(is.na(.x))) NA_real_ else max(.x, na.rm = TRUE) * (1 + buffer_frac)
+            ~ if (all(is.na(.x))) {
+              NA_real_
+            } else {
+              max(.x, na.rm = TRUE) * (1 + buffer_frac)
+            }
           )
         )
 
@@ -128,11 +123,10 @@ tryCatch(
       )
 
       per_pop_cols <- names(df)[stringr::str_detect(names(df), per_pop_pattern)]
-      global_metric_rules <- metric_specs %>%
-        dplyr::filter(!RULE %in% c("NS", "MAF", "HWE", "ExcHet", "CR")) %>%
-        dplyr::pull(RULE)
-
-      global_cols <- intersect(names(df), global_metric_rules)
+      global_cols <- setdiff(
+        names(df)[!names(df) %in% c("CHROM", "POS", "FILTER", "TYPE")],
+        per_pop_cols
+      )
 
       global_df <- df %>%
         select(CHROM, POS, FILTER, TYPE, all_of(global_cols)) %>%
@@ -161,34 +155,12 @@ tryCatch(
 
     # Function to bin statistic values to reduce file size
     bin_values <- function(x, min_val, max_val, nbins) {
-      x <- suppressWarnings(as.numeric(x))
-      min_val <- as.numeric(min_val)
-      max_val <- as.numeric(max_val)
-      nbins <- as.integer(nbins)
-
-      if (
-        length(min_val) != 1 ||
-          length(max_val) != 1 ||
-          length(nbins) != 1 ||
-          !is.finite(min_val) ||
-          !is.finite(max_val) ||
-          is.na(nbins) ||
-          nbins < 1
-      ) {
-        return(rep(NA_real_, length(x)))
-      }
-
-      if (max_val <= min_val) {
-        return(rep(min_val, length(x)))
-      }
-
+      x <- as.numeric(x)
       x[x < min_val] <- min_val
       x[x > max_val] <- max_val
-
       breaks <- seq(min_val, max_val, length.out = nbins + 1)
       mids <- head(breaks, -1) + diff(breaks) / 2
       idx <- cut(x, breaks = breaks, include.lowest = TRUE, labels = FALSE)
-
       mids[idx]
     }
 
@@ -252,21 +224,22 @@ tryCatch(
     global_list <- vector("list", length(files))
     per_pop_list <- vector("list", length(files))
     for (i in seq_along(files)) {
-      print(i)
+      #print(i)
       x <- split_metrics_one_chunk(files[[i]])
-
-      global_list[[i]] <- summarise_metric_chunk(
-        x$global,
-        metric_specs,
-        per_pop = FALSE
-      )
-
-      per_pop_list[[i]] <- summarise_metric_chunk(
-        x$per_pop,
-        per_pop_metric_specs,
-        per_pop = TRUE
-      )
-      rm(x)
+      if (nrow(x$global) > 0) {
+        global_list[[i]] <- summarise_metric_chunk(
+          x$global,
+          metric_specs,
+          per_pop = FALSE
+        )
+      }
+      if (nrow(x$per_pop) > 0) {
+        per_pop_list[[i]] <- summarise_metric_chunk(
+          x$per_pop,
+          per_pop_metric_specs,
+          per_pop = TRUE
+        )
+      }
     }
 
     global_df <- bind_rows(global_list) %>%
