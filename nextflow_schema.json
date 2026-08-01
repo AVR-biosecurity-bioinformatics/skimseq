@@ -86,13 +86,13 @@
       "properties": {
         "cram_store": {
           "type": "string",
-          "default": "output/results/cram",
+          "default": "cram",
           "description": "Absolute path, or path relative to launchDir, containing reusable CRAM files.",
           "format": "directory-path"
         },
         "gvcf_store": {
           "type": "string",
-          "default": "output/results/gvcf",
+          "default": "gvcf",
           "description": "Absolute path, or path relative to launchDir, containing reusable GVCF files.",
           "format": "directory-path"
         },
@@ -268,16 +268,26 @@
       "description": "BWA-MEM2 seeding and repetitive-seed controls.",
       "type": "object",
       "properties": {
-        "bwa_min_seed_length": {
+        "minibwa_preset": {
+          "type": "string",
+          "default": "adap",
+          "description": "Alignment preset: adap (adaptive short reads), sr (short reads), or lr (long reads).",
+          "enum": [
+            "adapt",
+            "sr",
+            "lr"
+          ]       
+         },
+        "minibwa_min_seed_length": {
           "type": "integer",
           "default": 19,
-          "description": "Minimum seed length used by BWA-MEM2.",
+          "description": "Minimum exact-match seed length used during alignment.",
           "minimum": 1
         },
-        "bwa_max_seed_occurrence": {
+        "minibwa_max_seed_occurrence": {
           "type": "integer",
           "default": 250,
-          "description": "Skip seeds occurring more than this many times.",
+          "description": "Ignore seeds occurring more than N times in the reference.",
           "minimum": 1
         }
       }
