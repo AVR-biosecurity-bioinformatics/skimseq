@@ -26,7 +26,7 @@ workflow QC {
     CRAM_STATS_RIKER (
         ch_sample_cram,
         ch_genome_indexed,
-        ch_include_bed,
+        ch_include_bed.first(),
         ch_exclude_bed,
         ch_vcf
     )
