@@ -59,8 +59,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS(
-        MERGE_CHUNK_MISSING.out.missing_summary,
-        params.vcf_sample_max_missing
+        MERGE_CHUNK_MISSING.out.missing_summary
     )
 
     /*

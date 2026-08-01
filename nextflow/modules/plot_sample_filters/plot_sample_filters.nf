@@ -4,7 +4,6 @@ process PLOT_SAMPLE_FILTERS {
 
     input:
     path(missing_summary)
-    val(sample_max_missing)
 
     output: 
     path("*.pdf"),               emit: plots
@@ -21,6 +20,6 @@ process PLOT_SAMPLE_FILTERS {
     Rscript ${projectDir}/bin/plot_sample_filters.R \
         ${projectDir} \
         ${params.rdata} \
-        "${sample_max_missing}" 
+        "${params.vcf_sample_max_missing}" 
     """
 }

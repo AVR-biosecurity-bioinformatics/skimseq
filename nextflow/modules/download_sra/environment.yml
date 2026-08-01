@@ -1,0 +1,9 @@
+# environment.yml
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - bioconda::sra-tools=3.4.1
+  - conda-forge::pigz=2.8
