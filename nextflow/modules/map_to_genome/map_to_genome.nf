@@ -25,7 +25,10 @@ process MAP_TO_GENOME {
           emit: cram
 
     script:
+    // Source bash functions
+    def bash_utils = "${projectDir}/bin/functions.sh"
 
+    // Set read groups
     def read_group = [
         "@RG",
         "ID:${fcid}.${lane}.${lib}",
@@ -38,7 +41,8 @@ process MAP_TO_GENOME {
     """
     #!/usr/bin/env bash
     set -euo pipefail
-    
+    source "${bash_utils}"
+
     # Manage threads between processes in the pipe
     SEQKIT_THREADS=1
 
@@ -50,6 +54,7 @@ process MAP_TO_GENOME {
         SORT_THREADS=0
     fi
 
+    set +e
     minibwa map \
         -x ${params.minibwa_preset} \
         -k ${params.minibwa_min_seed_length} \
@@ -65,6 +70,11 @@ process MAP_TO_GENOME {
         --reference "${ref_genome}" \
         -O CRAM \
         -o ${lib}.${start}-${end}.cram
+
+    # Catch error codes from piped tools so nextflow can retry
+    st=("\${PIPESTATUS[@]}")
+    set -e
+    check_pipeline "\${st[@]}" || exit \$?
 
     """
 }

@@ -8,7 +8,7 @@ process MPILEUP {
         def n = cohort_size as int
 
         def base = 8.GB
-        def per_sample = 30.MB * n
+        def per_sample = 60.MB * n
         def requested = base + per_sample
 
         requested * task.attempt
@@ -36,6 +36,9 @@ process MPILEUP {
           emit: vcf
 
     script:
+    // Source bash functions
+    def bash_utils = "${projectDir}/bin/functions.sh"
+
     // Check if input is panel or bed
     def is_panel = interval_bed.name.endsWith('.vcf.gz')
 
@@ -63,11 +66,10 @@ process MPILEUP {
             : params.calling_model == 'population'
             ? "--group-samples '${popmap}'"
             : ''
-
-
     """
     #!/usr/bin/env bash
     set -euo pipefail
+    source "${bash_utils}"
 
     # Write one staged CRAM filename per line.
     printf '%s\\n' '${cram_list}' > cram.list
@@ -83,7 +85,7 @@ process MPILEUP {
     # TODO: Test if it is faster to pre-subest CRAMs > target region BAMs
 
     # Target options are Bash arrays because panel targets must first be generated.
-    MPILEUP_TARGET_ARGS=()
+    MPILEUP_REGION_ARGS=()
     CALL_TARGET_ARGS=()
 
     if [[ "${is_panel}" == "true" ]]; then
@@ -143,6 +145,7 @@ process MPILEUP {
             'BEGIN {print 1 - posterior}'
     )
 
+    set +e
     bcftools mpileup \
         --threads ${task.cpus} \
         --bam-list cram.list \
@@ -180,6 +183,12 @@ process MPILEUP {
             --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
             -Oz --output "${interval_hash}.vcf.gz"
 
+    # Catch error codes from piped tools so nextflow can retry
+    st=("\${PIPESTATUS[@]}")
+    set -e
+    check_pipeline "\${st[@]}" || exit \$?
+
+    # Index output
     bcftools index -t "${interval_hash}.vcf.gz"
 
     """

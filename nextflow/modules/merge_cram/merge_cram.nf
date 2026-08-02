@@ -13,13 +13,17 @@ process MERGE_CRAM {
     tuple val(sample), path("*.markdup.json"),                                emit: markdup
 
     script:
+    // Source bash functions
+    def bash_utils = "${projectDir}/bin/functions.sh"
     """
     #!/usr/bin/env bash
     set -euo pipefail
-    
+    source "${bash_utils}"
+
     # Write list of cram files to process
     printf "%s\\n" ${cram} > cram.list
     
+    set +e
     # With samtools merge, use -c and -p to ensure duplicate RG and PG tags arent made for the chunked input samples, which will violate cram validation
     samtools merge --threads ${task.cpus} -b cram.list -c -p --reference ${ref_genome} -u -o - \
         | samtools collate --threads ${task.cpus} -O -u - - \
@@ -34,6 +38,11 @@ process MERGE_CRAM {
             --use-read-groups \
             --reference ${ref_genome} \
             - ${sample}.cram 
+
+    # Catch error codes from piped tools so nextflow can retry
+    st=("\${PIPESTATUS[@]}")
+    set -e
+    check_pipeline "\${st[@]}" || exit \$?
 
     # index cram
     samtools index --threads ${task.cpus} ${sample}.cram 

@@ -37,7 +37,7 @@ process CONCAT_VCFS {
         exit 1
     fi
 
-        output_vcf="${outname}\${extension}"
+    OUTVCF="${outname}\${extension}"
 
     bcftools view --header-only "\$first" \
         | awk 'BEGIN {FS="[=,>]"; OFS="\\t"} /^##contig=<ID=/ {print \$3, ++rank}' \
@@ -88,21 +88,21 @@ process CONCAT_VCFS {
 
         bcftools view --header-only "\$first" \
             | bgzip --threads ${task.cpus} --stdout \
-            > "\$output_vcf"
+            > "\${OUTVCF}"
 
-        bcftools index --tbi --threads ${task.cpus} "\$output_vcf"
+        bcftools index --tbi --threads ${task.cpus} "\${OUTVCF}"
         exit 0
     fi
 
     bcftools concat \
         --naive \
         --file-list vcf.ordered.list \
-        --output "\$output_vcf"
+        --output "\${OUTVCF}"
 
     if ! bcftools index \
         --tbi \
         --threads ${task.cpus} \
-        "\$output_vcf" \
+        "\${OUTVCF}" \
         >/dev/null 2>&1
     then
         echo "WARNING: concatenated VCF is not sorted; sorting output" >&2
@@ -113,10 +113,10 @@ process CONCAT_VCFS {
             --max-mem "${task.memory.giga}G" \
             --output-type z \
             --output "\$sorted_vcf" \
-            "\$output_vcf"
+            "\${OUTVCF}"
 
-        mv -f "\$sorted_vcf" "\$output_vcf"
-        bcftools index --tbi --threads ${task.cpus} "\$output_vcf"
+        mv -f "\$sorted_vcf" "\${OUTVCF}"
+        bcftools index --tbi --threads ${task.cpus} "\${OUTVCF}"
     fi
 
     """
