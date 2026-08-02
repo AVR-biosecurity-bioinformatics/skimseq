@@ -36,11 +36,12 @@ jobs:
 
       - name: Run test
         run: |
-          nextflow run . \
-            -profile test,${{ matrix.profile }} \
-            -ansi-log false \
-            -log nextflow-${{ matrix.profile }}.log
-
+          nextflow \
+            -log nextflow-${{ matrix.profile }}.log \
+            run . \
+            -profile ${{ matrix.profile }},test \
+            -ansi-log false
+            
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
