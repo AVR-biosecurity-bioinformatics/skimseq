@@ -1,12 +1,20 @@
-name: Test
+name: test
 
 on:
   push:
   pull_request:
 
 jobs:
-  docker:
+  test:
+    name: ${{ matrix.profile }}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - docker
+          - conda
 
     steps:
       - uses: actions/checkout@v4
@@ -19,8 +27,28 @@ jobs:
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
 
-      - name: Run pipeline
+      - name: Install Conda
+        if: matrix.profile == 'conda'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          channels: conda-forge,bioconda,defaults
+
+      - name: Run test
         run: |
           nextflow run . \
-            -profile docker,test \
-            -with-report report.html
+            -profile test,${{ matrix.profile }} \
+            -ansi-log false \
+            -log nextflow-${{ matrix.profile }}.log
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.profile }}
+          path: |
+            nextflow-${{ matrix.profile }}.log
+            .nextflow.log
+            work/**/.command.log
+            work/**/.command.err
+            work/**/.command.out
