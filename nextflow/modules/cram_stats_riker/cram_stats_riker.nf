@@ -46,7 +46,7 @@ process CRAM_STATS_RIKER {
         ${riker_duplicate_args}
 
     # Disabled for now as causes error: region reference sequence does not exist in reference sequences:
-    # --error::vcf "${vcf}" \
+    # --error::vcf
 
     """
 }
