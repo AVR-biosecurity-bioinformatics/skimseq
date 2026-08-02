@@ -1,11 +1,7 @@
 name: container-test
 
 on:
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
+  workflow_dispatch:
 
 jobs:
   test:
@@ -18,6 +14,7 @@ jobs:
         profile:
           - docker
           - conda
+          - singularity
 
     steps:
       - uses: actions/checkout@v4
@@ -37,12 +34,37 @@ jobs:
           auto-update-conda: true
           channels: conda-forge,bioconda,defaults
 
+      - name: Install Go
+        if: matrix.profile == 'singularity'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install SingularityCE
+        if: matrix.profile == 'singularity'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake cryptsetup fuse2fs fuse3 \
+            libfuse3-dev libseccomp-dev libtool pkg-config \
+            runc squashfs-tools uidmap wget zlib1g-dev git
+
+          git clone --depth 1 --branch v3.11.5 \
+            https://github.com/sylabs/singularity.git
+
+          cd singularity
+          ./mconfig
+          make -C builddir
+          sudo make -C builddir install
+
+          singularity --version
+
       - name: Run test
         run: |
           nextflow \
             -log nextflow-${{ matrix.profile }}.log \
             run . \
-            -profile ${{ matrix.profile }},test \
+            -profile test,${{ matrix.profile }} \
             -ansi-log false
 
       - name: Upload logs on failure
