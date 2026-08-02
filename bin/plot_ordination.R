@@ -178,7 +178,7 @@ tryCatch(
     }
 
     # Write out plots
-    pdf(paste0(prefix, "_ord.pdf"), width = 11, height = 8)
+    pdf(paste0(prefix, "_mds.pdf"), width = 11, height = 8)
     plot(gg.ord)
     try(dev.off(), silent = TRUE)
   },
