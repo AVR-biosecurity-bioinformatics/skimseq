@@ -8,8 +8,8 @@ process PLINK_PCA {
 
     output: 
     tuple val(outname),
-          path("${outname}.pca.eigenval"),
-          path("${outname}.pca.eigenvec"),
+          path("${outname}.eigenval"),
+          path("${outname}.eigenvec"),
           emit: pca
     
     script:
@@ -43,7 +43,7 @@ process PLINK_PCA {
         --bfile "${outname}" \
         --allow-extra-chr \
         --freq \
-        --out "${outname}.pca"
+        --out "${outname}"
 
     # Run PLINK pca
     plink2 \
@@ -51,9 +51,9 @@ process PLINK_PCA {
         --memory ${task.memory.mega} \
         --bfile "${outname}" \
         --allow-extra-chr \
-        --read-freq "${outname}.pca.afreq" \
+        --read-freq "${outname}.afreq" \
         --pca "\${N_PCS}" \
-        --out "${outname}.pca"
+        --out "${outname}"
 
     """
 }

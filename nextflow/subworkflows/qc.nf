@@ -27,8 +27,8 @@ workflow QC {
         ch_sample_cram,
         ch_genome_indexed,
         ch_include_bed.first(),
-        ch_exclude_bed,
-        ch_vcf
+        ch_exclude_bed
+        //ch_vcf
     )
 
     // Calculate VCF statistics on the final file

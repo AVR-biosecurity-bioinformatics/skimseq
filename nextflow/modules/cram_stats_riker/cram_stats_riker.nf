@@ -8,7 +8,7 @@ process CRAM_STATS_RIKER {
     tuple path(ref_genome), path(genome_index_files)
     path(interval_bed)
     path(exclude_bed)
-    tuple path(vcf), path(vcf_tbi)
+    //tuple path(vcf), path(vcf_tbi)
 
     output: 
     tuple val(sample), path("*.txt"),           emit: stats

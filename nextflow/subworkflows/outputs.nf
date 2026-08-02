@@ -4,7 +4,6 @@
 
 //// import modules
 include { CREATE_BEAGLE as CREATE_BEAGLE_GL                      } from '../modules/create_beagle/create_beagle' 
-//include { VCF2DIST                                               } from '../modules/vcf2dist/vcf2dist' 
 include { PLOT_ORDINATION                                        } from '../modules/plot_ordination/plot_ordination' 
 include { PLOT_PCA                                               } from '../modules/plot_pca/plot_pca' 
 include { PLOT_TREE                                              } from '../modules/plot_tree/plot_tree' 
@@ -118,11 +117,6 @@ workflow OUTPUTS {
     PLINK_DIST (
         PLINK_IMPORT.out.plink
     )   
-
-    // Create distance matrices from VCFs
-    //VCF2DIST (
-    //    ch_final_vcfs
-    //)
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
     ch_sample_pop
