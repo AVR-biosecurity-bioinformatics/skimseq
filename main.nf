@@ -125,11 +125,15 @@ output {
     }
     cram {
         enabled params.output_cram
-        path params.cram_store
+        path params.cram_store.startsWith("${workflow.outputDir}/")
+            ? params.cram_store - "${workflow.outputDir}/"
+            : params.cram_store
     }
     gvcf {
         enabled params.output_gvcf
-        path params.gvcf_store
+        path params.gvcf_store.startsWith("${workflow.outputDir}/")
+            ? params.gvcf_store - "${workflow.outputDir}/"
+            : params.gvcf_store
     }
     mito_fasta {
         path 'mito'
