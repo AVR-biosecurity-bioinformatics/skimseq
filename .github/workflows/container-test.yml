@@ -1,8 +1,11 @@
-name: test
+name: container-test
 
 on:
-  push:
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
   test:
@@ -41,7 +44,7 @@ jobs:
             run . \
             -profile ${{ matrix.profile }},test \
             -ansi-log false
-            
+
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
