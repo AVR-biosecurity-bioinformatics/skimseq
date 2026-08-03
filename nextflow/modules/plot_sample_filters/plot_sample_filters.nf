@@ -7,7 +7,7 @@ process PLOT_SAMPLE_FILTERS {
 
     output: 
     path("*.pdf"),               emit: plots
-    path("sample_missing.tsv"),  emit: tsv
+    path("sample_missing.tsv"),  emit: sample_missing_tsv
 
     script:
     """

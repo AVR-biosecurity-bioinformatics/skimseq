@@ -90,6 +90,7 @@ workflow {
     publish:
 
     mask_summary    = SKIMSEQ.out.mask_summary
+    mask_summary_bed = SKIMSEQ.out.mask_summary_bed
 
     cram            = SKIMSEQ.out.cram
     perbase         = SKIMSEQ.out.perbase
@@ -110,6 +111,10 @@ workflow {
     tree_plot       = SKIMSEQ.out.tree_plot
     popmap          = SKIMSEQ.out.popmap
 
+    // QC outputs
+    sample_filter_plots = SKIMSEQ.out.sample_filter_plots
+    sample_missing_tsv = SKIMSEQ.out.sample_missing_tsv
+    site_filter_plots = SKIMSEQ.out.site_filter_plots
     cram_stats      = SKIMSEQ.out.cram_stats
     cram_plots      = SKIMSEQ.out.cram_plots
     vcf_stats       = SKIMSEQ.out.vcf_stats

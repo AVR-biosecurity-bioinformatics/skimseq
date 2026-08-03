@@ -341,12 +341,18 @@ workflow SKIMSEQ {
     emit:
     // Masking subworkflow
     mask_summary   = MASK_GENOME.out.mask_summary
+    mask_summary_bed = MASK_GENOME.out.mask_summary_bed
 
     // Alignment subworkflow
     cram            = ALIGNMENT.out.cram
     perbase         = ALIGNMENT.out.perbase
 
-    // Mito subowrkflow
+    // Filtering subworkflow
+    sample_filter_plots = FILTER_VARIANTS.out.sample_filter_plots
+    site_filter_plots = FILTER_VARIANTS.out.site_filter_plots
+    sample_missing_tsv = FILTER_VARIANTS.out.sample_missing_tsv
+
+    // Mito subworkflow
     mito_fasta      = MITO_GENOTYPING.out.mito_fasta
 
     // VCF outputs

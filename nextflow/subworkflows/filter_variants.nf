@@ -119,4 +119,7 @@ workflow FILTER_VARIANTS {
     filtered_vcf = ch_filtered_vcf
     filtered_sitelist = ch_filtered_sites
     sample_names_filt = ch_sample_names_filt
+    sample_filter_plots = PLOT_SAMPLE_FILTERS.out.plots
+    sample_missing_tsv = PLOT_SAMPLE_FILTERS.out.sample_missing_tsv
+    site_filter_plots = PLOT_VCF_FILTERS.out.plots
 }
