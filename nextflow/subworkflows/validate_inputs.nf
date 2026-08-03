@@ -3,8 +3,8 @@
 */
 
 //// import modules
-include { VALIDATE_FASTQ                       } from '../modules/validate_fastq'
-include { REPAIR_FASTQ                         } from '../modules/repair_fastq'
+include { VALIDATE_FASTQ                       } from '../modules/validate_fastq/validate_fastq'
+include { REPAIR_FASTQ                         } from '../modules/repair_fastq/repair_fastq'
 
 workflow VALIDATE_INPUTS {
 

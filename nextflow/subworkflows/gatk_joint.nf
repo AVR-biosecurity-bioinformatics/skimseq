@@ -3,13 +3,13 @@
 */
 
 //// import modules
-include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype' 
-include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                          } from '../modules/concat_vcfs' 
-include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records'
-include { SPLIT_BED_BY_CHR                                               } from '../modules/split_bed_by_chr' 
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks'
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks'
-include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import' 
+include { JOINT_GENOTYPE                                                 } from '../modules/joint_genotype/joint_genotype' 
+include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                          } from '../modules/concat_vcfs/concat_vcfs' 
+include { COUNT_VCF_RECORDS                                              } from '../modules/count_vcf_records/count_vcf_records'
+include { SPLIT_BED_BY_CHR                                               } from '../modules/split_bed_by_chr/split_bed_by_chr' 
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_LONG       } from '../modules/create_interval_chunks/create_interval_chunks'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_JC_SHORT      } from '../modules/create_interval_chunks/create_interval_chunks'
+include { GENOMICSDB_IMPORT                                              } from '../modules/genomicsdb_import/genomicsdb_import' 
 
 workflow GATK_JOINT {
 
@@ -20,7 +20,6 @@ workflow GATK_JOINT {
     ch_mask_bed_genotype
     ch_long_bed
     ch_short_bed
-    ch_dummy_file
     ch_sample_names
 
     main: 
@@ -136,6 +135,7 @@ workflow GATK_JOINT {
         ch_cohort_size
     )
 
+    ch_merged_unfiltered_vcf = Channel.empty()
     if ( params.output_unfiltered_vcf ){
 
         // TODO: Make this output seperate files for each variant type
@@ -148,8 +148,12 @@ workflow GATK_JOINT {
         CONCAT_UNFILTERED_VCFS (
             ch_vcf_to_merge
         )
+
+        CONCAT_UNFILTERED_VCFS.out.vcf
+            .set { ch_merged_unfiltered_vcf}
     }
 
     emit: 
     vcf = JOINT_GENOTYPE.out.vcf
+    merged_unfiltered_vcf = ch_merged_unfiltered_vcf
 }

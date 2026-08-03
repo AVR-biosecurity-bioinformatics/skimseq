@@ -1,0 +1,137 @@
+# skimseq default parameter values
+# Copy this file, edit the required values, and run with:
+# nextflow run . -params-file params.yml -profile <profiles>
+#
+# Parameters set to null must be supplied by the user or an active profile.
+
+# Required inputs
+samplesheet: null
+ref_genome: null
+mito_contig: null
+
+
+# Intermediate inputs
+cram_store: 'output/results/cram'
+gvcf_store: 'output/results/gvcf'
+use_existing_cram: true
+use_existing_gvcf: true
+
+# Reference masking options
+include_bed: null
+exclude_bed: null
+use_reference_hardmasks: true
+use_reference_softmasks: false
+exclude_padding: 0
+genotype_masked_bases: false
+filter_masked_variants: true
+
+
+# Mitochondrial variant-calling options
+mito_min_vaf: 0.9
+mito_min_depth: 100
+
+
+#Variant calling options
+variant_caller: 'bcftools'
+min_depth: 1
+rmdup: true
+minbq: 10
+minmq: 20
+min_fragment_length: 15
+max_fragment_length: 10000
+min_aligned_length: 30
+ploidy: 2
+output_indel: true
+output_invariant: false
+
+# GATK specific options
+hc_interval_padding: 100
+hc_min_pruning: 2
+hc_min_dangling_length: 4
+hc_max_reads_startpos: 50
+hc_pcr_free: false
+hc_max_ambig_bases: 5
+hc_use_softclipped_bases: true
+heterozygosity: 0.001
+heterozygosity_stdev: 0.01
+indel_heterozygosity: 0.000125
+jc_max_alternate_alleles: 6
+jc_max_alternate_to_import: 10
+
+# BCFtools specific options
+bcftools_variant_prior: 0.0011
+max_depth: 250
+calling_model: 'cohort'
+min_genotype_posterior: 0.9
+
+# VCF filtering options
+vcf_population_min_samples: 1
+vcf_population_fail_mode: 'ALL'
+
+vcf_genotype_qual: 0
+vcf_genotype_dp_min: 1
+vcf_genotype_dp_max: 1000
+vcf_sample_max_missing: 0.5
+
+vcf_dp_percentile_lower: 1.0
+vcf_dp_percentile_upper: 99.0
+
+vcf_qual_global_snp: 30.0
+vcf_qual_global_indel: 30.0
+vcf_qual_global_invariant: null
+
+vcf_dp_min_global_snp: 6
+vcf_dp_min_global_indel: 6
+vcf_dp_min_global_invariant: 6
+
+vcf_dist_indel_global_snp: 5
+vcf_dist_indel_global_indel: null
+vcf_dist_indel_global_invariant: null
+
+vcf_eh_global_snp: null
+vcf_eh_global_indel: null
+vcf_eh_global_invariant: null
+
+vcf_eh_pop_snp: null
+vcf_eh_pop_indel: null
+vcf_eh_pop_invariant: null
+
+vcf_hwe_global_snp: null
+vcf_hwe_global_indel: null
+vcf_hwe_global_invariant: null
+
+vcf_hwe_pop_snp: null
+vcf_hwe_pop_indel: null
+vcf_hwe_pop_invariant: null
+
+vcf_maf_global_snp: 0.05
+vcf_maf_global_indel: 0.05
+vcf_maf_global_invariant: null
+
+vcf_maf_pop_snp: null
+vcf_maf_pop_indel: null
+vcf_maf_pop_invariant: null
+
+vcf_min_samples_global_snp: 1
+vcf_min_samples_global_indel: 1
+vcf_min_samples_global_invariant: 1
+
+vcf_min_samples_pop_snp: null
+vcf_min_samples_pop_indel: null
+vcf_min_samples_pop_invariant: null
+
+vcf_min_callrate_global_snp: 0.5
+vcf_min_callrate_global_indel: 0.5
+vcf_min_callrate_global_invariant: 0.5
+
+vcf_min_callrate_pop_snp: null
+vcf_min_callrate_pop_indel: null
+vcf_min_callrate_pop_invariant: null
+
+# Output options
+output_unmapped_reads: false
+output_cram: true
+output_gvcf: true
+output_unfiltered_vcf: false
+output_beagle_gl: false
+

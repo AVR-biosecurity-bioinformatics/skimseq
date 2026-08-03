@@ -3,11 +3,11 @@
 */
 
 //// import modules
-include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf'
-include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller'
-include { CONCAT_VCFS as CONCAT_GVCFS                            } from '../modules/concat_vcfs' 
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks'
-include { STAGE_GVCF                                             } from '../modules/stage_gvcf'
+include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf/validate_gvcf'
+include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller/haplotypecaller'
+include { CONCAT_VCFS as CONCAT_GVCFS                            } from '../modules/concat_vcfs/concat_vcfs' 
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks/create_interval_chunks'
+include { STAGE_GVCF                                             } from '../modules/stage_gvcf/stage_gvcf'
 
 workflow GATK_SINGLE {
 

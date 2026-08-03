@@ -101,13 +101,40 @@ paste -d ',' <(echo "$sample_id") <(echo "$pop")  <(echo "$fwd") <(echo "$rev") 
 Run the Qfly test dataset using the test profile
 ```
 module purge
-export NXF_VER=23.05.0-edge
+export NXF_VER=26.07.0-edge
 module load Java/17
 
-# Run tests on local node 
-nextflow run . -profile debug,test -resume
+# Local execution on a BASC node using Conda
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . -profile conda,debug,test -resume
+
+# BASC SLURM execution using Conda
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . -profile debug,test -config conf/basc.config --slurm_account fruitfly -resume
 
 
-# Run tests with basc modules 
-nextflow run . -profile basc_modules,debug,test -resume
 ```
+
+# Current conda dependencies:
+  - bioconda::bedtools=2.31.1
+  - bioconda::gatk4=4.6.2.0
+  - bioconda::bedtools=2.31.1
+  - bioconda::bcftools=1.24
+  - bioconda::samtools=1.24
+  - bioconda::bwa-mem2=2.3
+  - bioconda::seqkit=2.13.0
+  - conda-forge::pigz=2.8
+  - bioconda::bedops=2.4.42
+  - bioconda::fastqc=0.12.1
+  - bioconda::genmap=1.3.0
+  - bioconda::seqtk=r93
+  - bioconda::longdust=1.4
+  - bioconda::multiqc=1.35
+
+# Extra avaiable conda packages
+  - bioconda:angsd=0.940
+  - bioconda::pcangsd
+Note: VCF2DIS is not currently covered in conda
+Can transfer these to sequera containers once container issue is fixed

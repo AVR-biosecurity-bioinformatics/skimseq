@@ -3,9 +3,9 @@
 */
 
 //// import modules
-include { CONCAT_VCFS as CONCAT_SITELIST                         } from '../modules/concat_vcfs' 
-include { MPILEUP as MPILEUP_PSEUDOHAP                           } from '../modules/mpileup'
-include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap' 
+include { CONCAT_VCFS as CONCAT_SITELIST                         } from '../modules/concat_vcfs/concat_vcfs' 
+include { MPILEUP as MPILEUP_PSEUDOHAP                           } from '../modules/mpileup/mpileup'
+include { CREATE_PSEUDOHAP                                       } from '../modules/create_pseudohap/create_pseudohap' 
 
 workflow PSEUDOHAPLOID_GENOTYPING {
 

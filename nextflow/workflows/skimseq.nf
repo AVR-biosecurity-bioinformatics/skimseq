@@ -2,28 +2,29 @@
 
 //// import subworkflows
 include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
-include { PROCESS_READS                                             } from '../subworkflows/process_reads'
+include { ALIGNMENT                                                 } from '../subworkflows/alignment'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
 include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
-include { BCFTOOLS_CALLING                                           } from '../subworkflows/bcftools_calling'
+include { BCFTOOLS_CALLING                                          } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 
 //// import modules
-include { INDEX_GENOME                                              } from '../modules/index_genome' 
-include { INDEX_MITO                                                } from '../modules/index_mito'
-include { SUBSET_VCF_TO_SITES                                       } from '../modules/subset_vcf_to_sites'
-include { SUM_COVERED_INTERVALS                                     } from '../modules/sum_covered_intervals'
+include { INDEX_GENOME                                              } from '../modules/index_genome/index_genome' 
+include { INDEX_MITO                                                } from '../modules/index_mito/index_mito'
 
-// Create default channels
-ch_dummy_file = file("$baseDir/assets/dummy_file.txt", checkIfExists: true)
-ch_reports = Channel.empty()
-ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
 workflow SKIMSEQ {
+
+    main: 
+
+    // Create default channels
+    ch_dummy_file = Channel.fromPath("$baseDir/assets/dummy_file.txt", checkIfExists: true)
+    ch_reports = Channel.empty()
+    ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
     /*
     Input channel parsing
@@ -148,14 +149,12 @@ workflow SKIMSEQ {
     } 
 
     // Handle optional exclude_bed
-    if ( params.exclude_bed ){
-        ch_exclude_bed = Channel
-            .fromPath (
-                params.exclude_bed, 
-                checkIfExists: true
-            )
+    if (params.exclude_bed) {
+    ch_exclude_bed = Channel
+        .fromPath(params.exclude_bed, checkIfExists: true)
+        .first()
     } else {
-        ch_exclude_bed = ch_dummy_file
+        ch_exclude_bed = ch_dummy_file.first()
     }
     
     /*
@@ -184,14 +183,15 @@ workflow SKIMSEQ {
     Process reads per sample, aligning to the genome, and merging
     */
 
-    PROCESS_READS (
+    ALIGNMENT (
         ch_sample_names,
         VALIDATE_INPUTS.out.validated_fastq,
         VALIDATE_INPUTS.out.rg_to_validate,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_exclude_bed
     )
     
-    PROCESS_READS.out.perbase
+    ALIGNMENT.out.counts
         .set{ ch_read_counts }
 
     /*
@@ -212,7 +212,7 @@ workflow SKIMSEQ {
     */
 
     MITO_GENOTYPING (
-        PROCESS_READS.out.cram,
+        ALIGNMENT.out.cram,
         ch_genome_indexed,
         ch_mito_indexed,
         ch_mito_bed,
@@ -230,21 +230,15 @@ workflow SKIMSEQ {
             ch_mask_bed_genotype = ch_mito_bed
     }
     
-    // Create a list of covered perbase tracts
-    SUM_COVERED_INTERVALS(
-        PROCESS_READS.out.perbase,
-        ch_mask_bed_genotype
-    )
-    
-    SUM_COVERED_INTERVALS.out.counts
-        .set { ch_read_counts }
-
+    // Set empty channels to recieve publishing outputs for optional workflows
+    ch_gvcf = Channel.empty()
+    ch_merged_unfiltered_vcf = Channel.empty()
     if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
         GATK_SINGLE (
             ch_sample_names,
-            PROCESS_READS.out.cram,
+            ALIGNMENT.out.cram,
             VALIDATE_INPUTS.out.rg_to_validate,
             ch_genome_indexed,
             ch_include_bed,
@@ -254,26 +248,31 @@ workflow SKIMSEQ {
             ch_read_counts
         )
 
+        GATK_SINGLE.out.gvcf
+            .set{ ch_gvcf }
+
         // Joint call genotypes        
         GATK_JOINT (
-            GATK_SINGLE.out.gvcf,
+            ch_gvcf,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
             ch_long_bed,
             ch_short_bed,
-            ch_dummy_file,
             ch_sample_names
         )
 
         GATK_JOINT.out.vcf
-            .set{ ch_vcfs }
+            .set{ ch_unfiltered_vcfs }
+
+        GATK_JOINT.out.merged_unfiltered_vcf
+            .set{ ch_merged_unfiltered_vcf }
 
     } else if (params.variant_caller == "bcftools"){
 
         BCFTOOLS_CALLING (
             ch_sample_names,
-            PROCESS_READS.out.cram,
+            ALIGNMENT.out.cram,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
@@ -281,7 +280,10 @@ workflow SKIMSEQ {
             ch_popmap
         )
         BCFTOOLS_CALLING.out.vcf
-            .set{ ch_vcfs }
+            .set{ ch_unfiltered_vcfs }
+
+        BCFTOOLS_CALLING.out.merged_unfiltered_vcf
+            .set{ ch_merged_unfiltered_vcf }
     }
 
     /*
@@ -296,13 +298,12 @@ workflow SKIMSEQ {
     }
     
     FILTER_VARIANTS (
-        ch_vcfs,
+        ch_unfiltered_vcfs,
         ch_genome_indexed,
         ch_include_bed,
         ch_mask_bed_vcf,
         ch_sample_names,
-        ch_popmap,
-        params.vcf_filters
+        ch_popmap
     )
 
     FILTER_VARIANTS.out.sample_names_filt
@@ -327,13 +328,59 @@ workflow SKIMSEQ {
 
     QC (
         ch_reports,
-        PROCESS_READS.out.cram,
-        OUTPUTS.out.vcf,
+        ALIGNMENT.out.cram,
+        OUTPUTS.out.final_vcf_all,
         ch_sample_names_filt,
         ch_genome_indexed,
-        ch_multiqc_config
+        ch_multiqc_config,
+        ch_include_bed,
+        ch_exclude_bed
     )
 
+
+    emit:
+    // Masking subworkflow
+    mask_summary   = MASK_GENOME.out.mask_summary
+    mask_summary_bed = MASK_GENOME.out.mask_summary_bed
+    mask_pass_bed = MASK_GENOME.out.mask_pass_bed
+
+    // Alignment subworkflow
+    cram            = ALIGNMENT.out.cram
+    perbase         = ALIGNMENT.out.perbase
+
+    // Filtering subworkflow
+    sample_filter_plots = FILTER_VARIANTS.out.sample_filter_plots
+    site_filter_plots = FILTER_VARIANTS.out.site_filter_plots
+    sample_missing_tsv = FILTER_VARIANTS.out.sample_missing_tsv
+
+    // Mito subworkflow
+    mito_fasta      = MITO_GENOTYPING.out.mito_fasta
+
+    // VCF outputs
+    unfiltered_vcf = ch_merged_unfiltered_vcf
+    gvcf = ch_gvcf
+    final_vcf = OUTPUTS.out.final_vcf
+
+    // Outputs subworkflow
+    beagle_gl       = OUTPUTS.out.beagle_gl
+    plink           = OUTPUTS.out.plink
+    pca             = OUTPUTS.out.pca
+    relationship    = OUTPUTS.out.relationship
+    king            = OUTPUTS.out.king
+    distance        = OUTPUTS.out.distance
+    ordination_plot = OUTPUTS.out.ordination_plot
+    pca_plot        = OUTPUTS.out.pca_plot
+    tree_plot       = OUTPUTS.out.tree_plot
+    newick_tree     = OUTPUTS.out.newick_tree
+    popmap          = OUTPUTS.out.popmap
+
+    // QC subworkflow
+    cram_stats       = QC.out.cram_stats
+    cram_plots       = QC.out.cram_plots
+    vcf_stats        = QC.out.vcf_stats
+    multiqc_report   = QC.out.multiqc_report
+    multiqc_plots    = QC.out.multiqc_plots
+    multiqc_data     = QC.out.multiqc_data
 
 
 }

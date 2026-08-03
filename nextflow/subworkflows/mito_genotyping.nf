@@ -3,9 +3,8 @@
 */
 
 //// import modules
-include { MAP_TO_MITO                           } from '../modules/map_to_mito'
-include { CONSENSUS_MITO                        } from '../modules/consensus_mito'
-include { PROCESS_CRAM_MITO                     } from '../modules/process_cram_mito'
+include { CONSENSUS_MITO                        } from '../modules/consensus_mito/consensus_mito'
+include { PROCESS_CRAM_MITO                     } from '../modules/process_cram_mito/process_cram_mito'
 
 
 workflow MITO_GENOTYPING {

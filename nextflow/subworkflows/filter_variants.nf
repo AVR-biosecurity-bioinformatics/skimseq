@@ -3,16 +3,16 @@
 */
 
 //// import modules
-include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites'
-include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records'
-include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites'
-include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp'
-include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp'
-include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing'
-include { FILTER_VCF                                   } from '../modules/filter_vcf'
-include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist'
-include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters'
-include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters'
+include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites/extract_vcf_sites'
+include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records/count_vcf_records'
+include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
+include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp/calc_chunk_dp'
+include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp/merge_chunk_dp'
+include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing/merge_chunk_missing'
+include { FILTER_VCF                                   } from '../modules/filter_vcf/filter_vcf'
+include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist/create_filter_hist'
+include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters/plot_vcf_filters'
+include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters/plot_sample_filters'
 
 workflow FILTER_VARIANTS {
 
@@ -23,7 +23,6 @@ workflow FILTER_VARIANTS {
     ch_mask_bed_vcf
     ch_sample_names
     ch_popmap
-    filter_map
 
     main: 
    
@@ -33,14 +32,14 @@ workflow FILTER_VARIANTS {
 
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, filter_map ) }
+        ch_vcfs
     )
 
     // Merge all chunk DP histograms together
     MERGE_CHUNK_DP(
         CALC_CHUNK_DP.out.chunk_dp.map { interval_hash, interval_bed, bed_tbi, dphist -> dphist }.collect(),
-        filter_map.dp_perc.lower,
-        filter_map.dp_perc.upper
+        params.vcf_dp_percentile_lower,
+        params.vcf_dp_percentile_upper
     )
 
     MERGE_CHUNK_DP.out.dp_bounds
@@ -60,24 +59,16 @@ workflow FILTER_VARIANTS {
 
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS(
-        MERGE_CHUNK_MISSING.out.missing_summary,
-        filter_map.sample.max_missing
+        MERGE_CHUNK_MISSING.out.missing_summary
     )
 
     /*
         Filter VCF
     */
 
-    // Attach shared DP bounds and filter_map to each VCF chunk
-    ch_vcfs
-        .combine(ch_dp_bounds)
-        .map { interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi -> tuple(interval_hash, interval_bed, bed_tbi, vcf, vcf_tbi, dpLo, dpHi, filter_map ) }
-        .set { ch_vcfs_filters }
-
-
     // Global site filters
     FILTER_VCF(
-        ch_vcfs_filters,
+        ch_vcfs.combine(ch_dp_bounds),
         ch_mask_bed_vcf,
         ch_popmap.first(),
         MERGE_CHUNK_MISSING.out.missing_summary
@@ -95,9 +86,12 @@ workflow FILTER_VARIANTS {
         }
         .set { ch_filtered_vcf }
 
-     /*
-        Create site filtering QC plots
-    */
+    // Create list of samples surviving filtering
+    FILTER_VCF.out.samples_to_keep.first()
+        .splitText( by: 1 )
+        .unique()
+        .set { ch_sample_names_filt }
+
 
     // QC plots for site histograms
     PLOT_VCF_FILTERS (
@@ -105,27 +99,11 @@ workflow FILTER_VARIANTS {
         "site_filters"
     )
 
-     /*
-        Create sitelist files for re-genotyping
-    */
-    
-    FILTER_VCF.out.sitelist
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
-            def n = counts_file.text.trim() as Integer
-            tuple( interval_hash, interval_bed, bed_tbi, vcf, tbi, n )
-        }
-        .filter { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple( interval_hash, interval_bed, bed_tbi, vcf, tbi) }
-        .set { ch_filtered_sites }
-
-    FILTER_VCF.out.samples_to_keep.first()
-        .splitText( by: 1 )
-        .unique()
-        .set { ch_sample_names_filt }
-   
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_vcf = ch_filtered_vcf
-    filtered_sitelist = ch_filtered_sites
     sample_names_filt = ch_sample_names_filt
+    sample_filter_plots = PLOT_SAMPLE_FILTERS.out.plots
+    sample_missing_tsv = PLOT_SAMPLE_FILTERS.out.sample_missing_tsv
+    site_filter_plots = PLOT_VCF_FILTERS.out.plots
 }

@@ -19,7 +19,6 @@ tryCatch(
       "readr",
       "ggplot2",
       "stringr",
-      "vegan",
       NULL
     )
     invisible(lapply(
@@ -101,43 +100,63 @@ tryCatch(
       # Convert matrix to dist matrix
       distmat <- as.dist(M_clean)
 
-      # Conduct MDS
-      mds <- capscale(distmat ~ 1, na.action = "exclude")
-
-      # Get target principal components to plot
-      target_pc <- c("PC1", "PC2")
-
-      # Create variance explained labels
-      var_exp <- scales::percent(mds$CA$eig / sum(mds$CA$eig), accuracy = 0.1)
-      names(var_exp) <- names(var_exp) %>% str_replace("MDS", "PC")
-      lab_x <- paste0(
-        target_pc[1],
-        " (",
-        var_exp[match(target_pc[1], names(var_exp))],
-        ")"
-      )
-      lab_y <- paste0(
-        target_pc[2],
-        " (",
-        var_exp[match(target_pc[2], names(var_exp))],
-        ")"
+      # Classical metric MDS / principal coordinates analysis.
+      mds <- stats::cmdscale(
+        distmat,
+        k = min(2L, nrow(M_clean) - 1L),
+        eig = TRUE,
+        add = FALSE
       )
 
-      # Extract data for ordination
-      pcx <- as.data.frame(mds$Ybar)
+      pcx <- as.data.frame(mds$points)
 
-      # Handle missing second dimenson if there was not enough data to generate
+      # cmdscale can return only one usable dimension in degenerate cases.
       if (ncol(pcx) == 1) {
         pcx$Dim2 <- 0
       }
-      colnames(pcx) <- paste0("PC", seq(1, ncol(pcx), 1))
+
+      pcx <- pcx[, seq_len(min(2L, ncol(pcx))), drop = FALSE]
+      colnames(pcx) <- c("PC1", "PC2")[seq_len(ncol(pcx))]
+
+      if (!"PC2" %in% colnames(pcx)) {
+        pcx$PC2 <- 0
+      }
+
+      pcx <- tibble::rownames_to_column(pcx, "sample")
+
+      # Calculate percentages from positive eigenvalues only.
+      positive_eigenvalues <- mds$eig[mds$eig > 0]
+
+      if (length(positive_eigenvalues) > 0) {
+        variance_explained <- 100 * positive_eigenvalues /
+          sum(positive_eigenvalues)
+      } else {
+        variance_explained <- numeric()
+      }
+
+      pc1_percent <- if (length(variance_explained) >= 1) {
+        sprintf("%.1f%%", variance_explained[1])
+      } else {
+        "NA"
+      }
+
+      pc2_percent <- if (length(variance_explained) >= 2) {
+        sprintf("%.1f%%", variance_explained[2])
+      } else {
+        "NA"
+      }
+
+      lab_x <- paste0("PC1 (", pc1_percent, ")")
+      lab_y <- paste0("PC2 (", pc2_percent, ")")
+
+      plot_data <- pcx %>%
+        dplyr::left_join(popmap, by = "sample")
 
       # Plot ordination
-      gg.ord <- pcx %>%
-        dplyr::select(paste0("PC", seq(1, 2, 1))) %>% #select top 2 PCs
-        tibble::rownames_to_column("sample") %>%
-        dplyr::left_join(popmap) %>%
-        ggplot(aes(-get(target_pc[1]), get(target_pc[2]), colour = pop)) +
+      gg.ord <- ggplot2::ggplot(
+        plot_data,
+        ggplot2::aes(x = -.data$PC1, y = .data$PC2, colour = .data$pop)
+        ) +
         geom_point(size = 2) +
         labs(x = lab_x, y = lab_y) +
         theme_classic() +
@@ -159,7 +178,7 @@ tryCatch(
     }
 
     # Write out plots
-    pdf(paste0(prefix, "_ord.pdf"), width = 11, height = 8)
+    pdf(paste0(prefix, "_mds.pdf"), width = 11, height = 8)
     plot(gg.ord)
     try(dev.off(), silent = TRUE)
   },

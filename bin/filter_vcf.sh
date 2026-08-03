@@ -1,6 +1,22 @@
 #!/bin/bash
 set -uoe pipefail
 
+# Function to check pipeline
+check_pipeline() {
+    local -a st=("$@")
+
+    echo "PIPESTATUS: ${st[*]}" >&2
+
+    for i in "${!st[@]}"; do
+        if (( st[i] != 0 )); then
+            echo "Pipeline stage $((i + 1)) failed with exit code ${st[i]}" >&2
+            return "${st[i]}"
+        fi
+    done
+
+    return 0
+}
+
 ## args:
 # $1 = cpus 
 # $2 = mem (GB)
@@ -198,6 +214,7 @@ POP_CR_EXPR=$(make_metric_pop_expr "CR" "<" \
 # Then add per-pop threshold annotations using fill-tags
 # Note MAC is calculated from MAF (7 decimal precision), this could cause rounding for very large cohorts (i.e. 100k+)
 # NOTE: bcftools +fill-tags breaks with any samples that have 2 letter names
+set +e
 bcftools view --threads ${1} -S ${4}.samples.txt -m2 -M2 -Ou "${3}" \
   | bcftools +setGT -Ou -- \
     -t q \
@@ -225,6 +242,11 @@ bcftools view --threads ${1} -S ${4}.samples.txt -m2 -M2 -Ou "${3}" \
   | bcftools filter -Ou -s POP_NS_FAIL  -m+ -e "$POP_NS_EXPR" \
   | bcftools filter -Ou -s POP_CR_FAIL  -m+ -e "$POP_CR_EXPR" \
   | bcftools view --threads ${1} -Ob -o tmp.bcf
+
+# Catch error codes from piped tools so nextflow can retry
+st=("\${PIPESTATUS[@]}")
+set -e
+check_pipeline "\${st[@]}" || exit \$?
 
 # Drop failing sites to create filtered vcf file (main output)
 bcftools view --threads "${1}" -f PASS -Ou tmp.bcf \

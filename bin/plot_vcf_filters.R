@@ -17,7 +17,6 @@ tryCatch(
       "readr",
       "ggplot2",
       "stringr",
-      "patchwork",
       NULL
     )
     invisible(lapply(
@@ -225,21 +224,22 @@ tryCatch(
     global_list <- vector("list", length(files))
     per_pop_list <- vector("list", length(files))
     for (i in seq_along(files)) {
-      print(i)
+      #print(i)
       x <- split_metrics_one_chunk(files[[i]])
-
-      global_list[[i]] <- summarise_metric_chunk(
-        x$global,
-        metric_specs,
-        per_pop = FALSE
-      )
-
-      per_pop_list[[i]] <- summarise_metric_chunk(
-        x$per_pop,
-        per_pop_metric_specs,
-        per_pop = TRUE
-      )
-      rm(x)
+      if (nrow(x$global) > 0) {
+        global_list[[i]] <- summarise_metric_chunk(
+          x$global,
+          metric_specs,
+          per_pop = FALSE
+        )
+      }
+      if (nrow(x$per_pop) > 0) {
+        per_pop_list[[i]] <- summarise_metric_chunk(
+          x$per_pop,
+          per_pop_metric_specs,
+          per_pop = TRUE
+        )
+      }
     }
 
     global_df <- bind_rows(global_list) %>%

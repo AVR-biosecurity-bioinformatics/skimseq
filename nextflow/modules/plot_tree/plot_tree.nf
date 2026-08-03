@@ -1,0 +1,27 @@
+process PLOT_TREE {
+    conda "${moduleDir}/environment.yml"
+    publishDir "${launchDir}/output/modules/plot_tree", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
+
+    input:
+    path(distmat)
+    path(popmap)
+
+    output: 
+    path("*.pdf"),             emit: plots
+    path("*.nwk"),             emit: newick_tree
+
+    script:
+    """
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
+    unset R_LIBS R_LIBS_USER R_LIBS_SITE
+
+    Rscript ${projectDir}/bin/plot_tree.R \
+        ${projectDir} \
+        ${params.rdata} \
+        ${distmat} \
+        ${popmap}
+    """
+}

@@ -1,0 +1,9 @@
+# environment.yml
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - bioconda::riker=0.4.1
+  

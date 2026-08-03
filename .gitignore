@@ -1,10 +1,12 @@
 *.log
 .nextflow/
 *.log.[0-9]
-*.slurm
 *.out
 /output/modules
 /output/run_info
 /output/results
 /work/
 /test/*
+zscaler-root.cer
+zscaler-root.crt
+zscaler-root.pem

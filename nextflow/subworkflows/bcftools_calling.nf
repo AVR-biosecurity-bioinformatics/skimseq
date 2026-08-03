@@ -3,9 +3,9 @@
 */
 
 //// import modules
-include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs' 
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks'
-include { MPILEUP                                                } from '../modules/mpileup'
+include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks/create_interval_chunks'
+include { MPILEUP                                                } from '../modules/mpileup/mpileup'
 
 workflow BCFTOOLS_CALLING {
 
@@ -67,6 +67,16 @@ workflow BCFTOOLS_CALLING {
             }
         }
         .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
+        .ifEmpty {
+            log.warn(
+                "No mpileup intervals remained after coverage & inclusion filtering, " +
+                "Variant calling will be skipped. Check your max_depth argument"
+            )
+            tuple('__NO_INTERVALS__', null, null)
+        }
+        .filter { interval_hash, interval_bed, bed_tbi ->
+            interval_hash != '__NO_INTERVALS__'
+        }
         .set { ch_interval_bed_mp }
 
     // combine sample-level cran with each interval_bed file and interval chunk
@@ -95,6 +105,7 @@ workflow BCFTOOLS_CALLING {
         ch_popmap.first()
     )
     
+    ch_merged_unfiltered_vcf = Channel.empty()
     if ( params.output_unfiltered_vcf ){
         // TODO: Make this output seperate files for each variant type
         MPILEUP.out.vcf
@@ -105,9 +116,13 @@ workflow BCFTOOLS_CALLING {
         CONCAT_UNFILTERED_VCFS (
             ch_vcf_to_merge
         )
+    
+        CONCAT_UNFILTERED_VCFS.out.vcf
+            .set { ch_unfiltered_vcf}
     }
 
     emit: 
     vcf = MPILEUP.out.vcf
+    merged_unfiltered_vcf = ch_merged_unfiltered_vcf
 
 }

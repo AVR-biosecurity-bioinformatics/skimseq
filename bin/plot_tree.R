@@ -121,6 +121,14 @@ tryCatch(
       # Update tree with colours
       gg.tree <- p1 %<+% (tree_df) + aes(color = pop)
     } else {
+      message("Insufficient samples for NJ tree after filtering: ", nrow(M_clean) )
+
+      # Create a zero-byte placeholder nwk file to ensure nextflow has an output
+      writeLines(
+        character(0),
+        con = paste0(prefix, "_tree.nwk")
+      )
+
       # If all are dropped by NAN filter, create empty plot
       gg.tree <- ggplot() +
         xlim(0, 1) +

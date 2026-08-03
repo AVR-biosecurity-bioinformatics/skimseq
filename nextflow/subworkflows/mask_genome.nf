@@ -3,12 +3,12 @@
 */
 
 //// import modules
-include { EXTRACT_GENOME_MASKS                                      } from '../modules/extract_genome_masks' 
-include { GENMAP                                                    } from '../modules/genmap' 
-include { LONGDUST                                                  } from '../modules/longdust'
-include { NUMT_MASK                                                 } from '../modules/numt_mask'
-include { MERGE_MASKS                                               } from '../modules/merge_masks' 
-include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks' 
+include { EXTRACT_GENOME_MASKS                                      } from '../modules/extract_genome_masks/extract_genome_masks' 
+include { GENMAP                                                    } from '../modules/genmap/genmap' 
+include { LONGDUST                                                  } from '../modules/longdust/longdust'
+include { NUMT_MASK                                                 } from '../modules/numt_mask/numt_mask'
+include { MERGE_MASKS                                               } from '../modules/merge_masks/merge_masks' 
+include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks/summarise_masks' 
 
 workflow MASK_GENOME {
 
@@ -86,5 +86,9 @@ workflow MASK_GENOME {
     emit: 
     mask_bed = MERGE_MASKS.out.merged_masks
     numt_mask_bed = NUMT_MASK.out.mask_bed
+    mask_summary = SUMMARISE_MASKS.out.mask_summary
+    mask_summary_bed = SUMMARISE_MASKS.out.mask_summary_bed
+    mask_pass_bed = SUMMARISE_MASKS.out.mask_pass_bed
+
 
 }
