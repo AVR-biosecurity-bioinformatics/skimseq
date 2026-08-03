@@ -218,8 +218,8 @@ output {
     tree_plot {
         path 'visualisation/trees'
     }
-    tree_plot {
-        path 'visualisation/newick_tree'
+    newick_tree {
+        path 'visualisation/trees'
     }
     popmap {
         path 'metadata'
