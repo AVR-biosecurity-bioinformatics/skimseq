@@ -10,6 +10,7 @@ process SUMMARISE_MASKS {
 
     output: 
     tuple path("mask_summary.bed.gz"), path("mask_summary.bed.gz.tbi"),    emit: mask_summary_bed
+    tuple path("mask_pass.bed.gz"), path("mask_pass.bed.gz.tbi"),    emit: mask_pass_bed
     path("mask_summary.txt"),              emit: mask_summary
 
     script:
@@ -54,6 +55,13 @@ process SUMMARISE_MASKS {
         | bgzip > mask_summary.bed.gz
     
     tabix -p bed mask_summary.bed.gz
+
+    # Produce a bed of just passing intervals
+    zcat mask_summary.bed.gz \
+        | awk '\$4 == "Included" {print \$1, \$2, \$3}' OFS='\\t' \
+        | bgzip > mask_pass.bed.gz
+
+    tabix -p bed mask_pass.bed.gz
 
     # Summarise sequence length by annotation.
     zcat mask_summary.bed.gz \

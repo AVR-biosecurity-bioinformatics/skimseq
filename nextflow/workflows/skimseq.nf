@@ -342,6 +342,7 @@ workflow SKIMSEQ {
     // Masking subworkflow
     mask_summary   = MASK_GENOME.out.mask_summary
     mask_summary_bed = MASK_GENOME.out.mask_summary_bed
+    mask_pass_bed = MASK_GENOME.out.mask_pass_bed
 
     // Alignment subworkflow
     cram            = ALIGNMENT.out.cram

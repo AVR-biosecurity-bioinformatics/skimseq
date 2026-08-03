@@ -88,6 +88,7 @@ workflow MASK_GENOME {
     numt_mask_bed = NUMT_MASK.out.mask_bed
     mask_summary = SUMMARISE_MASKS.out.mask_summary
     mask_summary_bed = SUMMARISE_MASKS.out.mask_summary_bed
+    mask_pass_bed = SUMMARISE_MASKS.out.mask_pass_bed
 
 
 }

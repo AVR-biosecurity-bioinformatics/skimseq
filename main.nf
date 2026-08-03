@@ -91,6 +91,7 @@ workflow {
 
     mask_summary    = SKIMSEQ.out.mask_summary
     mask_summary_bed = SKIMSEQ.out.mask_summary_bed
+    mask_pass_bed = SKIMSEQ.out.mask_pass_bed
 
     cram            = SKIMSEQ.out.cram
     perbase         = SKIMSEQ.out.perbase
@@ -129,6 +130,9 @@ output {
         path 'qc'
     }
     mask_summary_bed {
+        path 'qc'
+    }
+    mask_pass_bed {
         path 'qc'
     }
     cram {
