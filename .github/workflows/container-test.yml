@@ -75,6 +75,7 @@ jobs:
           sudo apt-get update
 
           sudo apt-get install -y \
+            build-essential \
             autoconf \
             automake \
             cryptsetup \
@@ -82,6 +83,7 @@ jobs:
             fuse3 \
             git \
             libfuse3-dev \
+            libglib2.0-dev \
             libseccomp-dev \
             libtool \
             pkg-config \
@@ -99,6 +101,10 @@ jobs:
             https://github.com/sylabs/singularity.git
 
           cd singularity
+
+          pkg-config --modversion glib-2.0
+          git submodule status
+
           ./mconfig
           make -C builddir
           sudo make -C builddir install
