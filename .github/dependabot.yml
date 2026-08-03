@@ -6,3 +6,9 @@ updates:
       - "/nextflow/modules/**/*"
     schedule:
       interval: "weekly"
+
+    groups:
+      same-dependency-across-modules:
+        patterns:
+          - "*"
+        group-by: "dependency-name"
