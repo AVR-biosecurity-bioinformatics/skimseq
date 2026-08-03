@@ -1,10 +1,56 @@
 name: container-test
 
 on:
-  workflow_dispatch:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
-  test:
+  authorise:
+    name: Authorise command
+    if: >
+      github.event.issue.pull_request &&
+      (
+        startsWith(github.event.comment.body, '/container-test') ||
+        startsWith(github.event.comment.body, '/run-tests')
+      ) &&
+      contains(
+        fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
+        github.event.comment.author_association
+      )
+    runs-on: ubuntu-latest
+
+    outputs:
+      pr_number: ${{ steps.pr.outputs.number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      head_repo: ${{ steps.pr.outputs.head_repo }}
+
+    steps:
+      - name: Get pull request details
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pr_json="$(
+            gh api \
+              "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
+          )"
+
+          {
+            echo "number=${PR_NUMBER}"
+            echo "head_sha=$(jq -r '.head.sha' <<< "${pr_json}")"
+            echo "head_repo=$(jq -r '.head.repo.full_name' <<< "${pr_json}")"
+          } >> "${GITHUB_OUTPUT}"
+
     name: ${{ matrix.profile }}
     runs-on: ubuntu-latest
 
