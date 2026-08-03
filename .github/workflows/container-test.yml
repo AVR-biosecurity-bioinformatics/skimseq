@@ -25,7 +25,6 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      pr_number: ${{ steps.pr.outputs.number }}
       head_sha: ${{ steps.pr.outputs.head_sha }}
       head_repo: ${{ steps.pr.outputs.head_repo }}
 
@@ -41,18 +40,20 @@ jobs:
           set -euo pipefail
 
           pr_json="$(
-            gh api \
-              "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
+            gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
           )"
 
           {
-            echo "number=${PR_NUMBER}"
             echo "head_sha=$(jq -r '.head.sha' <<< "${pr_json}")"
             echo "head_repo=$(jq -r '.head.repo.full_name' <<< "${pr_json}")"
           } >> "${GITHUB_OUTPUT}"
 
+  test:
     name: ${{ matrix.profile }}
+    needs:
+      - authorise
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     strategy:
       fail-fast: false
@@ -63,15 +64,32 @@ jobs:
           - singularity
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out pull request commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.authorise.outputs.head_repo }}
+          ref: ${{ needs.authorise.outputs.head_sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
-      - uses: actions/setup-java@v4
+      - name: Show tested revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Repository: ${{ needs.authorise.outputs.head_repo }}"
+          echo "Commit:     ${{ needs.authorise.outputs.head_sha }}"
+          git log -1 --oneline
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: "21"
 
       - name: Install Nextflow
         uses: nf-core/setup-nextflow@v2
+        with:
+          version: latest-stable
 
       - name: Install Conda
         if: matrix.profile == 'conda'
@@ -79,23 +97,41 @@ jobs:
         with:
           auto-update-conda: true
           channels: conda-forge,bioconda,defaults
+          channel-priority: strict
 
       - name: Install Go
         if: matrix.profile == 'singularity'
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: "1.21"
 
       - name: Install SingularityCE
         if: matrix.profile == 'singularity'
+        shell: bash
         run: |
+          set -euo pipefail
+
           sudo apt-get update
           sudo apt-get install -y \
-            autoconf automake cryptsetup fuse2fs fuse3 \
-            libfuse3-dev libseccomp-dev libtool pkg-config \
-            runc squashfs-tools uidmap wget zlib1g-dev git
+            autoconf \
+            automake \
+            cryptsetup \
+            fuse2fs \
+            fuse3 \
+            git \
+            libfuse3-dev \
+            libseccomp-dev \
+            libtool \
+            pkg-config \
+            runc \
+            squashfs-tools \
+            uidmap \
+            wget \
+            zlib1g-dev
 
-          git clone --depth 1 --branch v3.11.5 \
+          git clone \
+            --depth 1 \
+            --branch v3.11.5 \
             https://github.com/sylabs/singularity.git
 
           cd singularity
@@ -105,22 +141,48 @@ jobs:
 
           singularity --version
 
-      - name: Run test
+      - name: Show tool versions
+        shell: bash -el {0}
         run: |
+          set -euo pipefail
+
+          nextflow -version
+
+          case "${{ matrix.profile }}" in
+            docker)
+              docker --version
+              ;;
+            conda)
+              conda --version
+              ;;
+            singularity)
+              singularity --version
+              ;;
+          esac
+
+      - name: Run test
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+
           nextflow \
-            -log nextflow-${{ matrix.profile }}.log \
+            -log "nextflow-${{ matrix.profile }}.log" \
             run . \
-            -profile test,${{ matrix.profile }} \
+            -profile "test,${{ matrix.profile }}" \
             -ansi-log false
 
       - name: Upload logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ matrix.profile }}
+          name: logs-${{ matrix.profile }}-${{ github.run_id }}
+          if-no-files-found: warn
+          retention-days: 14
           path: |
             nextflow-${{ matrix.profile }}.log
             .nextflow.log
             work/**/.command.log
             work/**/.command.err
             work/**/.command.out
+            work/**/.command.sh
+            work/**/.command.run
