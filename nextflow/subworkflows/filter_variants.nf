@@ -86,9 +86,12 @@ workflow FILTER_VARIANTS {
         }
         .set { ch_filtered_vcf }
 
-     /*
-        Create site filtering QC plots
-    */
+    // Create list of samples surviving filtering
+    FILTER_VCF.out.samples_to_keep.first()
+        .splitText( by: 1 )
+        .unique()
+        .set { ch_sample_names_filt }
+
 
     // QC plots for site histograms
     PLOT_VCF_FILTERS (
