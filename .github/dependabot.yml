@@ -2,6 +2,7 @@ version: 2
 
 updates:
   - package-ecosystem: "conda"
-    directory: "/nextflow/modules"
+    directories:
+      - "/nextflow/modules/**/*"
     schedule:
       interval: "weekly"
