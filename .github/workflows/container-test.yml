@@ -1,57 +1,18 @@
 name: container-test
 
 on:
-  issue_comment:
-    types:
-      - created
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  authorise:
-    name: Authorise command
-    if: >
-      github.event.issue.pull_request &&
-      (
-        startsWith(github.event.comment.body, '/container-test') ||
-        startsWith(github.event.comment.body, '/run-tests')
-      ) &&
-      contains(
-        fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'),
-        github.event.comment.author_association
-      )
-    runs-on: ubuntu-latest
-
-    outputs:
-      head_sha: ${{ steps.pr.outputs.head_sha }}
-      head_repo: ${{ steps.pr.outputs.head_repo }}
-
-    steps:
-      - name: Get pull request details
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          pr_json="$(
-            gh api "repos/${REPOSITORY}/pulls/${PR_NUMBER}"
-          )"
-
-          {
-            echo "head_sha=$(jq -r '.head.sha' <<< "${pr_json}")"
-            echo "head_repo=$(jq -r '.head.repo.full_name' <<< "${pr_json}")"
-          } >> "${GITHUB_OUTPUT}"
-
   test:
     name: ${{ matrix.profile }}
-    needs:
-      - authorise
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -64,11 +25,9 @@ jobs:
           - singularity
 
     steps:
-      - name: Check out pull request commit
+      - name: Check out selected branch
         uses: actions/checkout@v4
         with:
-          repository: ${{ needs.authorise.outputs.head_repo }}
-          ref: ${{ needs.authorise.outputs.head_sha }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -76,8 +35,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Repository: ${{ needs.authorise.outputs.head_repo }}"
-          echo "Commit:     ${{ needs.authorise.outputs.head_sha }}"
+
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref:        ${{ github.ref }}"
+          echo "Commit:     ${{ github.sha }}"
           git log -1 --oneline
 
       - name: Set up Java
@@ -112,6 +73,7 @@ jobs:
           set -euo pipefail
 
           sudo apt-get update
+
           sudo apt-get install -y \
             autoconf \
             automake \
@@ -171,18 +133,3 @@ jobs:
             -profile "test,${{ matrix.profile }}" \
             -ansi-log false
 
-      - name: Upload logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-${{ matrix.profile }}-${{ github.run_id }}
-          if-no-files-found: warn
-          retention-days: 14
-          path: |
-            nextflow-${{ matrix.profile }}.log
-            .nextflow.log
-            work/**/.command.log
-            work/**/.command.err
-            work/**/.command.out
-            work/**/.command.sh
-            work/**/.command.run
