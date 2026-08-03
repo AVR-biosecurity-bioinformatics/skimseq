@@ -128,6 +128,9 @@ output {
     mask_summary {
         path 'qc'
     }
+    mask_summary_bed {
+        path 'qc'
+    }
     cram {
         enabled params.output_cram
         path params.cram_store.startsWith("${workflow.outputDir}/")
@@ -193,6 +196,15 @@ output {
     vcf_stats {
         path 'qc/vcf_stats'
     }
+    sample_filter_plots {
+        path 'qc'
+    }   
+    sample_missing_tsv {
+        path 'qc'
+    }  
+    site_filter_plots {
+        path 'qc'
+    }  
     multiqc_report {
         path 'qc'
     }   

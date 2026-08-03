@@ -9,7 +9,7 @@ process SUMMARISE_MASKS {
     path(exclude_bed)
 
     output: 
-    tuple val(sample), path("mask_summary.bed.gz"), path("mask_summary.bed.gz.tbi"),    emit: mask_summary_bed
+    tuple path("mask_summary.bed.gz"), path("mask_summary.bed.gz.tbi"),    emit: mask_summary_bed
     path("mask_summary.txt"),              emit: mask_summary
 
     script:
@@ -51,9 +51,9 @@ process SUMMARISE_MASKS {
     # Produce the complete interval classification.
     cat excluded_intervals.bed retained_intervals.bed complement_intervals.bed \
         | bedtools sort -i - -g "\$FAI" \
-        | bgzip > mask_summary.bed
+        | bgzip > mask_summary.bed.gz
     
-    tabix -p bed mask_summary.bed
+    tabix -p bed mask_summary.bed.gz
 
     # Summarise sequence length by annotation.
     zcat mask_summary.bed.gz \
