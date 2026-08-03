@@ -5,4 +5,4 @@ channels:
   - bioconda
 
 dependencies:
-  - bioconda::plink2=2.00a5.12
+  - bioconda::plink2=2.0.0a.6.9
