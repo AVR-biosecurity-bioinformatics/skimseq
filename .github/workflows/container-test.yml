@@ -94,6 +94,8 @@ jobs:
           git clone \
             --depth 1 \
             --branch v3.11.5 \
+            --recurse-submodules \
+            --shallow-submodules \
             https://github.com/sylabs/singularity.git
 
           cd singularity
