@@ -145,6 +145,7 @@ workflow {
     ordination_plot = SKIMSEQ.out.ordination_plot
     pca_plot        = SKIMSEQ.out.pca_plot
     tree_plot       = SKIMSEQ.out.tree_plot
+    newick_tree     = SKIMSEQ.out.newick_tree
     popmap          = SKIMSEQ.out.popmap
 
     // QC outputs
@@ -216,6 +217,9 @@ output {
     }
     tree_plot {
         path 'visualisation/trees'
+    }
+    tree_plot {
+        path 'visualisation/newick_tree'
     }
     popmap {
         path 'metadata'

@@ -371,6 +371,7 @@ workflow SKIMSEQ {
     ordination_plot = OUTPUTS.out.ordination_plot
     pca_plot        = OUTPUTS.out.pca_plot
     tree_plot       = OUTPUTS.out.tree_plot
+    newick_tree     = OUTPUTS.out.newick_tree
     popmap          = OUTPUTS.out.popmap
 
     // QC subworkflow

@@ -156,6 +156,7 @@ workflow OUTPUTS {
     ordination_plot  = PLOT_ORDINATION.out.plots
     pca_plot         = PLOT_PCA.out.plots
     tree_plot        = PLOT_TREE.out.plots
+    newick_tree      = PLOT_TREE.out.newick_tree
     popmap           = ch_popmap
 
 }

@@ -8,6 +8,7 @@ process PLOT_TREE {
 
     output: 
     path("*.pdf"),             emit: plots
+    path("*.nwk"),             emit: newick_tree
 
     script:
     """

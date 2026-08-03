@@ -96,28 +96,9 @@ workflow FILTER_VARIANTS {
         "site_filters"
     )
 
-     /*
-        Create sitelist files for re-genotyping
-    */
-    
-    FILTER_VCF.out.sitelist
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
-            def n = counts_file.text.trim() as Integer
-            tuple( interval_hash, interval_bed, bed_tbi, vcf, tbi, n )
-        }
-        .filter { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> tuple( interval_hash, interval_bed, bed_tbi, vcf, tbi) }
-        .set { ch_filtered_sites }
-
-    FILTER_VCF.out.samples_to_keep.first()
-        .splitText( by: 1 )
-        .unique()
-        .set { ch_sample_names_filt }
-   
     // Subset the merged vcf channels to each variant type for emission
     emit:
     filtered_vcf = ch_filtered_vcf
-    filtered_sitelist = ch_filtered_sites
     sample_names_filt = ch_sample_names_filt
     sample_filter_plots = PLOT_SAMPLE_FILTERS.out.plots
     sample_missing_tsv = PLOT_SAMPLE_FILTERS.out.sample_missing_tsv
