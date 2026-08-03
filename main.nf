@@ -68,6 +68,41 @@ workflow {
     validateParameters()
     log.info paramsSummaryLog(workflow)
 
+    // Hack to enforce cram_store and gvcf_store to be within results directory
+    // TODO: Replace directory-based reuse with CRAM/GVCF manifests.
+    // Workflow outputs currently require publication beneath workflow.outputDir.
+    def outdir = new File(workflow.outputDir.toString()).canonicalPath
+
+    if( params.output_cram ) {
+        def cramStore = new File(params.cram_store).canonicalPath
+
+        if( !cramStore.startsWith(outdir) ) {
+            error """
+            params.cram_store must be located within workflow.outputDir
+
+            workflow.outputDir = ${outdir}
+            cram_store         = ${cramStore}
+
+            External CRAM output locations are currently unsupported.
+            """
+        }
+    }
+
+    if( params.output_gvcf ) {
+        def gvcfStore = new File(params.gvcf_store).canonicalPath
+
+        if( !gvcfStore.startsWith(outdir) ) {
+            error """
+            params.gvcf_store must be located within workflow.outputDir
+
+            workflow.outputDir = ${outdir}
+            gvcf_store         = ${gvcfStore}
+
+            External GVCF output locations are currently unsupported.
+            """
+        }
+    }
+
     workflow.onComplete = {
         if ( workflow.success ) {
         log.info "[$workflow.complete] >> Pipeline finished SUCCESSFULLY after $workflow.duration"
@@ -135,17 +170,14 @@ output {
     mask_pass_bed {
         path 'qc'
     }
+    // NOTE: For now cram store and gvcf store have to be within results directory
     cram {
         enabled params.output_cram
-        path params.cram_store.startsWith("${workflow.outputDir}/")
-            ? params.cram_store - "${workflow.outputDir}/"
-            : params.cram_store
+        path new File(params.cram_store).name
     }
     gvcf {
         enabled params.output_gvcf
-        path params.gvcf_store.startsWith("${workflow.outputDir}/")
-            ? params.gvcf_store - "${workflow.outputDir}/"
-            : params.gvcf_store
+        path new File(params.gvcf_store).name
     }
     mito_fasta {
         path 'mito'
