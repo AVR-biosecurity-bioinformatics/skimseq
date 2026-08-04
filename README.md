@@ -124,12 +124,12 @@ nextflow run . \
     -resume
 ```
 
-## Running locally with WSL and Conda
-This assumes you already have WSL and a linux distribution installed (i.e. Ubuntu-24.04), as well as Nextflow and Miniconda
+## Running locally with WSL and Docker Desktop
+This assumes you already have WSL and a linux distribution installed (i.e. Ubuntu-24.04), as well as Nextflow and docker desktop
 
 ```
 nextflow run . \
-    -profile conda \
+    -profile docker \
     -resume
 ```
 
