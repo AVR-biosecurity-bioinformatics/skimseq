@@ -46,31 +46,43 @@ workflow ALIGNMENT {
 
             // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
             VALIDATE_CRAM.out.status
-                .map { sample, stdout -> [ sample, stdout.trim() ] }
+                .map { sample, stdout -> tuple(sample, stdout.trim()) }
                 .join( ch_existing_cram, by: 0 )
-                .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
+                .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
                 .branch {  sample, cram, crai, status ->
                     fail: status == 'FAIL'
                     pass: status == 'PASS'
+                    invalid: true
                 }
                 .set { cram_validation_routes }
 
+            // Fail loudly if there is an invalid status
+            cram_validation_routes.invalid
+                .map { sample, cram, crai, status ->
+                    throw new IllegalStateException(
+                        "Unexpected CRAM validation status for ${sample}: '${status}'"
+                    )
+                }
+                .set { _invalid_cram_status }
+
             // Channel with just passing crams
             cram_validation_routes.pass
-                .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
+                .map { sample, cram, crai, status -> tuple(sample, cram, crai) } 
                 .set { ch_validated_cram }
                 
             // Print warning if any cram files exist but fail validation
             cram_validation_routes.fail
-                .map {  sample, cram, crai, status -> sample } 
+                .map { sample, cram, crai, status -> sample }
                 .unique()
                 .collect()
-                .map { fails ->
-                    if (fails && fails.size() > 0)
-                    log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-                    true
+                .subscribe { fails ->
+                    if (fails) {
+                        log.warn(
+                            "CRAM validation failed for ${fails.size()} sample(s): " +
+                            fails.join(', ')
+                        )
+                    }
                 }
-                .set { _warn_cram_done }  // force evaluation
 
         } else {
           // Skip validation, assume all existing crams are good
@@ -101,7 +113,7 @@ workflow ALIGNMENT {
 
     // Split paired fastq files into even chunks for parallel processing
     SPLIT_FASTQ (
-        ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> [ sample, lib, read1, read2 ] },
+        ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> tuple(sample, lib, read1, read2) },
         params.fastq_chunk_size
     )
 

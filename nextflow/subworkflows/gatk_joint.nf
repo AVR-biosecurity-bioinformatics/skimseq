@@ -150,7 +150,7 @@ workflow GATK_JOINT {
         )
 
         CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_merged_unfiltered_vcf}
+            .set { ch_merged_unfiltered_vcf }
     }
 
     emit: 
