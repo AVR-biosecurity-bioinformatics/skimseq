@@ -2,6 +2,7 @@
 
 Implementation plan:
 - Remove fastq splitting & validation code, keep bam merging
+- Require local fastqs to start
 - Implement this with single fastq input
 - Update to work with mutliple input fastqs and merge
 - Need to update BAM validation

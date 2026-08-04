@@ -173,11 +173,11 @@ workflow SKIMSEQ {
     Validate inputs
     */
 
-    VALIDATE_INPUTS (
-        ch_sample_names,
-        ch_reads,
-        ch_genome_indexed
-    )
+    //VALIDATE_INPUTS (
+    //    ch_sample_names,
+    //    ch_reads,
+    //    ch_genome_indexed
+    //)
 
     /*
     Process reads per sample, aligning to the genome, and merging
@@ -185,8 +185,8 @@ workflow SKIMSEQ {
 
     ALIGNMENT (
         ch_sample_names,
-        VALIDATE_INPUTS.out.validated_fastq,
-        VALIDATE_INPUTS.out.rg_to_validate,
+        ch_reads,
+        //VALIDATE_INPUTS.out.rg_to_validate,
         ch_genome_indexed,
         ch_exclude_bed
     )

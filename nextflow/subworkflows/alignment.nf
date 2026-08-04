@@ -103,46 +103,29 @@ workflow ALIGNMENT {
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
     ch_reads
         .combine(ch_cram_done)  
-        .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
-        .map { sample, lib, fcid, lane, platform, read1, read2, doneSet -> tuple(sample, lib, fcid, lane, platform, read1, read2) }
+        .filter { sample, lib, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
+        .map { sample, lib, read1, read2, doneSet -> tuple(sample, lib, read1, read2) }
         .set { ch_reads_to_map }
 
-    /* 
-        Read splitting
-    */
 
-    // Split paired fastq files into even chunks for parallel processing
-    SPLIT_FASTQ (
-        ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> tuple(sample, lib, read1, read2) },
-        params.fastq_chunk_size
-    )
+    // Prepare mapping intervals 
+    // Grouping here determines how many fastqs  must be produced before a sample can be merged.
 
-    // Parse per-library chunk counts, then sum to per-sample total
-    SPLIT_FASTQ.out.nchunks
-        .map { sample, lib, nchunks_file ->
-            tuple(sample, nchunks_file.text.trim().toInteger())
-        }
+    ch_reads_to_map
         .groupTuple(by: 0)
-        .map { sample, counts ->
-            tuple(sample, counts.sum())
+        .flatMap { sample, libs, read1s, read2s ->
+            def n_intervals = libs.size()
+            (0..<n_intervals).collect { i ->
+                tuple(
+                    sample,
+                    n_intervals,
+                    libs[i],
+                    read1s[i],
+                    read2s[i]
+                )
+            }
         }
-        .set { ch_sample_nchunks }
-
-    // Create new channel with each fastq chunk
-    SPLIT_FASTQ.out.fastq_interval
-        .splitCsv(by: 1, elem: 2, sep: ",")
-        .map { sample, lib, intervals ->
-            tuple(sample, lib, intervals[0], intervals[1])
-        }
-        .combine(ch_reads_to_map, by: [0,1])
-        .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 ->
-            tuple(sample, lib, fcid, lane, platform, read1, read2, int1, int2)
-        }
-        .combine(ch_sample_nchunks, by: 0)
-        .map { sample, lib, fcid, lane, platform, read1, read2, int1, int2, n_chunks ->
-            tuple(sample, n_chunks, lib, fcid, lane, platform, read1, read2, int1, int2)
-        }
-        .set { ch_fastq_split }
+        .set { ch_reads_to_map_intervals }
 
     /* 
         Read mapping
@@ -150,19 +133,16 @@ workflow ALIGNMENT {
 
     // Align reads to genome
     MAP_TO_GENOME (
-        ch_fastq_split,
+        ch_reads_to_map_intervals,
         ch_genome_indexed
     )
     
-    // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all MAP_TO_GENOME to finish
+    // Collect mapping CRAMs as soon as all FASTQ pairs for a sample complete
     MAP_TO_GENOME.out.cram
-        // Add expected group size so each sample emits once all interval CRAms are complete
-        .map { sample, n_chunks, cram, crai ->
-            tuple(groupKey(sample, n_chunks), cram, crai)
+        .map { sample, n_intervals, cram, crai ->
+            tuple(groupKey(sample, n_intervals), cram, crai)
         }
-        // Group interval CRAMs by sample, emitting early when n_intervals have arrived
         .groupTuple()
-        // Emit sample with grouped crams and indexes for concatenation
         .map { key, crams, crais ->
             tuple(key.getGroupTarget(), crams, crais)
         }
