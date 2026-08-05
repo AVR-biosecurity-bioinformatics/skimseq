@@ -15,7 +15,6 @@ workflow ALIGNMENT {
     take:
     ch_sample_names
     ch_reads
-    ch_rg_to_validate
     ch_genome_indexed
     ch_exclude_bed
 
@@ -27,79 +26,83 @@ workflow ALIGNMENT {
     */
 
     // Use existing crams if they are present and the option is set
-    if( params.use_existing_cram ) {
-        ch_sample_names
-            .map { sample ->
-                def cram = file("${params.cram_store}/${sample}.cram")
-                def crai = file("${cram}.crai")
-                tuple(sample, cram, crai)
-            }
-            .filter { sample, cram, crai -> cram.exists() && crai.exists() }
-            .set { ch_existing_cram }
+    //if( params.use_existing_cram ) {
+    //    ch_sample_names
+    //        .map { sample ->
+    //            def cram = file("${params.cram_store}/${sample}.cram")
+    //            def crai = file("${cram}.crai")
+    //            tuple(sample, cram, crai)
+    //        }
+    //        .filter { sample, cram, crai -> cram.exists() && crai.exists() }
+    //        .set { ch_existing_cram }
+    //
+    //    // Validate cram files by default
+    //    if( !params.skip_cram_validation ) {
+    //        VALIDATE_CRAM (
+    //            ch_reads.join(ch_existing_cram, by: 0),
+    //            ch_genome_indexed
+    //        )
+    //
+    //        // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+    //        VALIDATE_CRAM.out.status
+    //            .map { sample, stdout -> tuple(sample, stdout.trim()) }
+    //            .join( ch_existing_cram, by: 0 )
+    //            .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
+    //            .branch {  sample, cram, crai, status ->
+    //                fail: status == 'FAIL'
+    //                pass: status == 'PASS'
+    //                invalid: true
+    //            }
+    //            .set { cram_validation_routes }
+    //
+    //        // Fail loudly if there is an invalid status
+    //        cram_validation_routes.invalid
+    //            .map { sample, cram, crai, status ->
+    //                throw new IllegalStateException(
+    //                    "Unexpected CRAM validation status for ${sample}: '${status}'"
+    //                )
+    //            }
+    //            .set { _invalid_cram_status }
+    //
+    //        // Channel with just passing crams
+    //        cram_validation_routes.pass
+    //            .map { sample, cram, crai, status -> tuple(sample, cram, crai) } 
+    //            .set { ch_validated_cram }
+    //            
+    //        // Print warning if any cram files exist but fail validation
+    //        cram_validation_routes.fail
+    //            .map { sample, cram, crai, status -> sample }
+    //            .unique()
+    //            .collect()
+    //            .subscribe { fails ->
+    //                if (fails) {
+    //                    log.warn(
+    //                        "CRAM validation failed for ${fails.size()} sample(s): " +
+    //                        fails.join(', ')
+    //                    )
+    //                }
+    //            }
+    //
+    //    } else {
+    //      // Skip validation, assume all existing crams are good
+    //      ch_validated_cram = ch_existing_cram 
+    //    }
+    //
+    //    // Sample ids that already have a good CRAM
+    //    ch_validated_cram
+    //        .map { sample, cram, crai -> sample }
+    //        .toList()
+    //        .map { ids -> ids as Set } 
+    //        .set { ch_cram_done }
+    //} else{
+    //    ch_cram_done = Channel.value([] as Set)
+    //    ch_validated_cram = channel.empty()
+    //}
 
-        // Validate cram files by default
-        if( !params.skip_cram_validation ) {
-            VALIDATE_CRAM (
-                ch_rg_to_validate.join(ch_existing_cram, by: 0),
-                ch_genome_indexed
-            )
-
-            // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
-            VALIDATE_CRAM.out.status
-                .map { sample, stdout -> tuple(sample, stdout.trim()) }
-                .join( ch_existing_cram, by: 0 )
-                .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
-                .branch {  sample, cram, crai, status ->
-                    fail: status == 'FAIL'
-                    pass: status == 'PASS'
-                    invalid: true
-                }
-                .set { cram_validation_routes }
-
-            // Fail loudly if there is an invalid status
-            cram_validation_routes.invalid
-                .map { sample, cram, crai, status ->
-                    throw new IllegalStateException(
-                        "Unexpected CRAM validation status for ${sample}: '${status}'"
-                    )
-                }
-                .set { _invalid_cram_status }
-
-            // Channel with just passing crams
-            cram_validation_routes.pass
-                .map { sample, cram, crai, status -> tuple(sample, cram, crai) } 
-                .set { ch_validated_cram }
-                
-            // Print warning if any cram files exist but fail validation
-            cram_validation_routes.fail
-                .map { sample, cram, crai, status -> sample }
-                .unique()
-                .collect()
-                .subscribe { fails ->
-                    if (fails) {
-                        log.warn(
-                            "CRAM validation failed for ${fails.size()} sample(s): " +
-                            fails.join(', ')
-                        )
-                    }
-                }
-
-        } else {
-          // Skip validation, assume all existing crams are good
-          ch_validated_cram = ch_existing_cram 
-        }
-
-        // Sample ids that already have a good CRAM
-        ch_validated_cram
-            .map { sample, cram, crai -> sample }
-            .toList()
-            .map { ids -> ids as Set } 
-            .set { ch_cram_done }
-    } else{
-        ch_cram_done = Channel.value([] as Set)
-        ch_validated_cram = channel.empty()
-    }
-
+    // Temporary - remap all crams
+    ch_cram_done = Channel.value([] as Set)
+    ch_validated_cram = channel.empty()
+    
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
     ch_reads
         .combine(ch_cram_done)  
@@ -136,10 +139,19 @@ workflow ALIGNMENT {
         ch_reads_to_map_intervals,
         ch_genome_indexed
     )
+
+    // Print warning if any files had different numbers of forward and reverse reads
+    MAP_TO_GENOME.out.fastq_warnings
+        .map { sample, lib, warning_file ->
+            tuple(sample, lib, warning_file.text.trim())
+        }
+        .subscribe { sample, lib, warning ->
+            log.warn("MAP_TO_GENOME ${sample}:${lib}: ${warning}")
+        }
     
     // Collect mapping CRAMs as soon as all FASTQ pairs for a sample complete
     MAP_TO_GENOME.out.cram
-        .map { sample, n_intervals, cram, crai ->
+        .map { sample, n_intervals, lib, cram, crai ->
             tuple(groupKey(sample, n_intervals), cram, crai)
         }
         .groupTuple()
@@ -153,8 +165,6 @@ workflow ALIGNMENT {
         ch_cram_to_merge,
         ch_genome_indexed
     )
-
-    // TODO: base quality score recalibration (if a list of known variants are provided)
 
     // combine validated existing CRAMs with newly created CRAMs
     ch_validated_cram

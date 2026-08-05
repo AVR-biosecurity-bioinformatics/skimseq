@@ -4,7 +4,7 @@ process MERGE_CRAM {
     publishDir "${launchDir}/output/modules/merge_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     
     input:
-    tuple val(sample), val(lib), path(cram) 
+    tuple val(sample), path(cram), path(crai) 
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
