@@ -42,11 +42,8 @@
       "type": "object",
       "properties": {
         "samplesheet": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "default": null,
+          "type": "string",
+          "schema": "assets/schema_samplesheet.json",
           "description": "CSV samplesheet describing input samples and FASTQ files.",
           "format": "file-path",
           "exists": true,

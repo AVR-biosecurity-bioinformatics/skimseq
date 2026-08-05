@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "sample",
+      "pop",
+      "fwd",
+      "rev"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "sample": {
+        "type": "string",
+        "minLength": 3,
+        "pattern": ".*\\S.*",
+        "description": "Unique sample identifier."
+      },
+      "pop": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*",
+        "description": "Population identifier."
+      },
+      "fwd": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*",
+        "description": "Forward FASTQ path, URL, or run accession."
+      },
+      "rev": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "Reverse FASTQ path or URL; empty for run accessions."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "fwd": {
+              "pattern": "^(SRR|ERR|DRR)[0-9]+$"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "rev": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^$"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "rev": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": ".*\\S.*"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

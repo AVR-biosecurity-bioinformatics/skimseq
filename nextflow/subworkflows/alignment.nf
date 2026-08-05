@@ -106,30 +106,38 @@ workflow ALIGNMENT {
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
     ch_reads
         .combine(ch_cram_done)  
-        .filter { sample, lib, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
-        .map { sample, lib, read1, read2, doneSet -> tuple(sample, lib, read1, read2) }
+        .filter { sample, lib, source, read1, read2, local_reads, doneSet -> !(doneSet as Set).contains(sample) }
+        .map {  sample, lib, source, read1, read2, local_reads, doneSet -> tuple(sample, lib, source, read1, read2, local_reads) }
         .set { ch_reads_to_map }
-
 
     // Prepare mapping intervals 
     // Grouping here determines how many fastqs  must be produced before a sample can be merged.
 
     ch_reads_to_map
         .groupTuple(by: 0)
-        .flatMap { sample, libs, read1s, read2s ->
+        .flatMap {
+            sample,
+            libs,
+            sources,
+            input1s,
+            input2s,
+            local_reads_groups ->
+
             def n_intervals = libs.size()
+
             (0..<n_intervals).collect { i ->
                 tuple(
                     sample,
                     n_intervals,
                     libs[i],
-                    read1s[i],
-                    read2s[i]
+                    sources[i],
+                    input1s[i],
+                    input2s[i],
+                    local_reads_groups[i]
                 )
             }
         }
         .set { ch_reads_to_map_intervals }
-
     /* 
         Read mapping
     */
