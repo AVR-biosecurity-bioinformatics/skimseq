@@ -5,11 +5,13 @@ process MAP_TO_GENOME {
 
     input:
     tuple val(sample),
-          val(n_intervals),
-          val(lib),
-          path(input1),
-          path(input2)
-    
+        val(n_intervals),
+        val(lib),
+        val(source),
+        val(input1),
+        val(input2),
+        path(local_reads, arity: '0..*')
+
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
@@ -35,9 +37,6 @@ process MAP_TO_GENOME {
     // Source bash functions
     def bash_utils = "${projectDir}/bin/functions.sh"
     
-    // Temporarily fix soruce to local - Other sources to be added in future
-    def source="local"
-
     // Thread handling - as mapping runs concurrently
     def fastp_threads = task.cpus >= 5 ? 2 : 1
     def sort_threads  = task.cpus >= 5 ? 2 : 1
@@ -54,10 +53,12 @@ process MAP_TO_GENOME {
 
     # Handle different fastq sources
     if [[ "${source}" == "local" ]]; then
+        USING_FIFOS=false
         # Local files
         FASTQ1="${input1}"
         FASTQ2="${input2}"
     else
+        USING_FIFOS=true
         # Files to be downloaded from online repositories
         case "${source}" in
             url)
@@ -99,7 +100,7 @@ process MAP_TO_GENOME {
 
     # Extract the first FASTQ header without decompressing the entire file.
     READ_HEADER=\$(
-        seqkit head -n 1 "${input1}" |
+        seqkit head -n 1 "\${FASTQ1}" |
             sed -n '1{s|/1\$||;p;}'
     )
     echo \${READ_HEADER}
@@ -211,6 +212,8 @@ process MAP_TO_GENOME {
     fi
 
     # Clean up FIFOs
-    rm -f "\${FASTQ1}" "\${FASTQ2}"
+    if [[ "\${USING_FIFOS}" == true ]]; then
+        rm -f "\${FASTQ1}" "\${FASTQ2}"
+    fi
     """
 }

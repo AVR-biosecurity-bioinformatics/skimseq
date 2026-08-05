@@ -30,6 +30,7 @@ workflow SKIMSEQ {
     Input channel parsing
     */    
 
+    // Check samplesheet was provided
     if ( params.samplesheet ){
         ch_samplesheet = Channel
             .fromPath (
@@ -53,37 +54,143 @@ workflow SKIMSEQ {
                     "Found columns: ${present.toList().sort().join(', ')}"
             }
 
-            // Parse samplesheet columns
-            def sample = row.sample.toString().trim()
-            def pop    = row.pop.toString().trim().replaceAll(/\s+/, '_')
-            def r1     = file(row.fwd, checkIfExists: true)
-            def r2     = file(row.rev, checkIfExists: true)
+            // Parse sample-sheet columns as strings rather than to handle remote sources
+            def sample = row.sample?.toString()?.trim()
+            def pop    = row.pop?.toString()?.trim()?.replaceAll(/\s+/, '_')
+            def fwd    = row.fwd?.toString()?.trim()
+            def rev    = row.rev?.toString()?.trim()
 
-            // Fail early if any sample names less than 3 characters
+            if (!sample) {
+                error "Samplesheet contains an empty sample value."
+            }
+
+            if (!pop) {
+                error "Sample '${sample}' has an empty population value."
+            }
+
+            if (!fwd) {
+                error "Sample '${sample}' has an empty fwd value."
+            }
+
+            // bcftools +fill-tags fails with two-character sample IDs
             if( sample.size() < 3 ) {
                 error "Invalid sample name '${sample}' in samplesheet. " +
                     "Sample names must be at least 3 characters long because bcftools +fill-tags fails on 2-character sample IDs."
             }
 
-            def lib = r1.getName().replaceFirst(/\.(fastq|fq)\.gz$/, '')
-            tuple(sample, lib, pop, r1, r2)
+            // Detect input source
+            def is_url = { value ->
+                value ==~ /(?i)^(https?|ftp):\/\/.+/
+            }
+            
+            def is_run_accession = { value ->
+                value ==~ /(?i)^(SRR|ERR|DRR)\d+$/
+            }
+            
+            def source
+            if( is_url(fwd) ) {
+                source = 'url'
+                if( !rev ) {
+                    error("URL input for sample '${sample}' requires URLs in both the fwd and rev columns.")
+                }
+                if( !is_url(rev) ) {error("Mixed input types for sample '${sample}': fwd is a URL but rev is not: '${rev}'")
+                }
+            }
+            else if( is_run_accession(fwd) ) {
+                source = 'accession'
+                if( rev ) {
+                    error(
+                        "Run accession '${fwd}' for sample '${sample}' should " +
+                        "not have a value in the rev column. The accession " +
+                        "resolver should obtain both mates."
+                    )
+                }
+            }
+             else {
+                source = 'local'
+                if( !rev ) {
+                    error("Local input for sample '${sample}' requires files in both the fwd and rev columns." )
+                }
+                if( is_url(rev) || is_run_accession(rev) ) {
+                    error("Mixed input types for sample '${sample}': fwd appears local but rev is '${rev}'")
+                }
+            }
+
+            // Convert only local inputs to Nextflow file objects.
+            // URLs and accessions need to remain as strings.
+            def input1
+            def input2
+            def local_reads
+            def lib
+
+            switch (source) {
+                case 'local':
+                    def r1 = file(fwd, checkIfExists: true)
+                    def r2 = file(rev, checkIfExists: true)
+
+                    input1     = r1.name
+                    input2     = r2.name
+                    local_reads = [r1, r2]
+
+                    lib = r1.name.replaceFirst(
+                        /(?i)(?:_R?1(?:_\d+)?)?\.(fastq|fq)(\.gz)?$/,
+                        ''
+                    )
+                    break
+
+                case 'url':
+                    input1      = fwd
+                    input2      = rev
+                    local_reads = []
+
+                    def url_name = fwd
+                        .replaceFirst(/[?#].*$/, '')
+                        .tokenize('/')
+                        .last()
+
+                    lib = url_name.replaceFirst(
+                        /(?i)(?:_R?1(?:_\d+)?)?\.(fastq|fq)(\.gz)?$/,
+                        ''
+                    )
+                    break
+
+                case 'accession':
+                    input1      = fwd
+                    input2      = ''
+                    local_reads = []
+                    lib         = fwd
+                    break
+
+                default:
+                    error "Internal error: unrecognised source '${source}' for sample '${sample}'"
+            }
+
+            tuple(
+                sample,
+                lib,
+                pop,
+                source,
+                input1,
+                input2,
+                local_reads
+            )
         }
         .set { ch_samplesheet_parsed }
 
     // Reads channel
     ch_samplesheet_parsed
-        .map { sample, lib, pop, r1, r2 -> tuple(sample, lib, r1, r2) }
+        .map { sample, lib, pop, source, input1, input2, local_reads -> tuple(sample, lib, source, input1, input2, local_reads) }
         .set { ch_reads }
 
     // Sample names channel
     ch_samplesheet_parsed
-        .map { sample, lib, pop, r1, r2 -> sample }
+        .map { sample, lib, pop, source, r1, r2 -> sample }
         .unique()
         .set { ch_sample_names }
 
     // Sample names and pops channel
     ch_samplesheet_parsed
-        .map { sample, lib, pop, r1, r2 -> tuple(sample, pop) }
+        .map { sample, lib, pop, source, r1, r2 -> tuple(sample, pop) }
         .set { ch_sample_pop }
 
     // Validate that there are enough pops for calling_model
