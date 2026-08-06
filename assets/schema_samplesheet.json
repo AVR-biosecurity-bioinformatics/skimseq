@@ -3,13 +3,12 @@
   "type": "array",
   "items": {
     "type": "object",
+    "additionalProperties": false,
     "required": [
       "sample",
       "pop",
-      "fwd",
-      "rev"
+      "fwd"
     ],
-    "additionalProperties": false,
     "properties": {
       "sample": {
         "type": "string",
@@ -30,11 +29,10 @@
         "description": "Forward FASTQ path, URL, or run accession."
       },
       "rev": {
-        "type": [
-          "string",
-          "null"
-        ],
-        "description": "Reverse FASTQ path or URL; empty for run accessions."
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*",
+        "description": "Reverse FASTQ path or URL; leave empty for accessions."
       }
     },
     "allOf": [
@@ -44,27 +42,22 @@
             "fwd": {
               "pattern": "^(SRR|ERR|DRR)[0-9]+$"
             }
-          }
+          },
+          "required": [
+            "fwd"
+          ]
         },
         "then": {
-          "properties": {
-            "rev": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "pattern": "^$"
-            }
+          "not": {
+            "required": [
+              "rev"
+            ]
           }
         },
         "else": {
-          "properties": {
-            "rev": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": ".*\\S.*"
-            }
-          }
+          "required": [
+            "rev"
+          ]
         }
       }
     ]

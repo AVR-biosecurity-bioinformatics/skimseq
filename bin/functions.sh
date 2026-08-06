@@ -79,10 +79,58 @@ download_fastq_stream_curl() {
         --silent \
         --show-error \
         --location \
-        --retry 999999 \
+        --retry 10 \
         --retry-delay 30 \
+        --retry-all-errors \
+        --connect-timeout 60 \
+        --max-time 21600 \
         "${url}"
 }
+
+# Validate that a file from URL begins with the gzip magic bytes 1f 8b.
+# The request is limited to the first two bytes. Do not use
+# --retry-all-errors here because closing a short validation stream can
+# otherwise cause curl write errors to be retried.
+validate_gzip_url() {
+    local url="$1"
+    local magic
+
+    if [[ -z "${url}" ]]; then
+        echo "ERROR: validate_gzip_url received an empty URL" >&2
+        return 2
+    fi
+
+    echo "Validating remote gzip stream: ${url}" >&2
+
+    magic=$(
+        curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --range 0-1 \
+            --retry 3 \
+            --retry-delay 5 \
+            --connect-timeout 30 \
+            --max-time 60 \
+            "${url}" \
+        | od -An -N2 -tx1 \
+        | tr -d '[:space:]'
+    )
+
+    if [[ "${magic}" != "1f8b" ]]; then
+        echo \
+            "ERROR: URL did not return gzip data: ${url}" \
+            >&2
+        echo \
+            "ERROR: expected gzip signature 1f8b, received '${magic:-no data}'" \
+            >&2
+        return 1
+    fi
+
+    return 0
+}
+
 
 # Accepts ENA or SRA accession - resolves to ENA
 resolve_fastqs() {
