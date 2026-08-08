@@ -197,8 +197,6 @@ process MAP_TO_GENOME {
         "${ref_genome}" \
         - \
     | dupblaster \
-        --stats ${lib}.dupblaster.tsv  \
-        --sample ${sample} \
         -o - \
     | samtools sort \
         -@ "${sort_threads}" \

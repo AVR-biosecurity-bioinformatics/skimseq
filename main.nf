@@ -153,7 +153,6 @@ workflow {
     sample_missing_tsv = SKIMSEQ.out.sample_missing_tsv
     site_filter_plots = SKIMSEQ.out.site_filter_plots
     cram_stats      = SKIMSEQ.out.cram_stats
-    cram_plots      = SKIMSEQ.out.cram_plots
     vcf_stats       = SKIMSEQ.out.vcf_stats
     multiqc_report  = SKIMSEQ.out.multiqc_report
     multiqc_plots   = SKIMSEQ.out.multiqc_plots
@@ -229,9 +228,6 @@ output {
     }
     cram_stats {
         path 'qc/cram_stats/cram_qc_data'
-    }
-    cram_plots {
-        path 'qc/cram_stats/cram_qc_plots'
     }
     vcf_stats {
         path 'qc/vcf_stats'
