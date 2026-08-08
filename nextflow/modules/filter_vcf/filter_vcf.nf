@@ -19,12 +19,6 @@ process FILTER_VCF {
     tuple val(interval_hash),
           path(interval_bed), 
           path(bed_tbi), 
-          path("${interval_hash}.sitelist.vcf.gz"), 
-          path("${interval_hash}.sitelist.vcf.gz.tbi"),
-          path("*.counts"),        emit: sitelist
-    tuple val(interval_hash),
-          path(interval_bed), 
-          path(bed_tbi), 
           path("${interval_hash}.metrics.tsv.gz"),        emit: metrics
     path("*samples.txt"), emit: samples_to_keep
 

@@ -41,6 +41,10 @@ fi
 btmp="${TMPDIR}/tmp.bed"
 
 # Extract included regions from each compressed BED, then sort by BED coordinates.
+SORTED_DIR="${TMPDIR}/sorted
+mkdir -p "$SORTED_DIR
+export SORTED_DIR
+
 xargs \
     -r \
     -P "${CPUS}" \
@@ -49,7 +53,8 @@ xargs \
         set -euo pipefail
 
         f="$1"
-        out="${f%.bed.gz}.sorted.bed"
+        base=$(basename "$f" .bed.gz)
+        out="${SORTED_DIR}/${base}.sorted.bed"
 
         tabix "$f" -R contigs.bed \
             | LC_ALL=C sort -k1,1 -k2,2n -k3,3n \
@@ -58,7 +63,8 @@ xargs \
     < counts_files.list
 
 # Merge pre-sorted files with bedops, then sum across GAP_BP, sort back into genome (can be non lexagraphical) order.
-bedops --everything *.sorted.bed \
+
+bedops --everything ${SORTED_DIR}/*.sorted.bed \
 | bedtools merge -i - -d ${GAP_BP} -c 4 -o sum \
 | bedtools sort -i - -g ${3}.fai > "$btmp"
 

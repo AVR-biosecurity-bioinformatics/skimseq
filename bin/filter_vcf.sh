@@ -253,11 +253,6 @@ bcftools view --threads "${1}" -f PASS -Ou tmp.bcf \
   | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.filt.vcf.gz 
 bcftools index --threads ${1} -t ${4}.filt.vcf.gz
 
-# Create filtered sitelist file by dropping non-passing variants and genotypes
-bcftools view --threads "${1}" -G -f PASS -Ou tmp.bcf \
-  | bcftools annotate -x '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' -Oz9 -o ${4}.sitelist.vcf.gz 
-bcftools index --threads ${1} -t ${4}.sitelist.vcf.gz
-
 # Create metrics file for QC histograms
 mapfile -t INFO_TAGS < <(
   bcftools view -h tmp.bcf \

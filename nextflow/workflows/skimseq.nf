@@ -452,7 +452,6 @@ workflow SKIMSEQ {
 
     // QC subworkflow
     cram_stats       = QC.out.cram_stats
-    cram_plots       = QC.out.cram_plots
     vcf_stats        = QC.out.vcf_stats
     multiqc_report   = QC.out.multiqc_report
     multiqc_plots    = QC.out.multiqc_plots

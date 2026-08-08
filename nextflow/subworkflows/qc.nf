@@ -64,7 +64,6 @@ workflow QC {
 
     emit:
     cram_stats       = CRAM_STATS_RIKER.out.stats
-    cram_plots       = CRAM_STATS_RIKER.out.plots
     vcf_stats        = VCF_STATS.out.vcfstats
     multiqc_report   = MULTIQC.out.report
     multiqc_plots    = MULTIQC.out.plots
