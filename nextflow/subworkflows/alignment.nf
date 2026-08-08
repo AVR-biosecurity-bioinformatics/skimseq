@@ -111,22 +111,36 @@ workflow ALIGNMENT {
         .set { ch_reads_to_map }
 
     // Prepare mapping intervals 
-    // Grouping here determines how many fastqs  must be produced before a sample can be merged.
-
+    // Grouping here determines how many fastqs must be produced before a sample can be merged.
+    // Sorted by remote, then largest to smallest local
+    // This ensures longer running jobs start first, smaller jobs backfill once resources available
     ch_reads_to_map
         .groupTuple(by: 0)
-        .flatMap {
-            sample,
-            libs,
-            sources,
-            input1s,
-            input2s,
-            local_reads_groups ->
+        .flatMap {sample, libs, sources, input1s, input2s, local_reads_groups ->
+            int n_intervals = libs.size()
 
-            def n_intervals = libs.size()
+            /*
+            * Total size of all local FASTQs belonging to this sample.
+            * Online libraries contribute zero because local_reads is [].
+            */
+            long sample_local_size = (0..<n_intervals).sum { i ->
+                sources[i] == 'local'
+                    ? local_reads_groups[i].sum { read -> read.size() } as long
+                    : 0L
+            } as long
 
             (0..<n_intervals).collect { i ->
+                boolean is_local = sources[i] == 'local'
+
+                /*
+                * Temporary tuple:
+                *   0: interval priority: online=0, local=1
+                *   1: total local FASTQ size for the sample
+                *   2+: mapping interval
+                */
                 tuple(
+                    is_local ? 1 : 0,
+                    sample_local_size,
                     sample,
                     n_intervals,
                     libs[i],
@@ -136,6 +150,17 @@ workflow ALIGNMENT {
                     local_reads_groups[i]
                 )
             }
+        }
+        .toSortedList { a, b ->
+            (a[0] <=> b[0]) ?:  // Online intervals first
+            (b[1] <=> a[1]) ?:  // Largest local samples first
+            (a[2] <=> b[2]) ?:  // Keep each sample together
+            (a[4] <=> b[4])     // Deterministic library order
+        }
+        .flatMap { it }
+        .map {
+            priority, sample_local_size, sample, n_intervals, lib, source, input1, input2, local_reads ->
+                tuple( sample,n_intervals, lib, source, input1, input2, local_reads )
         }
         .set { ch_reads_to_map_intervals }
     /* 
