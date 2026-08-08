@@ -41,8 +41,8 @@ fi
 btmp="${TMPDIR}/tmp.bed"
 
 # Extract included regions from each compressed BED, then sort by BED coordinates.
-SORTED_DIR="${TMPDIR}/sorted
-mkdir -p "$SORTED_DIR
+SORTED_DIR="${TMPDIR}/sorted"
+mkdir -p "$SORTED_DIR"
 export SORTED_DIR
 
 xargs \

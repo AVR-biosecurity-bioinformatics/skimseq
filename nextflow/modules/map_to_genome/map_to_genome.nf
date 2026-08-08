@@ -24,11 +24,6 @@ process MAP_TO_GENOME {
 
     tuple val(sample),
         val(lib),
-        path("${lib}.dupblaster.tsv"),
-        emit: duplication_metrics
-
-    tuple val(sample),
-        val(lib),
         path("${lib}.fastq_warnings.txt"),
         optional: true,
         emit: fastq_warnings
