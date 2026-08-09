@@ -46,7 +46,7 @@ process REALIGN_MITO {
     #   0x800 supplementary
     samtools view \
         -@ ${task.cpus} \
-        -T ${ref_fasta} \
+        -T ${ref_genome} \
         -b \
         -F 0xF04 \
         --regions-file mt_numt.bed \
@@ -59,11 +59,6 @@ process REALIGN_MITO {
             -s /dev/null \
             -o mito.fq \
             -
-
-    if [[ ! -s mito.fq ]]; then
-        echo "ERROR: no mitochondrial/NUMT-associated reads were recruited for ${sample}" >&2
-        exit 1
-    fi
 
     # Align the recruited reads against the original mitochondrial reference.
     minibwa mem \
@@ -80,7 +75,7 @@ process REALIGN_MITO {
 
     samtools index \
         -@ ${task.cpus} \
-        ${sample}.mt.bam
+        ${sample}.mito.bam
 
     # Align the same reads against the shifted mitochondrial reference
     minibwa mem \
@@ -97,7 +92,7 @@ process REALIGN_MITO {
 
     samtools index \
         -@ ${task.cpus} \
-        ${sample}.mt.shifted.bam
+        ${sample}.mito.shifted.bam
 
     rm -f mito.fq
 

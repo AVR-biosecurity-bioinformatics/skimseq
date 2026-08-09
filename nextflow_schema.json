@@ -298,8 +298,25 @@
           "type": "integer",
           "default": 8000,
           "description": "Shift mito fasta by this many bases for realignment.",
-          "minimum": 0,
-          "maximum": 100000
+          "minimum": 0
+        },
+        "mito_minbq": {
+          "type": "integer",
+          "default": 10,
+          "description": "Mito read minimum base quality.",
+          "minimum": 0
+        },
+        "mito_minmq": {
+          "type": "integer",
+          "default": 20,
+          "description": "Mito read minimum mapping quality.",
+          "minimum": 0
+        },
+        "mito_trim_read_ends": {
+          "type": "integer",
+          "default": 0,
+          "description": "Mito read trim ends.",
+          "minimum": 0
         },
         "mito_min_vaf": {
           "type": "number",

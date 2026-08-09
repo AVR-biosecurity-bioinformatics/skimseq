@@ -8,9 +8,9 @@ process INDEX_MITO {
     val(mito_contig)
 
     output: 
-    tuple path("mito.shifted.fa"), path("mito.fa.{fai,l2b,mbw}"),   emit: mito_indexed
-    tuple path("mito.fa"), path("mito.shifted.fa.{fai,l2b,mbw}"),   emit: shifted_mito_indexed
-    path("mito.bed"),                                               emit: bed
+    tuple path("mito.fa"), path("mito.fa.{fai,l2b,mbw}"),                   emit: mito_indexed
+    tuple path("mito.shifted.fa"), path("mito.shifted.fa.{fai,l2b,mbw}"),   emit: shifted_mito_indexed
+    path("mito.bed"),                                                       emit: bed
     
     script:
     """
