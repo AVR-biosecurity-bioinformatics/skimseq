@@ -43,56 +43,214 @@ nextflow run . -profile basc_modules,debug \
 
 ```
 
+# Create Qfly test datasets
+This test data set uses a small segment of Qfly chromosome 1: CM028320.1:50000-99999, and CM028321.1:50000-59999
 
-## Create Qfly test datasets
-This test data set uses a small segment of Qfly chromosome 1: CM028320.1:50000-99999
-
-Only read pairs where at least 1 of the reads aligns to this region are included. 
 ```
-module load SAMtools/1.21-GCC-13.3.0
-module load BEDTools/2.31.1-GCC-13.3.0
+ml Miniconda3/24.7.1-0
+conda create \
+    --name rasusa \
+    --channel conda-forge \
+    --channel bioconda \
+    --strict-channel-priority \
+    rasusa=5.1.0 \
+    minibwa=0.6 \
+    samtools=1.24
 
-# Sample 1 EM6.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/Skim/bams_recal_nind1maf1/bams/EM6.bam "CM028320.1:50000-99999" "CM028321.1:50000-59999" \
-| samtools sort -n > subset.bam
-bedtools bamtofastq -i subset.bam -fq test_data/qfly/EM6_subset_R1.fastq -fq2 test_data/qfly/EM6_subset_R2.fastq
-gzip -f test_data/qfly/EM6_subset_R1.fastq test_data/qfly/EM6_subset_R2.fastq
+conda activate rasusa
 
-# Sample 2 EM3.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/Skim/bams_recal_nind1maf1/bams/EM3.bam "CM028320.1:50000-99999" "CM028321.1:50000-59999" \
-| samtools sort -n > subset.bam
-bedtools bamtofastq -i subset.bam -fq test_data/qfly/EM3_subset_R1.fastq -fq2 test_data/qfly/EM3_subset_R2.fastq
-gzip -f test_data/qfly/EM3_subset_R1.fastq test_data/qfly/EM3_subset_R2.fastq
+BAM_DIR="/group/pathogens/IAWS/Personal/Alexp/skimseq_qfly/output/results/cram"
+REF_GENOME="/group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic_withmito.fna"
+MITO_FASTA="/group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa"
+OUTPUT_DIR="test_data/qfly"
+mkdir -p $OUTPUT_DIR
 
-# Sample 3 F3.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/Skim/bams_recal_nind1maf1/bams/F3.bam "CM028320.1:50000-99999" "CM028321.1:50000-59999" \
- | samtools sort -n > subset.bam
-bedtools bamtofastq -i subset.bam -fq test_data/qfly/F3_subset_R1.fastq -fq2 test_data/qfly/F3_subset_R2.fastq
-gzip -f test_data/qfly/F3_subset_R1.fastq test_data/qfly/F3_subset_R2.fastq
+MITO_CONTIG="HQ130030.1"
+SAMPLES=(
+    "EM6"
+    "EM3"
+    "F3"
+    "F2xM12-F1"
+)
 
-# Sample 4 F2xM12-F1.bam
-samtools view -b --fetch-pairs /group/pathogens/IAWS/Projects/Tephritid/Skim/bams_recal_nind1maf1/bams/F2xM12-F1.bam "CM028320.1:50000-99999" "CM028321.1:50000-59999" \
- | samtools sort -n > subset.bam
-bedtools bamtofastq -i subset.bam -fq test_data/qfly/F2xM12-F1_subset_R1.fastq -fq2 test_data/qfly/F2xM12-F1_subset_R2.fastq
-gzip -f test_data/qfly/F2xM12-F1_subset_R1.fastq test_data/qfly/F2xM12-F1_subset_R2.fastq
+REGIONS=(
+    "CM028320.1:50000-99999"
+    "CM028321.1:50000-59999"
+    "${MITO_CONTIG}"
+)
 
-# Subset reference genome to that portion - Fix header with sed to avoid error with gatk
-samtools faidx /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/GCA_016617805.2_CSIRO_BtryS06_freeze2_genomic.fna "CM028320.1:50000-99999" "CM028321.1:50000-59999" | sed 's/:.*$//g' > test_data/qfly/test_qfly_genome.fa
+# Build cut down reference
+TEST_REFERENCE="${OUTPUT_DIR}/test_qfly_genome.fa"
 
-# add mitochondrial genome to reference genome
-cat /group/referencedata/mspd-db/genomes/insect/bactrocera_tryoni/mitogenome/HQ130030.1_Bactrocera_tryoni_mitochondrion.fa >> test_data/qfly/test_qfly_genome.fa
+samtools faidx \
+    "$REF_GENOME" \
+    "CM028320.1:50000-99999" \
+    "CM028321.1:50000-59999" \
+    "$MITO_CONTIG" |
+    sed 's/:.*$//' \
+    > "$TEST_REFERENCE"
 
-# create sample data sheet
-fwd=$( find test_data/qfly/ -maxdepth 1 -name '*.fastq.gz' -type f | grep '_R1' | sort | uniq )
-rev=$(echo "$fwd" | sed 's/_R1/_R2/g' )
-sample_id=$(echo "$fwd" | sed 's/_subset.*$//g' | sed 's/^.*\///g')
+samtools faidx "$TEST_REFERENCE"
+minibwa index "$TEST_REFERENCE"
 
-# Create fake population labels
-pop=$(echo -e "Pop1\nPop1\nPop2\nPop3")
+for sample in "${SAMPLES[@]}"; do
+    cram="${BAM_DIR}/${sample}.cram"
 
-# format sample,fastq_1,fastq_2,
-paste -d ',' <(echo "sample_id") <(echo "pop") <(echo "fwd") <(echo "rev") > test_data/qfly/test_samplesheet.csv
-paste -d ',' <(echo "$sample_id") <(echo "$pop")  <(echo "$fwd") <(echo "$rev") >> test_data/qfly/test_samplesheet.csv
+    recruited_r1="${OUTPUT_DIR}/${sample}.recruited_R1.fastq.gz"
+    recruited_r2="${OUTPUT_DIR}/${sample}.recruited_R2.fastq.gz"
+    recruited_singleton="${OUTPUT_DIR}/${sample}.recruited_singleton.fastq.gz"
+
+    recruited_bam="${OUTPUT_DIR}/${sample}.recruited.bam"
+    subsampled_bam="${OUTPUT_DIR}/${sample}.recruited.5x.bam"
+
+    r1="${OUTPUT_DIR}/${sample}_subset_R1.fastq.gz"
+    r2="${OUTPUT_DIR}/${sample}_subset_R2.fastq.gz"
+    singleton="${OUTPUT_DIR}/${sample}_subset_singleton.fastq.gz"
+    category0="${OUTPUT_DIR}/${sample}_subset_cat0.fastq.gz"
+    echo "[INFO] Recruiting test reads for $sample" >&2
+
+    ###########################################################################
+    # Recruit complete templates from the original CRAM and realign
+    ###########################################################################
+
+    samtools view \
+        --threads 4 \
+        --fetch-pairs \
+        --reference "$REF_GENOME" \
+        -f 0x1 \
+        -F 0xF00 \
+        -u \
+        "$cram" \
+        "${REGIONS[@]}" |
+        samtools collate \
+            --threads 4 \
+            -Ou \
+            - |
+        samtools fastq \
+            --threads 4 \
+            -n \
+            -0 /dev/null \
+            -s /dev/null \
+            - |
+        minibwa mem \
+            -t 4 \
+            -p \
+            -R "@RG\tID:${sample}\tSM:${sample}\tPL:ILLUMINA" \
+            "$TEST_REFERENCE" \
+            - |
+        samtools sort \
+            --threads 4 \
+            -O BAM \
+            -o "$recruited_bam" \
+            -
+
+    samtools index \
+        --threads 4 \
+        "$recruited_bam"
+
+    ###########################################################################
+    # Subsample every reduced-reference contig to approximately 30x
+    ###########################################################################
+
+    rasusa aln \
+        --coverage 30 \
+        --seed 42 \
+        --output "$subsampled_bam" \
+        "$recruited_bam"
+
+    ###########################################################################
+    # Convert back to paired FASTQs
+    ###########################################################################
+
+    samtools view \
+        --threads 4 \
+        -u \
+        -f 0x1 \
+        -F 0xF0C \
+        "$subsampled_bam" |
+    samtools collate \
+        --threads 4 \
+        -Ou \
+        - |
+    samtools fastq \
+        --threads 4 \
+        -n \
+        -1 "$r1" \
+        -2 "$r2" \
+        -0 "$category0" \
+        -s "$singleton" \
+        -
+
+    r1_reads=$(gzip -cd "$r1" | awk 'END { print int(NR / 4) }' )
+    r2_reads=$(gzip -cd "$r2" | awk 'END { print int(NR / 4) }' )
+
+    printf \
+        "[INFO] %s: %d paired templates and %d singletons written\n" \
+        "$sample" \
+        "$r1_reads" \
+        >&2
+
+    rm -f \
+        "$recruited_r1" \
+        "$recruited_r2" \
+        "$recruited_singleton" \
+        "$recruited_bam" \
+        "${recruited_bam}.bai" \
+        "$subsampled_bam" \
+        "${subsampled_bam}.bai"
+done
+
+# Create samplesheet
+
+declare -A SAMPLE_IDS=(
+    ["EM6"]="EM6"
+    ["EM3"]="EM3"
+    ["F3"]="F3A"
+    ["F2xM12-F1"]="F2xM12-F1"
+)
+
+declare -A POPULATIONS=(
+    ["EM6"]="Pop1"
+    ["EM3"]="Pop1"
+    ["F3"]="Pop2"
+    ["F2xM12-F1"]="Pop3"
+)
+
+SAMPLESHEET="${OUTPUT_DIR}/test_samplesheet.csv"
+
+printf 'sample,pop,fwd,rev\n' > "$SAMPLESHEET"
+
+for sample in "${SAMPLES[@]}"; do
+    sample_id="${SAMPLE_IDS[$sample]}"
+    r1="${OUTPUT_DIR}/${sample}_subset_R1.fastq.gz"
+    r2="${OUTPUT_DIR}/${sample}_subset_R2.fastq.gz"
+
+    if [[ -z "${sample_id:-}" ]]; then
+        echo "ERROR: no sample ID defined for source sample: $sample" >&2
+        exit 1
+    fi
+
+    if [[ ! -v "POPULATIONS[$sample]" ]]; then
+        echo "ERROR: no population defined for sample: $sample" >&2
+        exit 1
+    fi
+
+    for fastq in "$r1" "$r2"; do
+        if [[ ! -s "$fastq" ]]; then
+            echo "ERROR: FASTQ is missing or empty: $fastq" >&2
+            exit 1
+        fi
+    done
+
+    printf '%s,%s,%s,%s\n' \
+        "$sample_id" \
+        "${POPULATIONS[$sample]}" \
+        "$r1" \
+        "$r2" \
+        >> "$SAMPLESHEET"
+done
+
+
 ```
 
 ### Run test datasets
@@ -114,27 +272,4 @@ module load Miniconda3/24.7.1-0
 export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
 nextflow run . -profile debug,test -config conf/basc.config --slurm_account fruitfly -resume
 
-
 ```
-
-# Current conda dependencies:
-  - bioconda::bedtools=2.31.1
-  - bioconda::gatk4=4.6.2.0
-  - bioconda::bedtools=2.31.1
-  - bioconda::bcftools=1.24
-  - bioconda::samtools=1.24
-  - bioconda::bwa-mem2=2.3
-  - bioconda::seqkit=2.13.0
-  - conda-forge::pigz=2.8
-  - bioconda::bedops=2.4.42
-  - bioconda::fastqc=0.12.1
-  - bioconda::genmap=1.3.0
-  - bioconda::seqtk=r93
-  - bioconda::longdust=1.4
-  - bioconda::multiqc=1.35
-
-# Extra avaiable conda packages
-  - bioconda:angsd=0.940
-  - bioconda::pcangsd
-Note: VCF2DIS is not currently covered in conda
-Can transfer these to sequera containers once container issue is fixed

@@ -28,63 +28,45 @@ process PILEUP_MITO {
           emit: counts
 
     script:
-    /*
-     * groupTuple() produces one list for each tuple element. Transpose them
-     * back into sample-level records and sort deterministically by sample ID.
-     */
     def ordered = [
         samples,
         bams,
-        bais,
-        shifted_bams,
-        shifted_bais
+        shifted_bams
     ]
         .transpose()
-        .sort { a, b -> a[0] <=> b[0] }
-
-    if (!ordered) {
-        error "No mitochondrial alignments were supplied for cohort '${cohort}'"
-    }
-
-    /*
-     * The manifest records the exact relationship between minipileup input
-     * order and sample ID. This must use the same ordering as the BAM
-     * arguments below.
-     */
-    def sampleLines = ordered.collectWithIndex { item, index ->
-        def sample     = item[0]
-        def bam        = item[1]
-        def bai        = item[2]
-        def shiftedBam = item[3]
-        def shiftedBai = item[4]
-
-        [
-            index + 1,
-            sample,
-            bam,
-            bai,
-            shiftedBam,
-            shiftedBai
-        ].join('\t')
-    }.join('\n')
+        .sort { a, b -> a[0].toString() <=> b[0].toString() }
 
     def originalArgs = ordered
-        .collect { item -> "'${item[1]}'" }
+        .collect { sample, bam, shiftedBam -> "'${bam}'" }
         .join(' ')
 
     def shiftedArgs = ordered
-        .collect { item -> "'${item[3]}'" }
+        .collect { sample, bam, shiftedBam -> "'${shiftedBam}'" }
         .join(' ')
+
+    def sampleLines = (0..<ordered.size())
+        .collect { index ->
+            def item = ordered[index]
+
+            [
+                index + 1,
+                item[0],
+                item[1],
+                item[2]
+            ].join('\t')
+        }
+        .join('\n')
+
+    def sampleManifest = [
+        'input_index\tsample_id\toriginal_bam\tshifted_bam',
+        sampleLines
+    ].join('\n') + '\n'
 
     """
     #!/usr/bin/env bash
-
     set -euo pipefail
 
-    cat > '${cohort}.samples.tsv' <<'EOF'
-    input_index\tsample_id\toriginal_bam\toriginal_bai\tshifted_bam\tshifted_bai
-    ${sampleLines}
-    EOF
+    printf '%s' '${sampleManifest}' > '${cohort}.samples.tsv'
 
     # All-sites pileup against the original mitochondrial reference.
     #
