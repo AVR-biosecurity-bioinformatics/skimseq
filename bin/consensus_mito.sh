@@ -195,3 +195,5 @@ cut -f4 ${3}.allele_counts.txt \
   | sed -e "1i>${2}" -e 's/.\{60\}/&\n/g' \
   > ${3}.mito.fa
 
+# clean up
+rm mito.fq 
