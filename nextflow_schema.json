@@ -294,6 +294,13 @@
       "description": "Thresholds used to generate the mitochondrial consensus.",
       "type": "object",
       "properties": {
+        "mito_shift": {
+          "type": "integer",
+          "default": 8000,
+          "description": "Shift mito fasta by this many bases for realignment.",
+          "minimum": 0,
+          "maximum": 100000
+        },
         "mito_min_vaf": {
           "type": "number",
           "default": 0.9,

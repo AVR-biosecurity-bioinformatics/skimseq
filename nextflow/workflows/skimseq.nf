@@ -242,7 +242,8 @@ workflow SKIMSEQ {
         params.mito_contig
     )
 
-    ch_mito_indexed = INDEX_MITO.out.fasta_indexed.first()
+    ch_mito_indexed = INDEX_MITO.out.mito_indexed.first()
+    ch_shifted_mito_indexed = INDEX_MITO.out.shifted_mito_indexed.first()
     ch_mito_bed = INDEX_MITO.out.bed.first()
     
     /*
@@ -291,6 +292,7 @@ workflow SKIMSEQ {
         ALIGNMENT.out.cram,
         ch_genome_indexed,
         ch_mito_indexed,
+        ch_shifted_mito_indexed,
         ch_mito_bed,
         MASK_GENOME.out.numt_mask_bed
     )
