@@ -199,16 +199,39 @@ get_remote_flowcell_lane() {
 # Joint function
 get_flowcell_lane() {
     local input="$1"
+    local flowcell_lane
+    local fcid
+    local lane
 
     case "${STREAM_TYPE}" in
         local)
-            get_local_flowcell_lane "${input}"
+            flowcell_lane=$(
+                get_local_flowcell_lane "${input}"
+            )
             ;;
 
         remote)
-            get_remote_flowcell_lane "${input}"
+            flowcell_lane=$(
+                get_remote_flowcell_lane "${input}"
+            )
+            ;;
+
+        *)
+            echo \
+                "ERROR: unsupported stream type '${STREAM_TYPE}' for '${input}'" \
+                >&2
+            return 1
             ;;
     esac
+
+    read -r fcid lane <<< "${flowcell_lane}"
+
+    if [[ -z "${fcid}" || -z "${lane}" ]]; then
+        echo "ERROR: could not determine flowcell/lane for '${input}'" >&2
+        return 1
+    fi
+
+    printf '%s %s\n' "${fcid}" "${lane}"
 }
 
 # Accepts ENA or SRA accession - resolves to ENA
@@ -291,52 +314,65 @@ annotate_fastq() {
 
 
 # Inject the headers into samtools readgroups
+# This can include CO and PG lines
 inject_sam_readgroups() {
-    local rg_header_file=$1
+    local injected_header_file="$1"
 
     awk '
         BEGIN {
             FS = OFS = "\t"
         }
 
-        # Read @RG definitions and record their IDs.
+        # Read records that will be injected into the SAM header.
         NR == FNR {
             if ($0 == "") {
                 next
             }
 
-            rg_headers[++n_rg] = $0
+            injected_headers[++n_headers] = $0
 
-            rg_id = ""
+            # Only @RG records define valid read-group identifiers.
+            if ($1 == "@RG") {
+                rg_id = ""
 
-            for (i = 1; i <= NF; i++) {
-                if ($i ~ /^ID:/) {
-                    rg_id = substr($i, 4)
-                    valid_rg[rg_id] = 1
-                    break
+                for (i = 2; i <= NF; i++) {
+                    if ($i ~ /^ID:/) {
+                        rg_id = substr($i, 4)
+                        break
+                    }
                 }
-            }
 
-            if (rg_id == "") {
-                print \
-                    "ERROR: @RG record is missing an ID field: " $0 \
-                    > "/dev/stderr"
-                exit 1
+                if (rg_id == "") {
+                    print \
+                        "ERROR: @RG record is missing an ID field: " $0 \
+                        > "/dev/stderr"
+                    exit 1
+                }
+
+                valid_rg[rg_id] = 1
+                n_rg++
             }
 
             next
         }
 
-        # Pass existing SAM headers through.
+        # Pass the existing SAM header through unchanged.
         /^@/ {
             print
             next
         }
 
-        # Insert @RG headers immediately before the first alignment.
+        # Add injected header records immediately before the first alignment.
         !headers_injected {
-            for (i = 1; i <= n_rg; i++) {
-                print rg_headers[i]
+            if (n_rg == 0) {
+                print \
+                    "ERROR: auxiliary header contains no @RG records" \
+                    > "/dev/stderr"
+                exit 1
+            }
+
+            for (i = 1; i <= n_headers; i++) {
+                print injected_headers[i]
             }
 
             headers_injected = 1
@@ -344,7 +380,8 @@ inject_sam_readgroups() {
 
         {
             # Expected QNAME:
-            # read_group_id|original_read_name
+            #
+            #   read_group_id|original_read_name
             separator = index($1, "|")
 
             if (separator == 0) {
@@ -368,16 +405,15 @@ inject_sam_readgroups() {
 
             if (original_qname == "") {
                 print \
-                    "ERROR: empty original QNAME after removing RG prefix: " \
+                    "ERROR: empty QNAME after removing RG prefix: " \
                     $1 \
                     > "/dev/stderr"
                 exit 1
             }
 
-            # Restore the original read name.
             $1 = original_qname
 
-            # Remove an existing RG tag to avoid duplicates.
+            # Rebuild the alignment without any pre-existing RG tag.
             output = ""
 
             for (i = 1; i <= NF; i++) {
@@ -388,22 +424,21 @@ inject_sam_readgroups() {
                 output = output == "" ? $i : output OFS $i
             }
 
-            # Add the correct per-read RG tag.
             print output, "RG:Z:" rg_id
         }
 
         END {
-            # Handle a header-only SAM stream.
+            # Handle the unusual case of a header-only SAM stream.
             if (!headers_injected) {
-                for (i = 1; i <= n_rg; i++) {
-                    print rg_headers[i]
+                for (i = 1; i <= n_headers; i++) {
+                    print injected_headers[i]
                 }
             }
         }
-    ' "${rg_header_file}" -
+    ' "${injected_header_file}" -
 }
 
-# Streaming helpers
+# Streaming helper
 stream_fastq() {
     local input="$1"
     local rg_id="$2"

@@ -1,5 +1,5 @@
 process MAP_TO_GENOME {
-    tag "${sample}:${lib}"
+    tag "${sample}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/map_to_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
@@ -15,14 +15,11 @@ process MAP_TO_GENOME {
 
     output: 
     tuple val(sample),
-          val(n_intervals),
-          val(lib),
           path("${sample}.cram"),
           path("${sample}.cram.crai"),
           emit: cram
 
     tuple val(sample),
-        val(lib),
         path("${sample}.fastq_warnings.txt"),
         optional: true,
         emit: fastq_warnings
@@ -35,17 +32,7 @@ process MAP_TO_GENOME {
         "'${value.toString().replace("'", "'\"'\"'")}'"
     }
 
-    // Validate and pair local FASTQs.
-    if (
-        source == 'local' &&
-        (local_reads.isEmpty() || local_reads.size() % 2 != 0)
-    ) {
-        error(
-            "Expected a non-zero even number of local FASTQs for " +
-            "'${sample}:${lib}', but received ${local_reads.size()}"
-        )
-    }
-
+    // Pair local FASTQs and set up arrays
     def local_pairs = source == 'local'
         ? local_reads.collate(2)
         : []
@@ -89,7 +76,13 @@ process MAP_TO_GENOME {
     """
     #!/usr/bin/env bash
     set -euo pipefail
+
+    # Source dependent functions
     source "${bash_utils}"
+
+    ###########################################
+    # Initialise variables
+    ###########################################
 
     # Combined FIFOs used for local and remote sources.
     FASTQ1="${lib}.combined_R1.fastq"
@@ -109,50 +102,37 @@ process MAP_TO_GENOME {
 
     STREAM_TYPE=""
 
-    # Trap to catch incomplete downloads
+    # Exit Trap to catch and cleanup incomplete downloads
     cleanup() {
         local rc=\$?
-
         trap - EXIT INT TERM
-
-        if [[ -n "\${PID1}" ]]; then
-            kill "\${PID1}" 2>/dev/null || true
-            wait "\${PID1}" 2>/dev/null || true
-        fi
-
-        if [[ -n "\${PID2}" ]]; then
-            kill "\${PID2}" 2>/dev/null || true
-            wait "\${PID2}" 2>/dev/null || true
-        fi
-
-        rm -f "\${FASTQ1}" "\${FASTQ2}"
-
+        for PID in "\${PID1:-}" "\${PID2:-}"; do
+            if [[ -n "\${PID}" ]]; then
+                kill "\${PID}" 2>/dev/null || true
+                wait "\${PID}" 2>/dev/null || true
+            fi
+        done
+        rm -f "\${FASTQ1:-}" "\${FASTQ2:-}"
         exit "\${rc}"
     }
-
     trap cleanup EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
+    ###########################################
+    # Resolve local and remote read sources
+    ###########################################
 
-    # Resolve any provided accessions to URL first 
+    # Resolve SRA / ENA accessions to URLs
     if [[ "${source}" == "accession" ]]; then
         read -r RESOLVED_URL1 MD5_1 RESOLVED_URL2 MD5_2 < <(
             resolve_fastqs "${input1}"
         )
-
-        if [[ -z "\${RESOLVED_URL1:-}" || -z "\${RESOLVED_URL2:-}" ]]; then
-            echo \
-                "ERROR: could not resolve paired FASTQs for '${input1}'" \
-                >&2
-            exit 1
-        fi
-
         URL1=("\${RESOLVED_URL1}")
         URL2=("\${RESOLVED_URL2}")
     fi
 
-    # Resolve local and remote sources
+    # Resolve local vs remote sources
     case "${source}" in
         local)
             READ1=("\${LOCAL1[@]}")
@@ -165,14 +145,15 @@ process MAP_TO_GENOME {
             READ2=("\${URL2[@]}")
             STREAM_TYPE="remote"
             ;;
-
-        *)
-            echo "ERROR: unsupported input source '${source}' for '${sample}:${lib}'" >&2
-            exit 1
-            ;;
     esac
 
-    # Validate  inputs and create readgroups
+    ###########################################
+    # Validate streams and create readgroups
+    ###########################################
+    # Note readgroups are injected into read headers then parsed into RG headers after alignment
+    # This allows mixing of multiple input fastq files in the same stream
+
+    # Loop through inputs, validate remotes and extract readgroups
     : > readgroups.sam
     for i in "\${!READ1[@]}"; do
         if [[ "\${STREAM_TYPE}" == "remote" ]]; then
@@ -182,21 +163,16 @@ process MAP_TO_GENOME {
 
         FCID=""
         LANE=""
-
+        # get_flowcell_lane extracts FCID and LANE from local or remote fastq
         read -r FCID LANE < <(
             get_flowcell_lane "\${READ1[\${i}]}"
         )
 
-        if [[ -z "\${FCID}" || -z "\${LANE}" ]]; then
-            echo \
-                "ERROR: could not determine flowcell/lane for '\${READ1[\${i}]}'" \
-                >&2
-            exit 1
-        fi
-
         RG_ID[\${i}]="\${FCID}.\${LANE}.${lib}"
         RG_PU[\${i}]="\${RG_ID[\${i}]}"
 
+        # define readgroups
+        # See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
         printf '@RG\\tID:%s\\tLB:%s\\tPL:%s\\tPU:%s\\tSM:%s\\n' \
             "\${RG_ID[\${i}]}" \
             "${lib}" \
@@ -206,41 +182,65 @@ process MAP_TO_GENOME {
             >> readgroups.sam
     done
     sort -u readgroups.sam -o readgroups.sam
+
+    ###########################################
+    # Embed parameters for later CRAM validation
+    ###########################################
+    # These parameters get hashed and injected into CRAM as a CO line
+    # Later validation step checks if hash matches current input parameters
+    # TODO: Could add pipeline and tool versions here, and proper reference genome hash
+    ALIGNMENT_CONFIG_SHA256=\$(
+        printf '%s\\n' \
+            'pipeline=skimseq' \
+            'reference_genome=${ref_genome}' \
+            'mapper_preset=${params.minibwa_preset}' \
+            'min_seed_length=${params.minibwa_min_seed_length}' \
+            'max_seed_occurrence=${params.minibwa_max_seed_occurrence}' \
+            'fastp_disable_trim_poly_g=true' \
+            'fastp_disable_quality_filtering=true' \
+            'fastp_disable_length_filtering=true' |
+            sha256sum |
+            awk '{print \$1}'
+    )
+    ## Append validation comments onto readgroups
+    printf '@CO\\tSKIMSEQ_ALIGNMENT_CONFIG_SHA256:%s\\n' \
+        "\${ALIGNMENT_CONFIG_SHA256}" \
+        >> readgroups.sam
+
+    ###########################################
+    # Start FASTQ produucers
+    ###########################################
     
     # Create FIFO producers
-
     mkfifo "\${FASTQ1}" "\${FASTQ2}"
 
+    # Start streaming read 1 files
     (
         set -euo pipefail
-
         for i in "\${!READ1[@]}"; do
-            stream_fastq \
-                "\${READ1[\${i}]}" \
-                "\${RG_ID[\${i}]}"
+            stream_fastq "\${READ1[\${i}]}" "\${RG_ID[\${i}]}"
         done
     ) > "\${FASTQ1}" &
     PID1=\$!
 
+    # Start streaming read 2 files
     (
         set -euo pipefail
-
         for i in "\${!READ2[@]}"; do
-            stream_fastq \
-                "\${READ2[\${i}]}" \
-                "\${RG_ID[\${i}]}"
+            stream_fastq "\${READ2[\${i}]}" "\${RG_ID[\${i}]}"
         done
     ) > "\${FASTQ2}" &
     PID2=\$!
 
-
-    # Trim adapters, align, mark duplicates, output sorted cram
+    ###########################################
+    # Main workflow, consumes FIFO producers
+    ###########################################
     # In case of corrupted fastq, seqkit sana fixes but pairs may become out of sync
-    # NOTE: FASTP should handle out of sync pairs, but cannot be piped into thrugh <() until this PR is merged https://github.com/OpenGene/fastp/pull/707/
     # Mergepe and dropse catch this, but check if add too much to runtime
+    # NOTE: FASTP should handle out of sync pairs, but cannot be piped into thrugh <() until this PR is merged https://github.com/OpenGene/fastp/pull/707/
 
-    MERGEPE_LOG="${lib}.mergepe.log"
-    WARNING_FILE="${lib}.fastq_warnings.txt"
+    MERGEPE_LOG="${sample}.mergepe.log"
+    WARNING_FILE="${sample}.fastq_warnings.txt"
 
     set +e           
     seqtk mergepe \
@@ -277,55 +277,63 @@ process MAP_TO_GENOME {
     pipeline_status=("\${PIPESTATUS[@]}")
     set -e
 
-    # On failure, exit immediately. The EXIT trap handles any unfinished
-    # downloaders and removes the FIFOs.
+    # On pipeline failure, exit immediately. 
+    # The EXIT trap handles any unfinished downloaders and removes the FIFOs.
     check_pipeline "\${pipeline_status[@]}" || exit \$?
 
-    # On success, collect and validate the downloader exit statuses.
+    ###########################################
+    # Validate FASTQ producers
+    ###########################################
+    # On pipe success, collect and validate the downloader exit statuses.
     set +e
-
-    wait "\${PID1}"
-    download1_status=\$?
-    PID1=""
-
-    wait "\${PID2}"
-    download2_status=\$?
-    PID2=""
-
+    wait "\${PID1}"; r1_status=\$?; PID1=""
+    wait "\${PID2}"; r2_status=\$?; PID2=""
     set -e
 
-    if (( download1_status != 0 || download2_status != 0 )); then
+    if (( r1_status != 0 || r2_status != 0 )); then
         echo \
-            "ERROR: FASTQ download failed for ${sample}:${lib}; " \
-            "R1 status=\${download1_status}, " \
-            "R2 status=\${download2_status}" \
+            "ERROR: FASTQ streaming failed for '${sample}'; " \
+            "R1 status=\${r1_status}, R2 status=\${r2_status}" \
             >&2
         exit 1
     fi
     
-    # index cram
-    samtools index --threads ${task.cpus} ${sample}.cram 
+    ###########################################
+    # Index outputs
+    ###########################################
 
     # check cram is correctly formatted
     samtools quickcheck ${sample}.cram \
-        || ( echo "CRAM file for lib ${lib} is not formatted correctly" && exit 1 )
+        || ( echo "CRAM file for sample ${sample} is not formatted correctly" && exit 1 )
+
+    # index output cram
+    samtools index --threads ${task.cpus} ${sample}.cram 
+
+
+    ###########################################
+    # Warnings for dropped read pairs
+    ###########################################
 
     # Parse warning message from mergepe to see if any were lost through sanitising
     if grep -qF '[W::stk_mergepe] the 1st file has fewer records.' "\${MERGEPE_LOG}"; then
         printf '%s\n' \
-            "WARNING [${lib}]: sanitized R1 contained fewer records than R2; trailing R2 reads were discarded." \
+            "WARNING [${sample}]: sanitized R1 contained fewer records than R2; trailing R2 reads were discarded." \
             | tee -a "\${WARNING_FILE}" >&2
     fi
 
     if grep -qF '[W::stk_mergepe] the 2nd file has fewer records.' "\${MERGEPE_LOG}"; then
         printf '%s\n' \
-            "WARNING [${lib}]: sanitized R2 contained fewer records than R1; trailing R1 reads were discarded." \
+            "WARNING [${sample}]: sanitized R2 contained fewer records than R1; trailing R1 reads were discarded." \
             | tee -a "\${WARNING_FILE}" >&2
     fi
 
     if [[ ! -s "\${WARNING_FILE}" ]]; then
         rm -f "\${WARNING_FILE}"
     fi
+
+    ######################
+    # Cleanup
+    ######################
 
     # Normal successful cleanup. PID variables have already been cleared,
     rm -f "\${FASTQ1}" "\${FASTQ2}"
