@@ -8,7 +8,7 @@ process MERGE_CRAM {
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("${sample}.cram"), path("${sample}.cram.crai"),   emit: cram
+    tuple val(sample), path("merged/${sample}.cram"), path("merged/${sample}.cram.crai"),   emit: cram
     tuple val(sample), path("*.markdup.json"),                                emit: markdup
 
     script:
@@ -18,6 +18,8 @@ process MERGE_CRAM {
     #!/usr/bin/env bash
     set -euo pipefail
     source "${bash_utils}"
+
+    mkdir -p merged
 
     # Write list of cram files to process
     printf "%s\\n" ${cram} > cram.list
@@ -36,7 +38,7 @@ process MERGE_CRAM {
             -O CRAM \
             --use-read-groups \
             --reference ${ref_genome} \
-            - ${sample}.cram 
+            - "merged/${sample}.cram"
 
     # Catch error codes from piped tools so nextflow can retry
     st=("\${PIPESTATUS[@]}")
@@ -44,10 +46,10 @@ process MERGE_CRAM {
     check_pipeline "\${st[@]}" || exit \$?
 
     # index cram
-    samtools index --threads ${task.cpus} ${sample}.cram 
+    samtools index --threads ${task.cpus} "merged/${sample}.cram"
 
     # check cram is correctly formatted
-    samtools quickcheck ${sample}.cram \
+    samtools quickcheck "merged/${sample}.cram" \
         || ( echo "CRAM file for sample ${sample} is not formatted correctly" && exit 1 )
 
     """

@@ -110,22 +110,72 @@ workflow ALIGNMENT {
         .map {  sample, lib, source, read1, read2, local_reads, doneSet -> tuple(sample, lib, source, read1, read2, local_reads) }
         .set { ch_reads_to_map }
 
-    // Prepare mapping intervals 
-    // Grouping here determines how many fastqs must be produced before a sample can be merged.
-    // Sorted by remote, then largest to smallest local
-    // This ensures longer running jobs start first, smaller jobs backfill once resources available
+    // Group all FASTQ pairs and libraries belonging to each sample.
     ch_reads_to_map
         .groupTuple(by: 0)
-        .flatMap {sample, libs, sources, input1s, input2s, local_reads_groups ->
+        .map {
+            sample,
+            libs,
+            sources,
+            input1s,
+            input2s,
+            local_reads_groups ->
+
+            def unique_sources = sources.unique()
+
+            if (unique_sources.size() != 1) {
+                error(
+                    "Sample '${sample}' contains multiple input source types: " +
+                    "${unique_sources.join(', ')}. Mixed source types are not " +
+                    "currently supported within one mapping task."
+                )
+            }
+
+            def source = unique_sources.first()
+
+            def grouped_local_reads = source == 'local'
+                ? local_reads_groups.flatten()
+                : []
+
+            tuple(
+                sample,
+                libs,
+                source,
+                input1s,
+                input2s,
+                grouped_local_reads
+            )
+        }
+        .set { ch_reads_grouped_by_sample }
+
+    /*
+    * Prepare mapping intervals.
+    * Each channel emission represents one complete library, potentially containing multiple FASTQ pairs.
+    * n_intervals is the number of libraries that must finish before merging
+    * Sorted by remote, then largest to smallest local
+    * This ensures longer running jobs start first, smaller jobs backfill once resources available
+    */
+    ch_reads_grouped_by_lib
+        .groupTuple(by: 0)
+        .flatMap {
+            sample,
+            libs,
+            sources,
+            input1_groups,
+            input2_groups,
+            local_reads_groups ->
+
             int n_intervals = libs.size()
 
             /*
             * Total size of all local FASTQs belonging to this sample.
-            * Online libraries contribute zero because local_reads is [].
+            * Remote libraries contribute zero.
             */
             long sample_local_size = (0..<n_intervals).sum { i ->
                 sources[i] == 'local'
-                    ? local_reads_groups[i].sum { read -> read.size() } as long
+                    ? local_reads_groups[i].sum { read ->
+                        read.size()
+                    } as long
                     : 0L
             } as long
 
@@ -133,10 +183,17 @@ workflow ALIGNMENT {
                 boolean is_local = sources[i] == 'local'
 
                 /*
-                * Temporary tuple:
-                *   0: interval priority: online=0, local=1
+                * Temporary sorting tuple:
+                *
+                *   0: priority: remote=0, local=1
                 *   1: total local FASTQ size for the sample
-                *   2+: mapping interval
+                *   2: sample
+                *   3: number of libraries for the sample
+                *   4: library
+                *   5: source
+                *   6: list of R1 inputs for the library
+                *   7: list of R2 inputs for the library
+                *   8: flattened local FASTQs for the library
                 */
                 tuple(
                     is_local ? 1 : 0,
@@ -145,22 +202,29 @@ workflow ALIGNMENT {
                     n_intervals,
                     libs[i],
                     sources[i],
-                    input1s[i],
-                    input2s[i],
+                    input1_groups[i],
+                    input2_groups[i],
                     local_reads_groups[i]
                 )
             }
         }
         .toSortedList { a, b ->
-            (a[0] <=> b[0]) ?:  // Online intervals first
+            (a[0] <=> b[0]) ?:  // Remote libraries first
             (b[1] <=> a[1]) ?:  // Largest local samples first
             (a[2] <=> b[2]) ?:  // Keep each sample together
             (a[4] <=> b[4])     // Deterministic library order
         }
         .flatMap { it }
-        .map {
-            priority, sample_local_size, sample, n_intervals, lib, source, input1, input2, local_reads ->
-                tuple( sample,n_intervals, lib, source, input1, input2, local_reads )
+        .map { priority, sample_local_size, sample, n_intervals, lib, source, input1s, input2s, local_reads ->
+            tuple(
+                sample,
+                n_intervals,
+                lib,
+                source,
+                input1s,
+                input2s,
+                local_reads
+            )
         }
         .set { ch_reads_to_map_intervals }
     /* 

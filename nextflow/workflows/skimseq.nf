@@ -237,7 +237,6 @@ workflow SKIMSEQ {
     ALIGNMENT (
         ch_sample_names,
         ch_reads,
-        //VALIDATE_INPUTS.out.rg_to_validate,
         ch_genome_indexed,
         ch_exclude_bed
     )
@@ -287,38 +286,40 @@ workflow SKIMSEQ {
     ch_merged_unfiltered_vcf = Channel.empty()
     if ( params.variant_caller == "gatk" ){
 
-        // Single sample calling with haplotypecaller
-        GATK_SINGLE (
-            ch_sample_names,
-            ALIGNMENT.out.cram,
-            VALIDATE_INPUTS.out.rg_to_validate,
-            ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_genotype,
-            ch_long_bed,
-            ch_short_bed,
-            ch_read_counts
-        )
+        // GATK channel disabled until read validation is updated
 
-        GATK_SINGLE.out.gvcf
-            .set{ ch_gvcf }
+        // Single sample calling with haplotypecaller
+        //GATK_SINGLE (
+        //    ch_sample_names,
+        //    ALIGNMENT.out.cram,
+        //    VALIDATE_INPUTS.out.rg_to_validate,
+        //    ch_genome_indexed,
+        //    ch_include_bed,
+        //    ch_mask_bed_genotype,
+        //    ch_long_bed,
+        //    ch_short_bed,
+        //    ch_read_counts
+        //)
+
+        //GATK_SINGLE.out.gvcf
+        //    .set{ ch_gvcf }
 
         // Joint call genotypes        
-        GATK_JOINT (
-            ch_gvcf,
-            ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_genotype,
-            ch_long_bed,
-            ch_short_bed,
-            ch_sample_names
-        )
+        //GATK_JOINT (
+        //    ch_gvcf,
+        //    ch_genome_indexed,
+        //    ch_include_bed,
+        //    ch_mask_bed_genotype,
+        //    ch_long_bed,
+        //    ch_short_bed,
+        //    ch_sample_names
+        //)
 
-        GATK_JOINT.out.vcf
-            .set{ ch_unfiltered_vcfs }
+        //GATK_JOINT.out.vcf
+        //    .set{ ch_unfiltered_vcfs }
 
-        GATK_JOINT.out.merged_unfiltered_vcf
-            .set{ ch_merged_unfiltered_vcf }
+        //GATK_JOINT.out.merged_unfiltered_vcf
+        //    .set{ ch_merged_unfiltered_vcf }
 
     } else if (params.variant_caller == "bcftools"){
 

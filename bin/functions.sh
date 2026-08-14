@@ -131,6 +131,85 @@ validate_gzip_url() {
     return 0
 }
 
+# Parse an illumina header
+parse_illumina_header() {
+    local read_header="$1"
+    local instrument
+    local run
+    local fcid
+    local lane
+
+    read_header="${read_header#@}"
+    read_header="${read_header%%[[:space:]]*}"
+    read_header="${read_header%/1}"
+
+    IFS=':' read -r \
+        instrument \
+        run \
+        fcid \
+        lane \
+        _ \
+        <<< "${read_header}"
+
+    if [[ -z "${fcid}" || -z "${lane}" ]]; then
+        echo \
+            "ERROR: could not parse Illumina flowcell and lane from " \
+            "FASTQ header '${read_header}'" \
+            >&2
+        return 1
+    fi
+
+    printf '%s %s\n' "${fcid}" "${lane}"
+}
+
+# Get local flowcell and lane
+get_local_flowcell_lane() {
+    local fastq="$1"
+    local read_header
+
+    read_header=$(
+        seqkit head -n 1 "${fastq}" |
+            sed -n '1p'
+    )
+
+    parse_illumina_header "${read_header}"
+}
+
+# Get remote flowcell and lane
+get_remote_flowcell_lane() {
+    local url="$1"
+    local read_header
+
+    read_header=$(
+        set +o pipefail
+
+        download_fastq_stream_curl "${url}" 2>/dev/null \
+        | seqkit head -n 1 2>/dev/null \
+        | sed -n '1p'
+    )
+
+    if [[ -z "${read_header}" ]]; then
+        echo "ERROR: could not read FASTQ header from '${url}'" >&2
+        return 1
+    fi
+
+    parse_illumina_header "${read_header}"
+}
+
+# Joint function
+get_flowcell_lane() {
+    local input="$1"
+
+    case "${STREAM_TYPE}" in
+        local)
+            get_local_flowcell_lane "${input}"
+            ;;
+
+        remote)
+            get_remote_flowcell_lane "${input}"
+            ;;
+    esac
+}
 
 # Accepts ENA or SRA accession - resolves to ENA
 resolve_fastqs() {
@@ -193,4 +272,155 @@ resolve_fastqs() {
         "${md5s-}" \
         "${urls[1]}" \
         "${md5s-}"
+}
+
+# Annotate fastq read names with readgroups
+annotate_fastq() {
+    local rg=$1
+
+    awk -v rg="${rg}" '
+        NR % 4 == 1 {
+            sub(/^@/, "")
+            print "@" rg "|" $0
+            next
+        }
+
+        { print }
+    '
+}
+
+
+# Inject the headers into samtools readgroups
+inject_sam_readgroups() {
+    local rg_header_file=$1
+
+    awk '
+        BEGIN {
+            FS = OFS = "\t"
+        }
+
+        # Read @RG definitions and record their IDs.
+        NR == FNR {
+            if ($0 == "") {
+                next
+            }
+
+            rg_headers[++n_rg] = $0
+
+            rg_id = ""
+
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /^ID:/) {
+                    rg_id = substr($i, 4)
+                    valid_rg[rg_id] = 1
+                    break
+                }
+            }
+
+            if (rg_id == "") {
+                print \
+                    "ERROR: @RG record is missing an ID field: " $0 \
+                    > "/dev/stderr"
+                exit 1
+            }
+
+            next
+        }
+
+        # Pass existing SAM headers through.
+        /^@/ {
+            print
+            next
+        }
+
+        # Insert @RG headers immediately before the first alignment.
+        !headers_injected {
+            for (i = 1; i <= n_rg; i++) {
+                print rg_headers[i]
+            }
+
+            headers_injected = 1
+        }
+
+        {
+            # Expected QNAME:
+            # read_group_id|original_read_name
+            separator = index($1, "|")
+
+            if (separator == 0) {
+                print \
+                    "ERROR: alignment QNAME does not contain an RG prefix: " \
+                    $1 \
+                    > "/dev/stderr"
+                exit 1
+            }
+
+            rg_id = substr($1, 1, separator - 1)
+            original_qname = substr($1, separator + 1)
+
+            if (!(rg_id in valid_rg)) {
+                print \
+                    "ERROR: QNAME references undefined read group: " \
+                    rg_id \
+                    > "/dev/stderr"
+                exit 1
+            }
+
+            if (original_qname == "") {
+                print \
+                    "ERROR: empty original QNAME after removing RG prefix: " \
+                    $1 \
+                    > "/dev/stderr"
+                exit 1
+            }
+
+            # Restore the original read name.
+            $1 = original_qname
+
+            # Remove an existing RG tag to avoid duplicates.
+            output = ""
+
+            for (i = 1; i <= NF; i++) {
+                if (i > 11 && $i ~ /^RG:Z:/) {
+                    continue
+                }
+
+                output = output == "" ? $i : output OFS $i
+            }
+
+            # Add the correct per-read RG tag.
+            print output, "RG:Z:" rg_id
+        }
+
+        END {
+            # Handle a header-only SAM stream.
+            if (!headers_injected) {
+                for (i = 1; i <= n_rg; i++) {
+                    print rg_headers[i]
+                }
+            }
+        }
+    ' "${rg_header_file}" -
+}
+
+# Streaming helpers
+stream_fastq() {
+    local input="$1"
+    local rg_id="$2"
+
+    {
+        case "${STREAM_TYPE}" in
+            local)
+                seqkit sana \
+                    --threads 1 \
+                    "${input}"
+                ;;
+
+            remote)
+                download_fastq_stream_curl "${input}" |
+                    seqkit sana --threads 1 -
+                ;;
+        esac
+    } |
+        annotate_fastq "${rg_id}"
 }
