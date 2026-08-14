@@ -5,8 +5,6 @@
 //// import modules
 include { VALIDATE_CRAM                         } from '../modules/validate_cram/validate_cram'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome/map_to_genome'
-include { SPLIT_FASTQ                           } from '../modules/split_fastq/split_fastq'
-include { MERGE_CRAM                            } from '../modules/merge_cram/merge_cram'
 include { STAGE_CRAM                            } from '../modules/stage_cram/stage_cram'
 include { COUNT_CRAM_PERBASE                    } from '../modules/count_cram_perbase/count_cram_perbase'
 
@@ -114,30 +112,67 @@ workflow ALIGNMENT {
     ch_reads_to_map
         .groupTuple(by: 0)
         .map {
-            sample,
-            libs,
-            sources,
-            input1s,
-            input2s,
-            local_reads_groups ->
+            sample, libs, sources, input1s, input2s, local_reads_groups ->
 
             def unique_sources = sources.unique()
 
             if (unique_sources.size() != 1) {
                 error(
-                    "Sample '${sample}' contains multiple input source types: " +
-                    "${unique_sources.join(', ')}. Mixed source types are not " +
-                    "currently supported within one mapping task."
+                    "Sample '${sample}' contains multiple input source " +
+                    "types: ${unique_sources.join(', ')}. Mixed local, URL " +
+                    "and accession inputs are not currently supported " +
+                    "within one MAP_TO_GENOME task."
+                )
+            }
+
+            if (
+                libs.size() != sources.size() ||
+                libs.size() != input1s.size() ||
+                libs.size() != input2s.size() ||
+                libs.size() != local_reads_groups.size()
+            ) {
+                error(
+                    "Input metadata is inconsistent for sample '${sample}': " +
+                    "libs=${libs.size()}, " +
+                    "sources=${sources.size()}, " +
+                    "R1=${input1s.size()}, " +
+                    "R2=${input2s.size()}, " +
+                    "local read groups=${local_reads_groups.size()}."
                 )
             }
 
             def source = unique_sources.first()
 
+            /*
+             * Each local samplesheet row contributes [R1, R2].
+             * Flatten to: row1_R1, row1_R2, row2_R1, row2_R2, ...
+             * MAP_TO_GENOME can reconstruct these using collate(2).
+             */
             def grouped_local_reads = source == 'local'
                 ? local_reads_groups.flatten()
                 : []
 
+            long sample_local_size = source == 'local'
+                ? grouped_local_reads.sum { read ->
+                    read.size()
+                } as long
+                : 0L
+
+            /*
+             * Temporary sorting tuple:
+             *
+             *   0: priority: remote=0, local=1
+             *   1: total local FASTQ size
+             *   2: sample
+             *   3: library identifiers
+             *   4: source
+             *   5: R1 inputs
+             *   6: R2 inputs
+             *   7: staged local reads
+             */
             tuple(
+                source == 'local' ? 1 : 0,
+                sample_local_size,
                 sample,
                 libs,
                 source,
@@ -146,128 +181,73 @@ workflow ALIGNMENT {
                 grouped_local_reads
             )
         }
-        .set { ch_reads_grouped_by_sample }
-
-    /*
-    * Prepare mapping intervals.
-    * Each channel emission represents one complete library, potentially containing multiple FASTQ pairs.
-    * n_intervals is the number of libraries that must finish before merging
-    * Sorted by remote, then largest to smallest local
-    * This ensures longer running jobs start first, smaller jobs backfill once resources available
-    */
-    ch_reads_grouped_by_lib
-        .groupTuple(by: 0)
-        .flatMap {
+        .toSortedList { a, b ->
+            (a[0] <=> b[0]) ?:  // Remote samples first
+            (b[1] <=> a[1]) ?:  // Largest local samples first
+            (a[2] <=> b[2])     // Deterministic sample order
+        }
+        .flatMap { sorted_samples ->
+            sorted_samples
+        }
+        .map {
+            priority,
+            sample_local_size,
             sample,
             libs,
-            sources,
-            input1_groups,
-            input2_groups,
-            local_reads_groups ->
+            source,
+            input1s,
+            input2s,
+            local_reads ->
 
-            int n_intervals = libs.size()
-
-            /*
-            * Total size of all local FASTQs belonging to this sample.
-            * Remote libraries contribute zero.
-            */
-            long sample_local_size = (0..<n_intervals).sum { i ->
-                sources[i] == 'local'
-                    ? local_reads_groups[i].sum { read ->
-                        read.size()
-                    } as long
-                    : 0L
-            } as long
-
-            (0..<n_intervals).collect { i ->
-                boolean is_local = sources[i] == 'local'
-
-                /*
-                * Temporary sorting tuple:
-                *
-                *   0: priority: remote=0, local=1
-                *   1: total local FASTQ size for the sample
-                *   2: sample
-                *   3: number of libraries for the sample
-                *   4: library
-                *   5: source
-                *   6: list of R1 inputs for the library
-                *   7: list of R2 inputs for the library
-                *   8: flattened local FASTQs for the library
-                */
-                tuple(
-                    is_local ? 1 : 0,
-                    sample_local_size,
-                    sample,
-                    n_intervals,
-                    libs[i],
-                    sources[i],
-                    input1_groups[i],
-                    input2_groups[i],
-                    local_reads_groups[i]
-                )
-            }
-        }
-        .toSortedList { a, b ->
-            (a[0] <=> b[0]) ?:  // Remote libraries first
-            (b[1] <=> a[1]) ?:  // Largest local samples first
-            (a[2] <=> b[2]) ?:  // Keep each sample together
-            (a[4] <=> b[4])     // Deterministic library order
-        }
-        .flatMap { it }
-        .map { priority, sample_local_size, sample, n_intervals, lib, source, input1s, input2s, local_reads ->
             tuple(
                 sample,
-                n_intervals,
-                lib,
+                libs,
                 source,
                 input1s,
                 input2s,
                 local_reads
             )
         }
-        .set { ch_reads_to_map_intervals }
+        .set { ch_reads_grouped_by_sample }
+
     /* 
         Read mapping
     */
 
     // Align reads to genome
     MAP_TO_GENOME (
-        ch_reads_to_map_intervals,
+        ch_reads_grouped_by_sample,
         ch_genome_indexed
     )
 
     // Print warning if any files had different numbers of forward and reverse reads
     MAP_TO_GENOME.out.fastq_warnings
-        .map { sample, lib, warning_file ->
-            tuple(sample, lib, warning_file.text.trim())
+        .map { sample, warning_file ->
+            tuple(
+                sample,
+                warning_file.text.trim()
+            )
         }
-        .subscribe { sample, lib, warning ->
-            log.warn("MAP_TO_GENOME ${sample}:${lib}: ${warning}")
+        .subscribe { sample, warning ->
+            log.warn(
+                "MAP_TO_GENOME ${sample}: ${warning}"
+            )
         }
     
-    // Collect mapping CRAMs as soon as all FASTQ pairs for a sample complete
-    MAP_TO_GENOME.out.cram
-        .map { sample, n_intervals, lib, cram, crai ->
-            tuple(groupKey(sample, n_intervals), cram, crai)
-        }
-        .groupTuple()
-        .map { key, crams, crais ->
-            tuple(key.getGroupTarget(), crams, crais)
-        }
-        .set { ch_cram_to_merge }
-
-    // Merge chunked .cram files by sample
-    MERGE_CRAM(
-        ch_cram_to_merge,
-        ch_genome_indexed
-    )
-
-    // combine validated existing CRAMs with newly created CRAMs
+    /*
+     * MAP_TO_GENOME now produces the final sample-level CRAM, so no
+     * downstream CRAM grouping or merging is required.
+     */
     ch_validated_cram
-      .mix( MERGE_CRAM.out.cram )
-      .distinct { it[0] }      // dedupe by sample if needed
-      .set{ ch_sample_cram }
+        .mix(MAP_TO_GENOME.out.cram)
+        .distinct {
+            sample,
+            cram,
+            crai ->
+
+            sample
+        }
+        .set { ch_sample_cram }
 
     // Helper process to stage intermediate CRAMs 
     STAGE_CRAM(

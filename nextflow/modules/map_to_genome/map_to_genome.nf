@@ -5,7 +5,6 @@ process MAP_TO_GENOME {
 
     input:
     tuple val(sample),
-        val(n_intervals),
         val(lib),
         val(source),
         val(input1),
@@ -18,13 +17,13 @@ process MAP_TO_GENOME {
     tuple val(sample),
           val(n_intervals),
           val(lib),
-          path("${lib}.cram"),
-          path("${lib}.cram.crai"),
+          path("${sample}.cram"),
+          path("${sample}.cram.crai"),
           emit: cram
 
     tuple val(sample),
         val(lib),
-        path("${lib}.fastq_warnings.txt"),
+        path("${sample}.fastq_warnings.txt"),
         optional: true,
         emit: fastq_warnings
 
@@ -272,7 +271,7 @@ process MAP_TO_GENOME {
         -@ "${sort_threads}" \
         -O CRAM \
         --reference "${ref_genome}" \
-        -o "${lib}.cram"
+        -o "${sample}.cram"
 
     # Capture pipeline statuses immediately after the pipeline finishes.
     pipeline_status=("\${PIPESTATUS[@]}")
@@ -305,10 +304,10 @@ process MAP_TO_GENOME {
     fi
     
     # index cram
-    samtools index --threads ${task.cpus} ${lib}.cram 
+    samtools index --threads ${task.cpus} ${sample}.cram 
 
     # check cram is correctly formatted
-    samtools quickcheck ${lib}.cram \
+    samtools quickcheck ${sample}.cram \
         || ( echo "CRAM file for lib ${lib} is not formatted correctly" && exit 1 )
 
     # Parse warning message from mergepe to see if any were lost through sanitising
