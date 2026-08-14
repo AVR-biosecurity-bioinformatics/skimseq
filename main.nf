@@ -224,6 +224,7 @@ output {
         path 'metadata'
     }
     perbase {
+        enabled params.output_perbase_depth
         path 'qc/cram_stats/perbase_depth'
     }
     cram_stats {

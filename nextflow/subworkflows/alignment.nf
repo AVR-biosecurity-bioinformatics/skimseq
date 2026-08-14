@@ -109,13 +109,16 @@ workflow ALIGNMENT {
         .set { ch_reads_to_map }
 
     // Group all FASTQ pairs and libraries belonging to each sample.
+    // Sort by remote then largest to smallest local files.
+    // Slower alignment tasks run first, quick jobs backfill
     ch_reads_to_map
         .groupTuple(by: 0)
         .map {
             sample, libs, sources, input1s, input2s, local_reads_groups ->
-
-            def unique_sources = sources.unique()
-
+            
+            // Check only one input source is defined per process
+            // TODO? Could allow multiple input sources in future
+            def unique_sources = sources.unique(false)
             if (unique_sources.size() != 1) {
                 error(
                     "Sample '${sample}' contains multiple input source " +
@@ -158,20 +161,8 @@ workflow ALIGNMENT {
                 } as long
                 : 0L
 
-            /*
-             * Temporary sorting tuple:
-             *
-             *   0: priority: remote=0, local=1
-             *   1: total local FASTQ size
-             *   2: sample
-             *   3: library identifiers
-             *   4: source
-             *   5: R1 inputs
-             *   6: R2 inputs
-             *   7: staged local reads
-             */
             tuple(
-                source == 'local' ? 1 : 0,
+                source == 'local' ? 1 : 0, // priority: remote=0, local=1
                 sample_local_size,
                 sample,
                 libs,
@@ -190,23 +181,8 @@ workflow ALIGNMENT {
             sorted_samples
         }
         .map {
-            priority,
-            sample_local_size,
-            sample,
-            libs,
-            source,
-            input1s,
-            input2s,
-            local_reads ->
-
-            tuple(
-                sample,
-                libs,
-                source,
-                input1s,
-                input2s,
-                local_reads
-            )
+            priority, sample_local_size, sample, libs, source, input1s, input2s, local_reads ->
+            tuple( sample, libs, source, input1s, input2s, local_reads )
         }
         .set { ch_reads_grouped_by_sample }
 
@@ -214,7 +190,8 @@ workflow ALIGNMENT {
         Read mapping
     */
 
-    // Align reads to genome
+    // Align reads to genome, input is all libraries and reads per sample
+    // Output is sample-level cram, no merging required
     MAP_TO_GENOME (
         ch_reads_grouped_by_sample,
         ch_genome_indexed
@@ -234,19 +211,10 @@ workflow ALIGNMENT {
             )
         }
     
-    /*
-     * MAP_TO_GENOME now produces the final sample-level CRAM, so no
-     * downstream CRAM grouping or merging is required.
-     */
+    // Combine pre-validated crams with newly mapped crams
     ch_validated_cram
         .mix(MAP_TO_GENOME.out.cram)
-        .distinct {
-            sample,
-            cram,
-            crai ->
-
-            sample
-        }
+        .distinct { sample, cram, crai -> sample }
         .set { ch_sample_cram }
 
     // Helper process to stage intermediate CRAMs 
@@ -254,7 +222,7 @@ workflow ALIGNMENT {
         ch_sample_cram
     )
 
-    // Count per-base depths in cram, used for masking and creating interval chunks
+    // Count per-base depths in all crams, used for masking and creating interval chunks
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
         ch_genome_indexed,
