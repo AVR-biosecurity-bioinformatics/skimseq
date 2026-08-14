@@ -38,7 +38,7 @@ process MAP_TO_GENOME {
             .collect { accession -> shellQuote.call(accession) }
             .join(' ')
         : ''
-    def lib_array = libs
+    def lib_array = lib
         .collect { value -> shellQuote.call(value) }
         .join(' ')
 

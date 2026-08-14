@@ -58,15 +58,13 @@ download_fastq_stream_curl() {
     local url="$1"
 
     curl \
+        --location \
         --fail \
         --silent \
         --show-error \
-        --location \
-        --retry 10 \
-        --retry-delay 30 \
-        --retry-all-errors \
-        --connect-timeout 60 \
-        --max-time 21600 \
+        --connect-timeout 30 \
+        --speed-time 120 \
+        --speed-limit 1024 \
         "${url}"
 }
 
