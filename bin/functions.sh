@@ -5,48 +5,31 @@
 # check_pipeline
 #
 # Validate the exit status of the most recently executed pipeline.
-#
-# This function inspects Bash's PIPESTATUS array and returns the first
-# non-zero exit code encountered. It is intended for use immediately after
-# a pipeline when running with `set -o pipefail`, allowing Nextflow to
-# receive the correct exit status and apply retry logic for transient
-# failures (e.g. OOM kills).
-#
-# The function also prints the full PIPESTATUS array to stderr to aid
-# debugging of multi-stage pipelines.
-#
-# Returns:
-#   0   All pipeline stages completed successfully.
-#   N   Exit code of the first failed stage.
-#
-# Common exit codes:
-#   137  Process killed with SIGKILL (often OOM)
-#   143  Process terminated with SIGTERM (walltime/scheduler cancellation)
-#   139  Segmentation fault
-#
-# Notes:
-#   - Must be called immediately after the pipeline.
-#   - Any intervening command will overwrite PIPESTATUS.
-#
-# Example:
-#   set +e
-#   bcftools mpileup ... \
-#       | bcftools call ... \
-#       | bcftools view ...
-#   st=("${PIPESTATUS[@]}")
-#   set -e
-#   check_pipeline "${st[@]}" || exit $?
-#
-#-------------------------------------------------------------------------------
+# Prioritises substantive errors before sigpipe
 check_pipeline() {
     local -a st=("$@")
+    local i
 
     echo "PIPESTATUS: ${st[*]}" >&2
 
+    # Prioritise substantive failures over SIGPIPE.
+    # An upstream 141 is commonly caused by a downstream process failing.
     for i in "${!st[@]}"; do
-        if (( st[i] != 0 )); then
-            echo "Pipeline stage $((i + 1)) failed with exit code ${st[i]}" >&2
+        if (( st[i] != 0 && st[i] != 141 )); then
+            echo \
+                "Pipeline stage $((i + 1)) failed with exit code ${st[i]}" \
+                >&2
             return "${st[i]}"
+        fi
+    done
+
+    # Return SIGPIPE only if it is the only type of failure.
+    for i in "${!st[@]}"; do
+        if (( st[i] == 141 )); then
+            echo \
+                "Pipeline stage $((i + 1)) failed with SIGPIPE (141)" \
+                >&2
+            return 141
         fi
     done
 
@@ -119,12 +102,8 @@ validate_gzip_url() {
     )
 
     if [[ "${magic}" != "1f8b" ]]; then
-        echo \
-            "ERROR: URL did not return gzip data: ${url}" \
-            >&2
-        echo \
-            "ERROR: expected gzip signature 1f8b, received '${magic:-no data}'" \
-            >&2
+        echo "ERROR: URL did not return gzip data: ${url}" >&2
+        echo "ERROR: expected gzip signature 1f8b, received '${magic:-no data}'" >&2
         return 1
     fi
 
@@ -179,18 +158,37 @@ get_local_flowcell_lane() {
 get_remote_flowcell_lane() {
     local url="$1"
     local read_header
+    local qname
+    local accession
 
     read_header=$(
         set +o pipefail
 
-        download_fastq_stream_curl "${url}" 2>/dev/null \
-        | seqkit head -n 1 2>/dev/null \
-        | sed -n '1p'
+        curl \
+            --location \
+            --fail \
+            --silent \
+            --show-error \
+            "${url}" 2>/dev/null |
+        gzip -dc 2>/dev/null |
+        head -n 1
     )
 
     if [[ -z "${read_header}" ]]; then
-        echo "ERROR: could not read FASTQ header from '${url}'" >&2
+        echo \
+            "ERROR: could not read FASTQ header from '${url}'" \
+            >&2
         return 1
+    fi
+
+    qname="${read_header#@}"
+    qname="${qname%%[[:space:]]*}"
+
+    # ENA/SRA archive header, e.g. SRR13005336.1
+    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
+        accession="${BASH_REMATCH[1]}"
+        printf '%s %s\n' "${accession}" "1"
+        return 0
     fi
 
     parse_illumina_header "${read_header}"
@@ -199,26 +197,27 @@ get_remote_flowcell_lane() {
 # Joint function
 get_flowcell_lane() {
     local input="$1"
+    local stream_type="$2"
     local flowcell_lane
     local fcid
     local lane
 
-    case "${STREAM_TYPE}" in
+    case "${stream_type}" in
         local)
             flowcell_lane=$(
                 get_local_flowcell_lane "${input}"
-            )
+            ) || return 1
             ;;
 
         remote)
             flowcell_lane=$(
                 get_remote_flowcell_lane "${input}"
-            )
+            ) || return 1
             ;;
 
         *)
             echo \
-                "ERROR: unsupported stream type '${STREAM_TYPE}' for '${input}'" \
+                "ERROR: unsupported stream type '${stream_type}' for '${input}'" \
                 >&2
             return 1
             ;;
@@ -227,7 +226,9 @@ get_flowcell_lane() {
     read -r fcid lane <<< "${flowcell_lane}"
 
     if [[ -z "${fcid}" || -z "${lane}" ]]; then
-        echo "ERROR: could not determine flowcell/lane for '${input}'" >&2
+        echo \
+            "ERROR: could not determine flowcell/lane for '${input}'" \
+            >&2
         return 1
     fi
 

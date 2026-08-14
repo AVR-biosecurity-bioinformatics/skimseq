@@ -32,6 +32,16 @@ process MAP_TO_GENOME {
         "'${value.toString().replace("'", "'\"'\"'")}'"
     }
 
+    def accession_array = source == 'accession'
+        ? input1
+            .findAll { it != null && it.toString().trim() }
+            .collect { accession -> shellQuote.call(accession) }
+            .join(' ')
+        : ''
+    def lib_array = libs
+        .collect { value -> shellQuote.call(value) }
+        .join(' ')
+
     // Pair local FASTQs and set up arrays
     def local_pairs = source == 'local'
         ? local_reads.collate(2)
@@ -68,10 +78,15 @@ process MAP_TO_GENOME {
             .join(' ')
         : ''
 
-    // Thread handling.
-    def fastp_threads = task.cpus >= 5 ? 2 : 1
-    def sort_threads  = task.cpus >= 5 ? 2 : 1
-    def aln_threads   = Math.max(1, task.cpus - fastp_threads - sort_threads )
+    // Thread allocation for concurrently running pipeline stages.
+    def fastp_threads   = task.cpus >= 6 ? 2 : 1
+    def sort_threads    = task.cpus >= 6 ? 2 : 1
+    def overhead_threads = task.cpus >= 6 ? 2 : 1
+
+    def aln_threads = Math.max(
+        1,
+        task.cpus - fastp_threads - sort_threads - overhead_threads
+    )
 
     """
     #!/usr/bin/env bash
@@ -85,8 +100,8 @@ process MAP_TO_GENOME {
     ###########################################
 
     # Combined FIFOs used for local and remote sources.
-    FASTQ1="${lib}.combined_R1.fastq"
-    FASTQ2="${lib}.combined_R2.fastq"
+    FASTQ1="${sample}.combined_R1.fastq"
+    FASTQ2="${sample}.combined_R2.fastq"
 
     PID1=""
     PID2=""
@@ -95,6 +110,8 @@ process MAP_TO_GENOME {
     declare -a LOCAL2=(${local_r2_array})
     declare -a URL1=(${url1_array})
     declare -a URL2=(${url2_array})
+    declare -a ACCESSIONS=(${accession_array})
+    declare -a LIBS=(${lib_array})
     declare -a READ1=()
     declare -a READ2=()
     declare -a RG_ID=()
@@ -125,11 +142,17 @@ process MAP_TO_GENOME {
 
     # Resolve SRA / ENA accessions to URLs
     if [[ "${source}" == "accession" ]]; then
-        read -r RESOLVED_URL1 MD5_1 RESOLVED_URL2 MD5_2 < <(
-            resolve_fastqs "${input1}"
-        )
-        URL1=("\${RESOLVED_URL1}")
-        URL2=("\${RESOLVED_URL2}")
+        URL1=()
+        URL2=()
+
+        for ACC in "\${ACCESSIONS[@]}"; do
+            read -r RESOLVED_URL1 MD5_1 RESOLVED_URL2 MD5_2 < <(
+                resolve_fastqs "\${ACC}"
+            )
+
+            URL1=("\${RESOLVED_URL1}")
+            URL2=("\${RESOLVED_URL2}")
+        done
     fi
 
     # Resolve local vs remote sources
@@ -165,17 +188,20 @@ process MAP_TO_GENOME {
         LANE=""
         # get_flowcell_lane extracts FCID and LANE from local or remote fastq
         read -r FCID LANE < <(
-            get_flowcell_lane "\${READ1[\${i}]}"
+            get_flowcell_lane \
+                "\${READ1[\${i}]}" \
+                "\${STREAM_TYPE}"
         )
 
-        RG_ID[\${i}]="\${FCID}.\${LANE}.${lib}"
+        CURRENT_LIB="\${LIBS[\${i}]}"
+        RG_ID[\${i}]="\${FCID}.\${LANE}.\${CURRENT_LIB}"
         RG_PU[\${i}]="\${RG_ID[\${i}]}"
 
         # define readgroups
         # See https://gatk.broadinstitute.org/hc/en-us/articles/360035890671-Read-groups
         printf '@RG\\tID:%s\\tLB:%s\\tPL:%s\\tPU:%s\\tSM:%s\\n' \
             "\${RG_ID[\${i}]}" \
-            "${lib}" \
+            "\${CURRENT_LIB}" \
             "ILLUMINA" \
             "\${RG_PU[\${i}]}" \
             "${sample}" \
@@ -269,6 +295,7 @@ process MAP_TO_GENOME {
         -o - \
     | samtools sort \
         -@ "${sort_threads}" \
+        -m 1G \
         -O CRAM \
         --reference "${ref_genome}" \
         -o "${sample}.cram"
