@@ -1,4 +1,5 @@
 process PLOT_PCA {
+    tag "${outname}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/plot_pca", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 

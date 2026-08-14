@@ -1,4 +1,5 @@
 process PLOT_TREE {
+    tag "${distmat}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/plot_tree", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 

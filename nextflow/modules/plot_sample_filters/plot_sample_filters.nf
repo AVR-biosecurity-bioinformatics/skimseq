@@ -1,4 +1,5 @@
 process PLOT_SAMPLE_FILTERS {
+    tag "${missing_summary}"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/plot_sample_filters", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
