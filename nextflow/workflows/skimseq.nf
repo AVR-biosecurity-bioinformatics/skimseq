@@ -1,7 +1,6 @@
 
 
 //// import subworkflows
-include { VALIDATE_INPUTS                                           } from '../subworkflows/validate_inputs'
 include { ALIGNMENT                                                 } from '../subworkflows/alignment'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
 include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
@@ -52,9 +51,15 @@ workflow SKIMSEQ {
     )
 
     ch_samplesheet
-        .map { sample, pop, fwd, rev ->
+        .map { sample, lib, pop, fwd, rev ->
 
-            sample = sample.trim()
+            sample = sample.toString().trim()
+
+            // If lib not provided, or is whitespace, set to sample
+            lib = lib && lib != [] && lib.toString().trim()
+                ? lib.toString().trim()
+                : sample
+
             pop    = pop.trim().replaceAll(/\s+/, '_')
             fwd    = fwd.trim()
 
@@ -73,7 +78,6 @@ workflow SKIMSEQ {
             def input1
             def input2
             def local_reads
-            def lib
 
             if (fwd_is_accession) {
                 if (rev) {
@@ -82,12 +86,10 @@ workflow SKIMSEQ {
                         "not have a value in the rev column."
                     )
                 }
-
                 source      = 'accession'
                 input1      = fwd
                 input2      = ''
                 local_reads = []
-                lib         = fwd
             }
             else if (fwd_is_url) {
                 if (!rev_is_url) {
@@ -96,21 +98,10 @@ workflow SKIMSEQ {
                         "both fwd and rev columns; found rev='${rev}'."
                     )
                 }
-
                 source      = 'url'
                 input1      = fwd
                 input2      = rev
                 local_reads = []
-
-                def url_name = fwd
-                    .replaceFirst(/[?#].*$/, '')
-                    .tokenize('/')
-                    .last()
-
-                lib = url_name.replaceFirst(
-                    /(?i)(?:_R?1(?:_\d+)?)?\.(fastq|fq)(\.gz)?$/,
-                    ''
-                )
             }
             else {
                 if (!rev || rev_is_url || rev_is_accession) {
@@ -119,19 +110,12 @@ workflow SKIMSEQ {
                         "files in both fwd and rev columns; found rev='${rev}'."
                     )
                 }
-
                 def r1 = file(fwd, checkIfExists: true)
                 def r2 = file(rev, checkIfExists: true)
-
                 source      = 'local'
                 input1      = r1.name
                 input2      = r2.name
                 local_reads = [r1, r2]
-
-                lib = r1.name.replaceFirst(
-                    /(?i)(?:_R?1(?:_\d+)?)?\.(fastq|fq)(\.gz)?$/,
-                    ''
-                )
             }
 
             tuple(
@@ -246,16 +230,6 @@ workflow SKIMSEQ {
     ch_shifted_mito_indexed = INDEX_MITO.out.shifted_mito_indexed.first()
     ch_mito_bed = INDEX_MITO.out.bed.first()
     
-    /*
-    Validate inputs
-    */
-
-    //VALIDATE_INPUTS (
-    //    ch_sample_names,
-    //    ch_reads,
-    //    ch_genome_indexed
-    //)
-
     /*
     Process reads per sample, aligning to the genome, and merging
     */
