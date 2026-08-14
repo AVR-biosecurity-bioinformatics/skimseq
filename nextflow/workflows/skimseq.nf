@@ -52,7 +52,7 @@ workflow SKIMSEQ {
 
     ch_samplesheet
         .map { sample, lib, pop, fwd, rev ->
-
+            // sample is mandatory, schema fails if not present
             sample = sample.toString().trim()
 
             // If lib not provided, or is whitespace, set to sample
@@ -60,7 +60,12 @@ workflow SKIMSEQ {
                 ? lib.toString().trim()
                 : sample
 
-            pop    = pop.trim().replaceAll(/\s+/, '_')
+            // If pop is not provided or contains only whitespace, use "unknown".
+            pop = pop && pop != [] && pop.toString().trim()
+                ? pop.toString().trim().replaceAll(/\s+/, '_')
+                : 'unknown'
+
+            // fwd is mandatory, schema fails if not provided
             fwd    = fwd.trim()
 
             // nf-schema may represent an empty value as [], null, or "".

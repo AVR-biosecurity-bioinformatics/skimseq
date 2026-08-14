@@ -1,5 +1,5 @@
 process CREATE_INTERVAL_CHUNKS {
-    tag "${sample}"
+    tag "${sample}: ${sample.size()} samples"
     conda "${moduleDir}/environment.yml"
     publishDir "${launchDir}/output/modules/create_interval_chunks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
