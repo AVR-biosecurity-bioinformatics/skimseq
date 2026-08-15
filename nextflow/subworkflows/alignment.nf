@@ -82,7 +82,7 @@ workflow ALIGNMENT {
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
     
-    if (params.use_existing_cram.toString().toBoolean()) {
+    if (params.use_existing_cram) {
 
         ch_sample_names
             .map { sample ->
