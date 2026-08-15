@@ -12,7 +12,7 @@ permissions:
 
 env:
   NEXTFLOW_VERSION: "26.04.6"
-  NF_SCHEMA_VERSION: "2.7.2"
+  NF_SCHEMA_VERSION: "2.8.0"
   NF_WAVE_VERSION: "1.21.0"
   NXF_HOME: ${{ github.workspace }}/.nextflow
   NXF_PLUGINS_DIR: ${{ github.workspace }}/.nextflow/plugins
