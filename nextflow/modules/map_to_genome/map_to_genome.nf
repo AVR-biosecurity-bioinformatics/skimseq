@@ -5,11 +5,12 @@ process MAP_TO_GENOME {
 
     input:
     tuple val(sample),
-        val(lib),
+        val(libs),
         val(source),
-        val(input1),
-        val(input2),
-        path(local_reads, arity: '0..*')
+        val(input1s),
+        val(input2s),
+        path(local_r1s, arity: '0..*'),
+        path(local_r2s, arity: '0..*')
 
     tuple path(ref_genome), path(genome_index_files)
 
@@ -32,6 +33,7 @@ process MAP_TO_GENOME {
         "'${value.toString().replace("'", "'\"'\"'")}'"
     }
 
+    // Set up bash arrays
     def accession_array = source == 'accession'
         ? input1
             .findAll { it != null && it.toString().trim() }
@@ -42,11 +44,6 @@ process MAP_TO_GENOME {
         .collect { value -> shellQuote.call(value) }
         .join(' ')
 
-    // Pair local FASTQs and set up arrays
-    def local_pairs = source == 'local'
-        ? local_reads.collate(2)
-        : []
-
     def local_r1_array = local_pairs
         .collect { pair -> shellQuote.call(pair[0]) }
         .join(' ')
@@ -54,15 +51,6 @@ process MAP_TO_GENOME {
     def local_r2_array = local_pairs
         .collect { pair -> shellQuote.call(pair[1]) }
         .join(' ')
-
-    // Normalise URL input to lists.
-    def input1_list = input1 instanceof Collection
-        ? input1
-        : [input1]
-
-    def input2_list = input2 instanceof Collection
-        ? input2
-        : [input2]
 
     def url1_array = source == 'url'
         ? input1_list
@@ -337,7 +325,7 @@ process MAP_TO_GENOME {
         -o - \
     | samtools sort \
         -@ "${sort_threads}" \
-        -m 1G \
+        -m 2G \
         -O CRAM \
         --reference "${ref_genome}" \
         -o "${sample}.cram"
