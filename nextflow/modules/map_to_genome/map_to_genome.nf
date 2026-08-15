@@ -34,36 +34,37 @@ process MAP_TO_GENOME {
     }
 
     // Set up bash arrays
+    def lib_array = libs
+        .collect(shellQuote)
+        .join(' ')
+
     def accession_array = source == 'accession'
-        ? input1
+        ? input1s
             .findAll { it != null && it.toString().trim() }
-            .collect { accession -> shellQuote.call(accession) }
+            .collect(shellQuote)
             .join(' ')
         : ''
-    def lib_array = lib
-        .collect { value -> shellQuote.call(value) }
-        .join(' ')
-
-    def local_r1_array = local_pairs
-        .collect { pair -> shellQuote.call(pair[0]) }
-        .join(' ')
-
-    def local_r2_array = local_pairs
-        .collect { pair -> shellQuote.call(pair[1]) }
-        .join(' ')
 
     def url1_array = source == 'url'
-        ? input1_list
+        ? input1s
             .findAll { it != null && it.toString().trim() }
-            .collect { value -> shellQuote.call(value) }
+            .collect(shellQuote)
             .join(' ')
         : ''
 
     def url2_array = source == 'url'
-        ? input2_list
+        ? input2s
             .findAll { it != null && it.toString().trim() }
-            .collect { value -> shellQuote.call(value) }
+            .collect(shellQuote)
             .join(' ')
+        : ''
+
+    def local_r1_array = source == 'local'
+        ? local_r1s.collect(shellQuote).join(' ')
+        : ''
+
+    def local_r2_array = source == 'local'
+        ? local_r2s.collect(shellQuote).join(' ')
         : ''
 
     // Allocate a small share of available CPUs to supporting stages.

@@ -81,18 +81,16 @@ workflow ALIGNMENT {
         Find and validate any pre-existing crams, these will be skipped
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
-    if (params.use_existing_cram) {
+    
+    if (params.use_existing_cram.toString().toBoolean()) {
 
         ch_sample_names
             .map { sample ->
                 def cram = file("${params.cram_store}/${sample}.cram")
                 def crai = file("${cram}.crai")
-
                 tuple(sample, cram, crai)
             }
-            .filter { sample, cram, crai ->
-                cram.exists() && crai.exists()
-            }
+            .filter { sample, cram, crai -> cram.exists() && crai.exists() }
             .set { ch_existing_cram }
 
         if (!params.skip_cram_validation) {
@@ -107,47 +105,46 @@ workflow ALIGNMENT {
                 ch_genome_indexed
             )
 
-        /*
-        * Normalise stdout to PASS/FAIL and add the original CRAM/CRAI
-        * paths back to the validation result.
-        */
-        VALIDATE_CRAM.out.status
-            .map { sample, stdout -> tuple(sample, stdout.trim()) }
-            .join(ch_existing_cram, by: 0)
-            .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
-            .branch {
-                pass:
-                    it[3] == 'PASS'
-                fail:
-                    it[3] == 'FAIL'
-                invalid:
-                    true
-            }
-            .set { cram_validation_routes }
+            // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
+            VALIDATE_CRAM.out.status
+                .map { sample, stdout -> tuple(sample, stdout.trim()) }
+                .join(ch_existing_cram, by: 0)
+                .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
+                .branch { sample, cram, crai, status ->
+                    fail: status == 'FAIL'
+                    pass: status == 'PASS'
+                    invalid: true
+                }
+                .set { cram_validation_routes }
 
-        //Compatible existing CRAMs.
-        cram_validation_routes.pass
-            .map { sample, cram, crai, status ->
-                tuple(sample, cram, crai)
-            }
-            .set { ch_validated_cram }
-
-        // Report incompatible CRAMs. Thes get remapped
-        cram_validation_routes.fail
-            .map { sample, cram, crai, status ->
-                sample
-            }
-            .unique()
-            .collect()
-            .subscribe { failed_samples ->
-                if (failed_samples) {
-                    log.warn(
-                        "CRAM validation failed for " +
-                        "${failed_samples.size()} sample(s): " +
-                        failed_samples.join(', ')
+            // Fail loudly if there is an invalid status
+            cram_validation_routes.invalid
+                .map { sample, cram, crai, status ->
+                    throw new IllegalStateException(
+                        "Unexpected CRAM validation status for ${sample}: '${status}'"
                     )
                 }
-            }
+                .set { _invalid_cram_status }
+
+            //Compatible existing CRAMs.
+            cram_validation_routes.pass
+                .map { sample, cram, crai, status -> tuple(sample, cram, crai) }
+                .set { ch_validated_cram }
+
+            // Report incompatible CRAMs. Thes get remapped
+            cram_validation_routes.fail
+                .map { sample, cram, crai, status -> sample }
+                .unique()
+                .collect()
+                .subscribe { failed_samples ->
+                    if (failed_samples) {
+                        log.warn(
+                            "CRAM validation failed for " +
+                            "${failed_samples.size()} sample(s): " +
+                            failed_samples.join(', ')
+                        )
+                    }
+                }
 
         } else {
             // Validation explicitly disabled: assume all discovered CRAMs are compatible.
@@ -157,8 +154,8 @@ workflow ALIGNMENT {
         //Set of sample names that do not need mapping.
         ch_validated_cram
             .map { sample, cram, crai -> sample }
-            .collect()
-            .map { samples -> samples as Set }
+            .toList()
+            .map { ids -> ids as Set } 
             .set { ch_cram_done }
 
     } else {
@@ -170,12 +167,8 @@ workflow ALIGNMENT {
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
     ch_reads_grouped
         .combine(ch_cram_done)
-        .filter { sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set ->
-            !(done_set as Set).contains(sample)
-        }
-        .map {sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set ->
-                tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s)
-        }
+        .filter { sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set -> !(done_set as Set).contains(sample)}
+        .map {sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set -> tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s) }
         .set { ch_reads_to_map }
 
     /*
@@ -209,26 +202,8 @@ workflow ALIGNMENT {
         .flatMap { sorted_samples ->
             sorted_samples
         }
-        .map {
-            priority,
-            sample_local_size,
-            sample,
-            libs,
-            source,
-            input1s,
-            input2s,
-            local_r1s,
-            local_r2s ->
-
-            tuple(
-                sample,
-                libs,
-                source,
-                input1s,
-                input2s,
-                local_r1s,
-                local_r2s
-            )
+        .map { priority, sample_local_size, sample, libs, source, input1s, input2s, local_r1s, local_r2s ->
+            tuple( sample, libs, source, input1s, input2s,local_r1s, local_r2s )
         }
         .set { ch_reads_grouped_by_sample }
 
