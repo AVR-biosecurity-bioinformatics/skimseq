@@ -79,7 +79,7 @@ workflow BCFTOOLS_CALLING {
         }
         .set { ch_interval_bed_mp }
 
-    // combine sample-level cran with each interval_bed file and interval chunk
+    // combine sample-level cram with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )

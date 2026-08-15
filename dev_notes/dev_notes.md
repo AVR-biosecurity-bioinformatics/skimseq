@@ -272,4 +272,76 @@ module load Miniconda3/24.7.1-0
 export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
 nextflow run . -profile debug,test -config conf/basc.config --slurm_account fruitfly -resume
 
+
+# Test BMSB
+module purge
+export NXF_VER=26.07.0-edge
+module load Java/17
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . \
+    -profile debug \
+    -config conf/basc.config \
+    --slurm_account fruitfly \
+    --samplesheet sample_sheet.csv \
+    --ref_genome /group/referencedata/mspd-db/genomes/insect/halyomorpha_halys/GCF_000696795.3_Hhal_1.1_genomic.fna \
+    --mito_contig NC_013272.1 \
+    -resume \
+    -with-trace trace.txt scratch=false
+
+```
+
+
+# View cpu utilisation of running job
+
+```
+# List all jobs
+squeue     --user "$USER"     --format='%i|%T|%j|%R' | grep 'MAP_TO_GENOME'
+
+# Slect job_id
+job_id=21074658
+
+node=$(squeue -h -j "$job_id" -o '%N')
+
+echo "Monitoring job ${job_id} on ${node}"
+
+ssh "$node" bash -s -- "$job_id" <<'REMOTE'
+job_id="$1"
+
+pids=$(
+    scontrol listpids "$job_id" 2>/dev/null |
+        awk 'NR > 1 && $1 ~ /^[0-9]+$/ {print $1}' |
+        paste -sd, -
+)
+
+if [[ -z "$pids" ]]; then
+    echo "No processes found for Slurm job $job_id" >&2
+    exit 0
+fi
+
+{
+    printf '%-20s %10s %12s\n' \
+        'COMMAND' \
+        'CPU' \
+        'RSS_GiB'
+
+    ps -p "$pids" -o comm=,%cpu=,rss= |
+        awk '
+            {
+                cpu[$1] += $2
+                rss[$1] += $3
+            }
+
+            END {
+                for (command in cpu) {
+                    printf "%-20s %9.1f%% %12.2f\n",
+                        command,
+                        cpu[command],
+                        rss[command] / 1024 / 1024
+                }
+            }
+        ' |
+        sort -k2,2nr
+}
+REMOTE
 ```

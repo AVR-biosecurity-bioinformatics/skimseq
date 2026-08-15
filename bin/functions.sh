@@ -68,6 +68,40 @@ download_fastq_stream_curl() {
         "${url}"
 }
 
+# Download fastq using HydraStream
+download_fastq_stream_hs() {
+    local url="$1"
+    local expected_md5="${2:-}"
+    local threads="${3:-4}"
+
+    if [[ ! "${threads}" =~ ^[1-9][0-9]*$ ]]; then
+        echo \
+            "ERROR: HydraStream threads must be a positive integer; " \
+            "received '${threads}'" \
+            >&2
+        return 2
+    fi
+
+    # HydraStream requires HTTP/HTTPS.
+    url="${url/#ftp:\/\/ftp.sra.ebi.ac.uk\//https:\/\/ftp.sra.ebi.ac.uk\/}"
+
+    local -a args=(
+        "${url}"
+        --threads "${threads}"
+        --stream
+        --quiet
+    )
+
+    if [[ -n "${expected_md5}" ]]; then
+        args+=(
+            --typehash md5
+            --checksum "${expected_md5}"
+        )
+    fi
+
+    hs "${args[@]}"
+}
+
 # Validate that a file from URL begins with the gzip magic bytes 1f 8b.
 # The request is limited to the first two bytes. Do not use
 # --retry-all-errors here because closing a short validation stream can
@@ -441,6 +475,8 @@ inject_sam_readgroups() {
 stream_fastq() {
     local input="$1"
     local rg_id="$2"
+    local expected_md5="${3:-}"
+    local download_threads="${4:-4}"
 
     {
         case "${STREAM_TYPE}" in
@@ -451,8 +487,22 @@ stream_fastq() {
                 ;;
 
             remote)
-                download_fastq_stream_curl "${input}" |
-                    seqkit sana --threads 1 -
+                download_fastq_stream_hs \
+                    "${input}" \
+                    "${expected_md5}" \
+                    "${download_threads}" |
+                    gzip -dc |
+                    seqkit sana \
+                        --threads 1 \
+                        -
+                ;;
+
+            *)
+                echo \
+                    "ERROR: unsupported stream type '${STREAM_TYPE}' " \
+                    "for '${input}'" \
+                    >&2
+                return 2
                 ;;
         esac
     } |

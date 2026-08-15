@@ -78,16 +78,39 @@ process MAP_TO_GENOME {
             .join(' ')
         : ''
 
-    // Thread allocation for concurrently running pipeline stages.
-    def fastp_threads   = task.cpus >= 6 ? 2 : 1
-    def sort_threads    = task.cpus >= 6 ? 2 : 1
-    def overhead_threads = task.cpus >= 6 ? 2 : 1
-
-    def aln_threads = Math.max(
+    // Allocate a small share of available CPUs to supporting stages.
+    def support_threads = Math.max(
         1,
-        task.cpus - fastp_threads - sort_threads - overhead_threads
+        task.cpus.intdiv(8)
     )
 
+    def fastp_threads = support_threads
+    def sort_threads  = support_threads
+
+    // Reserve capacity for seqkit, seqtk, RG injection, dupblaster,
+    // HydraStream coordination, and shell overhead.
+    def overhead_threads = task.cpus >= 8
+        ? support_threads
+        : 0
+
+    // Assign the remaining CPUs to the primary bottleneck: minibwa.
+    def aln_threads = Math.max(
+        1,
+        task.cpus -
+            fastp_threads -
+            sort_threads -
+            overhead_threads
+    )
+
+    // HydraStream connections per mate. These primarily control
+    // network concurrency rather than representing dedicated CPU cores.
+    def download_threads = source == 'local'
+        ? 1
+        : Math.max(
+            1,
+            Math.min(4, task.cpus.intdiv(4))
+        )
+        
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -114,6 +137,8 @@ process MAP_TO_GENOME {
     declare -a LIBS=(${lib_array})
     declare -a READ1=()
     declare -a READ2=()
+    declare -a MD5_R1=()
+    declare -a MD5_R2=()
     declare -a RG_ID=()
     declare -a RG_PU=()
 
@@ -146,12 +171,19 @@ process MAP_TO_GENOME {
         URL2=()
 
         for ACC in "\${ACCESSIONS[@]}"; do
-            read -r RESOLVED_URL1 MD5_1 RESOLVED_URL2 MD5_2 < <(
-                resolve_fastqs "\${ACC}"
-            )
+            read -r \
+                RESOLVED_URL1 \
+                RESOLVED_MD5_1 \
+                RESOLVED_URL2 \
+                RESOLVED_MD5_2 \
+                < <(
+                    resolve_fastqs "\${ACC}"
+                )
 
-            URL1=("\${RESOLVED_URL1}")
-            URL2=("\${RESOLVED_URL2}")
+            URL1+=("\${RESOLVED_URL1}")
+            URL2+=("\${RESOLVED_URL2}")
+            MD5_R1+=("\${RESOLVED_MD5_1}")
+            MD5_R2+=("\${RESOLVED_MD5_2}")
         done
     fi
 
@@ -240,20 +272,30 @@ process MAP_TO_GENOME {
     # Create FIFO producers
     mkfifo "\${FASTQ1}" "\${FASTQ2}"
 
-    # Start streaming read 1 files
+    # Start streaming R1 files.
     (
         set -euo pipefail
+
         for i in "\${!READ1[@]}"; do
-            stream_fastq "\${READ1[\${i}]}" "\${RG_ID[\${i}]}"
+            stream_fastq \
+                "\${READ1[\${i}]}" \
+                "\${RG_ID[\${i}]}" \
+                "\${MD5_R1[\${i}]:-}" \
+                "${download_threads}"
         done
     ) > "\${FASTQ1}" &
     PID1=\$!
 
-    # Start streaming read 2 files
+    # Start streaming R2 files.
     (
         set -euo pipefail
+
         for i in "\${!READ2[@]}"; do
-            stream_fastq "\${READ2[\${i}]}" "\${RG_ID[\${i}]}"
+            stream_fastq \
+                "\${READ2[\${i}]}" \
+                "\${RG_ID[\${i}]}" \
+                "\${MD5_R2[\${i}]:-}" \
+                "${download_threads}"
         done
     ) > "\${FASTQ2}" &
     PID2=\$!
