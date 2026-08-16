@@ -66,11 +66,16 @@ params {
 
     // Mitochondrial variant calling
     mito_shift: Integer = 8_000                         // Create mito reference shifted by this many bases
-    mito_minbq: Integer = 10
-    mito_minmq: Integer = 20
-    mito_trim_read_ends: Integer = 0
-    mito_min_vaf: Float = 0.9f                          // Minimum VAF for consensus mito
-    mito_min_depth: Integer = 100                       // Minimum supporting reads for consensus mito
+    mito_breakpoint_window: Integer = 500
+    mito_minbq: Integer = 10                            // Bases below this quality are excluded before allele counting.
+    mito_minmq: Integer = 20                            // Reads below this mapping quality are excluded before allele counting.
+    mito_trim_read_ends: Integer = 0                    // Number of bases to ignore from each end of each read
+    mito_min_depth: Integer = 100                       // Minimum total site depth required to call a consensus base
+    mito_major_af: Float = 0.8f                         // Minimum major allele fraction required to call an A/C/G/T consensus base
+    mito_het_mode: String = 'iupac'                     // How to handle mixed SNV where the major allele does not pass mito_major_af. 'N' = mask, 'iupac' emits only when > mito_het_af & mito_het_min_depth
+    mito_het_af: Float = 0.2f                           // Minimum second-allele fraction required for an IUPAC ambiguity call when mito_het_mode is 'iupac'
+    mito_het_min_depth: Integer = 3                     // Minimum read support required for the second allele before an IUPAC ambiguity can be emitted
+    mito_max_non_snv_af: Float = 0.2f                   // Maximum allowed fraction of non-SNV evidence before masking the site as N
 
     // Generic variant calling
     variant_caller: String = 'bcftools'                // Variant caller to be used; can be one of 'bcftools' or 'gatk'
@@ -316,17 +321,18 @@ workflow {
 
     publish:
 
-    mask_summary    = SKIMSEQ.out.mask_summary
+    mask_summary     = SKIMSEQ.out.mask_summary
     mask_summary_bed = SKIMSEQ.out.mask_summary_bed
-    mask_pass_bed = SKIMSEQ.out.mask_pass_bed
+    mask_pass_bed    = SKIMSEQ.out.mask_pass_bed
 
-    cram            = SKIMSEQ.out.cram
+    new_cram        = SKIMSEQ.out.new_cram
     perbase         = SKIMSEQ.out.perbase
     mito_fasta      = SKIMSEQ.out.mito_fasta
+    mito_consensus  = SKIMSEQ.out.mito_consensus
 
-    unfiltered_vcf = SKIMSEQ.out.unfiltered_vcf
-    gvcf = SKIMSEQ.out.gvcf
-    final_vcf = SKIMSEQ.out.final_vcf
+    unfiltered_vcf  = SKIMSEQ.out.unfiltered_vcf
+    gvcf            = SKIMSEQ.out.gvcf
+    final_vcf       = SKIMSEQ.out.final_vcf
 
     beagle_gl       = SKIMSEQ.out.beagle_gl
     plink           = SKIMSEQ.out.plink
@@ -363,7 +369,8 @@ output {
         path 'qc'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
-    cram {
+    // Only publishes newly generated crams, doesnt overwrite crams that passed validation
+    new_cram {
         enabled params.output_cram
         path new File(params.cram_store).name
     }
@@ -372,6 +379,9 @@ output {
         path new File(params.gvcf_store).name
     }
     mito_fasta {
+        path 'mito'
+    }
+    mito_consensus {
         path 'mito'
     }
     unfiltered_vcf {

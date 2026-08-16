@@ -36,38 +36,6 @@ check_pipeline() {
     return 0
 }
 
-# Download fastq using aria2c
-download_fastq_stream_aria2c() {
-    local url="$1"
-    local threads="${2:-1}"
-
-    aria2c \
-        --max-tries=0 \
-        --retry-wait=30 \
-        --timeout=60 \
-        --connect-timeout=60 \
-        --file-allocation=none \
-        -x "${threads}" \
-        -s "${threads}" \
-        -o - \
-        "${url}"
-}
-
-# Download fastq using curl
-download_fastq_stream_curl() {
-    local url="$1"
-
-    curl \
-        --location \
-        --fail \
-        --silent \
-        --show-error \
-        --connect-timeout 30 \
-        --speed-time 120 \
-        --speed-limit 1024 \
-        "${url}"
-}
-
 # Download fastq using HydraStream
 download_fastq_stream_hs() {
     local url="$1"
@@ -100,6 +68,44 @@ download_fastq_stream_hs() {
     fi
 
     hs "${args[@]}"
+}
+
+# Streaming helper
+stream_fastq() {
+    local input="$1"
+    local rg_id="$2"
+    local expected_md5="${3:-}"
+    local download_threads="${4:-4}"
+
+    {
+        case "${STREAM_TYPE}" in
+            local)
+                seqkit sana \
+                    --threads 1 \
+                    "${input}"
+                ;;
+
+            remote)
+                download_fastq_stream_hs \
+                    "${input}" \
+                    "${expected_md5}" \
+                    "${download_threads}" |
+                    gzip -dc |
+                    seqkit sana \
+                        --threads 1 \
+                        -
+                ;;
+
+            *)
+                echo \
+                    "ERROR: unsupported stream type '${STREAM_TYPE}' " \
+                    "for '${input}'" \
+                    >&2
+                return 2
+                ;;
+        esac
+    } |
+        annotate_fastq "${rg_id}"
 }
 
 # Validate that a file from URL begins with the gzip magic bytes 1f 8b.
@@ -207,9 +213,7 @@ get_remote_flowcell_lane() {
     )
 
     if [[ -z "${read_header}" ]]; then
-        echo \
-            "ERROR: could not read FASTQ header from '${url}'" \
-            >&2
+        echo "ERROR: could not read FASTQ header from '${url}'" >&2
         return 1
     fi
 
@@ -226,7 +230,7 @@ get_remote_flowcell_lane() {
     parse_illumina_header "${read_header}"
 }
 
-# Joint function
+# Joint flowcell lane parsing function
 get_flowcell_lane() {
     local input="$1"
     local stream_type="$2"
@@ -240,17 +244,13 @@ get_flowcell_lane() {
                 get_local_flowcell_lane "${input}"
             ) || return 1
             ;;
-
         remote)
             flowcell_lane=$(
                 get_remote_flowcell_lane "${input}"
             ) || return 1
             ;;
-
         *)
-            echo \
-                "ERROR: unsupported stream type '${stream_type}' for '${input}'" \
-                >&2
+            echo "ERROR: unsupported stream type '${stream_type}' for '${input}'" >&2
             return 1
             ;;
     esac
@@ -258,9 +258,7 @@ get_flowcell_lane() {
     read -r fcid lane <<< "${flowcell_lane}"
 
     if [[ -z "${fcid}" || -z "${lane}" ]]; then
-        echo \
-            "ERROR: could not determine flowcell/lane for '${input}'" \
-            >&2
+        echo "ERROR: could not determine flowcell/lane for '${input}'" >&2
         return 1
     fi
 
@@ -340,7 +338,6 @@ annotate_fastq() {
             print "@" rg "|" $0
             next
         }
-
         { print }
     '
 }
@@ -469,42 +466,4 @@ inject_sam_readgroups() {
             }
         }
     ' "${injected_header_file}" -
-}
-
-# Streaming helper
-stream_fastq() {
-    local input="$1"
-    local rg_id="$2"
-    local expected_md5="${3:-}"
-    local download_threads="${4:-4}"
-
-    {
-        case "${STREAM_TYPE}" in
-            local)
-                seqkit sana \
-                    --threads 1 \
-                    "${input}"
-                ;;
-
-            remote)
-                download_fastq_stream_hs \
-                    "${input}" \
-                    "${expected_md5}" \
-                    "${download_threads}" |
-                    gzip -dc |
-                    seqkit sana \
-                        --threads 1 \
-                        -
-                ;;
-
-            *)
-                echo \
-                    "ERROR: unsupported stream type '${STREAM_TYPE}' " \
-                    "for '${input}'" \
-                    >&2
-                return 2
-                ;;
-        esac
-    } |
-        annotate_fastq "${rg_id}"
 }

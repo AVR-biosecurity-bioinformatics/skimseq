@@ -250,8 +250,13 @@ workflow ALIGNMENT {
         ch_exclude_bed
     )
 
+    // Only newly generated CRAMs should be published.
+    MAP_TO_GENOME.out.cram
+        .set { ch_new_cram }
+
     emit: 
     cram = STAGE_CRAM.out.cram
+    new_cram = ch_new_cram
     perbase = COUNT_CRAM_PERBASE.out.perbase
     counts = COUNT_CRAM_PERBASE.out.counts
 

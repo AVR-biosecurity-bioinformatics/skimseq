@@ -402,8 +402,8 @@ workflow SKIMSEQ {
     mask_summary_bed = MASK_GENOME.out.mask_summary_bed
     mask_pass_bed = MASK_GENOME.out.mask_pass_bed
 
-    // Alignment subworkflow
-    cram            = ALIGNMENT.out.cram
+    // Alignment subworkflow (emit only new crams for publication)
+    new_cram        = ALIGNMENT.out.new_cram
     perbase         = ALIGNMENT.out.perbase
 
     // Filtering subworkflow
@@ -413,7 +413,8 @@ workflow SKIMSEQ {
 
     // Mito subworkflow
     mito_fasta      = MITO_GENOTYPING.out.mito_fasta
-
+    mito_consensus  = MITO_GENOTYPING.out.mito_consensus
+    
     // VCF outputs
     unfiltered_vcf = ch_merged_unfiltered_vcf
     gvcf = ch_gvcf

@@ -62,5 +62,6 @@ workflow MITO_GENOTYPING {
 
     emit: 
     mito_fasta = CONSENSUS_MITO.out.fasta
+    mito_consensus = PILEUP_MITO.out.consensus
 
 }

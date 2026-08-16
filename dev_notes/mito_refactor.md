@@ -258,3 +258,19 @@ process CALL_MT_CONSENSUS {
     """
 }
 ```
+
+python /group/pathogens/IAWS/Personal/Alexp/skimseq/bin/call_mito_consensus.py \
+    --samples all.samples.tsv \
+    --reference mito.fa \
+    --original-counts all.original.all_sites.tsv \
+    --shifted-counts all.shifted.all_sites.tsv \
+    --shift-bases 8000 \
+    --breakpoint-window 500 \
+    --min-depth 10 \
+    --major-af 0.80 \
+    --out-fasta all.mito.consensus.fa \
+    --out-calls all.mito.calls.tsv \
+    --out-qc all.mito.qc.tsv
+
+        --het-min-af 0.20 \
+    --min-alt-depth 3 \
