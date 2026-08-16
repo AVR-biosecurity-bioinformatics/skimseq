@@ -5,7 +5,5 @@ channels:
   - bioconda
 
 dependencies:
-  - python=3.12
   - bioconda::samtools=1.24
   - bioconda::minipileup=1.4b
-  - bioconda::pyfaidx

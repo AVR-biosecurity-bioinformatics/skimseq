@@ -70,7 +70,7 @@ params {
     mito_minbq: Integer = 10                            // Bases below this quality are excluded before allele counting.
     mito_minmq: Integer = 20                            // Reads below this mapping quality are excluded before allele counting.
     mito_trim_read_ends: Integer = 0                    // Number of bases to ignore from each end of each read
-    mito_min_depth: Integer = 100                       // Minimum total site depth required to call a consensus base
+    mito_min_depth: Integer = 10                        // Minimum total site depth required to call a consensus base
     mito_major_af: Float = 0.8f                         // Minimum major allele fraction required to call an A/C/G/T consensus base
     mito_het_mode: String = 'iupac'                     // How to handle mixed SNV where the major allele does not pass mito_major_af. 'N' = mask, 'iupac' emits only when > mito_het_af & mito_het_min_depth
     mito_het_af: Float = 0.2f                           // Minimum second-allele fraction required for an IUPAC ambiguity call when mito_het_mode is 'iupac'
@@ -327,7 +327,6 @@ workflow {
 
     new_cram        = SKIMSEQ.out.new_cram
     perbase         = SKIMSEQ.out.perbase
-    mito_fasta      = SKIMSEQ.out.mito_fasta
     mito_consensus  = SKIMSEQ.out.mito_consensus
 
     unfiltered_vcf  = SKIMSEQ.out.unfiltered_vcf
@@ -377,9 +376,6 @@ output {
     gvcf {
         enabled params.output_gvcf
         path new File(params.gvcf_store).name
-    }
-    mito_fasta {
-        path 'mito'
     }
     mito_consensus {
         path 'mito'

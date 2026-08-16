@@ -47,21 +47,15 @@ workflow MITO_GENOTYPING {
         ch_shifted_mito_indexed
     )
 
-    // call consensus fasta file from mito bam
-    CONSENSUS_MITO (
-        ch_sample_cram,
-        ch_genome_indexed,
-        ch_mito_indexed,
-        ch_mito_bed,
-        ch_numt_bed,
-        params.mito_min_vaf,
-        params.mito_min_depth
+    // Call consensus from pileup
+    CONSENSUS_MITO(
+        PILEUP_MITO.out.counts,
+        ch_mito_indexed
     )
 
     // Align consensus mito reads
 
     emit: 
-    mito_fasta = CONSENSUS_MITO.out.fasta
-    mito_consensus = PILEUP_MITO.out.consensus
+    mito_consensus = CONSENSUS_MITO.out.consensus
 
 }

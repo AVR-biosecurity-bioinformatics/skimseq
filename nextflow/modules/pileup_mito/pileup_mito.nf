@@ -28,7 +28,6 @@ process PILEUP_MITO {
           emit: consensus
 
     script:
-    def consensusScript = "${moduleDir}/bin/call_mito_consensus.py"
 
     def ordered = [
         samples,
@@ -107,7 +106,7 @@ process PILEUP_MITO {
         > '${cohort}.shifted.all_sites.tsv'
 
     # Call mitochondrial consensus
-    python ${consensusScript} \
+    python "${projectDir}/bin/call_mito_consensus.py" \
         --samples ${cohort}.samples.tsv \
         --reference '${mito_fasta}' \
         --original-counts ${cohort}.original.all_sites.tsv \

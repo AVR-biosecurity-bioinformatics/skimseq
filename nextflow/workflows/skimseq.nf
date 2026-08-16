@@ -412,9 +412,8 @@ workflow SKIMSEQ {
     sample_missing_tsv = FILTER_VARIANTS.out.sample_missing_tsv
 
     // Mito subworkflow
-    mito_fasta      = MITO_GENOTYPING.out.mito_fasta
     mito_consensus  = MITO_GENOTYPING.out.mito_consensus
-    
+
     // VCF outputs
     unfiltered_vcf = ch_merged_unfiltered_vcf
     gvcf = ch_gvcf

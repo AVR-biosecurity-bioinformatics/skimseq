@@ -314,7 +314,7 @@
         },
         "mito_min_depth": {
           "type": "integer",
-          "default": 100,
+          "default": 10,
           "description": "Minimum total depth required to call a mitochondrial consensus base. Total depth includes A/C/G/T support plus non-SNV evidence. Sites below this threshold are masked as N.",
           "minimum": 0
         },
