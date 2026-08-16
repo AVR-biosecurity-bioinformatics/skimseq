@@ -109,11 +109,19 @@ workflow GATK_SINGLE {
         ch_validated_gvcf = channel.empty()
     }
 
+    // Retain crams only for samples without a validated existing GVCF
     ch_sample_cram
         .combine(ch_gvcf_done)  
         .filter { sample, _gvcf, _tbi, doneSet -> !(doneSet as Set).contains(sample) }
         .map {  sample, gvcf, tbi, _doneSet -> tuple( sample, gvcf, tbi) }
         .set { ch_cram_for_hc }
+
+    // Retain read counts only for samples without a validated existing GVCF
+    ch_read_counts
+        .combine(ch_gvcf_done)
+        .filter { sample, _counts_bed, _counts_tbi, done_set -> !(done_set as Set).contains(sample) }
+        .map { sample, counts_bed, counts_tbi, _done_set -> tuple(sample, counts_bed, counts_tbi) }
+        .set { ch_read_counts_for_hc }
 
     /* 
        Create groups of genomic intervals for parallel haplotypecaller
@@ -121,7 +129,7 @@ workflow GATK_SINGLE {
 
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
-        ch_read_counts,
+        ch_read_counts_for_hc,
         ch_genome_indexed,
         ch_include_bed.first(),
         params.hc_bases_per_chunk,
