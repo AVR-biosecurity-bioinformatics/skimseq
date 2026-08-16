@@ -20,7 +20,6 @@ process PLOT_VCF_FILTERS {
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
     Rscript ${projectDir}/bin/plot_vcf_filters.R \
-        ${projectDir} \
         ${params.rdata} \
         ${outname}
     """

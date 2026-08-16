@@ -6,14 +6,11 @@ tryCatch(
   {
     args <- commandArgs(trailingOnly = TRUE)
 
+    params.rdata <- args[1]
+    eigenval_file <- args[2]
+    eigenvec_file <- args[3]
+    popmap_file <- args[4]
 
-    projectDir <- args[1]
-    params.rdata <- tolower(args[2])
-  eigenval_file <- args[3]
-  eigenvec_file <- args[4]
-    popmap_file <- args[5]
-
-    sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
     process_packages <- c(
       "dplyr",

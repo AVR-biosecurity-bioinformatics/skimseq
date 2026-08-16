@@ -19,7 +19,7 @@ process NGSRELATE {
     ngsRelate \
         -p ${task.cpus} \
         -h ${vcf} \
-        -O ${prefix}.res \
+        -O ${outname}.res \
         -I 1 
     """
 }

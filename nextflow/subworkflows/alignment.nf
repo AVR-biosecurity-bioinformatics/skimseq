@@ -60,7 +60,7 @@ workflow ALIGNMENT {
 
             // Fail loudly if there is an invalid status
             cram_validation_routes.invalid
-                .map { sample, cram, crai, status ->
+                .map { sample, _cram, _crai, status ->
                     throw new IllegalStateException(
                         "Unexpected CRAM validation status for ${sample}: '${status}'"
                     )

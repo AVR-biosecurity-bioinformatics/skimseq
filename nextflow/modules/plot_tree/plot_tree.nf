@@ -19,7 +19,6 @@ process PLOT_TREE {
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
     Rscript ${projectDir}/bin/plot_tree.R \
-        ${projectDir} \
         ${params.rdata} \
         ${distmat} \
         ${popmap}

@@ -4,14 +4,11 @@ tryCatch(
   {
     args <- commandArgs(trailingOnly = TRUE)
 
-    projectDir <- args[1]
-    params.rdata <- args[2]
-    mat_file <- args[3]
-    popmap_file <- args[4]
+    params.rdata <- args[1]
+    mat_file <- args[2]
+    popmap_file <- args[3]
 
     # TODO: better to make some kind of temporary popmap file, potentially using nextflow native commands
-
-    sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
     ### load only required packages
     process_packages <- c(

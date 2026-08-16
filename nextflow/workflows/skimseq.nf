@@ -413,8 +413,8 @@ workflow SKIMSEQ {
         ch_popmap
     )
 
-    FILTER_VARIANTS.out.sample_names_filt
-        .set { ch_sample_names_filt }
+    //FILTER_VARIANTS.out.sample_names_filt
+        //.set { ch_sample_names_filt }
 
     FILTER_VARIANTS.out.filtered_vcf
         .set { ch_filtered_vcf }

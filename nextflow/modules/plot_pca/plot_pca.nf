@@ -18,7 +18,6 @@ process PLOT_PCA {
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
     Rscript "${projectDir}/bin/plot_pca.R" \
-        "${projectDir}" \
         "${params.rdata}" \
         "${eigval}" \
         "${eigvec}" \

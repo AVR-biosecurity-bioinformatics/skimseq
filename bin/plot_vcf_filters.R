@@ -4,11 +4,8 @@ tryCatch(
   {
     args <- commandArgs(trailingOnly = TRUE)
 
-    projectDir <- args[1]
-    params.rdata <- args[2]
-    outname <- args[3]
-
-    sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
+    params.rdata <- args[1]
+    outname <- args[2]
 
     ### load only required packages
     process_packages <- c(

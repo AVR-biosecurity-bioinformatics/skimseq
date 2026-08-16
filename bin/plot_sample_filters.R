@@ -4,16 +4,13 @@ tryCatch(
   {
     args <- commandArgs(trailingOnly = TRUE)
 
-    projectDir <- args[1]
-    params.rdata <- args[2]
+    params.rdata <- args[1]
 
     #snp_filtering parameters
-    params.sample_max_missing <- args[3]
+    params.sample_max_missing <- args[2]
 
     # TESTING
     #params.sample_max_missing <- 0.5
-
-    sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
 
     ### load only required packages
     process_packages <- c(

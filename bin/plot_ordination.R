@@ -4,13 +4,10 @@ tryCatch(
   {
     args <- commandArgs(trailingOnly = TRUE)
 
-    projectDir <- args[1]
-    params.rdata <- args[2]
-    mat_file <- args[3]
-    popmap_file <- args[4]
-    params.covariance <- args[5]
-
-    sys.source(paste0(projectDir, "/bin/functions.R"), envir = .GlobalEnv)
+    params.rdata <- args[1]
+    mat_file <- args[2]
+    popmap_file <- args[3]
+    params.covariance <- args[4]
 
     ### load only required packages
     process_packages <- c(
