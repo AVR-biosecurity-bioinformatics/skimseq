@@ -345,14 +345,18 @@ process MAP_TO_GENOME {
     wait "\${PID2}"; r2_status=\$?; PID2=""
     set -e
 
-    if (( r1_status != 0 || r2_status != 0 )); then
+    # Status 141 is an expected secondary SIGPIPE when mergepe stops reading
+    # the longer mate after the shorter recovered stream reaches EOF.
+    if (( r1_status != 0 && r1_status != 141 )) ||
+    (( r2_status != 0 && r2_status != 141 ))
+    then
         echo \
             "ERROR: FASTQ streaming failed for '${sample}'; " \
             "R1 status=\${r1_status}, R2 status=\${r2_status}" \
             >&2
         exit 1
     fi
-    
+
     ###########################################
     # Index outputs
     ###########################################

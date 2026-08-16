@@ -43,6 +43,7 @@ download_fastq_stream_hs() {
     local url="$1"
     local expected_md5="${2:-}"
     local threads="${3:-4}"
+    local log_dir
 
     if [[ ! "${threads}" =~ ^[1-9][0-9]*$ ]]; then
         echo \
@@ -52,14 +53,19 @@ download_fastq_stream_hs() {
         return 2
     fi
 
-    # HydraStream requires HTTP/HTTPS.
-    url="${url/#ftp:\/\/ftp.sra.ebi.ac.uk\//https:\/\/ftp.sra.ebi.ac.uk\/}"
+    url="${url/#ftp:\/\//https:\/\/}"
+
+    log_dir=$(
+        mktemp -d \
+            "${TMPDIR:-.}/hydrastream.XXXXXX"
+    ) || return 1
 
     local -a args=(
         "${url}"
         --threads "${threads}"
         --stream
-        --quiet
+        --no-ui
+        --output "${log_dir}"
     )
 
     if [[ -n "${expected_md5}" ]]; then
@@ -70,6 +76,11 @@ download_fastq_stream_hs() {
     fi
 
     hs "${args[@]}"
+    local status=$?
+
+    rm -rf "${log_dir}"
+
+    return "${status}"
 }
 
 # Streaming helper
@@ -82,9 +93,7 @@ stream_fastq() {
     {
         case "${STREAM_TYPE}" in
             local)
-                seqkit sana \
-                    --threads 1 \
-                    "${input}"
+                salvage_fastq_stream "${input}"
                 ;;
 
             remote)
@@ -93,21 +102,43 @@ stream_fastq() {
                     "${expected_md5}" \
                     "${download_threads}" |
                     gzip -dc |
-                    seqkit sana \
-                        --threads 1 \
-                        -
+                    seqkit sana --threads 1 -
                 ;;
 
             *)
-                echo \
-                    "ERROR: unsupported stream type '${STREAM_TYPE}' " \
-                    "for '${input}'" \
-                    >&2
+                echo "ERROR: unsupported stream type '${STREAM_TYPE}'" >&2
                 return 2
                 ;;
         esac
     } |
         annotate_fastq "${rg_id}"
+}
+
+salvage_fastq_stream() {
+    local input="$1"
+    local -a status
+
+    set +e
+
+    gzip -dc -- "${input}" |
+        seqkit sana --threads 1 -
+
+    status=("${PIPESTATUS[@]}")
+
+    set -e
+
+    # SeqKit itself must complete successfully.
+    if (( status[1] != 0 )); then
+        echo "ERROR: FASTQ sanitisation failed for '${input}'" >&2
+        return "${status[1]}"
+    fi
+
+    # A gzip failure means the stream was partially recovered.
+    if (( status[0] != 0 )); then
+        echo "WARNING: recovered reads from corrupted gzip file '${input}'" >&2
+    fi
+
+    return 0
 }
 
 # Validate that a file from URL begins with the gzip magic bytes 1f 8b.
@@ -150,30 +181,36 @@ validate_gzip_url() {
     return 0
 }
 
-# Parse an illumina header
-parse_illumina_header() {
+# Parse a shortread header
+parse_shortread_header() {
     local read_header="$1"
-    local instrument
-    local run
-    local fcid
-    local lane
+    local -a fields
 
+    # Retain only the first whitespace-delimited component.
     read_header="${read_header#@}"
     read_header="${read_header%%[[:space:]]*}"
     read_header="${read_header%/1}"
+    read_header="${read_header%/2}"
 
-    IFS=':' read -r \
-        instrument \
-        run \
-        fcid \
-        lane \
-        _ \
-        <<< "${read_header}"
+    IFS=':' read -r -a fields <<< "${read_header}"
 
-    if [[ -z "${fcid}" || -z "${lane}" ]]; then
+    # Expected structure:
+    # instrument:run:flowcell:lane:tile:x:y
+    if (( ${#fields[@]} < 4 )); then
         echo \
-            "ERROR: could not parse Illumina flowcell and lane from " \
-            "FASTQ header '${read_header}'" \
+            "ERROR: header has fewer than four colon-delimited fields: " \
+            "'${read_header}'" \
+            >&2
+        return 1
+    fi
+
+    local fcid="${fields[2]}"
+    local lane="${fields[3]}"
+
+    if [[ -z "${fcid}" || ! "${lane}" =~ ^[0-9]+$ ]]; then
+        echo \
+            "ERROR: could not parse flowcell and lane from FASTQ header " \
+            "'${read_header}'" \
             >&2
         return 1
     fi
@@ -181,17 +218,18 @@ parse_illumina_header() {
     printf '%s %s\n' "${fcid}" "${lane}"
 }
 
+
 # Get local flowcell and lane
 get_local_flowcell_lane() {
     local fastq="$1"
     local read_header
 
     read_header=$(
-        seqkit head -n 1 "${fastq}" |
-            sed -n '1p'
+        gzip -dc -- "${fastq}" |
+            head -n 1
     )
 
-    parse_illumina_header "${read_header}"
+    parse_shortread_header "${read_header}"
 }
 
 # Get remote flowcell and lane
@@ -229,7 +267,7 @@ get_remote_flowcell_lane() {
         return 0
     fi
 
-    parse_illumina_header "${read_header}"
+    parse_shortread_header "${read_header}"
 }
 
 # Joint flowcell lane parsing function

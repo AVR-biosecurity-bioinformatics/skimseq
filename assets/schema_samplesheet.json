@@ -31,38 +31,48 @@
         "type": "string",
         "minLength": 1,
         "pattern": ".*\\S.*",
-        "description": "Forward FASTQ path, URL, or run accession."
+        "description": "Forward FASTQ path, HTTP/HTTPS/FTP URL, or run accession."
       },
       "rev": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": ".*\\S.*",
-        "description": "Reverse FASTQ path or URL; leave empty for accessions."
+        "type": ["string", "null"],
+        "description": "Reverse FASTQ path or HTTP/HTTPS/FTP URL; leave empty for accessions."
       }
     },
     "allOf": [
       {
         "if": {
+          "required": ["fwd"],
           "properties": {
             "fwd": {
+              "type": "string",
               "pattern": "^(SRR|ERR|DRR)[0-9]+$"
             }
-          },
-          "required": [
-            "fwd"
-          ]
+          }
         },
         "then": {
-          "not": {
-            "required": [
-              "rev"
-            ]
+          "properties": {
+            "rev": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "maxLength": 0
+                }
+              ]
+            }
           }
         },
         "else": {
-          "required": [
-            "rev"
-          ]
+          "required": ["rev"],
+          "properties": {
+            "rev": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": ".*\\S.*"
+            }
+          }
         }
       }
     ]
