@@ -1,7 +1,6 @@
 process MERGE_CHUNK_MISSING {
     tag "${missing.size()} chunks"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/merge_chunk_missing", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(missing)

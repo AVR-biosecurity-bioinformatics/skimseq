@@ -1,7 +1,6 @@
 process HAPLOTYPECALLER {
     tag "${sample}:${interval_hash}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/haplotypecaller", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)

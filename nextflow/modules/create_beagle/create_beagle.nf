@@ -1,7 +1,6 @@
 process CREATE_BEAGLE {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/create_beagle", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)

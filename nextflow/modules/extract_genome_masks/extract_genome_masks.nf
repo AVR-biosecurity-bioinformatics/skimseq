@@ -1,7 +1,6 @@
 process EXTRACT_GENOME_MASKS {
     tag "${ref_genome}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/extract_genome_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple path(ref_genome), path(indexes)

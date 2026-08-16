@@ -1,7 +1,6 @@
 process PLOT_VCF_FILTERS {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plot_vcf_filters", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(filter_hist)

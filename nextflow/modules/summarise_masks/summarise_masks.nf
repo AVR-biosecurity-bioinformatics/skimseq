@@ -1,7 +1,6 @@
 process SUMMARISE_MASKS {
     tag "${ref_genome}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/summarise_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple path(ref_genome), path(indexes)

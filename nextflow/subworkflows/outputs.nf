@@ -83,7 +83,7 @@ workflow OUTPUTS {
         .set{ ch_final_vcfs }
 
     // Create beagle GL file
-    ch_beagle_gl = Channel.empty()
+    ch_beagle_gl = channel.empty()
     if (params.output_beagle_gl) {
         CREATE_BEAGLE_GL (
             ch_final_vcfs,

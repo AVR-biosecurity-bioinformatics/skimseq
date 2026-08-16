@@ -1,7 +1,6 @@
 process JOINT_GENOTYPE {
     tag "${ref_genome}:${interval_hash}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/joint_genotype", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     // Scale memory based on cohort size
     memory {

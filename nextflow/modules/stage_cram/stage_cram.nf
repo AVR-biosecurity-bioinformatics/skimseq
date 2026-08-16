@@ -1,7 +1,6 @@
 process STAGE_CRAM {
     tag "${sample}"
     //conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/stage_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     cache 'deep'
 
     /*

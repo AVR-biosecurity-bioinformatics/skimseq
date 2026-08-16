@@ -1,7 +1,6 @@
 process FILTER_VCF {
     tag "${interval_hash}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/filter_vcf", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi), val(dpLo), val(dpHi)

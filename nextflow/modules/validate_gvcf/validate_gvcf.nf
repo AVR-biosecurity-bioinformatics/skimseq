@@ -1,7 +1,6 @@
 process VALIDATE_GVCF {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/validate_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(gvcf), path(tbi)

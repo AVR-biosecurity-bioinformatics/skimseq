@@ -1,7 +1,6 @@
 process MERGE_CRAM {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/merge_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     
     input:
     tuple val(sample), path(cram), path(crai) 

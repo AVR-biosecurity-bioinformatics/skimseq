@@ -23,9 +23,9 @@ workflow SKIMSEQ {
     main: 
 
     // Create default channels
-    ch_dummy_file = Channel.fromPath("$baseDir/assets/dummy_file.txt", checkIfExists: true)
-    ch_reports = Channel.empty()
-    ch_multiqc_config   = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+    ch_dummy_file = channel.fromPath("$baseDir/assets/dummy_file.txt", checkIfExists: true)
+    ch_reports = channel.empty()
+    ch_multiqc_config   = channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
     /*
     Input channel parsing
@@ -33,7 +33,7 @@ workflow SKIMSEQ {
 
     // Check samplesheet was provided
     if ( params.samplesheet ){
-        ch_samplesheet = Channel
+        ch_samplesheet = channel
             .fromPath (
                 params.samplesheet,
                 checkIfExists: true
@@ -43,7 +43,7 @@ workflow SKIMSEQ {
     }
     
     // Parse input samplesheet
-    ch_samplesheet = Channel.fromList(
+    ch_samplesheet = channel.fromList(
         samplesheetToList(
             params.samplesheet,
             "${projectDir}/assets/schema_samplesheet.json"
@@ -177,13 +177,13 @@ workflow SKIMSEQ {
 
     // Reference genome channel
     if ( params.ref_genome ){
-        ch_genome = Channel
+        ch_genome = channel
             .fromPath (
                 params.ref_genome, 
                 checkIfExists: true
             )
     } else {
-        ch_genome = Channel.empty()
+        ch_genome = channel.empty()
     } 
 
     /*
@@ -203,7 +203,7 @@ workflow SKIMSEQ {
 
     // Handle optional include_bed
     if ( params.include_bed ){
-        ch_include_bed = Channel
+        ch_include_bed = channel
             .fromPath (
                  params.include_bed, 
                  checkIfExists: true
@@ -215,7 +215,7 @@ workflow SKIMSEQ {
 
     // Handle optional exclude_bed
     if (params.exclude_bed) {
-    ch_exclude_bed = Channel
+    ch_exclude_bed = channel
         .fromPath(params.exclude_bed, checkIfExists: true)
         .first()
     } else {
@@ -287,8 +287,8 @@ workflow SKIMSEQ {
     }
     
     // Set empty channels to recieve publishing outputs for optional workflows
-    ch_gvcf = Channel.empty()
-    ch_merged_unfiltered_vcf = Channel.empty()
+    ch_gvcf = channel.empty()
+    ch_merged_unfiltered_vcf = channel.empty()
     if ( params.variant_caller == "gatk" ){
 
         // GATK channel disabled until read validation is updated

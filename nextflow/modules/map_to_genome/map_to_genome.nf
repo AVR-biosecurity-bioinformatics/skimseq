@@ -1,7 +1,6 @@
 process MAP_TO_GENOME {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/map_to_genome", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample),

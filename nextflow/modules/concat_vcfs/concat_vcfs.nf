@@ -1,7 +1,6 @@
 process CONCAT_VCFS {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/concat_vcfs", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)

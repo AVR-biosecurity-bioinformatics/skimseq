@@ -2,10 +2,6 @@ process PILEUP_MITO {
     tag "${cohort}: ${samples.size()} samples"
     conda "${moduleDir}/environment.yml"
 
-    publishDir "${launchDir}/output/modules/pileup_mt",
-        mode: 'copy',
-        enabled: params.debug_mode
-
     input:
     tuple val(cohort),
           val(samples),

@@ -58,7 +58,7 @@ workflow GATK_SINGLE {
                 }
                 .set { gvcf_validation_routes }
 
-            // Channel with just passing gvcfs
+            // channel with just passing gvcfs
             gvcf_validation_routes.pass
                 .map { sample, gvcf, tbi, status -> [ sample, gvcf, tbi ] } 
                 .set { ch_validated_gvcf }
@@ -88,7 +88,7 @@ workflow GATK_SINGLE {
             .set { ch_gvcf_done }
 
     } else{
-        ch_gvcf_done = Channel.value([] as Set)
+        ch_gvcf_done = channel.value([] as Set)
         ch_validated_gvcf = channel.empty()
     }
 
@@ -179,7 +179,7 @@ workflow GATK_SINGLE {
                 tbis
             )
         }
-        // Channel for per-sample GVCF concatenation
+        // channel for per-sample GVCF concatenation
         .set { ch_gvcf_to_concat }
 
 

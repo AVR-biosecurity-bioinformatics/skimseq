@@ -1,7 +1,6 @@
 process PLOT_ORDINATION {
     tag "${distmat}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plot_ordination", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(distmat)

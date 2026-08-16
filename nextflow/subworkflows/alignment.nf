@@ -159,8 +159,8 @@ workflow ALIGNMENT {
             .set { ch_cram_done }
 
     } else {
-        ch_cram_done = Channel.value([] as Set)
-        ch_validated_cram = Channel.empty()
+        ch_cram_done = channel.value([] as Set)
+        ch_validated_cram = channel.empty()
     }
 
 

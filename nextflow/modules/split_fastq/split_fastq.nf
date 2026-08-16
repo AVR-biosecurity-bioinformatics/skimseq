@@ -1,7 +1,6 @@
 process SPLIT_FASTQ {
     tag "${lib}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/split_fastq", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(lib), path(fastq1), path(fastq2)

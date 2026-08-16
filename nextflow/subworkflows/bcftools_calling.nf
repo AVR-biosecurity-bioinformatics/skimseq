@@ -105,7 +105,7 @@ workflow BCFTOOLS_CALLING {
         ch_popmap.first()
     )
     
-    ch_merged_unfiltered_vcf = Channel.empty()
+    ch_merged_unfiltered_vcf = channel.empty()
     if ( params.output_unfiltered_vcf ){
         // TODO: Make this output seperate files for each variant type
         MPILEUP.out.vcf

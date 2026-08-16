@@ -1,7 +1,6 @@
 process CREATE_FILTER_HIST {
     tag "${interval_hash}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/create_filter_hist", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(interval_hash), path(vcf), path(vcf_tbi)

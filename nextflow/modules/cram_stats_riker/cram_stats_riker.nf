@@ -1,7 +1,6 @@
 process CRAM_STATS_RIKER {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/cram_stats_riker", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), path(cram), path(cram_index)

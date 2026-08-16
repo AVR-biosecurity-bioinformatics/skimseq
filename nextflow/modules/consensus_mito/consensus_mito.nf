@@ -2,10 +2,6 @@ process CONSENSUS_MITO {
     tag "${cohort}"
     conda "${moduleDir}/environment.yml"
 
-    publishDir "${launchDir}/output/modules/consensus_mt",
-        mode: 'copy',
-        enabled: params.debug_mode
-
     input:
     tuple val(cohort),
           path(samples_tsv),
