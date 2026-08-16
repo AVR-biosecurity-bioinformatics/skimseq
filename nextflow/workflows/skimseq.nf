@@ -137,7 +137,7 @@ workflow SKIMSEQ {
 
     // Reads channel
     ch_samplesheet_parsed
-        .map { sample, lib, pop, source, input1, input2, local_reads -> tuple(sample, lib, source, input1, input2, local_reads) }
+        .map { sample, lib, _pop, source, input1, input2, local_reads -> tuple(sample, lib, source, input1, input2, local_reads) }
         .set { ch_reads }
  
     // Reads grouped by input sample
@@ -199,20 +199,20 @@ workflow SKIMSEQ {
 
     // Sample names channel
     ch_samplesheet_parsed
-        .map { sample, lib, pop, source, r1, r2, local_reads -> sample }
+        .map { sample, _lib, _pop, _source, _r1, _r2, _local_reads -> sample }
         .unique()
         .set { ch_sample_names }
 
     // Sample names and pops channel
     ch_samplesheet_parsed
-        .map { sample, lib, pop, source, r1, r2, local_reads -> tuple(sample, pop) }
+        .map { sample, _lib, pop, _source, _r1, _r2, _local_reads -> tuple(sample, pop) }
         .set { ch_sample_pop }
 
     // Validate that there are enough pops for calling_model
     if( params.calling_model == 'population' ) {
 
         ch_sample_pop
-            .map { sample, pop -> pop }
+            .map { _sample, pop -> pop }
             .unique()
             .toList()
             .subscribe { pops ->
@@ -352,14 +352,13 @@ workflow SKIMSEQ {
         GATK_SINGLE (
             ch_sample_names,
             ALIGNMENT.out.cram,
-            VALIDATE_INPUTS.out.rg_to_validate,
+            ch_reads_grouped,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
             ch_long_bed,
             ch_short_bed,
-            ch_read_counts,
-            ch_reads_grouped
+            ch_read_counts
         )
 
         GATK_SINGLE.out.gvcf

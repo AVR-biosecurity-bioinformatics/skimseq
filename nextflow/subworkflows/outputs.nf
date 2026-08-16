@@ -120,7 +120,7 @@ workflow OUTPUTS {
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
     ch_sample_pop
-        .map { s,p -> "$s\t$p" }
+        .map { sample, pop -> "$sample\t$pop" }
         .collectFile(name: 'sample_pop.tsv', newLine: true)
         .first()
         .set { ch_popmap }
@@ -145,7 +145,7 @@ workflow OUTPUTS {
     )
 
     emit:
-    final_vcf_all    = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
+    final_vcf_all    = ch_final_all.map{ _name, vcf, tbi -> tuple( vcf, tbi)}
     final_vcf        = CONCAT_FINAL.out.vcf
     beagle_gl        = ch_beagle_gl
     plink            = PLINK_IMPORT.out.plink

@@ -48,7 +48,7 @@ workflow QC {
     // Create reports channel for multiqc
     ch_reports
         .mix(
-            CRAM_STATS_RIKER.out.stats.map { sample, files -> files },
+            CRAM_STATS_RIKER.out.stats.map { _sample, files -> files },
             VCF_STATS.out.vcfstats
         )
         .flatten()

@@ -20,12 +20,12 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     // combine sample-level cram with each interval_bed file and interval chunk
     ch_sample_cram 
         .combine ( ch_sites_to_genotype )
-        .map { sample, cram, crai, interval_hash, interval_bed, bed_tbi, sites_vcf, sites_tbi -> [ interval_hash, cram, crai ] }
+        .map { _sample, cram, crai, interval_hash, _interval_bed, _bed_tbi, _sites_vcf, _sites_tbi -> [ interval_hash, cram, crai ] }
         .groupTuple ( by: [0,1] )
         // join to get back interval_file
         .join ( ch_sites_to_genotype, by: [0,1] )
         // variant type and interval hash columns are combined into a single string for compatibility with mpileup
-        .map { variant_type, interval_hash, cram, crai, interval_bed, bed_tbi, sites_vcf, sites_tbi -> tuple(interval_hash, sites_vcf, sites_tbi, cram, crai) }
+        .map { _variant_type, interval_hash, cram, crai, _interval_bed, _bed_tbi, sites_vcf, sites_tbi -> tuple(interval_hash, sites_vcf, sites_tbi, cram, crai) }
 	    .set { ch_cram_to_genotype }
 
     // Calculate cohort size for memory scaling
@@ -40,7 +40,7 @@ workflow PSEUDOHAPLOID_GENOTYPING {
      
     // Create pseudohaploid vcf file
     CREATE_PSEUDOHAP (
-            MPILEUP_PSEUDOHAP.out.vcf.map { interval_hash, sites_vcf, sites_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) },
+            MPILEUP_PSEUDOHAP.out.vcf.map { interval_hash, _sites_vcf, _sites_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) },
             ch_genome_indexed
     )
       

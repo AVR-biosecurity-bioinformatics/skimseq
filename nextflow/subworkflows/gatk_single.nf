@@ -14,15 +14,14 @@ workflow GATK_SINGLE {
     take:
     ch_sample_names
     ch_sample_cram
-    ch_rg_to_validate
+    ch_reads_grouped
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
     ch_long_bed
     ch_short_bed
     ch_read_counts
-    ch_reads_grouped
-
+    
     main: 
 
     /* 
@@ -102,7 +101,7 @@ workflow GATK_SINGLE {
 
         // Set of samples that do not need single-sample variant calling.
         ch_validated_gvcf
-            .map { sample, gvcf, tbi -> sample}
+            .map { sample, _gvcf, _tbi -> sample}
             .toList()
             .map { ids -> ids as Set } 
             .set { ch_gvcf_done }
@@ -115,7 +114,7 @@ workflow GATK_SINGLE {
     ch_sample_cram
         .combine(ch_gvcf_done)  
         .filter { sample, gvcf, tbi, doneSet -> !(doneSet as Set).contains(sample) }
-        .map {  sample, gvcf, tbi, doneSet -> tuple( sample, gvcf, tbi) }
+        .map {  sample, gvcf, tbi, _doneSet -> tuple( sample, gvcf, tbi) }
         .set { ch_cram_for_hc }
 
     /* 
@@ -186,7 +185,7 @@ workflow GATK_SINGLE {
     // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all HAPLOTYPECALLER to finish
     HAPLOTYPECALLER.out.gvcf_intervals
         // Add expected group size so each sample emits once all interval GVCFs are complete
-        .map { sample, interval_hash, n_intervals, gvcf, tbi ->
+        .map { sample, _interval_hash, n_intervals, gvcf, tbi ->
             tuple(groupKey(sample, n_intervals), gvcf, tbi)
         }
         // Group interval GVCFs by sample, emitting early when n_intervals have arrived

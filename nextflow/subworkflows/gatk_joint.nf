@@ -37,7 +37,7 @@ workflow GATK_JOINT {
     )
 
     COUNT_VCF_RECORDS.out.counts
-        .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+        .map { _sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
         .toList()
         .filter { lst -> lst && !lst.isEmpty() }
         .map { pairs ->
@@ -109,7 +109,7 @@ workflow GATK_JOINT {
     // Then group by interval for joint genotyping
     ch_sample_gvcf 
         .combine ( ch_interval_bed_jc )
-        .map { sample, gvcf, tbi, interval_chunk, interval_bed,bed_tbi -> [ interval_chunk, gvcf, tbi ] }
+        .map { _sample, gvcf, tbi, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_jc, by: 0 )
@@ -140,7 +140,7 @@ workflow GATK_JOINT {
 
         // TODO: Make this output seperate files for each variant type
         JOINT_GENOTYPE.out.vcf
-            .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+            .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
             .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }

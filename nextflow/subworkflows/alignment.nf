@@ -69,12 +69,12 @@ workflow ALIGNMENT {
 
             //Compatible existing CRAMs.
             cram_validation_routes.pass
-                .map { sample, cram, crai, status -> tuple(sample, cram, crai) }
+                .map { sample, cram, crai, _status -> tuple(sample, cram, crai) }
                 .set { ch_validated_cram }
 
             // Report incompatible CRAMs. Thes get remapped
             cram_validation_routes.fail
-                .map { sample, cram, crai, status -> sample }
+                .map { sample, _cram, _crai, _status -> sample }
                 .unique()
                 .collect()
                 .subscribe { failed_samples ->
@@ -94,7 +94,7 @@ workflow ALIGNMENT {
 
         //Set of sample names that do not need mapping.
         ch_validated_cram
-            .map { sample, cram, crai -> sample }
+            .map { sample, _cram, _crai -> sample }
             .toList()
             .map { ids -> ids as Set } 
             .set { ch_cram_done }
@@ -109,7 +109,7 @@ workflow ALIGNMENT {
     ch_reads_grouped
         .combine(ch_cram_done)
         .filter { sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set -> !(done_set as Set).contains(sample)}
-        .map {sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set -> tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s) }
+        .map {sample, libs, source, input1s, input2s, local_r1s, local_r2s, _done_set -> tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s) }
         .set { ch_reads_to_map }
 
     /*
@@ -143,8 +143,8 @@ workflow ALIGNMENT {
         .flatMap { sorted_samples ->
             sorted_samples
         }
-        .map { priority, sample_local_size, sample, libs, source, input1s, input2s, local_r1s, local_r2s ->
-            tuple( sample, libs, source, input1s, input2s,local_r1s, local_r2s )
+        .map { _priority, _sample_local_size, sample, libs, source, input1s, input2s, local_r1s, local_r2s ->
+            tuple( sample, libs, source, input1s, input2s, local_r1s, local_r2s )
         }
         .set { ch_reads_grouped_by_sample }
 
