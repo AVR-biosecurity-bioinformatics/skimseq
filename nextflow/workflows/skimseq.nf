@@ -139,6 +139,63 @@ workflow SKIMSEQ {
     ch_samplesheet_parsed
         .map { sample, lib, pop, source, input1, input2, local_reads -> tuple(sample, lib, source, input1, input2, local_reads) }
         .set { ch_reads }
+ 
+    // Reads grouped by input sample
+    ch_reads
+        .groupTuple(by: 0)
+        .map { sample, libs, sources, input1s, input2s, local_reads_groups ->
+
+            def unique_sources = sources.unique(false)
+            if (unique_sources.size() != 1) {
+                error(
+                    "Sample '${sample}' contains multiple input source types: " +
+                    "${unique_sources.join(', ')}. Mixed local, URL, and " +
+                    "accession inputs are not currently supported within one " +
+                    "MAP_TO_GENOME task."
+                )
+            }
+
+            if (
+                libs.size() != sources.size() ||
+                libs.size() != input1s.size() ||
+                libs.size() != input2s.size() ||
+                libs.size() != local_reads_groups.size()
+            ) {
+                error(
+                    "Input metadata is inconsistent for sample '${sample}': " +
+                    "libs=${libs.size()}, " +
+                    "sources=${sources.size()}, " +
+                    "input1=${input1s.size()}, " +
+                    "input2=${input2s.size()}, " +
+                    "local read groups=${local_reads_groups.size()}."
+                )
+            }
+
+            def source = unique_sources.first()
+
+            if (source == 'local') {
+                local_reads_groups.eachWithIndex { pair, i ->
+                    if (!(pair instanceof Collection) || pair.size() != 2) {
+                        error(
+                            "Invalid local FASTQ pair for sample '${sample}', " +
+                            "row ${i + 1}: ${pair}. Expected [R1, R2]."
+                        )
+                    }
+                }
+            }
+
+            def local_r1s = source == 'local'
+                ? local_reads_groups.collect { pair -> pair[0] }
+                : []
+
+            def local_r2s = source == 'local'
+                ? local_reads_groups.collect { pair -> pair[1] }
+                : []
+
+            // Return tuple
+            tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s )
+        }
+        .set { ch_reads_grouped }
 
     // Sample names channel
     ch_samplesheet_parsed
@@ -241,7 +298,7 @@ workflow SKIMSEQ {
 
     ALIGNMENT (
         ch_sample_names,
-        ch_reads,
+        ch_reads_grouped,
         ch_genome_indexed,
         ch_exclude_bed
     )
@@ -291,40 +348,39 @@ workflow SKIMSEQ {
     ch_merged_unfiltered_vcf = channel.empty()
     if ( params.variant_caller == "gatk" ){
 
-        // GATK channel disabled until read validation is updated
-
         // Single sample calling with haplotypecaller
-        //GATK_SINGLE (
-        //    ch_sample_names,
-        //    ALIGNMENT.out.cram,
-        //    VALIDATE_INPUTS.out.rg_to_validate,
-        //    ch_genome_indexed,
-        //    ch_include_bed,
-        //    ch_mask_bed_genotype,
-        //    ch_long_bed,
-        //    ch_short_bed,
-        //    ch_read_counts
-        //)
+        GATK_SINGLE (
+            ch_sample_names,
+            ALIGNMENT.out.cram,
+            VALIDATE_INPUTS.out.rg_to_validate,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype,
+            ch_long_bed,
+            ch_short_bed,
+            ch_read_counts,
+            ch_reads_grouped
+        )
 
-        //GATK_SINGLE.out.gvcf
-        //    .set{ ch_gvcf }
+        GATK_SINGLE.out.gvcf
+            .set{ ch_gvcf }
 
         // Joint call genotypes        
-        //GATK_JOINT (
-        //    ch_gvcf,
-        //    ch_genome_indexed,
-        //    ch_include_bed,
-        //    ch_mask_bed_genotype,
-        //    ch_long_bed,
-        //    ch_short_bed,
-        //    ch_sample_names
-        //)
+        GATK_JOINT (
+            ch_gvcf,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype,
+            ch_long_bed,
+            ch_short_bed,
+            ch_sample_names
+        )
 
-        //GATK_JOINT.out.vcf
-        //    .set{ ch_unfiltered_vcfs }
+        GATK_JOINT.out.vcf
+            .set{ ch_unfiltered_vcfs }
 
-        //GATK_JOINT.out.merged_unfiltered_vcf
-        //    .set{ ch_merged_unfiltered_vcf }
+        GATK_JOINT.out.merged_unfiltered_vcf
+            .set{ ch_merged_unfiltered_vcf }
 
     } else if (params.variant_caller == "bcftools"){
 

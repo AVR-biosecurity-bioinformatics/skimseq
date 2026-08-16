@@ -21,6 +21,7 @@ workflow GATK_SINGLE {
     ch_long_bed
     ch_short_bed
     ch_read_counts
+    ch_reads_grouped
 
     main: 
 
@@ -42,8 +43,13 @@ workflow GATK_SINGLE {
 
         // Validate gvcf files by default
         if( !params.skip_gvcf_validation ) {
+
+            ch_reads_grouped
+                .join(ch_existing_gvcf, by: 0)
+                .set { ch_gvcf_validation_input }
+
             VALIDATE_GVCF (
-                ch_rg_to_validate.join(ch_existing_gvcf, by: 0),
+                ch_gvcf_validation_input,
                 ch_genome_indexed
             )
 
@@ -52,35 +58,49 @@ workflow GATK_SINGLE {
                 .map { sample, stdout -> [ sample, stdout.trim() ] }
                 .join( ch_existing_gvcf, by: 0 )
                 .map { sample, status, gvcf, tbi -> [ sample, gvcf, tbi, status ] }
-                .branch {  sample, gvcf, tbi, status ->
+                .branch {  _sample, _gvcf, _tbi, status ->
                     fail: status == 'FAIL'
                     pass: status == 'PASS'
+                    invalid: true
                 }
                 .set { gvcf_validation_routes }
 
-            // channel with just passing gvcfs
+            // Fail loudly if validator emits anythign other that pass/fail
+            gvcf_validation_routes.invalid
+                .map { sample, _gvcf, _tbi, status ->
+                    throw new IllegalStateException(
+                        "Unexpected GVCF validation status for " +
+                        "${sample}: '${status}'"
+                    )
+                }
+                .set { _invalid_gvcf_status }
+
+            // Compatible existing GVCFs.
             gvcf_validation_routes.pass
-                .map { sample, gvcf, tbi, status -> [ sample, gvcf, tbi ] } 
+                .map { sample, gvcf, tbi, _status -> [ sample, gvcf, tbi ] } 
                 .set { ch_validated_gvcf }
                 
             // Print warning if any gvcf files exist but fail validation
             gvcf_validation_routes.fail
-                .map {  sample, gvcf, tbi, status -> sample } 
+                .map {  sample, _gvcf, _tbi, _status -> sample } 
                 .unique()
                 .collect()
-                .map { fails ->
-                    if (fails && fails.size() > 0)
-                    log.warn "GVCF file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-                    true
+                .subscribe { failed_samples ->
+                    if (failed_samples) {
+                        log.warn(
+                            "GVCF validation failed for " +
+                            "${failed_samples.size()} sample(s): " +
+                            failed_samples.join(', ')
+                        )
+                    }
                 }
-                .set { _warn_gvcf_done }  // force evaluation
 
         } else {
-          // Skip validation, assume all existing gvcfs are good
+          // Skip validation, assume all existing gvcfs are compatible
           ch_validated_gvcf = ch_existing_gvcf 
         }
 
-        // Subset the crams to just those that dont already have a GVCF for single sample calling
+        // Set of samples that do not need single-sample variant calling.
         ch_validated_gvcf
             .map { sample, gvcf, tbi -> sample}
             .toList()
