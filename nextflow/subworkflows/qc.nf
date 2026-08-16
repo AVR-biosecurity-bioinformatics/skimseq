@@ -14,7 +14,6 @@ workflow QC {
     ch_reports
     ch_sample_cram
     ch_vcf
-    ch_sample_names
     ch_genome_indexed
     ch_multiqc_config
     ch_include_bed

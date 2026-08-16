@@ -102,7 +102,8 @@ workflow BCFTOOLS_CALLING {
         ch_cram_interval,
         ch_genome_indexed,
         ch_cohort_size,
-        ch_popmap.first()
+        ch_popmap.first(),
+        ch_mask_bed_genotype
     )
     
     ch_merged_unfiltered_vcf = channel.empty()

@@ -18,10 +18,7 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_genome_indexed
-    ch_include_bed
     ch_mask_bed_vcf
-    ch_sample_names
     ch_popmap
 
     main: 

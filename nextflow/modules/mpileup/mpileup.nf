@@ -25,6 +25,7 @@ process MPILEUP {
 
     val(cohort_size)
     path(popmap)
+    path(exclude_bed)
     
     output: 
     tuple val(interval_hash),
@@ -80,12 +81,23 @@ process MPILEUP {
 
     # NOTE: it seems faster to use coarse contiguous regions than the input BED
     # This may change with https://github.com/samtools/htslib/pull/2052
-
     # TODO: Test if it is faster to pre-subest CRAMs > target region BAMs
 
     # Target options are Bash arrays because panel targets must first be generated.
     MPILEUP_REGION_ARGS=()
     CALL_TARGET_ARGS=()
+
+    # Prepare padded exclusion intervals
+    bedtools slop \
+            -i <(zcat -f "${exclude_bed}") \
+            -g "${ref_genome}.fai" \
+            -b "${params.exclude_padding}" \
+        | bedtools sort \
+            -faidx "${ref_genome}.fai" \
+            -i - \
+        | bedtools merge \
+            -i - \
+        > excluded.padded.bed
 
     if [[ "${is_panel}" == "true" ]]; then
         echo "[targets] Detected VCF panel: ${interval_bed}" >&2
@@ -93,14 +105,24 @@ process MPILEUP {
         # Build allele targets: CHROM POS REF,ALT  (tabix indexed)
         bcftools view -m2 -M2 "${interval_bed}" \
             | bcftools query -f '%CHROM\\t%POS\\t%REF,%ALT\\n' \
-            | bgzip -c > panel.alleles.tsv.gz
-        tabix -s1 -b2 -e2 panel.alleles.tsv.gz
+            | bedtools intersect -v \
+                -a - \
+                -b excluded.padded.bed \
+            | cut -f 1,4,5 \
+            | bgzip -c \
+            > panel.alleles.tsv.gz
+
+        if ! tabix -s1 -b2 -e2 panel.alleles.tsv.gz; then
+            echo "ERROR: no panel targets remain after applying exclusions" >&2
+            exit 1
+        fi
 
         # Build a BED (0-based) of the panel, coarsen it into contiguous chunks
         bcftools view -m2 -M2 "${interval_bed}" \
             | bcftools query -f'%CHROM\\t%POS0\\t%POS\\n' \
             | bedtools merge -d 1000000000 -i - \
-            | bgzip -c > contiguous_regions.bed.gz
+            | bgzip -c \
+            > contiguous_regions.bed.gz
         tabix -p bed contiguous_regions.bed.gz
 
         MPILEUP_REGION_ARGS=(
@@ -117,12 +139,25 @@ process MPILEUP {
     else
         echo "[targets] Detected BED intervals: ${interval_bed}" >&2
 
-        # Create a coarse regions file containing contiguous chunks
-        bedtools merge \
-            -d 1000000000 \
-            -i <(zcat "${interval_bed}") \
+        # Remove padded exclusion intervals from the input targets.
+        bedtools subtract \
+            -a <(zcat "${interval_bed}") \
+            -b excluded.padded.bed \
         | bgzip -c \
-        > contiguous_regions.bed.gz
+        > filtered_targets.bed.gz
+        
+        if ! tabix -p bed filtered_targets.bed.gz; then
+            echo "ERROR: no BED targets remain after applying exclusions" >&2
+            exit 1
+        fi
+
+        # Create coarse regions from the filtered targets.
+        zcat filtered_targets.bed.gz \
+            | bedtools merge \
+                -d 1000000000 \
+                -i - \
+            | bgzip -c \
+            > contiguous_regions.bed.gz
         tabix -p bed contiguous_regions.bed.gz
 
         MPILEUP_REGION_ARGS=(

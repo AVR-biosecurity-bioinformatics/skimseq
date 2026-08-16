@@ -51,7 +51,7 @@ workflow ALIGNMENT {
                 .map { sample, stdout -> tuple(sample, stdout.trim()) }
                 .join(ch_existing_cram, by: 0)
                 .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
-                .branch { sample, cram, crai, status ->
+                .branch { _sample, _cram, _crai, status ->
                     fail: status == 'FAIL'
                     pass: status == 'PASS'
                     invalid: true
@@ -108,7 +108,7 @@ workflow ALIGNMENT {
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
     ch_reads_grouped
         .combine(ch_cram_done)
-        .filter { sample, libs, source, input1s, input2s, local_r1s, local_r2s, done_set -> !(done_set as Set).contains(sample)}
+        .filter { sample, _libs, _source, _input1s, _input2s, _local_r1s, _local_r2s, done_set -> !(done_set as Set).contains(sample)}
         .map {sample, libs, source, input1s, input2s, local_r1s, local_r2s, _done_set -> tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s) }
         .set { ch_reads_to_map }
 
@@ -176,7 +176,7 @@ workflow ALIGNMENT {
     // Combine pre-validated crams with newly mapped crams
     ch_validated_cram
         .mix(MAP_TO_GENOME.out.cram)
-        .distinct { sample, cram, crai -> sample }
+        .distinct { sample, _cram, _crai -> sample }
         .set { ch_sample_cram }
 
     // Helper process to stage intermediate CRAMs 

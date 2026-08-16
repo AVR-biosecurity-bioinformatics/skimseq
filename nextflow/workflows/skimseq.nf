@@ -315,8 +315,7 @@ workflow SKIMSEQ {
         ch_include_bed,
         ch_exclude_bed,
         ch_mito_indexed,
-        ch_mito_bed,
-        ch_read_counts
+        ch_mito_bed
       )
     
     /*
@@ -356,8 +355,6 @@ workflow SKIMSEQ {
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_long_bed,
-            ch_short_bed,
             ch_read_counts
         )
 
@@ -412,10 +409,7 @@ workflow SKIMSEQ {
     
     FILTER_VARIANTS (
         ch_unfiltered_vcfs,
-        ch_genome_indexed,
-        ch_include_bed,
         ch_mask_bed_vcf,
-        ch_sample_names,
         ch_popmap
     )
 
@@ -443,7 +437,6 @@ workflow SKIMSEQ {
         ch_reports,
         ALIGNMENT.out.cram,
         OUTPUTS.out.final_vcf_all,
-        ch_sample_names_filt,
         ch_genome_indexed,
         ch_multiqc_config,
         ch_include_bed,

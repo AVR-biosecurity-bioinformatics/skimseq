@@ -18,8 +18,6 @@ workflow GATK_SINGLE {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
-    ch_long_bed
-    ch_short_bed
     ch_read_counts
     
     main: 
