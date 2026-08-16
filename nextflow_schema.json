@@ -278,46 +278,81 @@
       }
     },
     "mitochondrial_options": {
-      "title": "Mitochondrial variant-calling options",
-      "description": "Thresholds used to generate the mitochondrial consensus.",
+      "title": "Mitochondrial consensus-calling options",
+      "description": "Thresholds used to generate fixed-length mitochondrial consensus sequences from original and shifted mitochondrial pileups.",
       "type": "object",
       "properties": {
         "mito_shift": {
           "type": "integer",
           "default": 8000,
-          "description": "Shift mito fasta by this many bases for realignment.",
+          "description": "Number of bases used to rotate the mitochondrial reference.",
+          "minimum": 0
+        },
+        "mito_breakpoint_window": {
+          "type": "integer",
+          "default": 500,
+          "description": "Number of bases at each end of the original mitochondrial reference where consensus calls are taken from the shifted-reference pileup to reduce circular-breakpoint artefacts.",
           "minimum": 0
         },
         "mito_minbq": {
           "type": "integer",
           "default": 10,
-          "description": "Mito read minimum base quality.",
+          "description": "Minimum base quality for mitochondrial allele counting.",
           "minimum": 0
         },
         "mito_minmq": {
           "type": "integer",
           "default": 20,
-          "description": "Mito read minimum mapping quality.",
+          "description": "Minimum mapping quality for mitochondrial allele counting.",
           "minimum": 0
         },
         "mito_trim_read_ends": {
           "type": "integer",
           "default": 0,
-          "description": "Mito read trim ends.",
+          "description": "Number of bases to ignore from each end of each read before mitochondrial allele counting. Use 0 to keep all read bases.",
           "minimum": 0
-        },
-        "mito_min_vaf": {
-          "type": "number",
-          "default": 0.9,
-          "description": "Minimum mitochondrial consensus VAF.",
-          "minimum": 0,
-          "maximum": 1
         },
         "mito_min_depth": {
           "type": "integer",
           "default": 100,
-          "description": "Minimum mitochondrial consensus depth.",
+          "description": "Minimum total depth required to call a mitochondrial consensus base. Total depth includes A/C/G/T support plus non-SNV evidence. Sites below this threshold are masked as N.",
           "minimum": 0
+        },
+        "mito_major_af": {
+          "type": "number",
+          "default": 0.8,
+          "description": "Minimum major allele fraction required to call an A/C/G/T mitochondrial consensus base. Major allele fraction is calculated from A/C/G/T support only.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mito_het_af": {
+          "type": "number",
+          "default": 0.2,
+          "description": "Minimum second-allele fraction required to emit an IUPAC ambiguity code when mito_het_mode is set to iupac.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mito_het_min_depth": {
+          "type": "integer",
+          "default": 3,
+          "description": "Minimum read support required for the second allele before an IUPAC ambiguity code can be emitted.",
+          "minimum": 0
+        },
+        "mito_max_non_snv_af": {
+          "type": "number",
+          "default": 0.2,
+          "description": "Maximum allowed fraction of non-SNV evidence before masking the site as N. Non-SNV evidence includes alleles that are not exactly A, C, G, or T, such as deletion markers, insertion-like alleles, or complex alleles.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mito_het_mode": {
+          "type": "string",
+          "default": "iupac",
+          "description": "How to handle mixed SNV sites where the major allele does not pass mito_major_af. Use N to mask unresolved mixed sites, or iupac to emit ambiguity codes when mito_het_af and mito_het_min_depth are satisfied.",
+          "enum": [
+            "N",
+            "iupac"
+          ]
         }
       }
     },
