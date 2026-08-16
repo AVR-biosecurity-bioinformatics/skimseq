@@ -18,7 +18,7 @@ process CONSENSUS_MITO {
     output:
     tuple val(cohort),
           path("${cohort}.mito.consensus.fa"),
-          path("${cohort}.mito.calls.tsv"),
+          path("${cohort}.mito.calls.tsv.gz"),
           path("${cohort}.mito.qc.tsv"),
           emit: consensus
 
@@ -43,5 +43,7 @@ process CONSENSUS_MITO {
         --out-fasta '${cohort}.mito.consensus.fa' \\
         --out-calls '${cohort}.mito.calls.tsv' \\
         --out-qc '${cohort}.mito.qc.tsv'
+
+    gzip ${cohort}.mito.calls.tsv
     """
 }

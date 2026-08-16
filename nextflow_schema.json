@@ -314,7 +314,7 @@
         },
         "mito_min_depth": {
           "type": "integer",
-          "default": 10,
+          "default": 20,
           "description": "Minimum total depth required to call a mitochondrial consensus base. Total depth includes A/C/G/T support plus non-SNV evidence. Sites below this threshold are masked as N.",
           "minimum": 0
         },
@@ -334,7 +334,7 @@
         },
         "mito_het_min_depth": {
           "type": "integer",
-          "default": 3,
+          "default": 5,
           "description": "Minimum read support required for the second allele before an IUPAC ambiguity code can be emitted.",
           "minimum": 0
         },

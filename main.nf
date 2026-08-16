@@ -70,11 +70,11 @@ params {
     mito_minbq: Integer = 10                            // Bases below this quality are excluded before allele counting.
     mito_minmq: Integer = 20                            // Reads below this mapping quality are excluded before allele counting.
     mito_trim_read_ends: Integer = 0                    // Number of bases to ignore from each end of each read
-    mito_min_depth: Integer = 10                        // Minimum total site depth required to call a consensus base
+    mito_min_depth: Integer = 20                        // Minimum total site depth required to call a consensus base
     mito_major_af: Float = 0.8f                         // Minimum major allele fraction required to call an A/C/G/T consensus base
     mito_het_mode: String = 'iupac'                     // How to handle mixed SNV where the major allele does not pass mito_major_af. 'N' = mask, 'iupac' emits only when > mito_het_af & mito_het_min_depth
     mito_het_af: Float = 0.2f                           // Minimum second-allele fraction required for an IUPAC ambiguity call when mito_het_mode is 'iupac'
-    mito_het_min_depth: Integer = 3                     // Minimum read support required for the second allele before an IUPAC ambiguity can be emitted
+    mito_het_min_depth: Integer = 5                     // Minimum read support required for the second allele before an IUPAC ambiguity can be emitted
     mito_max_non_snv_af: Float = 0.2f                   // Maximum allowed fraction of non-SNV evidence before masking the site as N
 
     // Generic variant calling
