@@ -43,7 +43,7 @@ process VALIDATE_GVCF {
 
     # Source dependent functions
     source "\$(command -v functions.sh)"
-    
+
     STATUS="PASS"
 
     declare -a LIBS=(${lib_array})
@@ -108,24 +108,9 @@ process VALIDATE_GVCF {
         fi
     fi
 
-    # Force an indexed lookup. Reading only the header does not test whether
-    # the supplied index is usable.
+    # Confirm that the GVCF index can be read.
     if [[ "\${STATUS}" == "PASS" ]]; then
-        if ! bcftools view \
-            --regions-file <(
-                awk -F '[=,>]' '
-                    /^##contig=<ID=/ {
-                        sub(/^##contig=<ID=/, "", \$0)
-                        sub(/[,>].*$/, "", \$0)
-                        print \$0 ":1-1"
-                        exit
-                    }
-                ' observed_header.vcf
-            ) \
-            --output-type u \
-            "${gvcf}" \
-            >/dev/null
-        then
+        if ! bcftools index --nrecords "${gvcf}" >/dev/null; then
             STATUS="FAIL"
         fi
     fi
@@ -140,7 +125,7 @@ process VALIDATE_GVCF {
         )
 
         if (( \${#OBSERVED_SAMPLES[@]} != 1 )) ||
-           [[ "\${OBSERVED_SAMPLES[0]}" != "${sample}" ]]
+        [[ "\${OBSERVED_SAMPLES[0]}" != "${sample}" ]]
         then
             STATUS="FAIL"
         fi

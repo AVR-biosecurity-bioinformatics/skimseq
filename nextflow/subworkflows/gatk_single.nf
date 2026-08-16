@@ -199,7 +199,6 @@ workflow GATK_SINGLE {
         // channel for per-sample GVCF concatenation
         .set { ch_gvcf_to_concat }
 
-
     CONCAT_GVCFS (
         ch_gvcf_to_concat
     )
@@ -216,6 +215,11 @@ workflow GATK_SINGLE {
         ch_sample_gvcf
     )
 
+    // Only newly generated GVCFS should be published.
+    CONCAT_GVCFS.out.vcf
+        .set { ch_new_gvcf }
+
     emit: 
     gvcf = STAGE_GVCF.out.gvcf
+    new_gvcf = ch_new_gvcf
 }

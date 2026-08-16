@@ -330,7 +330,7 @@ workflow {
     mito_consensus  = SKIMSEQ.out.mito_consensus
 
     unfiltered_vcf  = SKIMSEQ.out.unfiltered_vcf
-    gvcf            = SKIMSEQ.out.gvcf
+    new_gvcf        = SKIMSEQ.out.new_gvcf
     final_vcf       = SKIMSEQ.out.final_vcf
 
     beagle_gl       = SKIMSEQ.out.beagle_gl
@@ -368,12 +368,12 @@ output {
         path 'qc'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
-    // Only publishes newly generated crams, doesnt overwrite crams that passed validation
+    // Only publishes newly generated crams and GVCFS, doesnt overwrite those that passed validation
     new_cram {
         enabled params.output_cram
         path new File(params.cram_store).name
     }
-    gvcf {
+    new_gvcf {
         enabled params.output_gvcf
         path new File(params.gvcf_store).name
     }

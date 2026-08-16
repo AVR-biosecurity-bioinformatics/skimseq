@@ -344,6 +344,7 @@ workflow SKIMSEQ {
     
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_gvcf = channel.empty()
+    ch_new_gvcf = channel.empty()
     ch_merged_unfiltered_vcf = channel.empty()
     if ( params.variant_caller == "gatk" ){
 
@@ -358,8 +359,13 @@ workflow SKIMSEQ {
             ch_read_counts
         )
 
+        // For joint calling
         GATK_SINGLE.out.gvcf
             .set{ ch_gvcf }
+
+        // For publishing only
+        GATK_SINGLE.out.new_gvcf
+            .set { ch_new_gvcf }
 
         // Joint call genotypes        
         GATK_JOINT (
@@ -464,7 +470,7 @@ workflow SKIMSEQ {
 
     // VCF outputs
     unfiltered_vcf = ch_merged_unfiltered_vcf
-    gvcf = ch_gvcf
+    new_gvcf = ch_new_gvcf
     final_vcf = OUTPUTS.out.final_vcf
 
     // Outputs subworkflow

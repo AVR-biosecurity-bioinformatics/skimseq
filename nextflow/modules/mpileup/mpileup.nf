@@ -36,9 +36,6 @@ process MPILEUP {
           emit: vcf
 
     script:
-    // Source bash functions
-    def bash_utils = "${projectDir}/bin/functions.sh"
-
     // Check if input is panel or bed
     def is_panel = interval_bed.name.endsWith('.vcf.gz')
 
@@ -72,7 +69,7 @@ process MPILEUP {
 
     # Source dependent functions
     source "\$(command -v functions.sh)"
-    
+
     # Write one staged CRAM filename per line.
     printf '%s\\n' '${cram_list}' > cram.list
 
