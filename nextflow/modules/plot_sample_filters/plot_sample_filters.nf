@@ -17,7 +17,7 @@ process PLOT_SAMPLE_FILTERS {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript ${projectDir}/bin/plot_sample_filters.R \
+    plot_sample_filters.R \
         ${params.rdata} \
         "${params.vcf_sample_max_missing}" 
     """

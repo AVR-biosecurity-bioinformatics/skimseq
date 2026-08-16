@@ -25,8 +25,6 @@ process MAP_TO_GENOME {
         emit: fastq_warnings
 
     script:
-    def bash_utils = "${projectDir}/bin/functions.sh"
-
     // Quote values safely for insertion into Bash arrays.
     def shellQuote = { value ->
         "'${value.toString().replace("'", "'\"'\"'")}'"
@@ -104,7 +102,7 @@ process MAP_TO_GENOME {
     set -euo pipefail
 
     # Source dependent functions
-    source "${bash_utils}"
+    source "\$(command -v functions.sh)"
 
     ###########################################
     # Initialise variables

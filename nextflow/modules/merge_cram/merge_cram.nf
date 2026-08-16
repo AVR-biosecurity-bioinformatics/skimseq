@@ -11,12 +11,12 @@ process MERGE_CRAM {
     tuple val(sample), path("*.markdup.json"),                                emit: markdup
 
     script:
-    // Source bash functions
-    def bash_utils = "${projectDir}/bin/functions.sh"
     """
     #!/usr/bin/env bash
     set -euo pipefail
-    source "${bash_utils}"
+    
+    # Source dependent functions
+    source "\$(command -v functions.sh)"
 
     mkdir -p merged
 

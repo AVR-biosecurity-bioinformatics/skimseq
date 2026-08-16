@@ -18,7 +18,7 @@ process PLOT_TREE {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript ${projectDir}/bin/plot_tree.R \
+    plot_tree.R \
         ${params.rdata} \
         ${distmat} \
         ${popmap}

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # This script contains bash functions re-used across processes
 
 

@@ -18,7 +18,7 @@ process PLOT_ORDINATION {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript "${projectDir}/bin/plot_ordination.R" \
+    plot_ordination.R \
         "${params.rdata}" \
         "${distmat}" \
         "${popmap}" \

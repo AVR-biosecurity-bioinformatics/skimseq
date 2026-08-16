@@ -14,7 +14,9 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     ch_sample_cram
     ch_genome_indexed
     ch_sample_names
-
+    ch_popmap
+    ch_mask_bed_genotype
+    
     main: 
 
     // combine sample-level cram with each interval_bed file and interval chunk
@@ -35,9 +37,11 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     MPILEUP_PSEUDOHAP (
         ch_cram_to_genotype,
         ch_genome_indexed,
-        ch_cohort_size
+        ch_cohort_size,
+        ch_popmap.first(),
+        ch_mask_bed_genotype
     )
-     
+
     // Create pseudohaploid vcf file
     CREATE_PSEUDOHAP (
             MPILEUP_PSEUDOHAP.out.vcf.map { interval_hash, _sites_vcf, _sites_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) },

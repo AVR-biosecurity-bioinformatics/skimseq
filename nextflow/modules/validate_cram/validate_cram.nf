@@ -20,8 +20,6 @@ process VALIDATE_CRAM {
     tuple val(sample), stdout, emit: status
 
     script:
-    def bash_utils = "${projectDir}/bin/functions.sh"
-
     def shellQuote = { value ->
         "'${value.toString().replace("'", "'\"'\"'")}'"
     }
@@ -39,7 +37,8 @@ process VALIDATE_CRAM {
     #!/usr/bin/env bash
     set -uo pipefail
 
-    source "${bash_utils}"
+    # Source dependent functions
+    source "\$(command -v functions.sh)"
 
     STATUS="PASS"
 

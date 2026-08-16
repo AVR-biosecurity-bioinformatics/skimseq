@@ -19,7 +19,7 @@ process PLOT_VCF_FILTERS {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript ${projectDir}/bin/plot_vcf_filters.R \
+    plot_vcf_filters.R \
         ${params.rdata} \
         ${outname}
     """

@@ -17,7 +17,7 @@ process PLOT_PCA {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript "${projectDir}/bin/plot_pca.R" \
+    plot_pca.R \
         "${params.rdata}" \
         "${eigval}" \
         "${eigvec}" \

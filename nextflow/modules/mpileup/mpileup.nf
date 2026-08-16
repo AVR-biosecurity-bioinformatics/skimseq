@@ -69,8 +69,10 @@ process MPILEUP {
     """
     #!/usr/bin/env bash
     set -euo pipefail
-    source "${bash_utils}"
 
+    # Source dependent functions
+    source "\$(command -v functions.sh)"
+    
     # Write one staged CRAM filename per line.
     printf '%s\\n' '${cram_list}' > cram.list
 
