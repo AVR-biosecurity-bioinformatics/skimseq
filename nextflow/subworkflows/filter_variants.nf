@@ -78,7 +78,7 @@ workflow FILTER_VARIANTS {
             tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
         .filter { _interval_hash, _interval_bed, _bed_tbi, _vcf, _tbi, n -> n > 0 }
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, n ->
+        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, _n ->
             tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi)
         }
         .set { ch_filtered_vcf }

@@ -29,8 +29,8 @@ workflow BCFTOOLS_CALLING {
         .toList()
         .filter { lst -> lst && !lst.isEmpty() }
         .map { pairs ->
-            def beds = pairs.collect { it[0] }
-            def tbis = pairs.collect { it[1] }
+            def beds = pairs.collect { pair -> pair[0] }
+            def tbis = pairs.collect { pair -> pair[1] }
             tuple("joint", beds, tbis)
         }
         .set { ch_counts }
@@ -83,7 +83,7 @@ workflow BCFTOOLS_CALLING {
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )
-        .map { sample, cram, crai, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, cram, crai ] }
+        .map { _sample, cram, crai, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, cram, crai ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_mp, by: 0 )
@@ -110,7 +110,7 @@ workflow BCFTOOLS_CALLING {
     if ( params.output_unfiltered_vcf ){
         // TODO: Make this output seperate files for each variant type
         MPILEUP.out.vcf
-            .map { interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+            .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 

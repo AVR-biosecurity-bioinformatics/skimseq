@@ -47,7 +47,7 @@ workflow PSEUDOHAPLOID_GENOTYPING {
     // Split the variant_type and interval_hash back out to separate columns
     CREATE_PSEUDOHAP.out.vcf
     .join ( ch_sites_to_genotype.map {
-         interval_hash, interval_bed, bed_tbi, sites_vcf, sites_tbi
+         interval_hash, _interval_bed, _bed_tbi, sites_vcf, sites_tbi
           -> tuple(interval_hash, sites_vcf, sites_tbi)
         }, by: [0,1] ) 
     .map { interval_hash, vcf, tbi, sites_vcf, sites_tbi -> tuple(interval_hash, sites_vcf, sites_tbi, vcf, tbi) }

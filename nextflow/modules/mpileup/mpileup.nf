@@ -44,7 +44,7 @@ process MPILEUP {
 
     // Create list of cram files
     def cram_list = cram
-        .collect { it.name }
+        .collect { file -> file.name }
         .unique()
         .sort()
         .join('\n')

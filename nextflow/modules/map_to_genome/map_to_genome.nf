@@ -39,21 +39,21 @@ process MAP_TO_GENOME {
 
     def accession_array = source == 'accession'
         ? input1s
-            .findAll { it != null && it.toString().trim() }
+            .findAll { value -> value != null && value.toString().trim() }
             .collect(shellQuote)
             .join(' ')
         : ''
 
     def url1_array = source == 'url'
         ? input1s
-            .findAll { it != null && it.toString().trim() }
+            .findAll { value -> value != null && value.toString().trim() }
             .collect(shellQuote)
             .join(' ')
         : ''
 
     def url2_array = source == 'url'
         ? input2s
-            .findAll { it != null && it.toString().trim() }
+            .findAll { value -> value != null && value.toString().trim() }
             .collect(shellQuote)
             .join(' ')
         : ''

@@ -67,11 +67,25 @@ workflow OUTPUTS {
     )
    
     // Extract merged variant type vcfs into convenient channels
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='combined' }.first().set { ch_final_all }
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='snp' }.first().set { ch_final_snp }
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='indel' }.first().set { ch_final_indel }
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='invariant' }.first().set { ch_final_inv }
+    CONCAT_FINAL.out.vcf
+        .filter { record -> record[0] == 'combined' }
+        .first()
+        .set { ch_final_all }
 
+    CONCAT_FINAL.out.vcf
+        .filter { record -> record[0] == 'snp' }
+        .first()
+        .set { ch_final_snp }
+
+    CONCAT_FINAL.out.vcf
+        .filter { record -> record[0] == 'indel' }
+        .first()
+        .set { ch_final_indel }
+
+    // CONCAT_FINAL.out.vcf
+    //     .filter { record -> record[0] == 'invariant' }
+    //     .first()
+    //     .set { ch_final_inv }
     /* 
         Create outputs
     */

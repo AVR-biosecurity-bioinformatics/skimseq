@@ -31,7 +31,7 @@ workflow ALIGNMENT {
                 def crai = file("${cram}.crai")
                 tuple(sample, cram, crai)
             }
-            .filter { sample, cram, crai -> cram.exists() && crai.exists() }
+            .filter { _sample, cram, crai -> cram.exists() && crai.exists() }
             .set { ch_existing_cram }
 
         if (!params.skip_cram_validation) {

@@ -207,7 +207,7 @@ workflow GATK_SINGLE {
     // combine validated existing GVCs with newly created GVCFs for joint calling
     ch_validated_gvcf
       .mix( CONCAT_GVCFS.out.vcf )
-      .distinct { it[0] }      // dedupe by sample if needed
+      .distinct { item -> item[0] }      // dedupe by sample if needed
       .set{ ch_sample_gvcf }
 
     // Helper process to publish to output directory. 

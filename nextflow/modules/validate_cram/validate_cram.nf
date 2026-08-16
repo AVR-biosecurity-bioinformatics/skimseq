@@ -31,7 +31,7 @@ process VALIDATE_CRAM {
     def input1_array = source == 'local'
         ? local_r1s.collect(shellQuote).join(' ')
         : input1s
-            .findAll { it != null && it.toString().trim() }
+            .findAll { value -> value != null && value.toString().trim() }
             .collect(shellQuote)
             .join(' ')
 

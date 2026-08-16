@@ -41,8 +41,8 @@ workflow GATK_JOINT {
         .toList()
         .filter { lst -> lst && !lst.isEmpty() }
         .map { pairs ->
-            def beds = pairs.collect { it[0] }
-            def tbis = pairs.collect { it[1] }
+            def beds = pairs.collect { pair -> pair[0] }
+            def tbis = pairs.collect { pair -> pair[1] }
             tuple("joint", beds, tbis)
         }
         .set { ch_counts }
@@ -141,7 +141,7 @@ workflow GATK_JOINT {
         // TODO: Make this output seperate files for each variant type
         JOINT_GENOTYPE.out.vcf
             .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
-            .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
+            .map { _type, vcf, tbi -> tuple('all', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 

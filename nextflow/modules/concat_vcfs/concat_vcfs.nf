@@ -10,7 +10,7 @@ process CONCAT_VCFS {
     
     script:
     def vcf_list = vcf
-        .collect { it.name }
+        .collect { file -> file.name }
         .unique()
         .sort()
         .join('\n')
