@@ -33,11 +33,11 @@ process PILEUP_MITO {
         .sort { a, b -> a[0].toString() <=> b[0].toString() }
 
     def originalArgs = ordered
-        .collect { sample, bam, shiftedBam -> "'${bam}'" }
+        .collect { _sample, bam, _shiftedBam -> "'${bam}'" }
         .join(' ')
 
     def shiftedArgs = ordered
-        .collect { sample, bam, shiftedBam -> "'${shiftedBam}'" }
+        .collect { _sample, _bam, shiftedBam -> "'${shiftedBam}'" }
         .join(' ')
 
     def sampleLines = (0..<ordered.size())

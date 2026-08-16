@@ -80,7 +80,7 @@ workflow FILTER_VARIANTS {
             def n = counts_file.text.trim() as Integer
             tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
-        .filter { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
+        .filter { _interval_hash, _interval_bed, _bed_tbi, _vcf, _tbi, n -> n > 0 }
         .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, n ->
             tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi)
         }

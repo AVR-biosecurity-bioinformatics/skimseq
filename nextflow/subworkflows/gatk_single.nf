@@ -36,7 +36,7 @@ workflow GATK_SINGLE {
                 def tbi = file("${gvcf}.tbi")
                 tuple(sample, gvcf, tbi)
             }
-            .filter { sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+            .filter { _sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
             .set { ch_existing_gvcf }
 
 
@@ -113,7 +113,7 @@ workflow GATK_SINGLE {
 
     ch_sample_cram
         .combine(ch_gvcf_done)  
-        .filter { sample, gvcf, tbi, doneSet -> !(doneSet as Set).contains(sample) }
+        .filter { sample, _gvcf, _tbi, doneSet -> !(doneSet as Set).contains(sample) }
         .map {  sample, gvcf, tbi, _doneSet -> tuple( sample, gvcf, tbi) }
         .set { ch_cram_for_hc }
 

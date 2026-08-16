@@ -30,30 +30,30 @@ workflow OUTPUTS {
 
     // First split chunked vcfs by type
     SPLIT_VCF_BY_TYPE(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
+        ch_vcfs.map { interval_hash, _interval_bed, _bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
     )
 
     // Build merge input channels from the named emits
     def ch_merge_inputs = SPLIT_VCF_BY_TYPE.out.snp_vcf
-        .map { interval_hash, vcf, tbi -> tuple('snp', vcf, tbi) }
+        .map { _interval_hash, vcf, tbi -> tuple('snp', vcf, tbi) }
 
     if( params.output_indel ) {
         ch_merge_inputs = ch_merge_inputs.mix(
             SPLIT_VCF_BY_TYPE.out.indel_vcf
-                .map { interval_hash, vcf, tbi -> tuple('indel', vcf, tbi) }
+                .map { _interval_hash, vcf, tbi -> tuple('indel', vcf, tbi) }
         )
     }
 
     if( params.output_invariant ) {
         ch_merge_inputs = ch_merge_inputs.mix(
             SPLIT_VCF_BY_TYPE.out.invariant_vcf
-                .map { interval_hash, vcf, tbi -> tuple('invariant', vcf, tbi) }
+                .map { _interval_hash, vcf, tbi -> tuple('invariant', vcf, tbi) }
         )
     }
 
     // Keep the combined merge from the original chunk VCFs
     ch_merge_inputs = ch_merge_inputs.mix(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) }
+        ch_vcfs.map { _interval_hash, _interval_bed, _bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) }
     )
 
     // Group all chunked vcfs by variant type and merge

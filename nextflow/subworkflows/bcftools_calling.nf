@@ -66,7 +66,7 @@ workflow BCFTOOLS_CALLING {
                 tuple(interval_hash, bed, tbiPath)
             }
         }
-        .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
+        .filter { _interval_hash, interval_bed, _bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .ifEmpty {
             log.warn(
                 "No mpileup intervals remained after coverage & inclusion filtering, " +
@@ -74,7 +74,7 @@ workflow BCFTOOLS_CALLING {
             )
             tuple('__NO_INTERVALS__', null, null)
         }
-        .filter { interval_hash, interval_bed, bed_tbi ->
+        .filter { interval_hash, _interval_bed, _bed_tbi ->
             interval_hash != '__NO_INTERVALS__'
         }
         .set { ch_interval_bed_mp }
@@ -83,7 +83,7 @@ workflow BCFTOOLS_CALLING {
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )
-        .map { sample, cram, crai, _interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, cram, crai ] }
+        .map { sample, cram, crai, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, cram, crai ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_mp, by: 0 )
