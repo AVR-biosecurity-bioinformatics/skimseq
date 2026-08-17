@@ -1,4 +1,5 @@
 #!/usr/bin/env Rscript
+.libPaths(.Library)
 
 params.rdata <- "false"
 
