@@ -24,8 +24,8 @@
       "pop": {
         "type": "string",
         "minLength": 1,
-        "pattern": ".*\\S.*",
-        "description": "Population identifier."
+        "pattern": "^[A-Za-z0-9_.-]+$",
+        "description": "Population identifier. Allowed characters: letters, numbers, underscore, dash, and period."
       },
       "fwd": {
         "type": "string",
