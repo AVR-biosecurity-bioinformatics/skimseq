@@ -27,9 +27,15 @@ filter_masked_variants: true
 
 
 # Mitochondrial variant-calling options
-mito_min_vaf: 0.9
+mito_shift: 
+mito_minbq: 10
+mito_minmq: 20
 mito_min_depth: 100
-
+mito_major_af: 0.9
+mito_het_mode: 'iupac'
+mito_het_af: 0.2
+mito_het_min_depth: 5
+mito_max_non_snv_af: 0.2
 
 #Variant calling options
 variant_caller: 'bcftools'
