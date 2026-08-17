@@ -22,7 +22,8 @@ workflow ALIGNMENT {
     ch_adapters = channel.fromPath(
         "${baseDir}/assets/adapters.fa",
         checkIfExists: true
-    )
+    ).first()
+    
     /* 
         Find and validate any pre-existing crams, these will be skipped
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
@@ -161,7 +162,8 @@ workflow ALIGNMENT {
     // Output is sample-level cram, no merging required
     MAP_TO_GENOME (
         ch_reads_grouped_by_sample,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_adapters
     )
 
     // Print warning if any files had different numbers of forward and reverse reads
