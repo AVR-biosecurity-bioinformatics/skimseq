@@ -13,6 +13,8 @@ process MAP_TO_GENOME {
 
     tuple path(ref_genome), path(genome_index_files)
 
+    path adapters
+
     output: 
     tuple val(sample),
           path("${sample}.cram"),
@@ -96,7 +98,11 @@ process MAP_TO_GENOME {
             1,
             Math.min(4, task.cpus.intdiv(4))
         )
-        
+    
+    // FastP trimming flags
+    def polyGArgs = params.trim_polyg
+        ? "--trim_poly_g --poly_g_min_len ${params.polyg_min_length}"
+        : "--disable_trim_poly_g"
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -304,10 +310,11 @@ process MAP_TO_GENOME {
     | seqtk dropse - \
     | fastp \
         --stdin \
+        --adapter_fasta ${adapters} \
+        --detect_adapter_for_pe \
         --interleaved_in \
-        --disable_trim_poly_g \
+        ${polyGArgs} \
         --disable_quality_filtering \
-        --disable_length_filtering \
         --dont_eval_duplication \
         --stdout \
         --thread "${fastp_threads}" \

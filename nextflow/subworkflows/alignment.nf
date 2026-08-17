@@ -17,7 +17,12 @@ workflow ALIGNMENT {
     ch_exclude_bed
 
     main: 
-        
+
+    // Read adapter sequence catalogue
+    ch_adapters = channel.fromPath(
+        "${baseDir}/assets/adapters.fa",
+        checkIfExists: true
+    )
     /* 
         Find and validate any pre-existing crams, these will be skipped
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample

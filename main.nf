@@ -58,11 +58,12 @@ params {
     numt_min_length: Integer = 100                      // Minimum length of a NUMT
     numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
 
-    // minibwa alignment
+    // read filtering and alignment
+    trim_polyg: Boolean = true                          // Whether to trim polyG strings from read tails
+    polyg_min_length: Integer = 10                      // Minimum length to detect polyG in the read tail.
     minibwa_preset: String = 'adap'                     // alignment preset: adap (adaptive short reads), sr (short reads), or lr (long reads)
     minibwa_min_seed_length: Integer = 19               // minimum exact-match seed length used during alignment. Smaller values increase sensitivity but may increase runtime and spurious mappings
     minibwa_max_seed_occurrence: Integer = 250          // ignore seeds occurring more than N times in the reference. Lower values reduce mappings to repetitive regions and may improve performance
-
 
     // Mitochondrial variant calling
     mito_shift: Integer = 8_000                         // Create mito reference shifted by this many bases
