@@ -1,23 +1,24 @@
 process MERGE_CRAM {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/merge_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
     
     input:
-    tuple val(sample), val(lib), path(cram) 
+    tuple val(sample), path(cram), path(crai) 
     tuple path(ref_genome), path(genome_index_files)
 
     output: 
-    tuple val(sample), path("${sample}.cram"), path("${sample}.cram.crai"),   emit: cram
+    tuple val(sample), path("merged/${sample}.cram"), path("merged/${sample}.cram.crai"),   emit: cram
     tuple val(sample), path("*.markdup.json"),                                emit: markdup
 
     script:
-    // Source bash functions
-    def bash_utils = "${projectDir}/bin/functions.sh"
     """
     #!/usr/bin/env bash
     set -euo pipefail
-    source "${bash_utils}"
+    
+    # Source dependent functions
+    source "\$(command -v functions.sh)"
+
+    mkdir -p merged
 
     # Write list of cram files to process
     printf "%s\\n" ${cram} > cram.list
@@ -36,7 +37,7 @@ process MERGE_CRAM {
             -O CRAM \
             --use-read-groups \
             --reference ${ref_genome} \
-            - ${sample}.cram 
+            - "merged/${sample}.cram"
 
     # Catch error codes from piped tools so nextflow can retry
     st=("\${PIPESTATUS[@]}")
@@ -44,10 +45,10 @@ process MERGE_CRAM {
     check_pipeline "\${st[@]}" || exit \$?
 
     # index cram
-    samtools index --threads ${task.cpus} ${sample}.cram 
+    samtools index --threads ${task.cpus} "merged/${sample}.cram"
 
     # check cram is correctly formatted
-    samtools quickcheck ${sample}.cram \
+    samtools quickcheck "merged/${sample}.cram" \
         || ( echo "CRAM file for sample ${sample} is not formatted correctly" && exit 1 )
 
     """

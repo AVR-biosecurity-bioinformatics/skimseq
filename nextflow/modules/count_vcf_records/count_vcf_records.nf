@@ -1,7 +1,6 @@
 process COUNT_VCF_RECORDS {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/count_vcf_records", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), path(gvcf), path(tbi)

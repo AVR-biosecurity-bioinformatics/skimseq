@@ -1,7 +1,6 @@
 process PLINK_KING {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plink_king", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(plinkfiles)

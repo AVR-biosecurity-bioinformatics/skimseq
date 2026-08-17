@@ -37,12 +37,12 @@ workflow GATK_JOINT {
     )
 
     COUNT_VCF_RECORDS.out.counts
-        .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+        .map { _sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
         .toList()
         .filter { lst -> lst && !lst.isEmpty() }
         .map { pairs ->
-            def beds = pairs.collect { it[0] }
-            def tbis = pairs.collect { it[1] }
+            def beds = pairs.collect { pair -> pair[0] }
+            def tbis = pairs.collect { pair -> pair[1] }
             tuple("joint", beds, tbis)
         }
         .set { ch_counts }
@@ -102,14 +102,14 @@ workflow GATK_JOINT {
                 tuple(interval_hash, bed, tbiPath)
             }
         }
-        .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
+        .filter { _interval_hash, interval_bed, _bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .set { ch_interval_bed_jc }
 
     // combine sample-level gvcf with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_gvcf 
         .combine ( ch_interval_bed_jc )
-        .map { sample, gvcf, tbi, interval_chunk, interval_bed,bed_tbi -> [ interval_chunk, gvcf, tbi ] }
+        .map { _sample, gvcf, tbi, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, gvcf, tbi ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_jc, by: 0 )
@@ -135,13 +135,13 @@ workflow GATK_JOINT {
         ch_cohort_size
     )
 
-    ch_merged_unfiltered_vcf = Channel.empty()
+    ch_merged_unfiltered_vcf = channel.empty()
     if ( params.output_unfiltered_vcf ){
 
         // TODO: Make this output seperate files for each variant type
         JOINT_GENOTYPE.out.vcf
-            .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
-            .map { type, vcf, tbi -> tuple('all', vcf, tbi) }
+            .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+            .map { _type, vcf, tbi -> tuple('all', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 
@@ -150,7 +150,7 @@ workflow GATK_JOINT {
         )
 
         CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_merged_unfiltered_vcf}
+            .set { ch_merged_unfiltered_vcf }
     }
 
     emit: 

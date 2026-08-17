@@ -1,7 +1,6 @@
 process HAPLOTYPECALLER {
     tag "${sample}:${interval_hash}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/haplotypecaller", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
@@ -110,19 +109,29 @@ process HAPLOTYPECALLER {
         2> >(tee -a "${interval_hash}.${sample}.stderr.log" >&2)
 
 
-    # Extract readgroups from cram for embedding in VCF header
-    samtools view -H "${cram}"  \
-        | grep '^@RG'  \
-        | awk ' {
-            line=\$0
-            # Escape existing backslashes before converting tabs.
-            gsub(/\\\\/, "\\\\\\\\", line)
-            gsub(/\\t/, "\\\\t", line)
-            print "##RG=" line
-        }' > readgroups.vcf.hdr
+    # Embed CRAM read groups in GVCF header
+    samtools view -H "${cram}" |
+            awk '
+                \$1 == "@RG" {
+                    line = \$0
 
+                    # Escape existing backslashes first, then convert actual tab
+                    # characters into literal "\\t" sequences for the VCF header.
+                    gsub(/\\\\/, "\\\\\\\\", line)
+                    gsub(/\\t/, "\\\\t", line)
 
-    # Inject RG header lines into gvcf
+                    print "##RG=" line
+                }
+            ' |
+            LC_ALL=C sort -u \
+            > readgroups.vcf.hdr
+
+    if [[ ! -s readgroups.vcf.hdr ]]; then
+        echo "ERROR: no read groups found in ${cram}" >&2
+        exit 1
+    fi
+
+    # Inject read groups
     # NOTE: Haplotypecaller ALWAYS outputs intervals in the GVCF, even if there are no reads - so drop these with bcftools
     bcftools annotate \
         --header-lines readgroups.vcf.hdr \

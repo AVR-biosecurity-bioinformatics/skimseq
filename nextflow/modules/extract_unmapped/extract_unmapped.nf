@@ -1,7 +1,6 @@
 process EXTRACT_UNMAPPED {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/extract_unmapped", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(sample), path(cram), path(cram_index)

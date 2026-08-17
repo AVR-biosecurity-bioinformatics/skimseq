@@ -1,94 +1,188 @@
 process VALIDATE_CRAM {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/validate_cram", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
-    tuple val(sample), val(rg_list), path(fastq1), path(fastq2), path(cram), path(crai)
-    tuple path(ref_genome), path(genome_index_files)
+    tuple val(sample),
+        val(libs),
+        val(source),
+        val(input1s),
+        val(input2s),
+        path(local_r1s, arity: '0..*'),
+        path(local_r2s, arity: '0..*'),
+        path(cram),
+        path(crai)
 
-    output: 
+    tuple path(ref_genome),
+        path(genome_index_files)
+
+    output:
     tuple val(sample), stdout, emit: status
-    
+
     script:
+    def shellQuote = { value ->
+        "'${value.toString().replace("'", "'\"'\"'")}'"
+    }
 
-    // Construct expected read-group records from  channel metadata.
-    def rg_lines = rg_list.collect { rg ->
-        def (rg_sample, lib, fcid, lane, platform) = rg
+    def lib_array = libs.collect(shellQuote).join(' ')
 
-        [
-            '@RG',
-            "ID:${fcid}.${lane}.${lib}",
-            "LB:${lib}",
-            "PL:${platform}",
-            "PU:${fcid}.${lane}.${rg_sample}",
-            "SM:${rg_sample}"
-        ].join('\t')
-    }.sort().join('\n')
+    def input1_array = source == 'local'
+        ? local_r1s.collect(shellQuote).join(' ')
+        : input1s
+            .findAll { value -> value != null && value.toString().trim() }
+            .collect(shellQuote)
+            .join(' ')
 
     """
     #!/usr/bin/env bash
-    set -euo pipefail
-    
-    # Set status to pass by defualt
+    set -uo pipefail
+
+    # Source dependent functions
+    source "\$(command -v functions.sh)"
+
     STATUS="PASS"
 
-    # Write the expected read groups in sorted order.
-    printf '%s\\n' '${rg_lines}' > expected.rg
+    declare -a LIBS=(${lib_array})
+    declare -a INPUT1=(${input1_array})
+    declare -a READ1=()
 
-    # Write one staged R1 FASTQ filename per line. This supports one or
-    # multiple FASTQs in the fastq1 input collection.
-    printf '%s\\n' ${fastq1} > fastq1.list
+    STREAM_TYPE=""
 
-    # Check that the CRAM has a valid header and intact EOF structure.
-    if ! samtools quickcheck -v "${cram}"; then
+    ###########################################
+    # Resolve R1 inputs
+    ###########################################
+
+    case "${source}" in
+        local)
+            READ1=("\${INPUT1[@]}")
+            STREAM_TYPE="local"
+            ;;
+
+        url)
+            READ1=("\${INPUT1[@]}")
+            STREAM_TYPE="remote"
+            ;;
+
+        accession)
+            STREAM_TYPE="remote"
+
+            for accession in "\${INPUT1[@]}"; do
+                url1=""
+                md5_1=""
+                url2=""
+                md5_2=""
+
+                if read -r url1 md5_1 url2 md5_2 < <(
+                    resolve_fastqs "\${accession}"
+                ) && [[ -n "\${url1}" ]]
+                then
+                    READ1+=("\${url1}")
+                else
+                    STATUS="FAIL"
+                fi
+            done
+            ;;
+
+        *)
+            STATUS="FAIL"
+            ;;
+    esac
+
+    if (( \${#READ1[@]} == 0 || \${#READ1[@]} != \${#LIBS[@]} )); then
         STATUS="FAIL"
     fi
 
-    # Extract and sort actual CRAM read groups.
-    samtools view \
-        --threads ${task.cpus} \
-        --reference "${ref_genome}" \
-        --header-only \
-        "${cram}" \
-        | grep '^@RG' \
-        | LC_ALL=C sort \
-        > actual.rg
+    ###########################################
+    # Validate CRAM structure
+    ###########################################
 
-    # Compare expected and observed read groups.
-    if ! diff -q expected.rg actual.rg >/dev/null 2>&1; then
-        diff -u expected.rg actual.rg >&2 || true
-        STATUS="FAIL"
+    if [[ "\${STATUS}" == "PASS" ]]; then
+        if [[ ! -s "${cram}" || ! -s "${crai}" ]] ||
+           ! samtools quickcheck -q "${cram}" ||
+           ! samtools view -H "${cram}" > observed_header.sam
+        then
+            STATUS="FAIL"
+        fi
     fi
 
-    # Count reads in all R1 FASTQs.
-    FASTQ_READS=\$(
-        seqkit stats \
-            --threads ${task.cpus} \
-            --tabular \
-            --infile-list fastq1.list \
-        | awk 'NR>1 {sum+=\$4} END {print sum}'
+    ###########################################
+    # Generate expected read groups
+    ###########################################
+
+    : > expected_readgroups.sam
+
+    if [[ "\${STATUS}" == "PASS" ]]; then
+        for i in "\${!READ1[@]}"; do
+            FCID=""
+            LANE=""
+            CURRENT_LIB="\${LIBS[\${i}]}"
+
+            if read -r FCID LANE < <(
+                get_flowcell_lane \
+                    "\${READ1[\${i}]}" \
+                    "\${STREAM_TYPE}"
+            ) && [[ -n "\${FCID}" && -n "\${LANE}" ]]
+            then
+                RG_ID="\${FCID}.\${LANE}.\${CURRENT_LIB}"
+
+                printf '@RG\\tID:%s\\tLB:%s\\tPL:%s\\tPU:%s\\tSM:%s\\n' \
+                    "\${RG_ID}" \
+                    "\${CURRENT_LIB}" \
+                    "ILLUMINA" \
+                    "\${RG_ID}" \
+                    "${sample}" \
+                    >> expected_readgroups.sam
+            else
+                STATUS="FAIL"
+            fi
+        done
+    fi
+
+    sort -u expected_readgroups.sam -o expected_readgroups.sam
+
+    ###########################################
+    # Validate read groups in SAM vs xpected
+    ###########################################
+
+    if [[ "\${STATUS}" == "PASS" ]]; then
+        awk -F '\\t' '\$1 == "@RG"' observed_header.sam |
+            sort -u \
+            > observed_readgroups.sam
+
+        cmp -s \
+            expected_readgroups.sam \
+            observed_readgroups.sam ||
+            STATUS="FAIL"
+    fi
+
+    ###########################################
+    #  Validate configuration hash
+    ###########################################
+
+    EXPECTED_HASH=\$(
+        printf '%s\\n' \
+            'pipeline=skimseq' \
+            'reference_genome=${ref_genome}' \
+            'mapper_preset=${params.minibwa_preset}' \
+            'min_seed_length=${params.minibwa_min_seed_length}' \
+            'max_seed_occurrence=${params.minibwa_max_seed_occurrence}' \
+            'fastp_disable_trim_poly_g=true' \
+            'fastp_disable_quality_filtering=true' \
+            'fastp_disable_length_filtering=true' |
+        sha256sum |
+        awk '{print \$1}'
     )
+
+    if [[ "\${STATUS}" == "PASS" ]]; then
+        EXPECTED_COMMENT=\$'@CO\tSKIMSEQ_ALIGNMENT_CONFIG_SHA256:'"\${EXPECTED_HASH}"
+
+        grep -Fqx \
+            "\${EXPECTED_COMMENT}" \
+            observed_header.sam ||
+            STATUS="FAIL"
+    fi
     
-    # Count primary CRAM records, excluding secondary and supplementary records.
-    CRAM_READS=\$(
-        samtools view \
-            --threads ${task.cpus} \
-            --reference "${ref_genome}" \
-            --count \
-            --exclude-flags 0x900 \
-            "${cram}"
-    )
-
-    # need to multiply fastq reads by 2 as counting only forward reads
-    EXPECTED_CRAM_READS=\$(( FASTQ_READS * 2 ))
-
-    if (( EXPECTED_CRAM_READS != CRAM_READS )); then
-        STATUS=FAIL
-    fi
-
-    # Print status
-    echo "\$STATUS"
-
+    # Print final status
+    printf '%s\\n' "\${STATUS}"
     """
 }

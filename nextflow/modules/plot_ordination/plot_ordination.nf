@@ -1,6 +1,6 @@
 process PLOT_ORDINATION {
+    tag "${distmat}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plot_ordination", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(distmat)
@@ -18,8 +18,7 @@ process PLOT_ORDINATION {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript "${projectDir}/bin/plot_ordination.R" \
-        "${projectDir}" \
+    plot_ordination.R \
         "${params.rdata}" \
         "${distmat}" \
         "${popmap}" \

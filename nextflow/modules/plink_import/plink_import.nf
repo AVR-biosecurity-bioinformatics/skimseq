@@ -1,7 +1,6 @@
 process PLINK_IMPORT {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plink_import", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)

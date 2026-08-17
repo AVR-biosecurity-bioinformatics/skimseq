@@ -14,7 +14,6 @@ workflow QC {
     ch_reports
     ch_sample_cram
     ch_vcf
-    ch_sample_names
     ch_genome_indexed
     ch_multiqc_config
     ch_include_bed
@@ -48,7 +47,7 @@ workflow QC {
     // Create reports channel for multiqc
     ch_reports
         .mix(
-            CRAM_STATS_RIKER.out.stats.map { sample, files -> files },
+            CRAM_STATS_RIKER.out.stats.map { _sample, files -> files },
             VCF_STATS.out.vcfstats
         )
         .flatten()
@@ -64,7 +63,6 @@ workflow QC {
 
     emit:
     cram_stats       = CRAM_STATS_RIKER.out.stats
-    cram_plots       = CRAM_STATS_RIKER.out.plots
     vcf_stats        = VCF_STATS.out.vcfstats
     multiqc_report   = MULTIQC.out.report
     multiqc_plots    = MULTIQC.out.plots

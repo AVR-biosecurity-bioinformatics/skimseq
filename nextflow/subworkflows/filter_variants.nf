@@ -18,10 +18,7 @@ workflow FILTER_VARIANTS {
 
     take:
     ch_vcfs
-    ch_genome_indexed
-    ch_include_bed
     ch_mask_bed_vcf
-    ch_sample_names
     ch_popmap
 
     main: 
@@ -37,7 +34,7 @@ workflow FILTER_VARIANTS {
 
     // Merge all chunk DP histograms together
     MERGE_CHUNK_DP(
-        CALC_CHUNK_DP.out.chunk_dp.map { interval_hash, interval_bed, bed_tbi, dphist -> dphist }.collect(),
+        CALC_CHUNK_DP.out.chunk_dp.map { _interval_hash, _interval_bed, _bed_tbi, dphist -> dphist }.collect(),
         params.vcf_dp_percentile_lower,
         params.vcf_dp_percentile_upper
     )
@@ -54,7 +51,7 @@ workflow FILTER_VARIANTS {
 
     // Merge per-sample missing data from all chunks into a single table
     MERGE_CHUNK_MISSING(
-        CALC_CHUNK_DP.out.chunk_missing.map { interval_hash, interval_bed, bed_tbi, missing -> missing }.collect()
+        CALC_CHUNK_DP.out.chunk_missing.map { _interval_hash, _interval_bed, _bed_tbi, missing -> missing }.collect()
     )
 
     // QC plots for sample missing data
@@ -80,8 +77,8 @@ workflow FILTER_VARIANTS {
             def n = counts_file.text.trim() as Integer
             tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
         }
-        .filter { interval_hash, interval_bed, bed_tbi, vcf, tbi, n -> n > 0 }
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, n ->
+        .filter { _interval_hash, _interval_bed, _bed_tbi, _vcf, _tbi, n -> n > 0 }
+        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, _n ->
             tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi)
         }
         .set { ch_filtered_vcf }
@@ -95,7 +92,7 @@ workflow FILTER_VARIANTS {
 
     // QC plots for site histograms
     PLOT_VCF_FILTERS (
-        FILTER_VCF.out.metrics.map { interval_hash, interval_bed, bed_tbi, tsv -> tsv }.collect(),
+        FILTER_VCF.out.metrics.map { _interval_hash, _interval_bed, _bed_tbi, tsv -> tsv }.collect(),
         "site_filters"
     )
 

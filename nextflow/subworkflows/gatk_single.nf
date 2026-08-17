@@ -14,14 +14,12 @@ workflow GATK_SINGLE {
     take:
     ch_sample_names
     ch_sample_cram
-    ch_rg_to_validate
+    ch_reads_grouped
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
-    ch_long_bed
-    ch_short_bed
     ch_read_counts
-
+    
     main: 
 
     /* 
@@ -36,14 +34,19 @@ workflow GATK_SINGLE {
                 def tbi = file("${gvcf}.tbi")
                 tuple(sample, gvcf, tbi)
             }
-            .filter { sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
+            .filter { _sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
             .set { ch_existing_gvcf }
 
 
         // Validate gvcf files by default
         if( !params.skip_gvcf_validation ) {
+
+            ch_reads_grouped
+                .join(ch_existing_gvcf, by: 0)
+                .set { ch_gvcf_validation_input }
+
             VALIDATE_GVCF (
-                ch_rg_to_validate.join(ch_existing_gvcf, by: 0),
+                ch_gvcf_validation_input,
                 ch_genome_indexed
             )
 
@@ -52,51 +55,73 @@ workflow GATK_SINGLE {
                 .map { sample, stdout -> [ sample, stdout.trim() ] }
                 .join( ch_existing_gvcf, by: 0 )
                 .map { sample, status, gvcf, tbi -> [ sample, gvcf, tbi, status ] }
-                .branch {  sample, gvcf, tbi, status ->
+                .branch {  _sample, _gvcf, _tbi, status ->
                     fail: status == 'FAIL'
                     pass: status == 'PASS'
+                    invalid: true
                 }
                 .set { gvcf_validation_routes }
 
-            // Channel with just passing gvcfs
+            // Fail loudly if validator emits anythign other that pass/fail
+            gvcf_validation_routes.invalid
+                .map { sample, _gvcf, _tbi, status ->
+                    throw new IllegalStateException(
+                        "Unexpected GVCF validation status for " +
+                        "${sample}: '${status}'"
+                    )
+                }
+                .set { _invalid_gvcf_status }
+
+            // Compatible existing GVCFs.
             gvcf_validation_routes.pass
-                .map { sample, gvcf, tbi, status -> [ sample, gvcf, tbi ] } 
+                .map { sample, gvcf, tbi, _status -> [ sample, gvcf, tbi ] } 
                 .set { ch_validated_gvcf }
                 
             // Print warning if any gvcf files exist but fail validation
             gvcf_validation_routes.fail
-                .map {  sample, gvcf, tbi, status -> sample } 
+                .map {  sample, _gvcf, _tbi, _status -> sample } 
                 .unique()
                 .collect()
-                .map { fails ->
-                    if (fails && fails.size() > 0)
-                    log.warn "GVCF file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-                    true
+                .subscribe { failed_samples ->
+                    if (failed_samples) {
+                        log.warn(
+                            "GVCF validation failed for " +
+                            "${failed_samples.size()} sample(s): " +
+                            failed_samples.join(', ')
+                        )
+                    }
                 }
-                .set { _warn_gvcf_done }  // force evaluation
 
         } else {
-          // Skip validation, assume all existing gvcfs are good
+          // Skip validation, assume all existing gvcfs are compatible
           ch_validated_gvcf = ch_existing_gvcf 
         }
 
-        // Subset the crams to just those that dont already have a GVCF for single sample calling
+        // Set of samples that do not need single-sample variant calling.
         ch_validated_gvcf
-            .map { sample, gvcf, tbi -> sample}
+            .map { sample, _gvcf, _tbi -> sample}
             .toList()
             .map { ids -> ids as Set } 
             .set { ch_gvcf_done }
 
     } else{
-        ch_gvcf_done = Channel.value([] as Set)
+        ch_gvcf_done = channel.value([] as Set)
         ch_validated_gvcf = channel.empty()
     }
 
+    // Retain crams only for samples without a validated existing GVCF
     ch_sample_cram
         .combine(ch_gvcf_done)  
-        .filter { sample, gvcf, tbi, doneSet -> !(doneSet as Set).contains(sample) }
-        .map {  sample, gvcf, tbi, doneSet -> tuple( sample, gvcf, tbi) }
+        .filter { sample, _gvcf, _tbi, doneSet -> !(doneSet as Set).contains(sample) }
+        .map {  sample, gvcf, tbi, _doneSet -> tuple( sample, gvcf, tbi) }
         .set { ch_cram_for_hc }
+
+    // Retain read counts only for samples without a validated existing GVCF
+    ch_read_counts
+        .combine(ch_gvcf_done)
+        .filter { sample, _counts_bed, _counts_tbi, done_set -> !(done_set as Set).contains(sample) }
+        .map { sample, counts_bed, counts_tbi, _done_set -> tuple(sample, counts_bed, counts_tbi) }
+        .set { ch_read_counts_for_hc }
 
     /* 
        Create groups of genomic intervals for parallel haplotypecaller
@@ -104,7 +129,7 @@ workflow GATK_SINGLE {
 
     // Create haplotypecaller intervals on per sample basis
     CREATE_INTERVAL_CHUNKS_HC (
-        ch_read_counts,
+        ch_read_counts_for_hc,
         ch_genome_indexed,
         ch_include_bed.first(),
         params.hc_bases_per_chunk,
@@ -166,7 +191,7 @@ workflow GATK_SINGLE {
     // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all HAPLOTYPECALLER to finish
     HAPLOTYPECALLER.out.gvcf_intervals
         // Add expected group size so each sample emits once all interval GVCFs are complete
-        .map { sample, interval_hash, n_intervals, gvcf, tbi ->
+        .map { sample, _interval_hash, n_intervals, gvcf, tbi ->
             tuple(groupKey(sample, n_intervals), gvcf, tbi)
         }
         // Group interval GVCFs by sample, emitting early when n_intervals have arrived
@@ -179,9 +204,8 @@ workflow GATK_SINGLE {
                 tbis
             )
         }
-        // Channel for per-sample GVCF concatenation
+        // channel for per-sample GVCF concatenation
         .set { ch_gvcf_to_concat }
-
 
     CONCAT_GVCFS (
         ch_gvcf_to_concat
@@ -190,7 +214,7 @@ workflow GATK_SINGLE {
     // combine validated existing GVCs with newly created GVCFs for joint calling
     ch_validated_gvcf
       .mix( CONCAT_GVCFS.out.vcf )
-      .distinct { it[0] }      // dedupe by sample if needed
+      .distinct { item -> item[0] }      // dedupe by sample if needed
       .set{ ch_sample_gvcf }
 
     // Helper process to publish to output directory. 
@@ -199,6 +223,11 @@ workflow GATK_SINGLE {
         ch_sample_gvcf
     )
 
+    // Only newly generated GVCFS should be published.
+    CONCAT_GVCFS.out.vcf
+        .set { ch_new_gvcf }
+
     emit: 
     gvcf = STAGE_GVCF.out.gvcf
+    new_gvcf = ch_new_gvcf
 }

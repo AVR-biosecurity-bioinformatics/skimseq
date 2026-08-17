@@ -1,7 +1,6 @@
 process PLINK_PCA {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plink_pca", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(plinkfiles)

@@ -5,8 +5,6 @@
 //// import modules
 include { VALIDATE_CRAM                         } from '../modules/validate_cram/validate_cram'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome/map_to_genome'
-include { SPLIT_FASTQ                           } from '../modules/split_fastq/split_fastq'
-include { MERGE_CRAM                            } from '../modules/merge_cram/merge_cram'
 include { STAGE_CRAM                            } from '../modules/stage_cram/stage_cram'
 include { COUNT_CRAM_PERBASE                    } from '../modules/count_cram_perbase/count_cram_perbase'
 
@@ -14,176 +12,199 @@ workflow ALIGNMENT {
 
     take:
     ch_sample_names
-    ch_reads
-    ch_rg_to_validate
+    ch_reads_grouped
     ch_genome_indexed
     ch_exclude_bed
 
     main: 
+
+    // Read adapter sequence catalogue
+    ch_adapters = channel.fromPath(
+        "${baseDir}/assets/adapters.fa",
+        checkIfExists: true
+    ).first()
     
     /* 
         Find and validate any pre-existing crams, these will be skipped
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
+    
+    if (params.use_existing_cram) {
 
-    // Use existing crams if they are present and the option is set
-    if( params.use_existing_cram ) {
         ch_sample_names
             .map { sample ->
                 def cram = file("${params.cram_store}/${sample}.cram")
                 def crai = file("${cram}.crai")
                 tuple(sample, cram, crai)
             }
-            .filter { sample, cram, crai -> cram.exists() && crai.exists() }
+            .filter { _sample, cram, crai -> cram.exists() && crai.exists() }
             .set { ch_existing_cram }
 
-        // Validate cram files by default
-        if( !params.skip_cram_validation ) {
-            VALIDATE_CRAM (
-                ch_rg_to_validate.join(ch_existing_cram, by: 0),
+        if (!params.skip_cram_validation) {
+
+            //Join grouped reads to candidate CRAMs.
+            ch_reads_grouped
+                .join(ch_existing_cram, by: 0)
+                .set { ch_cram_validation_input }
+
+            VALIDATE_CRAM(
+                ch_cram_validation_input,
                 ch_genome_indexed
             )
 
             // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
             VALIDATE_CRAM.out.status
-                .map { sample, stdout -> [ sample, stdout.trim() ] }
-                .join( ch_existing_cram, by: 0 )
-                .map { sample, status, cram, crai -> [ sample, cram, crai, status ] }
-                .branch {  sample, cram, crai, status ->
+                .map { sample, stdout -> tuple(sample, stdout.trim()) }
+                .join(ch_existing_cram, by: 0)
+                .map { sample, status, cram, crai -> tuple(sample, cram, crai, status) }
+                .branch { _sample, _cram, _crai, status ->
                     fail: status == 'FAIL'
                     pass: status == 'PASS'
+                    invalid: true
                 }
                 .set { cram_validation_routes }
 
-            // Channel with just passing crams
+            // Fail loudly if there is an invalid status
+            cram_validation_routes.invalid
+                .map { sample, _cram, _crai, status ->
+                    throw new IllegalStateException(
+                        "Unexpected CRAM validation status for ${sample}: '${status}'"
+                    )
+                }
+                .set { _invalid_cram_status }
+
+            //Compatible existing CRAMs.
             cram_validation_routes.pass
-                .map { sample, cram, crai, status -> [ sample, cram, crai ] } 
+                .map { sample, cram, crai, _status -> tuple(sample, cram, crai) }
                 .set { ch_validated_cram }
-                
-            // Print warning if any cram files exist but fail validation
+
+            // Report incompatible CRAMs. Thes get remapped
             cram_validation_routes.fail
-                .map {  sample, cram, crai, status -> sample } 
+                .map { sample, _cram, _crai, _status -> sample }
                 .unique()
                 .collect()
-                .map { fails ->
-                    if (fails && fails.size() > 0)
-                    log.warn "CRAM file failed validation for ${fails.size()} samples(s): ${fails.join(', ')}"
-                    true
+                .subscribe { failed_samples ->
+                    if (failed_samples) {
+                        log.warn(
+                            "CRAM validation failed for " +
+                            "${failed_samples.size()} sample(s): " +
+                            failed_samples.join(', ')
+                        )
+                    }
                 }
-                .set { _warn_cram_done }  // force evaluation
 
         } else {
-          // Skip validation, assume all existing crams are good
-          ch_validated_cram = ch_existing_cram 
+            // Validation explicitly disabled: assume all discovered CRAMs are compatible.
+            ch_validated_cram = ch_existing_cram
         }
 
-        // Sample ids that already have a good CRAM
+        //Set of sample names that do not need mapping.
         ch_validated_cram
-            .map { sample, cram, crai -> sample }
+            .map { sample, _cram, _crai -> sample }
             .toList()
             .map { ids -> ids as Set } 
             .set { ch_cram_done }
-    } else{
-        ch_cram_done = Channel.value([] as Set)
+
+    } else {
+        ch_cram_done = channel.value([] as Set)
         ch_validated_cram = channel.empty()
     }
 
+
     // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
-    ch_reads
-        .combine(ch_cram_done)  
-        .filter { sample, lib, fcid, lane, platform, read1, read2, doneSet -> !(doneSet as Set).contains(sample) }
-        .map { sample, lib, fcid, lane, platform, read1, read2, doneSet -> tuple(sample, lib, fcid, lane, platform, read1, read2) }
+    ch_reads_grouped
+        .combine(ch_cram_done)
+        .filter { sample, _libs, _source, _input1s, _input2s, _local_r1s, _local_r2s, done_set -> !(done_set as Set).contains(sample)}
+        .map {sample, libs, source, input1s, input2s, local_r1s, local_r2s, _done_set -> tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s) }
         .set { ch_reads_to_map }
 
-    /* 
-        Read splitting
+    /*
+    * Run remote samples first, followed by the largest local samples.
     */
+    ch_reads_to_map
+        .map { sample, libs, source, input1s, input2s, local_r1s, local_r2s ->
+            long sample_local_size = source == 'local'
+                ? (local_r1s + local_r2s).sum { read ->
+                    read.size()
+                } as long
+                : 0L
 
-    // Split paired fastq files into even chunks for parallel processing
-    SPLIT_FASTQ (
-        ch_reads_to_map.map { sample, lib, fcid, lane, platform, read1, read2 -> [ sample, lib, read1, read2 ] },
-        params.fastq_chunk_size
-    )
-
-    // Parse per-library chunk counts, then sum to per-sample total
-    SPLIT_FASTQ.out.nchunks
-        .map { sample, lib, nchunks_file ->
-            tuple(sample, nchunks_file.text.trim().toInteger())
+            tuple(
+                source == 'local' ? 1 : 0,
+                sample_local_size,
+                sample,
+                libs,
+                source,
+                input1s,
+                input2s,
+                local_r1s,
+                local_r2s
+            )
         }
-        .groupTuple(by: 0)
-        .map { sample, counts ->
-            tuple(sample, counts.sum())
+        .toSortedList { a, b ->
+            (a[0] <=> b[0]) ?:   // Remote first
+            (b[1] <=> a[1]) ?:   // Largest local samples first
+            (a[2] <=> b[2])      // Deterministic sample order
         }
-        .set { ch_sample_nchunks }
-
-    // Create new channel with each fastq chunk
-    SPLIT_FASTQ.out.fastq_interval
-        .splitCsv(by: 1, elem: 2, sep: ",")
-        .map { sample, lib, intervals ->
-            tuple(sample, lib, intervals[0], intervals[1])
+        .flatMap { sorted_samples ->
+            sorted_samples
         }
-        .combine(ch_reads_to_map, by: [0,1])
-        .map { sample, lib, int1, int2, fcid, lane, platform, read1, read2 ->
-            tuple(sample, lib, fcid, lane, platform, read1, read2, int1, int2)
+        .map { _priority, _sample_local_size, sample, libs, source, input1s, input2s, local_r1s, local_r2s ->
+            tuple( sample, libs, source, input1s, input2s, local_r1s, local_r2s )
         }
-        .combine(ch_sample_nchunks, by: 0)
-        .map { sample, lib, fcid, lane, platform, read1, read2, int1, int2, n_chunks ->
-            tuple(sample, n_chunks, lib, fcid, lane, platform, read1, read2, int1, int2)
-        }
-        .set { ch_fastq_split }
+        .set { ch_reads_grouped_by_sample }
 
     /* 
         Read mapping
     */
 
-    // Align reads to genome
+    // Align reads to genome, input is all libraries and reads per sample
+    // Output is sample-level cram, no merging required
     MAP_TO_GENOME (
-        ch_fastq_split,
-        ch_genome_indexed
+        ch_reads_grouped_by_sample,
+        ch_genome_indexed,
+        ch_adapters
     )
+
+    // Print warning if any files had different numbers of forward and reverse reads
+    MAP_TO_GENOME.out.fastq_warnings
+        .map { sample, warning_file ->
+            tuple(
+                sample,
+                warning_file.text.trim()
+            )
+        }
+        .subscribe { sample, warning ->
+            log.warn(
+                "MAP_TO_GENOME ${sample}: ${warning}"
+            )
+        }
     
-    // Grouping by sample, nchunks allows early per-sample merge rather than waiting for all MAP_TO_GENOME to finish
-    MAP_TO_GENOME.out.cram
-        // Add expected group size so each sample emits once all interval CRAms are complete
-        .map { sample, n_chunks, cram, crai ->
-            tuple(groupKey(sample, n_chunks), cram, crai)
-        }
-        // Group interval CRAMs by sample, emitting early when n_intervals have arrived
-        .groupTuple()
-        // Emit sample with grouped crams and indexes for concatenation
-        .map { key, crams, crais ->
-            tuple(key.getGroupTarget(), crams, crais)
-        }
-        .set { ch_cram_to_merge }
-
-    // Merge chunked .cram files by sample
-    MERGE_CRAM(
-        ch_cram_to_merge,
-        ch_genome_indexed
-    )
-
-    // TODO: base quality score recalibration (if a list of known variants are provided)
-
-    // combine validated existing CRAMs with newly created CRAMs
+    // Combine pre-validated crams with newly mapped crams
     ch_validated_cram
-      .mix( MERGE_CRAM.out.cram )
-      .distinct { it[0] }      // dedupe by sample if needed
-      .set{ ch_sample_cram }
+        .mix(MAP_TO_GENOME.out.cram)
+        .distinct { sample, _cram, _crai -> sample }
+        .set { ch_sample_cram }
 
     // Helper process to stage intermediate CRAMs 
     STAGE_CRAM(
         ch_sample_cram
     )
 
-    // Count per-base depths in cram, used for masking and creating interval chunks
+    // Count per-base depths in all crams, used for masking and creating interval chunks
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
         ch_genome_indexed,
         ch_exclude_bed
     )
 
+    // Only newly generated CRAMs should be published.
+    MAP_TO_GENOME.out.cram
+        .set { ch_new_cram }
+
     emit: 
     cram = STAGE_CRAM.out.cram
+    new_cram = ch_new_cram
     perbase = COUNT_CRAM_PERBASE.out.perbase
     counts = COUNT_CRAM_PERBASE.out.counts
 

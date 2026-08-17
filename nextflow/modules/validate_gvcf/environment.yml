@@ -6,3 +6,6 @@ channels:
 
 dependencies:
   - bioconda::bcftools=1.24
+  - bioconda::samtools=1.24
+  - bioconda::seqkit=2.13.0
+

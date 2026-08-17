@@ -18,7 +18,6 @@ workflow MASK_GENOME {
     ch_exclude_bed
     ch_mito_indexed
     ch_mito_bed
-    ch_read_counts
 
     main: 
 

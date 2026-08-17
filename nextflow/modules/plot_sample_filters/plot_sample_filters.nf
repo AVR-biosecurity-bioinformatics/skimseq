@@ -1,6 +1,6 @@
 process PLOT_SAMPLE_FILTERS {
+    tag "${missing_summary}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plot_sample_filters", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(missing_summary)
@@ -17,8 +17,7 @@ process PLOT_SAMPLE_FILTERS {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript ${projectDir}/bin/plot_sample_filters.R \
-        ${projectDir} \
+    plot_sample_filters.R \
         ${params.rdata} \
         "${params.vcf_sample_max_missing}" 
     """

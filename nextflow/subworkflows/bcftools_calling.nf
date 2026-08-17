@@ -25,12 +25,12 @@ workflow BCFTOOLS_CALLING {
     */
 
      ch_read_counts
-        .map { sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+        .map { _sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
         .toList()
         .filter { lst -> lst && !lst.isEmpty() }
         .map { pairs ->
-            def beds = pairs.collect { it[0] }
-            def tbis = pairs.collect { it[1] }
+            def beds = pairs.collect { pair -> pair[0] }
+            def tbis = pairs.collect { pair -> pair[1] }
             tuple("joint", beds, tbis)
         }
         .set { ch_counts }
@@ -66,7 +66,7 @@ workflow BCFTOOLS_CALLING {
                 tuple(interval_hash, bed, tbiPath)
             }
         }
-        .filter { interval_hash, interval_bed, bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
+        .filter { _interval_hash, interval_bed, _bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .ifEmpty {
             log.warn(
                 "No mpileup intervals remained after coverage & inclusion filtering, " +
@@ -74,16 +74,16 @@ workflow BCFTOOLS_CALLING {
             )
             tuple('__NO_INTERVALS__', null, null)
         }
-        .filter { interval_hash, interval_bed, bed_tbi ->
+        .filter { interval_hash, _interval_bed, _bed_tbi ->
             interval_hash != '__NO_INTERVALS__'
         }
         .set { ch_interval_bed_mp }
 
-    // combine sample-level cran with each interval_bed file and interval chunk
+    // combine sample-level cram with each interval_bed file and interval chunk
     // Then group by interval for joint genotyping
     ch_sample_cram 
         .combine ( ch_interval_bed_mp )
-        .map { sample, cram, crai, interval_chunk, interval_bed, bed_tbi -> [ interval_chunk, cram, crai ] }
+        .map { _sample, cram, crai, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, cram, crai ] }
         .groupTuple ( by: 0 )
         // join to get back interval_file
         .join ( ch_interval_bed_mp, by: 0 )
@@ -102,14 +102,15 @@ workflow BCFTOOLS_CALLING {
         ch_cram_interval,
         ch_genome_indexed,
         ch_cohort_size,
-        ch_popmap.first()
+        ch_popmap.first(),
+        ch_mask_bed_genotype
     )
     
-    ch_merged_unfiltered_vcf = Channel.empty()
+    ch_merged_unfiltered_vcf = channel.empty()
     if ( params.output_unfiltered_vcf ){
         // TODO: Make this output seperate files for each variant type
         MPILEUP.out.vcf
-            .map { interval_chunk, interval_bed, bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+            .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
             .groupTuple(by: 0)
             .set { ch_vcf_to_merge }
 
@@ -118,7 +119,7 @@ workflow BCFTOOLS_CALLING {
         )
     
         CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_unfiltered_vcf}
+            .set { ch_merged_unfiltered_vcf }
     }
 
     emit: 

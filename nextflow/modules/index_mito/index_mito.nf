@@ -1,15 +1,15 @@
 process INDEX_MITO {
     tag "${ref_genome}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/index_mito", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(ref_genome)
     val(mito_contig)
 
     output: 
-    tuple path("mito.fa"), path("*.{fai,l2b,mbw,dict}"),   emit: fasta_indexed
-    path("mito.bed"),                                      emit: bed
+    tuple path("mito.fa"), path("mito.fa.{fai,l2b,mbw}"),                   emit: mito_indexed
+    tuple path("mito.shifted.fa"), path("mito.shifted.fa.{fai,l2b,mbw}"),   emit: shifted_mito_indexed
+    path("mito.bed"),                                                       emit: bed
     
     script:
     """
@@ -40,11 +40,18 @@ process INDEX_MITO {
         exit 1
     fi
 
-    # Build the minibwa index.
+    # Build the unshifted indices
     minibwa index mito.fa
-
-    # Build the FASTA index.
     samtools faidx mito.fa
+
+    # Create and index a shifted mito
+    seqkit restart \
+        -i ${params.mito_shift} \
+        mito.fa \
+        > mito.shifted.fa
+
+    samtools faidx mito.shifted.fa
+    minibwa index mito.shifted.fa
 
     # Create mitochondrial bed
     awk 'BEGIN { OFS = "\\t" } {print \$1, 0, \$2 , "Mito"}' mito.fa.fai > mito.bed

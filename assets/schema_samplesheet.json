@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "sample",
+      "fwd"
+    ],
+    "properties": {
+      "sample": {
+        "type": "string",
+        "minLength": 3,
+        "pattern": ".*\\S.*",
+        "description": "Unique sample identifier."
+      },
+      "lib": {
+        "type": "string",
+        "minLength": 3,
+        "pattern": ".*\\S.*",
+        "description": "Unique library identifier. Set to sample if not provided"
+      },
+      "pop": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*",
+        "description": "Population identifier."
+      },
+      "fwd": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": ".*\\S.*",
+        "description": "Forward FASTQ path, HTTP/HTTPS/FTP URL, or run accession."
+      },
+      "rev": {
+        "type": ["string", "null"],
+        "description": "Reverse FASTQ path or HTTP/HTTPS/FTP URL; leave empty for accessions."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "required": ["fwd"],
+          "properties": {
+            "fwd": {
+              "type": "string",
+              "pattern": "^(SRR|ERR|DRR)[0-9]+$"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "rev": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "maxLength": 0
+                }
+              ]
+            }
+          }
+        },
+        "else": {
+          "required": ["rev"],
+          "properties": {
+            "rev": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": ".*\\S.*"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

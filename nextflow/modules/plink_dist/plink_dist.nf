@@ -1,7 +1,6 @@
 process PLINK_DIST {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plink_dist", mode: 'copy', enabled: params.debug_mode
 
     input:
     tuple val(outname), path(plinkfiles)

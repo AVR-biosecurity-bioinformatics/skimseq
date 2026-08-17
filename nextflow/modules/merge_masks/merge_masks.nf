@@ -1,7 +1,6 @@
 process MERGE_MASKS {
     //tag "${sample}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/merge_masks", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     path(exclude_bed)

@@ -1,7 +1,6 @@
 process GENOTYPE_POSTERIORS {
     tag "${interval_hash}:${variant_type}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/genotype_posteriors", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(variant_type), val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(tbi), path(sites_vcf), path(sites_tbi)

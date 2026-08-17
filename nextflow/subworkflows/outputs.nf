@@ -30,30 +30,30 @@ workflow OUTPUTS {
 
     // First split chunked vcfs by type
     SPLIT_VCF_BY_TYPE(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
+        ch_vcfs.map { interval_hash, _interval_bed, _bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
     )
 
     // Build merge input channels from the named emits
     def ch_merge_inputs = SPLIT_VCF_BY_TYPE.out.snp_vcf
-        .map { interval_hash, vcf, tbi -> tuple('snp', vcf, tbi) }
+        .map { _interval_hash, vcf, tbi -> tuple('snp', vcf, tbi) }
 
     if( params.output_indel ) {
         ch_merge_inputs = ch_merge_inputs.mix(
             SPLIT_VCF_BY_TYPE.out.indel_vcf
-                .map { interval_hash, vcf, tbi -> tuple('indel', vcf, tbi) }
+                .map { _interval_hash, vcf, tbi -> tuple('indel', vcf, tbi) }
         )
     }
 
     if( params.output_invariant ) {
         ch_merge_inputs = ch_merge_inputs.mix(
             SPLIT_VCF_BY_TYPE.out.invariant_vcf
-                .map { interval_hash, vcf, tbi -> tuple('invariant', vcf, tbi) }
+                .map { _interval_hash, vcf, tbi -> tuple('invariant', vcf, tbi) }
         )
     }
 
     // Keep the combined merge from the original chunk VCFs
     ch_merge_inputs = ch_merge_inputs.mix(
-        ch_vcfs.map { interval_hash, interval_bed, bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) }
+        ch_vcfs.map { _interval_hash, _interval_bed, _bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) }
     )
 
     // Group all chunked vcfs by variant type and merge
@@ -67,11 +67,25 @@ workflow OUTPUTS {
     )
    
     // Extract merged variant type vcfs into convenient channels
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='combined' }.first().set { ch_final_all }
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='snp' }.first().set { ch_final_snp }
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='indel' }.first().set { ch_final_indel }
-    CONCAT_FINAL.out.vcf.filter{ it[0]=='invariant' }.first().set { ch_final_inv }
+    CONCAT_FINAL.out.vcf
+        .filter { record -> record[0] == 'combined' }
+        .first()
+        .set { ch_final_all }
 
+    CONCAT_FINAL.out.vcf
+        .filter { record -> record[0] == 'snp' }
+        .first()
+        .set { ch_final_snp }
+
+    CONCAT_FINAL.out.vcf
+        .filter { record -> record[0] == 'indel' }
+        .first()
+        .set { ch_final_indel }
+
+    // CONCAT_FINAL.out.vcf
+    //     .filter { record -> record[0] == 'invariant' }
+    //     .first()
+    //     .set { ch_final_inv }
     /* 
         Create outputs
     */
@@ -83,7 +97,7 @@ workflow OUTPUTS {
         .set{ ch_final_vcfs }
 
     // Create beagle GL file
-    ch_beagle_gl = Channel.empty()
+    ch_beagle_gl = channel.empty()
     if (params.output_beagle_gl) {
         CREATE_BEAGLE_GL (
             ch_final_vcfs,
@@ -120,7 +134,7 @@ workflow OUTPUTS {
 
     // Turn ch_sample_pop tuples into a 2‑col TSV 'popmap' file
     ch_sample_pop
-        .map { s,p -> "$s\t$p" }
+        .map { sample, pop -> "$sample\t$pop" }
         .collectFile(name: 'sample_pop.tsv', newLine: true)
         .first()
         .set { ch_popmap }
@@ -145,7 +159,7 @@ workflow OUTPUTS {
     )
 
     emit:
-    final_vcf_all    = ch_final_all.map{ name, vcf, tbi -> tuple( vcf, tbi)}
+    final_vcf_all    = ch_final_all.map{ _name, vcf, tbi -> tuple( vcf, tbi)}
     final_vcf        = CONCAT_FINAL.out.vcf
     beagle_gl        = ch_beagle_gl
     plink            = PLINK_IMPORT.out.plink

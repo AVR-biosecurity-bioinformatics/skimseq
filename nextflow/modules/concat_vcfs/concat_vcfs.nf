@@ -1,7 +1,6 @@
 process CONCAT_VCFS {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/concat_vcfs", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(vcf), path(vcf_tbi)
@@ -11,7 +10,7 @@ process CONCAT_VCFS {
     
     script:
     def vcf_list = vcf
-        .collect { it.name }
+        .collect { file -> file.name }
         .unique()
         .sort()
         .join('\n')

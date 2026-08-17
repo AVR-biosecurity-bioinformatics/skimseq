@@ -1,6 +1,6 @@
 process PLOT_PCA {
+    tag "${outname}"
     conda "${moduleDir}/environment.yml"
-    publishDir "${launchDir}/output/modules/plot_pca", mode: 'copy', enabled: "${ params.debug_mode ? true : false }"
 
     input:
     tuple val(outname), path(eigval), path(eigvec)
@@ -17,8 +17,7 @@ process PLOT_PCA {
     # Prevent loaded HPC Python/R modules from contaminating the Conda environment.
     unset R_LIBS R_LIBS_USER R_LIBS_SITE
 
-    Rscript "${projectDir}/bin/plot_pca.R" \
-        "${projectDir}" \
+    plot_pca.R \
         "${params.rdata}" \
         "${eigval}" \
         "${eigvec}" \

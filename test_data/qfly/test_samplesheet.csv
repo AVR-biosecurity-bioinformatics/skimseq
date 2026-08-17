@@ -1,5 +1,5 @@
-sample,pop,fwd,rev
-EM3,Pop1,test_data/qfly/EM3_subset_R1.fastq.gz,test_data/qfly/EM3_subset_R2.fastq.gz
-EM6,Pop1,test_data/qfly/EM6_subset_R1.fastq.gz,test_data/qfly/EM6_subset_R2.fastq.gz
-F2xM12-F1,Pop2,test_data/qfly/F2xM12-F1_subset_R1.fastq.gz,test_data/qfly/F2xM12-F1_subset_R2.fastq.gz
-F03,Pop3,test_data/qfly/F3_subset_R1.fastq.gz,test_data/qfly/F3_subset_R2.fastq.gz
+sample,lib,pop,fwd,rev
+EM3,EM3,Pop1,test_data/qfly/EM3_subset_R1.fastq.gz,test_data/qfly/EM3_subset_R2.fastq.gz
+EM6,EM6,Pop1,test_data/qfly/EM6_subset_R1.fastq.gz,test_data/qfly/EM6_subset_R2.fastq.gz
+F2xM12-F1,F2xM12-F1,Pop2,test_data/qfly/F2xM12-F1_subset_R1.fastq.gz,test_data/qfly/F2xM12-F1_subset_R2.fastq.gz
+F03,F03,Pop3,https://github.com/AVR-biosecurity-bioinformatics/skimseq/raw/refs/heads/main/test_data/qfly/F3_subset_R1.fastq.gz,https://github.com/AVR-biosecurity-bioinformatics/skimseq/raw/refs/heads/main/test_data/qfly/F3_subset_R2.fastq.gz
