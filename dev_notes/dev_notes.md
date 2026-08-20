@@ -289,6 +289,24 @@ nextflow run . \
     -resume \
     -with-trace trace.txt scratch=false
 
+# Test Corrupted dorsalis + download of CNSA and SRA
+cd /group/pathogens/IAWS/Personal/Alexp/skimseq
+module purge
+export NXF_VER=26.07.0-edge
+module load Java/17
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . \
+    -config conf/basc.config \
+    --slurm_account fruitfly \
+    --samplesheet sample_sheet.csv \
+    --ref_genome /group/referencedata/mspd-db/genomes/insect/bactrocera_dorsalis/GWHFHGK00000000.1/GWHFHGK00000000.1.genome.fasta \
+    --mito_contig GWHFHGK00000009.1 \
+    -w /group/sequencing/assembly/Alex/test_runs/work \
+    -resume \
+    -with-trace trace.txt scratch=false
+
+
 ```
 
 
