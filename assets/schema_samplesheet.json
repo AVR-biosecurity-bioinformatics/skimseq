@@ -10,13 +10,13 @@
     ],
     "properties": {
       "sample": {
-        "type": "string",
+      "type": ["string", "integer", "number"],
         "minLength": 3,
         "pattern": ".*\\S.*",
         "description": "Unique sample identifier."
       },
       "lib": {
-        "type": "string",
+        "type": ["string", "integer", "number"],
         "minLength": 3,
         "pattern": ".*\\S.*",
         "description": "Unique library identifier. Set to sample if not provided"
