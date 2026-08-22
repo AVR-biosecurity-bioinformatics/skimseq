@@ -27,7 +27,7 @@ filter_masked_variants: true
 
 
 # Mitochondrial variant-calling options
-mito_shift: 
+mito_shift: 8000
 mito_minbq: 10
 mito_minmq: 20
 mito_min_depth: 100

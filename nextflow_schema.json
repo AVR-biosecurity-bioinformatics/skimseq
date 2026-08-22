@@ -249,8 +249,8 @@
       }
     },
     "alignment_options": {
-      "title": "BWA-MEM2 alignment options",
-      "description": "BWA-MEM2 seeding and repetitive-seed controls.",
+      "title": "Read filtering & Alignment",
+      "description": "FASTP read filterign and minibwa alignment options",
       "type": "object",
       "properties": {
         "trim_polyg": {
