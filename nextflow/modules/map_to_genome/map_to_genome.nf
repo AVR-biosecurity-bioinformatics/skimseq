@@ -66,38 +66,13 @@ process MAP_TO_GENOME {
         ? local_r2s.collect(shellQuote).join(' ')
         : ''
 
-    // Allocate a small share of available CPUs to supporting stages.
-    def support_threads = Math.max(
-        1,
-        task.cpus.intdiv(8)
-    )
+    def fastp_threads   = Math.max(1, task.cpus.intdiv(4))
+    def sort_threads    = 1
+    def overhead_threads = task.cpus >= 8 ? 2 : 1
+    def aln_threads = Math.max(1, task.cpus - fastp_threads - sort_threads - overhead_threads )
 
-    def fastp_threads = support_threads
-    def sort_threads  = support_threads
-
-    // Reserve capacity for seqkit, seqtk, RG injection, dupblaster,
-    // HydraStream coordination, and shell overhead.
-    def overhead_threads = task.cpus >= 8
-        ? support_threads
-        : 0
-
-    // Assign the remaining CPUs to the primary bottleneck: minibwa.
-    def aln_threads = Math.max(
-        1,
-        task.cpus -
-            fastp_threads -
-            sort_threads -
-            overhead_threads
-    )
-
-    // HydraStream connections per mate. These primarily control
-    // network concurrency rather than representing dedicated CPU cores.
-    def download_threads = source == 'local'
-        ? 1
-        : Math.max(
-            1,
-            Math.min(4, task.cpus.intdiv(4))
-        )
+    // HydraStream connections per mate, cap to one to avoid connection issues
+    def download_threads = 1
     
     // FastP trimming flags
     def polyGArgs = params.trim_polyg
