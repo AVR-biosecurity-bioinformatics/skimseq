@@ -203,11 +203,6 @@ process MAP_TO_GENOME {
     # Loop through inputs, validate remotes and extract readgroups
     : > readgroups.sam
     for i in "\${!READ1[@]}"; do
-        if [[ "\${STREAM_TYPE}" == "remote" ]]; then
-            validate_gzip_url "\${READ1[\${i}]}"
-            validate_gzip_url "\${READ2[\${i}]}"
-        fi
-
         FCID=""
         LANE=""
         # get_flowcell_lane extracts FCID and LANE from local or remote fastq
@@ -358,10 +353,11 @@ process MAP_TO_GENOME {
     (( r2_status != 0 && r2_status != 141 ))
     then
         echo \
-            "ERROR: FASTQ streaming failed for '${sample}'; " \
-            "R1 status=\${r1_status}, R2 status=\${r2_status}" \
+            "ERROR: transient FASTQ streaming failure for '${sample}'; " \
+            "R1=\${r1_status}, R2=\${r2_status}" \
             >&2
-        exit 1
+        # Exit 75 is caught for retry
+        exit 75
     fi
 
     ###########################################

@@ -93,7 +93,7 @@ stream_fastq() {
     {
         case "${STREAM_TYPE}" in
             local)
-                salvage_fastq_stream "${input}"
+                stream_local_fastq "${input}"
                 ;;
 
             remote)
@@ -114,7 +114,7 @@ stream_fastq() {
         annotate_fastq "${rg_id}"
 }
 
-salvage_fastq_stream() {
+stream_local_fastq() {
     local input="$1"
     local -a status
 
@@ -141,46 +141,6 @@ salvage_fastq_stream() {
     return 0
 }
 
-# Validate that a file from URL begins with the gzip magic bytes 1f 8b.
-# The request is limited to the first two bytes. Do not use
-# --retry-all-errors here because closing a short validation stream can
-# otherwise cause curl write errors to be retried.
-validate_gzip_url() {
-    local url="$1"
-    local magic
-
-    if [[ -z "${url}" ]]; then
-        echo "ERROR: validate_gzip_url received an empty URL" >&2
-        return 2
-    fi
-
-    echo "Validating remote gzip stream: ${url}" >&2
-
-    magic=$(
-        curl \
-            --fail \
-            --silent \
-            --show-error \
-            --location \
-            --range 0-1 \
-            --retry 3 \
-            --retry-delay 5 \
-            --connect-timeout 30 \
-            --max-time 60 \
-            "${url}" \
-        | od -An -N2 -tx1 \
-        | tr -d '[:space:]'
-    )
-
-    if [[ "${magic}" != "1f8b" ]]; then
-        echo "ERROR: URL did not return gzip data: ${url}" >&2
-        echo "ERROR: expected gzip signature 1f8b, received '${magic:-no data}'" >&2
-        return 1
-    fi
-
-    return 0
-}
-
 # Parse a shortread header
 parse_shortread_header() {
     local read_header="$1"
@@ -197,10 +157,7 @@ parse_shortread_header() {
     # Expected structure:
     # instrument:run:flowcell:lane:tile:x:y
     if (( ${#fields[@]} < 4 )); then
-        echo \
-            "ERROR: header has fewer than four colon-delimited fields: " \
-            "'${read_header}'" \
-            >&2
+        echo "ERROR: header has fewer than four colon-delimited fields: " "'${read_header}'" >&2
         return 1
     fi
 
@@ -208,101 +165,55 @@ parse_shortread_header() {
     local lane="${fields[3]}"
 
     if [[ -z "${fcid}" || ! "${lane}" =~ ^[0-9]+$ ]]; then
-        echo \
-            "ERROR: could not parse flowcell and lane from FASTQ header " \
-            "'${read_header}'" \
-            >&2
+        echo "ERROR: could not parse flowcell and lane from FASTQ header " "'${read_header}'" >&2
         return 1
     fi
 
     printf '%s %s\n' "${fcid}" "${lane}"
 }
 
-
-# Get local flowcell and lane
-get_local_flowcell_lane() {
-    local fastq="$1"
-    local read_header
-
-    read_header=$(
-        gzip -dc -- "${fastq}" |
-            head -n 1
-    )
-
-    parse_shortread_header "${read_header}"
-}
-
-# Get remote flowcell and lane
-get_remote_flowcell_lane() {
-    local url="$1"
-    local read_header
-    local qname
-    local accession
-
-    read_header=$(
-        set +o pipefail
-
-        curl \
-            --location \
-            --fail \
-            --silent \
-            --show-error \
-            "${url}" 2>/dev/null |
-        gzip -dc 2>/dev/null |
-        head -n 1
-    )
-
-    if [[ -z "${read_header}" ]]; then
-        echo "ERROR: could not read FASTQ header from '${url}'" >&2
-        return 1
-    fi
-
-    qname="${read_header#@}"
-    qname="${qname%%[[:space:]]*}"
-
-    # ENA/SRA archive header, e.g. SRR13005336.1
-    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
-        accession="${BASH_REMATCH[1]}"
-        printf '%s %s\n' "${accession}" "1"
-        return 0
-    fi
-
-    parse_shortread_header "${read_header}"
-}
 
 # Joint flowcell lane parsing function
 get_flowcell_lane() {
     local input="$1"
     local stream_type="$2"
-    local flowcell_lane
-    local fcid
-    local lane
+    local read_header
+    local qname
 
     case "${stream_type}" in
         local)
-            flowcell_lane=$(
-                get_local_flowcell_lane "${input}"
-            ) || return 1
+            read_header=$(
+                gzip -dc -- "${input}" |
+                    head -n 1
+            )
+
+            if [[ -z "${read_header}" ]]; then
+                echo "ERROR: could not read FASTQ header from '${input}'" >&2
+                return 1
+            fi
+
+            parse_shortread_header "${read_header}"
             ;;
+
         remote)
-            flowcell_lane=$(
-                get_remote_flowcell_lane "${input}"
-            ) || return 1
+            # For accession/URL inputs, avoid extra network requests.
+            # Use accession as FCID and assign lane 1.
+            qname="$(basename "${input}")"
+            qname="${qname%%_*}"
+
+            if [[ "${qname}" =~ ^(SRR|ERR|DRR)[0-9]+$ ]]; then
+                printf '%s %s\n' "${qname}" "1"
+            else
+                echo "ERROR: could not derive accession from remote input '${input}'" >&2
+                return 1
+            fi
             ;;
+
         *)
             echo "ERROR: unsupported stream type '${stream_type}' for '${input}'" >&2
             return 1
             ;;
     esac
-
-    read -r fcid lane <<< "${flowcell_lane}"
-
-    if [[ -z "${fcid}" || -z "${lane}" ]]; then
-        echo "ERROR: could not determine flowcell/lane for '${input}'" >&2
-        return 1
-    fi
-
-    printf '%s %s\n' "${fcid}" "${lane}"
 }
 
 # Accepts ENA or SRA accession - resolves to ENA
