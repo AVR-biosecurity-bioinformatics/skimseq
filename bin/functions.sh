@@ -53,6 +53,7 @@ download_fastq_stream_hs() {
         return 2
     fi
 
+    # Switch FTP to HTTPS
     url="${url/#ftp:\/\//https:\/\/}"
 
     log_dir=$(
@@ -60,6 +61,7 @@ download_fastq_stream_hs() {
             "${TMPDIR:-.}/hydrastream.XXXXXX"
     ) || return 1
 
+    # set up hydrastream args
     local -a args=(
         "${url}"
         --threads "${threads}"
@@ -68,6 +70,7 @@ download_fastq_stream_hs() {
         --output "${log_dir}"
     )
 
+    # add MD5 to args only if provided
     if [[ -n "${expected_md5}" ]]; then
         args+=(
             --typehash md5
