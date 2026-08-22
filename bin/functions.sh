@@ -86,17 +86,18 @@ download_fastq_stream_hs() {
 # Streaming helper
 stream_fastq() {
     local input="$1"
-    local rg_id="$2"
-    local expected_md5="${3:-}"
-    local download_threads="${4:-4}"
+    local source_type="$2"
+    local rg_id="$3"
+    local expected_md5="${4:-}"
+    local download_threads="${5:-4}"
 
     {
-        case "${STREAM_TYPE}" in
+        case "${source_type}" in
             local)
                 stream_local_fastq "${input}"
                 ;;
 
-            remote)
+            url|accession)
                 download_fastq_stream_hs \
                     "${input}" \
                     "${expected_md5}" \
@@ -106,7 +107,9 @@ stream_fastq() {
                 ;;
 
             *)
-                echo "ERROR: unsupported stream type '${STREAM_TYPE}'" >&2
+                echo \
+                    "ERROR: unsupported source type '${source_type}' for '${input}'" \
+                    >&2
                 return 2
                 ;;
         esac
@@ -172,48 +175,99 @@ parse_shortread_header() {
     printf '%s %s\n' "${fcid}" "${lane}"
 }
 
+# Get local flowcell and lane
+get_local_flowcell_lane() {
+    local fastq="$1"
+    local read_header
+
+    read_header=$(
+        gzip -dc -- "${fastq}" |
+            head -n 1
+    )
+
+    parse_shortread_header "${read_header}"
+}
+
+# Get remote flowcell and lane
+get_remote_flowcell_lane() {
+    local url="$1"
+    local read_header
+    local qname
+    local accession
+
+    read_header=$(
+        set +o pipefail
+
+        curl \
+            --location \
+            --fail \
+            --silent \
+            --show-error \
+            "${url}" 2>/dev/null |
+        gzip -dc 2>/dev/null |
+        head -n 1
+    )
+
+    if [[ -z "${read_header}" ]]; then
+        echo "ERROR: could not read FASTQ header from '${url}'" >&2
+        return 1
+    fi
+
+    qname="${read_header#@}"
+    qname="${qname%%[[:space:]]*}"
+
+    # ENA/SRA archive header, e.g. SRR13005336.1
+    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
+        accession="${BASH_REMATCH[1]}"
+        printf '%s %s\n' "${accession}" "1"
+        return 0
+    fi
+
+    parse_shortread_header "${read_header}"
+}
+
 
 # Joint flowcell lane parsing function
 get_flowcell_lane() {
     local input="$1"
-    local stream_type="$2"
-    local read_header
-    local qname
+    local source_type="$2"
+    local flowcell_lane
+    local fcid
+    local lane
 
-    case "${stream_type}" in
+    case "${source_type}" in
         local)
-            read_header=$(
-                gzip -dc -- "${input}" |
-                    head -n 1
-            )
-
-            if [[ -z "${read_header}" ]]; then
-                echo "ERROR: could not read FASTQ header from '${input}'" >&2
-                return 1
-            fi
-
-            parse_shortread_header "${read_header}"
+            flowcell_lane=$(
+                get_local_flowcell_lane "${input}"
+            ) || return 1
             ;;
-
-        remote)
-            # For accession/URL inputs, avoid extra network requests.
-            # Use accession as FCID and assign lane 1.
-            qname="$(basename "${input}")"
-            qname="${qname%%_*}"
-
-            if [[ "${qname}" =~ ^(SRR|ERR|DRR)[0-9]+$ ]]; then
-                printf '%s %s\n' "${qname}" "1"
-            else
-                echo "ERROR: could not derive accession from remote input '${input}'" >&2
-                return 1
-            fi
+        url)
+            flowcell_lane=$(
+                get_remote_flowcell_lane "${input}"
+            ) || return 1
             ;;
-
+        accession)
+            if [[ "${input}" =~ ^(SRR|ERR|DRR)[0-9]+$ ]]; then
+                printf '%s %s\n' "${input}" "1"
+                return 0
+            fi
+            echo "ERROR: invalid FASTQ accession '${input}'" >&2
+            return 1
+            ;;
         *)
-            echo "ERROR: unsupported stream type '${stream_type}' for '${input}'" >&2
+            echo "ERROR: unsupported stream type '${source_type}' for '${input}'" >&2
             return 1
             ;;
     esac
+
+    read -r fcid lane <<< "${flowcell_lane}"
+
+    if [[ -z "${fcid}" || -z "${lane}" ]]; then
+        echo "ERROR: could not determine flowcell/lane for '${input}'" >&2
+        return 1
+    fi
+
+    printf '%s %s\n' "${fcid}" "${lane}"
 }
 
 # Accepts ENA or SRA accession - resolves to ENA
