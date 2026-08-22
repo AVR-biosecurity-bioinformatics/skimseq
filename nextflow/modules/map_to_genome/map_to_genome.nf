@@ -121,20 +121,16 @@ process MAP_TO_GENOME {
     PID1=""
     PID2=""
 
-    declare -a LOCAL1=(${local_r1_array} )
-    declare -a LOCAL2=(${local_r2_array})
-    declare -a URL1=(${url1_array})
-    declare -a URL2=(${url2_array})
+    # These need to be declared as i access as idnex
     declare -a ACCESSIONS=(${accession_array})
     declare -a LIBS=(${lib_array})
+
     declare -a READ1=()
     declare -a READ2=()
     declare -a MD5_R1=()
     declare -a MD5_R2=()
     declare -a RG_ID=()
     declare -a RG_PU=()
-
-    STREAM_TYPE=""
 
     # Exit Trap to catch and cleanup incomplete downloads
     cleanup() {
@@ -157,40 +153,42 @@ process MAP_TO_GENOME {
     # Resolve local and remote read sources
     ###########################################
 
-    # Resolve SRA / ENA accessions to URLs
-    if [[ "${source}" == "accession" ]]; then
-        URL1=()
-        URL2=()
-
-        for ACC in "\${ACCESSIONS[@]}"; do
-            read -r \
-                RESOLVED_URL1 \
-                RESOLVED_MD5_1 \
-                RESOLVED_URL2 \
-                RESOLVED_MD5_2 \
-                < <(
-                    resolve_fastqs "\${ACC}"
-                )
-
-            URL1+=("\${RESOLVED_URL1}")
-            URL2+=("\${RESOLVED_URL2}")
-            MD5_R1+=("\${RESOLVED_MD5_1}")
-            MD5_R2+=("\${RESOLVED_MD5_2}")
-        done
-    fi
-
     # Resolve local vs remote sources
     case "${source}" in
         local)
-            READ1=("\${LOCAL1[@]}")
-            READ2=("\${LOCAL2[@]}")
-            STREAM_TYPE="local"
+            READ1=(${local_r1_array})
+            READ2=(${local_r2_array})
             ;;
 
-        url|accession)
-            READ1=("\${URL1[@]}")
-            READ2=("\${URL2[@]}")
-            STREAM_TYPE="remote"
+        url)
+            READ1=(${url1_array})
+            READ2=(${url2_array})
+            ;;
+
+        accession)
+            # Resolve SRA / ENA accessions to URLs
+            for ACC in "\${ACCESSIONS[@]}"; do
+                if ! read -r \
+                    RESOLVED_URL1 \
+                    RESOLVED_MD5_1 \
+                    RESOLVED_URL2 \
+                    RESOLVED_MD5_2 \
+                    < <(resolve_fastqs "\${ACC}")
+                then
+                    echo "ERROR: failed to resolve accession '\${ACC}'" >&2
+                    exit 1
+                fi
+
+                READ1+=("\${RESOLVED_URL1}")
+                READ2+=("\${RESOLVED_URL2}")
+                MD5_R1+=("\${RESOLVED_MD5_1}")
+                MD5_R2+=("\${RESOLVED_MD5_2}")
+            done
+            ;;
+
+        *)
+            echo "ERROR: unsupported input type '${source}'" >&2
+            exit 1
             ;;
     esac
 
@@ -205,11 +203,18 @@ process MAP_TO_GENOME {
     for i in "\${!READ1[@]}"; do
         FCID=""
         LANE=""
+        
+        if [[ "${source}" == "accession" ]]; then
+            RG_INPUT="\${ACCESSIONS[\${i}]}"
+        else
+            RG_INPUT="\${READ1[\${i}]}"
+        fi
+
         # get_flowcell_lane extracts FCID and LANE from local or remote fastq
         read -r FCID LANE < <(
             get_flowcell_lane \
-                "\${READ1[\${i}]}" \
-                "\${STREAM_TYPE}"
+                "\${RG_INPUT}" \
+                "${source}"
         )
 
         CURRENT_LIB="\${LIBS[\${i}]}"
@@ -259,13 +264,14 @@ process MAP_TO_GENOME {
     # Create FIFO producers
     mkfifo "\${FASTQ1}" "\${FASTQ2}"
 
-    # Start streaming R1 files.
+    # Start streaming R1 & R2 files concurrently.
     (
         set -euo pipefail
 
         for i in "\${!READ1[@]}"; do
             stream_fastq \
                 "\${READ1[\${i}]}" \
+                "${source}" \
                 "\${RG_ID[\${i}]}" \
                 "\${MD5_R1[\${i}]:-}" \
                 "${download_threads}"
@@ -280,6 +286,7 @@ process MAP_TO_GENOME {
         for i in "\${!READ2[@]}"; do
             stream_fastq \
                 "\${READ2[\${i}]}" \
+                "${source}" \
                 "\${RG_ID[\${i}]}" \
                 "\${MD5_R2[\${i}]:-}" \
                 "${download_threads}"
