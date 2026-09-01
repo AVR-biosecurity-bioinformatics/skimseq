@@ -67,7 +67,7 @@ params {
 
     // Mitochondrial variant calling
     mito_shift: Integer = 8_000                         // Create mito reference shifted by this many bases
-    mito_breakpoint_window: Integer = 500
+    mito_breakpoint_window: Integer = 500               // Number of bases at each end of the original mitochondrial reference where consensus calls are taken from the shifted-reference pileup to reduce circular-breakpoint artefacts
     mito_minbq: Integer = 10                            // Bases below this quality are excluded before allele counting.
     mito_minmq: Integer = 20                            // Reads below this mapping quality are excluded before allele counting.
     mito_trim_read_ends: Integer = 0                    // Number of bases to ignore from each end of each read

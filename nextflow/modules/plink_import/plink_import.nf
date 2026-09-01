@@ -14,10 +14,12 @@ process PLINK_IMPORT {
     set -euo pipefail
 
     # Create PLINK bed file
+    # TODO: Add filters
     plink2 \
         --threads ${task.cpus} \
         --memory ${task.memory.mega} \
         --vcf ${vcf} \
+        --mind 0.9 \
         --allow-extra-chr \
         --double-id \
         --make-bed \
