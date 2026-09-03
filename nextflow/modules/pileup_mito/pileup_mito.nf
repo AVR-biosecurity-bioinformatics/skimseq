@@ -26,7 +26,7 @@ process PILEUP_MITO {
         .sort { a, b -> a[0].toString() <=> b[0].toString() }
 
     def bamArgs = ordered
-        .collect { sample, bam -> "'${bam}'" }
+        .collect { _sample, bam -> "'${bam}'" }
         .join(' ')
 
     def sampleLines = (0..<ordered.size())
