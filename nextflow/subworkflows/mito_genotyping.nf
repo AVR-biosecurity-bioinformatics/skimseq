@@ -5,7 +5,9 @@
 //// import modules
 include { CONSENSUS_MITO                        } from '../modules/consensus_mito/consensus_mito'
 include { REALIGN_MITO                          } from '../modules/realign_mito/realign_mito'
+include { REALIGN_MITO as REALIGN_MITO_SHIFTED  } from '../modules/realign_mito/realign_mito'
 include { PILEUP_MITO                           } from '../modules/pileup_mito/pileup_mito'
+include { PILEUP_MITO as PILEUP_MITO_SHIFTED    } from '../modules/pileup_mito/pileup_mito'
 
 
 workflow MITO_GENOTYPING {
@@ -18,42 +20,72 @@ workflow MITO_GENOTYPING {
     ch_mito_bed
     ch_numt_bed
    
-
     main: 
 
     /*
-        Mitochondrial variant calling
-    */
+     * Realign to original mito reference
+     */
 
-    // Extract mitochondrial & reads from genomic cram and realign
-    REALIGN_MITO (
+    REALIGN_MITO(
         ch_sample_cram,
         ch_genome_indexed,
         ch_mito_indexed,
+        ch_mito_bed,
+        ch_numt_bed
+    )
+
+    REALIGN_MITO.out.mito_bam
+        .map { sample, bam, bai ->
+            tuple('all', sample, bam, bai)
+        }
+        .groupTuple(by: 0)
+        .set { ch_mito_bams_grouped }
+
+    /*
+     * Realign to shifted mito reference
+     */
+    REALIGN_MITO_SHIFTED(
+        ch_sample_cram,
+        ch_genome_indexed,
         ch_shifted_mito_indexed,
         ch_mito_bed,
         ch_numt_bed
     )
 
-    // Pileup mitochondrial reads (whole cohort)
-    REALIGN_MITO.out.mito_bams
-        .map { sample, bam, bai, shifted_bam, shifted_bai -> tuple('all', sample, bam, bai, shifted_bam, shifted_bai ) }
+    REALIGN_MITO_SHIFTED.out.shifted_mito_bam
+        .map { sample, bam, bai ->
+            tuple('all', sample, bam, bai)
+        }
         .groupTuple(by: 0)
-        .set{ ch_mito_bams_grouped }
+        .set { ch_shifted_mito_bams_grouped }
 
+    /*
+     * Generate pileups
+     */
     PILEUP_MITO(
         ch_mito_bams_grouped,
-        ch_mito_indexed,
-        ch_shifted_mito_indexed
-    )
-
-    // Call consensus from pileup
-    CONSENSUS_MITO(
-        PILEUP_MITO.out.counts,
         ch_mito_indexed
     )
 
-    // Align consensus mito reads
+    PILEUP_MITO_SHIFTED(
+        ch_shifted_mito_bams_grouped,
+        ch_shifted_mito_indexed
+    )
+
+    /*
+     * Consensus from original and shifted reference pileups
+     */
+    PILEUP_MITO.out.counts
+        .join(PILEUP_MITO_SHIFTED.out.counts, by: 0 )
+        .map {cohort, samples_tsv, original_counts, _shifted_samples_tsv, shifted_counts ->
+            tuple(cohort, samples_tsv, original_counts, shifted_counts )
+        }
+        .set { ch_consensus_inputs }
+
+    CONSENSUS_MITO(
+        ch_consensus_inputs,
+        ch_mito_indexed
+    )
 
     emit: 
     mito_consensus = CONSENSUS_MITO.out.consensus
