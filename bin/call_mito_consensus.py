@@ -83,7 +83,7 @@ def read_samples(path):
     with open(path, newline="") as handle:
         reader = csv.DictReader(handle, delimiter="\t")
 
-        required = {"input_index", "sample_id", "original_bam", "shifted_bam"}
+        required = {"input_index", "sample_id"}
         missing = required - set(reader.fieldnames or [])
 
         if missing:
