@@ -96,7 +96,7 @@ process MAP_TO_GENOME {
     PID1=""
     PID2=""
 
-    # These need to be declared as i access as idnex
+    # These need to be declared so they can be indexed using [i]
     declare -a ACCESSIONS=(${accession_array})
     declare -a LIBS=(${lib_array})
 

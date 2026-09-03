@@ -24,18 +24,28 @@ process VALIDATE_GVCF {
         "'${value.toString().replace("'", "'\"'\"'")}'"
     }
 
+    // Set up bash arrays
     def lib_array = libs
         .collect(shellQuote)
         .join(' ')
 
-    def input1_array = source == 'local'
-        ? local_r1s.collect(shellQuote).join(' ')
-        : input1s
-            .findAll { value ->
-                value != null && value.toString().trim()
-            }
+    def accession_array = source == 'accession'
+        ? input1s
+            .findAll { value -> value != null && value.toString().trim() }
             .collect(shellQuote)
             .join(' ')
+        : ''
+
+    def url1_array = source == 'url'
+        ? input1s
+            .findAll { value -> value != null && value.toString().trim() }
+            .collect(shellQuote)
+            .join(' ')
+        : ''
+
+    def local_r1_array = source == 'local'
+        ? local_r1s.collect(shellQuote).join(' ')
+        : ''
 
     """
     #!/usr/bin/env bash
@@ -46,48 +56,45 @@ process VALIDATE_GVCF {
 
     STATUS="PASS"
 
+    # These need to be declared so they can be indexed using [i]
+    declare -a ACCESSIONS=(${accession_array})
     declare -a LIBS=(${lib_array})
-    declare -a INPUT1=(${input1_array})
     declare -a READ1=()
-
-    STREAM_TYPE=""
 
     ###########################################
     # Resolve R1 inputs
     ###########################################
 
+    # Resolve local vs remote sources
     case "${source}" in
         local)
-            READ1=("\${INPUT1[@]}")
-            STREAM_TYPE="local"
+            READ1=(${local_r1_array})
             ;;
 
         url)
-            READ1=("\${INPUT1[@]}")
-            STREAM_TYPE="remote"
+            READ1=(${url1_array})
             ;;
 
         accession)
-            STREAM_TYPE="remote"
-
-            for accession in "\${INPUT1[@]}"; do
-                url1=""
-                md5_1=""
-                url2=""
-                md5_2=""
-
-                if read -r url1 md5_1 url2 md5_2 < <(
-                    resolve_fastqs "\${accession}"
-                ) && [[ -n "\${url1}" ]]
+            # Resolve SRA / ENA accessions to URLs
+            for ACC in "\${ACCESSIONS[@]}"; do
+                if ! read -r \
+                    RESOLVED_URL1 \
+                    RESOLVED_MD5_1 \
+                    RESOLVED_URL2 \
+                    RESOLVED_MD5_2 \
+                    < <(resolve_fastqs "\${ACC}")
                 then
-                    READ1+=("\${url1}")
-                else
-                    STATUS="FAIL"
+                    echo "ERROR: failed to resolve accession '\${ACC}'" >&2
+                    exit 1
                 fi
+
+                READ1+=("\${RESOLVED_URL1}")
             done
             ;;
 
         *)
+            echo "ERROR: unsupported input type '${source}'" >&2
             STATUS="FAIL"
             ;;
     esac
@@ -146,7 +153,7 @@ process VALIDATE_GVCF {
             if read -r FCID LANE < <(
                 get_flowcell_lane \
                     "\${READ1[\${i}]}" \
-                    "\${STREAM_TYPE}"
+                    "${source}"
             ) && [[ -n "\${FCID}" && -n "\${LANE}" ]]
             then
                 RG_ID="\${FCID}.\${LANE}.\${CURRENT_LIB}"
