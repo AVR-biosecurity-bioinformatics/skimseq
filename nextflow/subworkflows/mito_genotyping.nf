@@ -36,7 +36,7 @@ workflow MITO_GENOTYPING {
 
     REALIGN_MITO.out.mito_bam
         .map { sample, bam, bai ->
-            tuple('all', sample, bam, bai)
+            tuple('original', sample, bam, bai)
         }
         .groupTuple(by: 0)
         .set { ch_mito_bams_grouped }
@@ -52,9 +52,9 @@ workflow MITO_GENOTYPING {
         ch_numt_bed
     )
 
-    REALIGN_MITO_SHIFTED.out.shifted_mito_bam
+    REALIGN_MITO_SHIFTED.out.mito_bam
         .map { sample, bam, bai ->
-            tuple('all', sample, bam, bai)
+            tuple('shifted', sample, bam, bai)
         }
         .groupTuple(by: 0)
         .set { ch_shifted_mito_bams_grouped }
@@ -76,9 +76,22 @@ workflow MITO_GENOTYPING {
      * Consensus from original and shifted reference pileups
      */
     PILEUP_MITO.out.counts
-        .join(PILEUP_MITO_SHIFTED.out.counts, by: 0 )
-        .map {cohort, samples_tsv, original_counts, _shifted_samples_tsv, shifted_counts ->
-            tuple(cohort, samples_tsv, original_counts, shifted_counts )
+        .map { _cohort, samples_tsv, original_counts ->
+            tuple(samples_tsv, original_counts)
+        }
+        .combine(
+            PILEUP_MITO_SHIFTED.out.counts
+                .map { _cohort, _samples_tsv, shifted_counts ->
+                    shifted_counts
+                }
+        )
+        .map { samples_tsv, original_counts, shifted_counts ->
+            tuple(
+                'all',
+                samples_tsv,
+                original_counts,
+                shifted_counts
+            )
         }
         .set { ch_consensus_inputs }
 
