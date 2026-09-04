@@ -25,9 +25,12 @@ process PILEUP_MITO {
         .transpose()
         .sort { a, b -> a[0].toString() <=> b[0].toString() }
 
-    def bamArgs = ordered
-        .collect { _sample, bam -> "'${bam}'" }
-        .join(' ')
+    // Create list of bam files
+    def bam_list = bams
+        .collect { file -> file.name }
+        .unique()
+        .sort()
+        .join('\n')
 
     def sampleLines = (0..<ordered.size())
         .collect { index ->
@@ -51,9 +54,14 @@ process PILEUP_MITO {
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # Write one staged CRAM filename per line.
+    printf '%s\\n' '${bam_list}' > bam.list
+
+    # Write sample names file
     printf '%s' '${sampleManifest}' > '${cohort}.samples.tsv'
 
     bcftools mpileup \
+        --bam-list bam.list \
         --threads ${task.cpus} \
         --count-orphans \
         --no-BAQ \
@@ -62,7 +70,6 @@ process PILEUP_MITO {
         -Q ${params.mito_minbq} \
         -d ${params.mito_max_depth_per_sample} \
         --annotate FORMAT/AD \
-        ${bamArgs} \
         -Ou \
     | bcftools query \
         -f '%CHROM\\t%POS\\t%REF\\t%ALT[\\t%AD]\\n' \
