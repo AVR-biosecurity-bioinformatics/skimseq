@@ -53,25 +53,19 @@ process PILEUP_MITO {
 
     printf '%s' '${sampleManifest}' > '${cohort}.samples.tsv'
 
-    # All-sites pileup 
-    # Do not use:
-    #   -v  variants only
-    #   -c  VCF output; forces variant-only mode
-    #   -y  conservative variant-calling preset
-    #
-    # Allele filtering remains permissive so that final depth, VAF,
-    # mixed-site and non-SNV filtering can be performed downstream.
-    minipileup \
+    bcftools mpileup \
+        --threads ${task.cpus} \
+        --count-orphans \
+        --no-BAQ \
         -f '${mito_fasta}' \
-        -C \
-        -e \
         -q ${params.mito_minmq} \
         -Q ${params.mito_minbq} \
-        -T ${params.mito_trim_read_ends} \
-        -s 1 \
-        -a 0 \
-        -p 0 \
+        -d ${params.mito_max_depth_per_sample} \
+        --annotate FORMAT/AD \
         ${bamArgs} \
-        > '${cohort}.all_sites.tsv'
+        -Ou \
+    | bcftools query \
+        -f '%CHROM\\t%POS\\t%REF\\t%ALT[\\t%AD]\\n' \
+    > '${cohort}.all_sites.tsv'
     """
 }
