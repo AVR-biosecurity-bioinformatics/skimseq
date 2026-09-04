@@ -317,10 +317,10 @@
           "description": "Minimum mapping quality for mitochondrial allele counting.",
           "minimum": 0
         },
-        "mito_trim_read_ends": {
+        "mito_max_depth_per_sample": {
           "type": "integer",
-          "default": 0,
-          "description": "Number of bases to ignore from each end of each read before mitochondrial allele counting. Use 0 to keep all read bases.",
+          "default": 10000,
+          "description": "Max raw per-file depth; avoids excessive memory usage.",
           "minimum": 0
         },
         "mito_min_depth": {

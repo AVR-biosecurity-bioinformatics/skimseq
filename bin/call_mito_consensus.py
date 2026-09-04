@@ -25,7 +25,10 @@ IUPAC = {
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Call mitochondrial consensus from minipileup -C all-sites output."
+        description=(
+            "Call mitochondrial consensus from direct bcftools mpileup "
+            "FORMAT/AD all-sites output."
+        )
     )
 
     p.add_argument("--samples", required=True)
@@ -96,7 +99,21 @@ def read_samples(path):
     if not rows:
         raise ValueError(f"No samples found in {path}")
 
-    return [row["sample_id"] for row in rows]
+    sample_ids = [row["sample_id"] for row in rows]
+
+    duplicates = sorted(
+        sample_id
+        for sample_id, count in Counter(sample_ids).items()
+        if count > 1
+    )
+
+    if duplicates:
+        raise ValueError(
+            f"Duplicate sample IDs found in {path}: "
+            f"{', '.join(duplicates)}"
+        )
+
+    return sample_ids
 
 
 def split_counts(value):
@@ -106,77 +123,120 @@ def split_counts(value):
     return [0 if x in {"", "."} else int(x) for x in value.split(",")]
 
 
-def parse_alleles(value):
-    alleles = [x.upper() for x in value.split(",") if x]
-
-    if not alleles:
-        raise ValueError("Empty allele column")
-
-    return alleles
-
-
-def parse_sample_field(value, alleles):
+def parse_bcftools_alleles(ref, alt):
     """
-    Parse minipileup -C sample field.
+    Return alleles in the same order as bcftools FORMAT/AD:
 
-    Expected format:
-        GT:FWD_COUNTS:REV_COUNTS
+        REF, ALT1, ALT2, ...
+
+    The symbolic <*> allele is retained here so that allele indices remain
+    aligned with the AD vector. It is removed later when parsing each sample.
+    """
+
+    ref = ref.upper()
+
+    if alt in {"", "."}:
+        return [ref]
+
+    return [
+        ref,
+        *[
+            allele.upper()
+            for allele in alt.split(",")
+            if allele
+        ],
+    ]
+
+
+def parse_sample_field(value, bcftools_alleles):
+    """
+    Parse one direct bcftools mpileup FORMAT/AD sample field.
 
     Examples:
-        0/0:12:7
-        0/1:12,3:7,2
-        ./.:0:0
+        460,0
+        481,0,2,0
+        .
 
-    Alleles that are exactly A/C/G/T contribute to SNV/base counts.
-    All other allele strings contribute to non_snv_count.
+    FORMAT/AD is ordered as:
+        REF, ALT1, ALT2, ...
+
+    Single-nucleotide A/C/G/T alleles contribute to SNV counts.
+    Other real alleles contribute to non-SNV evidence.
+
+    The symbolic <*> allele represents spanning-deletion evidence. It is
+    excluded from the reported allele list but included in non_snv_count.
+
+    The reported gt is a minipileup-compatible allele-index label, not a
+    biological diploid genotype.
     """
 
-    parts = value.split(":")
+    raw_counts = split_counts(value)
 
-    gt = parts[0] if len(parts) > 0 else "./."
-    fwd = split_counts(parts[1]) if len(parts) > 1 else []
-    rev = split_counts(parts[2]) if len(parts) > 2 else []
+    if raw_counts and len(raw_counts) != len(bcftools_alleles):
+        raise ValueError(
+            "FORMAT/AD length does not match REF/ALT allele count: "
+            f"alleles={bcftools_alleles}, AD={raw_counts}"
+        )
+
+    if not raw_counts:
+        raw_counts = [0] * len(bcftools_alleles)
 
     counts = {base: 0 for base in BASES}
+    alleles = []
     allele_counts = []
     non_snv_count = 0
+    highest_supported = 0
 
-    n = max(len(alleles), len(fwd), len(rev))
+    for allele, allele_count in zip(bcftools_alleles, raw_counts):
+        allele = allele.upper()
 
-    for i in range(n):
-        allele = alleles[i].upper() if i < len(alleles) else "."
-        fwd_count = fwd[i] if i < len(fwd) else 0
-        rev_count = rev[i] if i < len(rev) else 0
-        total = fwd_count + rev_count
+        # <*> represents reads spanning a deletion. Include this in non-SNV
+        # evidence, but exclude it from the reported allele vectors.
+        if allele == "<*>":
+            non_snv_count += allele_count
+            continue
 
-        allele_counts.append(total)
+        output_index = len(alleles)
+
+        alleles.append(allele)
+        allele_counts.append(allele_count)
 
         if allele in counts:
-            counts[allele] += total
-        else:
-            non_snv_count += total
+            counts[allele] += allele_count
+        elif allele not in {"", "."}:
+            non_snv_count += allele_count
+
+        if output_index > 0 and allele_count >= 1:
+            highest_supported = output_index
 
     snv_depth = sum(counts.values())
     total_depth = snv_depth + non_snv_count
 
     return {
-        "gt": gt,
-        "fwd_raw": ",".join(map(str, fwd)) if fwd else ".",
-        "rev_raw": ",".join(map(str, rev)) if rev else ".",
+        "gt": f"0/{highest_supported}",
+        "alleles": alleles,
         "allele_counts": allele_counts,
         "counts": counts,
         "snv_depth": snv_depth,
         "total_depth": total_depth,
         "non_snv_count": non_snv_count,
-        "non_snv_af": non_snv_count / total_depth if total_depth else 0.0,
+        "non_snv_af": (
+            non_snv_count / total_depth
+            if total_depth
+            else 0.0
+        ),
     }
 
 
-def read_minipileup(path, samples):
+def read_bcftools_counts(path, samples):
     """
-    Read minipileup all-sites table:
+    Read direct bcftools mpileup FORMAT/AD output:
 
-        chrom pos ref alleles sample1 sample2 ...
+        chrom pos ref alt sample1_AD sample2_AD ...
+
+    Example:
+
+        chrM  9  G  C,T,<*>  481,0,2,0  492,0,1,0
 
     No header is expected.
     """
@@ -187,6 +247,7 @@ def read_minipileup(path, samples):
     with open(path) as handle:
         for line_number, line in enumerate(handle, start=1):
             line = line.rstrip("\n")
+
             if not line:
                 continue
 
@@ -195,26 +256,32 @@ def read_minipileup(path, samples):
             if len(fields) != expected_cols:
                 raise ValueError(
                     f"{path}:{line_number} has {len(fields)} columns, "
-                    f"expected {expected_cols}. "
-                    f"Check that all.samples.tsv matches the BAM order passed to minipileup."
+                    f"expected {expected_cols}. Check that the sample manifest "
+                    f"matches the BAM order passed to bcftools mpileup."
                 )
 
             chrom = fields[0]
             pos = int(fields[1])
             ref = fields[2].upper()
-            alleles = parse_alleles(fields[3])
+            alt = fields[3]
 
-            if ref not in BASES:
-                ref = "N"
+            bcftools_alleles = parse_bcftools_alleles(
+                ref=ref,
+                alt=alt,
+            )
+
+            reported_ref = ref if ref in BASES else "N"
 
             for sample_id, sample_value in zip(samples, fields[4:]):
-                parsed = parse_sample_field(sample_value, alleles)
+                parsed = parse_sample_field(
+                    value=sample_value,
+                    bcftools_alleles=bcftools_alleles,
+                )
 
                 data[sample_id][chrom][pos] = {
                     "chrom": chrom,
                     "pos": pos,
-                    "ref": ref,
-                    "alleles": alleles,
+                    "ref": reported_ref,
                     **parsed,
                 }
 
@@ -346,8 +413,6 @@ def empty_observation(contig, pos, ref_base):
         "ref": ref_base,
         "alleles": [ref_base],
         "gt": "./.",
-        "fwd_raw": ".",
-        "rev_raw": ".",
         "allele_counts": [0],
         "counts": {base: 0 for base in BASES},
         "snv_depth": 0,
@@ -383,8 +448,15 @@ def main():
 
     samples = read_samples(args.samples)
 
-    original = read_minipileup(args.original_counts, samples)
-    shifted_raw = read_minipileup(args.shifted_counts, samples)
+    original = read_bcftools_counts(
+        args.original_counts,
+        samples,
+    )
+
+    shifted_raw = read_bcftools_counts(
+        args.shifted_counts,
+        samples,
+    )
     shifted = remap_shifted_data(
         shifted_data=shifted_raw,
         original_contig=contig,
@@ -399,8 +471,6 @@ def main():
         "ref",
         "alleles",
         "gt",
-        "fwd_counts",
-        "rev_counts",
         "allele_counts",
         "a_count",
         "c_count",
@@ -505,8 +575,6 @@ def main():
                     "ref": obs["ref"],
                     "alleles": ",".join(obs["alleles"]),
                     "gt": obs["gt"],
-                    "fwd_counts": obs["fwd_raw"],
-                    "rev_counts": obs["rev_raw"],
                     "allele_counts": ",".join(map(str, obs["allele_counts"])),
                     "a_count": called["a_count"],
                     "c_count": called["c_count"],

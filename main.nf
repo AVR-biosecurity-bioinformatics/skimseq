@@ -70,7 +70,7 @@ params {
     mito_breakpoint_window: Integer = 500               // Number of bases at each end of the original mitochondrial reference where consensus calls are taken from the shifted-reference pileup to reduce circular-breakpoint artefacts
     mito_minbq: Integer = 10                            // Bases below this quality are excluded before allele counting.
     mito_minmq: Integer = 20                            // Reads below this mapping quality are excluded before allele counting.
-    mito_trim_read_ends: Integer = 0                    // Number of bases to ignore from each end of each read
+    mito_max_depth_per_sample: Integer = 10_000          // Max raw per-file depth; avoids excessive memory usage.
     mito_min_depth: Integer = 20                        // Minimum total site depth required to call a consensus base
     mito_major_af: Float = 0.8f                         // Minimum major allele fraction required to call an A/C/G/T consensus base
     mito_het_mode: String = 'iupac'                     // How to handle mixed SNV where the major allele does not pass mito_major_af. 'N' = mask, 'iupac' emits only when > mito_het_af & mito_het_min_depth
