@@ -2,7 +2,9 @@
 
 import argparse
 import csv
-from collections import Counter, defaultdict
+from collections import Counter
+import tempfile
+import numpy as np
 
 from pyfaidx import Fasta
 
@@ -228,98 +230,189 @@ def parse_sample_field(value, bcftools_alleles):
     }
 
 
-def read_bcftools_counts(path, samples):
+def parse_counts_row(line, path, line_number, expected_cols):
+    line = line.rstrip("\r\n")
+
+    if not line:
+        return None
+
+    fields = line.split("\t")
+
+    if len(fields) != expected_cols:
+        raise ValueError(
+            f"{path}:{line_number} has {len(fields)} columns, "
+            f"expected {expected_cols}. Check that the sample manifest "
+            f"matches the BAM order passed to bcftools mpileup."
+        )
+
+    try:
+        pos = int(fields[1])
+    except ValueError as exc:
+        raise ValueError(
+            f"{path}:{line_number} has an invalid position: {fields[1]}"
+        ) from exc
+
+    return fields[0], pos, fields
+
+
+def build_shifted_offset_index(
+    path,
+    expected_cols,
+    shift_bases,
+    mito_length,
+    breakpoint_window,
+):
     """
-    Read direct bcftools mpileup FORMAT/AD output:
+    Record the file offset of each shifted-pileup row needed near the
+    original mitochondrial breakpoint.
 
-        chrom pos ref alt sample1_AD sample2_AD ...
-
-    Example:
-
-        chrM  9  G  C,T,<*>  481,0,2,0  492,0,1,0
-
-    No header is expected.
+    Memory complexity is O(mito_length), independent of sample count.
     """
-
-    expected_cols = 4 + len(samples)
-    data = defaultdict(lambda: defaultdict(dict))
+    offsets = [None] * (mito_length + 1)
 
     with open(path) as handle:
-        for line_number, line in enumerate(handle, start=1):
-            line = line.rstrip("\n")
+        line_number = 0
+
+        while True:
+            offset = handle.tell()
+            line = handle.readline()
 
             if not line:
+                break
+
+            line_number += 1
+
+            parsed = parse_counts_row(
+                line=line,
+                path=path,
+                line_number=line_number,
+                expected_cols=expected_cols,
+            )
+
+            if parsed is None:
                 continue
 
-            fields = line.split("\t")
+            _, shifted_pos, _ = parsed
 
-            if len(fields) != expected_cols:
+            if not 1 <= shifted_pos <= mito_length:
                 raise ValueError(
-                    f"{path}:{line_number} has {len(fields)} columns, "
-                    f"expected {expected_cols}. Check that the sample manifest "
-                    f"matches the BAM order passed to bcftools mpileup."
+                    f"{path}:{line_number} has position {shifted_pos}, "
+                    f"outside mitochondrial length {mito_length}"
                 )
 
-            chrom = fields[0]
-            pos = int(fields[1])
-            ref = fields[2].upper()
-            alt = fields[3]
-
-            bcftools_alleles = parse_bcftools_alleles(
-                ref=ref,
-                alt=alt,
-            )
-
-            reported_ref = ref if ref in BASES else "N"
-
-            for sample_id, sample_value in zip(samples, fields[4:]):
-                parsed = parse_sample_field(
-                    value=sample_value,
-                    bcftools_alleles=bcftools_alleles,
-                )
-
-                data[sample_id][chrom][pos] = {
-                    "chrom": chrom,
-                    "pos": pos,
-                    "ref": reported_ref,
-                    **parsed,
-                }
-
-    return data
-
-
-def shifted_to_original_pos(shifted_pos, shift_bases, mito_length):
-    return ((shifted_pos + shift_bases - 1) % mito_length) + 1
-
-
-def remap_shifted_data(shifted_data, original_contig, mito_length, shift_bases):
-    remapped = defaultdict(lambda: defaultdict(dict))
-
-    for sample_id, by_contig in shifted_data.items():
-        if len(by_contig) != 1:
-            raise ValueError(
-                f"Expected one shifted mitochondrial contig for {sample_id}, "
-                f"found {len(by_contig)}"
-            )
-
-        shifted_contig = next(iter(by_contig))
-
-        for shifted_pos, obs in by_contig[shifted_contig].items():
             original_pos = shifted_to_original_pos(
                 shifted_pos=shifted_pos,
                 shift_bases=shift_bases,
                 mito_length=mito_length,
             )
 
-            new_obs = dict(obs)
-            new_obs["chrom"] = original_contig
-            new_obs["pos"] = original_pos
-            new_obs["shifted_chrom"] = shifted_contig
-            new_obs["shifted_pos"] = shifted_pos
+            if is_breakpoint_pos(
+                pos=original_pos,
+                mito_length=mito_length,
+                window=breakpoint_window,
+            ):
+                if offsets[original_pos] is not None:
+                    raise ValueError(
+                        f"{path} contains multiple records mapping to "
+                        f"original position {original_pos}"
+                    )
 
-            remapped[sample_id][original_contig][original_pos] = new_obs
+                offsets[original_pos] = offset
 
-    return remapped
+    return offsets
+
+
+class CountsStream:
+    """
+    Sequential reader for a position-sorted bcftools counts file.
+
+    Missing positions are returned as None.
+    """
+
+    def __init__(self, path, expected_cols, expected_contig=None):
+        self.path = path
+        self.expected_cols = expected_cols
+        self.expected_contig = expected_contig
+        self.handle = open(path)
+        self.line_number = 0
+        self.current = None
+        self.previous_pos = 0
+        self._advance()
+
+    def _advance(self):
+        while True:
+            line = self.handle.readline()
+
+            if not line:
+                self.current = None
+                return
+
+            self.line_number += 1
+
+            parsed = parse_counts_row(
+                line=line,
+                path=self.path,
+                line_number=self.line_number,
+                expected_cols=self.expected_cols,
+            )
+
+            if parsed is None:
+                continue
+
+            chrom, pos, fields = parsed
+
+            if (
+                self.expected_contig is not None
+                and chrom != self.expected_contig
+            ):
+                raise ValueError(
+                    f"{self.path}:{self.line_number} uses contig {chrom}, "
+                    f"expected {self.expected_contig}"
+                )
+
+            if pos <= self.previous_pos:
+                raise ValueError(
+                    f"{self.path}:{self.line_number} is not strictly "
+                    f"position-sorted: {pos} follows {self.previous_pos}"
+                )
+
+            self.previous_pos = pos
+            self.current = chrom, pos, fields
+            return
+
+    def get(self, pos):
+        while self.current is not None and self.current[1] < pos:
+            self._advance()
+
+        if self.current is not None and self.current[1] == pos:
+            result = self.current
+            self._advance()
+            return result
+
+        return None
+
+    def close(self):
+        self.handle.close()
+
+
+def read_shifted_row(handle, offset, path, expected_cols):
+    if offset is None:
+        return None
+
+    handle.seek(offset)
+    line = handle.readline()
+
+    return parse_counts_row(
+        line=line,
+        path=path,
+        line_number=0,
+        expected_cols=expected_cols,
+    )
+
+
+def shifted_to_original_pos(shifted_pos, shift_bases, mito_length):
+    return ((shifted_pos + shift_bases - 1) % mito_length) + 1
+
 
 
 def is_breakpoint_pos(pos, mito_length, window):
@@ -447,21 +540,15 @@ def main():
         raise ValueError("--max-non-snv-af must be between 0 and 1")
 
     samples = read_samples(args.samples)
+    n_samples = len(samples)
+    expected_cols = 4 + n_samples
 
-    original = read_bcftools_counts(
-        args.original_counts,
-        samples,
-    )
-
-    shifted_raw = read_bcftools_counts(
-        args.shifted_counts,
-        samples,
-    )
-    shifted = remap_shifted_data(
-        shifted_data=shifted_raw,
-        original_contig=contig,
-        mito_length=mito_length,
+    shifted_offsets = build_shifted_offset_index(
+        path=args.shifted_counts,
+        expected_cols=expected_cols,
         shift_bases=args.shift_bases,
+        mito_length=mito_length,
+        breakpoint_window=args.breakpoint_window,
     )
 
     call_fields = [
@@ -513,149 +600,298 @@ def main():
         "shifted_source_bases",
     ]
 
-    with open(args.out_fasta, "w") as fasta_out, \
-         open(args.out_calls, "w", newline="") as calls_out, \
-         open(args.out_qc, "w", newline="") as qc_out:
+    # Compact per-sample state retained in memory.
+    consensus = [bytearray(b"N" * mito_length) for _ in samples]
+    total_depth_sum = [0] * n_samples
+    snv_depth_sum = [0] * n_samples
+    covered_bases = [0] * n_samples
+    any_non_snv_sites = [0] * n_samples
+    shifted_source_bases = [0] * n_samples
+    filters = [Counter() for _ in samples]
 
-        calls_writer = csv.DictWriter(calls_out, delimiter="\t", fieldnames=call_fields)
-        qc_writer = csv.DictWriter(qc_out, delimiter="\t", fieldnames=qc_fields)
+    original_stream = CountsStream(
+        path=args.original_counts,
+        expected_cols=expected_cols,
+        expected_contig=contig,
+    )
 
-        calls_writer.writeheader()
-        qc_writer.writeheader()
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix="mito_consensus_"
+        ) as temp_dir, open(
+            args.shifted_counts
+        ) as shifted_handle, open(
+            args.out_calls,
+            "w",
+            newline="",
+        ) as calls_out:
 
-        for sample_id in samples:
-            consensus = []
-            total_depths = []
-            snv_depths = []
-            filters = Counter()
-            shifted_source_bases = 0
-            any_non_snv_evidence_sites = 0
+            # Disk-backed depth matrices for exact median calculation.
+            # Rows are positions and columns are samples.
+            total_depths = np.memmap(
+                f"{temp_dir}/total_depths.uint32",
+                dtype=np.uint32,
+                mode="w+",
+                shape=(mito_length, n_samples),
+            )
+
+            snv_depths = np.memmap(
+                f"{temp_dir}/snv_depths.uint32",
+                dtype=np.uint32,
+                mode="w+",
+                shape=(mito_length, n_samples),
+            )
+
+            calls_writer = csv.DictWriter(
+                calls_out,
+                delimiter="\t",
+                fieldnames=call_fields,
+            )
+            calls_writer.writeheader()
 
             for pos in range(1, mito_length + 1):
+                original_row = original_stream.get(pos)
+
+                row = original_row
                 source = "original"
                 shifted_pos = "."
 
-                obs = original.get(sample_id, {}).get(contig, {}).get(pos)
+                # Use the shifted pileup around the circular breakpoint when
+                # a corresponding shifted observation is available.
+                if is_breakpoint_pos(
+                    pos=pos,
+                    mito_length=mito_length,
+                    window=args.breakpoint_window,
+                ):
+                    shifted_row = read_shifted_row(
+                        handle=shifted_handle,
+                        offset=shifted_offsets[pos],
+                        path=args.shifted_counts,
+                        expected_cols=expected_cols,
+                    )
 
-                if is_breakpoint_pos(pos, mito_length, args.breakpoint_window):
-                    shifted_obs = shifted.get(sample_id, {}).get(contig, {}).get(pos)
-                    if shifted_obs is not None:
-                        obs = shifted_obs
+                    if shifted_row is not None:
+                        row = shifted_row
                         source = "shifted"
-                        shifted_pos = shifted_obs.get("shifted_pos", ".")
-                        shifted_source_bases += 1
+                        shifted_pos = shifted_row[1]
 
-                if obs is None:
-                    obs = empty_observation(contig, pos, refseq[pos - 1])
+                if row is None:
+                    ref = refseq[pos - 1]
+                    bcftools_alleles = None
+                    sample_values = None
                     source = "missing"
+                    output_ref = ref if ref in BASES else "N"
 
-                called = call_major_allele(
-                    counts=obs["counts"],
-                    non_snv_count=obs["non_snv_count"],
-                    min_depth=args.min_depth,
-                    major_af=args.major_af,
-                    mixed_min_af=args.mixed_min_af,
-                    min_minor_depth=args.min_minor_depth,
-                    max_non_snv_af=args.max_non_snv_af,
-                    het_mode=args.het_mode,
+                else:
+                    _, row_pos, fields = row
+
+                    ref = fields[2].upper()
+                    alt = fields[3]
+
+                    bcftools_alleles = parse_bcftools_alleles(
+                        ref=ref,
+                        alt=alt,
+                    )
+
+                    sample_values = fields[4:]
+                    output_ref = ref if ref in BASES else "N"
+
+                    if source == "original" and row_pos != pos:
+                        raise ValueError(
+                            f"Original pileup position mismatch: "
+                            f"requested {pos}, found {row_pos}"
+                        )
+
+                for sample_index, sample_id in enumerate(samples):
+                    if sample_values is None:
+                        obs = empty_observation(
+                            contig=contig,
+                            pos=pos,
+                            ref_base=refseq[pos - 1],
+                        )
+
+                    else:
+                        parsed = parse_sample_field(
+                            value=sample_values[sample_index],
+                            bcftools_alleles=bcftools_alleles,
+                        )
+
+                        obs = {
+                            "chrom": contig,
+                            "pos": pos,
+                            "ref": output_ref,
+                            **parsed,
+                        }
+
+                    called = call_major_allele(
+                        counts=obs["counts"],
+                        non_snv_count=obs["non_snv_count"],
+                        min_depth=args.min_depth,
+                        major_af=args.major_af,
+                        mixed_min_af=args.mixed_min_af,
+                        min_minor_depth=args.min_minor_depth,
+                        max_non_snv_af=args.max_non_snv_af,
+                        het_mode=args.het_mode,
+                    )
+
+                    total_depth = called["total_depth"]
+                    snv_depth = called["snv_depth"]
+
+                    if total_depth > np.iinfo(np.uint32).max:
+                        raise OverflowError(
+                            f"Total depth exceeds uint32 at "
+                            f"{sample_id}:{pos}: {total_depth}"
+                        )
+
+                    if snv_depth > np.iinfo(np.uint32).max:
+                        raise OverflowError(
+                            f"SNV depth exceeds uint32 at "
+                            f"{sample_id}:{pos}: {snv_depth}"
+                        )
+
+                    consensus[sample_index][pos - 1] = ord(called["call"])
+
+                    total_depths[pos - 1, sample_index] = total_depth
+                    snv_depths[pos - 1, sample_index] = snv_depth
+
+                    total_depth_sum[sample_index] += total_depth
+                    snv_depth_sum[sample_index] += snv_depth
+
+                    if total_depth >= args.min_depth:
+                        covered_bases[sample_index] += 1
+
+                    filters[sample_index][called["filter"]] += 1
+
+                    if obs["non_snv_count"] > 0:
+                        any_non_snv_sites[sample_index] += 1
+
+                    if source == "shifted":
+                        shifted_source_bases[sample_index] += 1
+
+                    calls_writer.writerow({
+                        "sample_id": sample_id,
+                        "contig": contig,
+                        "pos": pos,
+                        "ref": obs["ref"],
+                        "alleles": ",".join(obs["alleles"]),
+                        "gt": obs["gt"],
+                        "allele_counts": ",".join(
+                            map(str, obs["allele_counts"])
+                        ),
+                        "a_count": called["a_count"],
+                        "c_count": called["c_count"],
+                        "g_count": called["g_count"],
+                        "t_count": called["t_count"],
+                        "snv_depth": snv_depth,
+                        "total_depth": total_depth,
+                        "non_snv_count": called["non_snv_count"],
+                        "non_snv_af": f"{called['non_snv_af']:.6f}",
+                        "major_base": called["major_base"],
+                        "major_count": called["major_count"],
+                        "major_af": f"{called['major_af']:.6f}",
+                        "second_base": called["second_base"],
+                        "second_count": called["second_count"],
+                        "second_af": f"{called['second_af']:.6f}",
+                        "call": called["call"],
+                        "filter": called["filter"],
+                        "source_pileup": source,
+                        "shifted_pos": (
+                            shifted_pos if source == "shifted" else "."
+                        ),
+                    })
+
+            total_depths.flush()
+            snv_depths.flush()
+
+            with open(
+                args.out_fasta,
+                "w",
+            ) as fasta_out, open(
+                args.out_qc,
+                "w",
+                newline="",
+            ) as qc_out:
+
+                qc_writer = csv.DictWriter(
+                    qc_out,
+                    delimiter="\t",
+                    fieldnames=qc_fields,
                 )
+                qc_writer.writeheader()
 
-                consensus.append(called["call"])
-                total_depths.append(called["total_depth"])
-                snv_depths.append(called["snv_depth"])
-                filters[called["filter"]] += 1
+                for sample_index, sample_id in enumerate(samples):
+                    seq = consensus[sample_index].decode("ascii")
+                    sample_filters = filters[sample_index]
 
-                if obs["non_snv_count"] > 0:
-                    any_non_snv_evidence_sites += 1
+                    mean_total_depth = (
+                        total_depth_sum[sample_index] / mito_length
+                    )
+                    mean_snv_depth = (
+                        snv_depth_sum[sample_index] / mito_length
+                    )
 
-                calls_writer.writerow({
-                    "sample_id": sample_id,
-                    "contig": contig,
-                    "pos": pos,
-                    "ref": obs["ref"],
-                    "alleles": ",".join(obs["alleles"]),
-                    "gt": obs["gt"],
-                    "allele_counts": ",".join(map(str, obs["allele_counts"])),
-                    "a_count": called["a_count"],
-                    "c_count": called["c_count"],
-                    "g_count": called["g_count"],
-                    "t_count": called["t_count"],
-                    "snv_depth": called["snv_depth"],
-                    "total_depth": called["total_depth"],
-                    "non_snv_count": called["non_snv_count"],
-                    "non_snv_af": f"{called['non_snv_af']:.6f}",
-                    "major_base": called["major_base"],
-                    "major_count": called["major_count"],
-                    "major_af": f"{called['major_af']:.6f}",
-                    "second_base": called["second_base"],
-                    "second_count": called["second_count"],
-                    "second_af": f"{called['second_af']:.6f}",
-                    "call": called["call"],
-                    "filter": called["filter"],
-                    "source_pileup": source,
-                    "shifted_pos": shifted_pos,
-                })
+                    median_total_depth = float(
+                        np.median(total_depths[:, sample_index])
+                    )
+                    median_snv_depth = float(
+                        np.median(snv_depths[:, sample_index])
+                    )
 
-            seq = "".join(consensus)
+                    n_bases = seq.count("N")
 
-            sorted_total_depths = sorted(total_depths)
-            sorted_snv_depths = sorted(snv_depths)
+                    fasta_out.write(
+                        f">{sample_id} {contig}:1-{mito_length}\n"
+                    )
+                    fasta_out.write(wrap_fasta(seq) + "\n")
 
-            mean_total_depth = (
-                sum(total_depths) / len(total_depths)
-                if total_depths else 0.0
-            )
-            mean_snv_depth = (
-                sum(snv_depths) / len(snv_depths)
-                if snv_depths else 0.0
-            )
+                    qc_writer.writerow({
+                        "sample_id": sample_id,
+                        "mito_length": mito_length,
+                        "mean_total_depth": f"{mean_total_depth:.3f}",
+                        "median_total_depth": (
+                            f"{median_total_depth:.3f}"
+                        ),
+                        "mean_snv_depth": f"{mean_snv_depth:.3f}",
+                        "median_snv_depth": (
+                            f"{median_snv_depth:.3f}"
+                        ),
+                        "covered_bases": covered_bases[sample_index],
+                        "covered_fraction": (
+                            f"{covered_bases[sample_index] / mito_length:.6f}"
+                        ),
+                        "pass_bases": sample_filters["PASS"],
+                        "n_bases": n_bases,
+                        "n_fraction": f"{n_bases / mito_length:.6f}",
+                        "low_depth_sites": (
+                            sample_filters["LOW_DEPTH"]
+                        ),
+                        "low_major_af_sites": (
+                            sample_filters["LOW_MAJOR_AF"]
+                        ),
+                        "mixed_iupac_sites": (
+                            sample_filters["MIXED_IUPAC"]
+                        ),
+                        "no_base_support_sites": (
+                            sample_filters["NO_BASE_SUPPORT"]
+                        ),
+                        "non_snv_evidence_sites": (
+                            sample_filters["NON_SNV_EVIDENCE"]
+                        ),
+                        "any_non_snv_evidence_sites": (
+                            any_non_snv_sites[sample_index]
+                        ),
+                        "shifted_source_bases": (
+                            shifted_source_bases[sample_index]
+                        ),
+                    })
 
-            if not sorted_total_depths:
-                median_total_depth = 0.0
-            elif len(sorted_total_depths) % 2:
-                median_total_depth = sorted_total_depths[len(sorted_total_depths) // 2]
-            else:
-                i = len(sorted_total_depths) // 2
-                median_total_depth = (
-                    sorted_total_depths[i - 1] + sorted_total_depths[i]
-                ) / 2
+            # Explicitly release memory-map handles before TemporaryDirectory
+            # attempts to remove the backing files.
+            del total_depths
+            del snv_depths
 
-            if not sorted_snv_depths:
-                median_snv_depth = 0.0
-            elif len(sorted_snv_depths) % 2:
-                median_snv_depth = sorted_snv_depths[len(sorted_snv_depths) // 2]
-            else:
-                i = len(sorted_snv_depths) // 2
-                median_snv_depth = (
-                    sorted_snv_depths[i - 1] + sorted_snv_depths[i]
-                ) / 2
-
-            covered_bases = sum(d >= args.min_depth for d in total_depths)
-            n_bases = seq.count("N")
-
-            fasta_out.write(f">{sample_id} {contig}:1-{mito_length}\n")
-            fasta_out.write(wrap_fasta(seq) + "\n")
-
-            qc_writer.writerow({
-                "sample_id": sample_id,
-                "mito_length": mito_length,
-                "mean_total_depth": f"{mean_total_depth:.3f}",
-                "median_total_depth": f"{median_total_depth:.3f}",
-                "mean_snv_depth": f"{mean_snv_depth:.3f}",
-                "median_snv_depth": f"{median_snv_depth:.3f}",
-                "covered_bases": covered_bases,
-                "covered_fraction": f"{covered_bases / mito_length:.6f}",
-                "pass_bases": filters["PASS"],
-                "n_bases": n_bases,
-                "n_fraction": f"{n_bases / mito_length:.6f}",
-                "low_depth_sites": filters["LOW_DEPTH"],
-                "low_major_af_sites": filters["LOW_MAJOR_AF"],
-                "mixed_iupac_sites": filters["MIXED_IUPAC"],
-                "no_base_support_sites": filters["NO_BASE_SUPPORT"],
-                "non_snv_evidence_sites": filters["NON_SNV_EVIDENCE"],
-                "any_non_snv_evidence_sites": any_non_snv_evidence_sites,
-                "shifted_source_bases": shifted_source_bases,
-            })
+    finally:
+        original_stream.close()
 
 
 if __name__ == "__main__":
