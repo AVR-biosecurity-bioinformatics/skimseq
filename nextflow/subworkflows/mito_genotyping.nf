@@ -62,6 +62,9 @@ workflow MITO_GENOTYPING {
     /*
      * Generate pileups
      */
+
+    // TODO: this needs to be chunked
+
     PILEUP_MITO(
         ch_mito_bams_grouped,
         ch_mito_indexed
