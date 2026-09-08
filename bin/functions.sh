@@ -148,22 +148,43 @@ stream_local_fastq() {
 }
 
 # Parse a shortread header
+# Parse a short-read header and return:
+#   flowcell/accession lane
 parse_shortread_header() {
     local read_header="$1"
+    local qname
+    local accession
     local -a fields
 
+    if [[ -z "${read_header}" ]]; then
+        echo "ERROR: received an empty FASTQ header" >&2
+        return 1
+    fi
+
     # Retain only the first whitespace-delimited component.
-    read_header="${read_header#@}"
-    read_header="${read_header%%[[:space:]]*}"
-    read_header="${read_header%/1}"
-    read_header="${read_header%/2}"
+    qname="${read_header#@}"
+    qname="${qname%%[[:space:]]*}"
+    qname="${qname%/1}"
+    qname="${qname%/2}"
 
-    IFS=':' read -r -a fields <<< "${read_header}"
+    # ENA/SRA archive header, for example:
+    # SRR22045830.1
+    # ERR123456.123
+    # DRR123456.123
+    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
+        accession="${BASH_REMATCH[1]}"
+        printf '%s %s\n' "${accession}" "1"
+        return 0
+    fi
 
-    # Expected structure:
+    # Standard Illumina-style header:
     # instrument:run:flowcell:lane:tile:x:y
+    IFS=':' read -r -a fields <<< "${qname}"
+
     if (( ${#fields[@]} < 4 )); then
-        echo "ERROR: header has fewer than four colon-delimited fields: " "'${read_header}'" >&2
+        echo \
+            "ERROR: unsupported FASTQ header; expected an Illumina or SRA/ENA header: '${qname}'" \
+            >&2
         return 1
     fi
 
@@ -171,7 +192,9 @@ parse_shortread_header() {
     local lane="${fields[3]}"
 
     if [[ -z "${fcid}" || ! "${lane}" =~ ^[0-9]+$ ]]; then
-        echo "ERROR: could not parse flowcell and lane from FASTQ header " "'${read_header}'" >&2
+        echo \
+            "ERROR: could not parse flowcell and lane from FASTQ header: '${qname}'" \
+            >&2
         return 1
     fi
 
@@ -184,9 +207,16 @@ get_local_flowcell_lane() {
     local read_header
 
     read_header=$(
-        gzip -dc -- "${fastq}" |
+        set +o pipefail
+
+        gzip -dc -- "${fastq}" 2>/dev/null |
             head -n 1
     )
+
+    if [[ -z "${read_header}" ]]; then
+        echo "ERROR: could not read FASTQ header from '${fastq}'" >&2
+        return 1
+    fi
 
     parse_shortread_header "${read_header}"
 }
@@ -195,8 +225,6 @@ get_local_flowcell_lane() {
 get_remote_flowcell_lane() {
     local url="$1"
     local read_header
-    local qname
-    local accession
 
     read_header=$(
         set +o pipefail
@@ -214,16 +242,6 @@ get_remote_flowcell_lane() {
     if [[ -z "${read_header}" ]]; then
         echo "ERROR: could not read FASTQ header from '${url}'" >&2
         return 1
-    fi
-
-    qname="${read_header#@}"
-    qname="${qname%%[[:space:]]*}"
-
-    # ENA/SRA archive header, e.g. SRR13005336.1
-    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
-        accession="${BASH_REMATCH[1]}"
-        printf '%s %s\n' "${accession}" "1"
-        return 0
     fi
 
     parse_shortread_header "${read_header}"
