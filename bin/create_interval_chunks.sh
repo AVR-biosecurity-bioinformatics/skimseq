@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+set -e
+set -u
 ## args are the following:
 # $1 = cpus 
 # $2 = mem
@@ -36,18 +37,15 @@ if [[ ! -s contigs.bed ]]; then
   : > "_empty.bed.gz.tbi"          # create empty output file
   exit 0
 fi
-
 btmp="${TMPDIR}/tmp.bed"
+FAI="${3}.fai"
 
 SORTED_DIR="${TMPDIR}/sorted"
-BEDOPS_INPUT="${TMPDIR}/input.bed5"
-MERGED_EXPANDED="${TMPDIR}/merged.expanded.bed"
-MERGED_SUMS="${TMPDIR}/merged.sums.bed"
-
 mkdir -p "$SORTED_DIR"
 export SORTED_DIR
 
-# Extract included regions, convert BED4 counts to BED5 scores, and sort.
+# TODO: Update this to handle RLE depth directly from mosdepth
+# TODO: If RLE depth from mosdepth is already sorted, can probably skip this and subset out CHROMS later?
 xargs \
     -r \
     -P "${CPUS}" \
@@ -57,81 +55,59 @@ xargs \
 
         f="$1"
         base=$(basename "$f" .bed.gz)
-        out="${SORTED_DIR}/${base}.sorted.bed5"
+        out="${SORTED_DIR}/${base}.sorted.bed"
 
-        tabix "$f" -R contigs.bed \
-        | awk -F "\t" -v OFS="\t" -v file="$f" '"'"'
-            NF < 4 {
-                printf "ERROR: %s line %d has fewer than four columns: %s\n",
-                       file, NR, $0 > "/dev/stderr"
-                exit 1
-            }
-
-            $1 == "" ||
-            $2 !~ /^[0-9]+$/ ||
-            $3 !~ /^[0-9]+$/ ||
-            $3 <= $2 {
-                printf "ERROR: %s line %d has invalid BED coordinates: %s\n",
-                       file, NR, $0 > "/dev/stderr"
-                exit 1
-            }
-
-            $4 !~ /^[-+]?[0-9]*([.][0-9]+)?([eE][-+]?[0-9]+)?$/ {
-                printf "ERROR: %s line %d has a non-numeric count: %s\n",
-                       file, NR, $0 > "/dev/stderr"
-                exit 1
-            }
-
-            {
-                print $1, $2, $3, ".", $4
-            }
-        '"'"' \
-        | LC_ALL=C sort -t $'"'"'\t'"'"' -k1,1 -k2,2n -k3,3n \
-        > "$out"
+        tabix "$f" -R contigs.bed > "$out"
     ' _ \
     < counts_files.list
 
-# Ensure at least one sorted BED5 was created.
 shopt -s nullglob
-sorted_beds=("$SORTED_DIR"/*.sorted.bed5)
+sorted_beds=( "${SORTED_DIR}"/*.sorted.bed )
 shopt -u nullglob
 
 if (( ${#sorted_beds[@]} == 0 )); then
-    : > "_empty.bed.gz"
-    : > "_empty.bed.gz.tbi"
+    : > "$btmp"
     exit 0
 fi
 
-# Combine all sorted BED5 records once.
 bedops --everything "${sorted_beds[@]}" \
-    > "$BEDOPS_INPUT"
+  | awk -v gap="${GAP_BP}" '
+  BEGIN {
+      FS = "\t"
+  }
 
-# Extend interval ends by GAP_BP and merge intervals within that distance.
-bedops \
-    --range "0:${GAP_BP}" \
-    --merge \
-    "$BEDOPS_INPUT" \
-    > "$MERGED_EXPANDED"
+  NR == 1 {
+      chr   = $1
+      start = $2
+      end   = $3
+      total = $4
+      next
+  }
 
-# Sum BED5 scores for each merged interval, then remove the temporary
-# right-side extension and format integral sums as integers.
-bedmap \
-    --echo \
-    --sum \
-    --delim $'\t' \
-    "$MERGED_EXPANDED" \
-    "$BEDOPS_INPUT" \
-| awk -v gap="${GAP_BP}" -v OFS='\t' '
-    ($3 - gap > $2) {
-        print $1, $2, $3 - gap, int($4)
-    }
-' > "$MERGED_SUMS"
+  $1 == chr && $2 <= end + gap {
+      if ($3 > end) {
+          end = $3
+      }
 
-# Restore the contig order defined by the reference index.
-bedtools sort \
-    -i "$MERGED_SUMS" \
-    -g "${3}.fai" \
-    > "$btmp"
+      total += $4
+      next
+  }
+
+  {
+      printf "%s\t%d\t%d\t%.0f\n", chr, start, end, total
+
+      chr   = $1
+      start = $2
+      end   = $3
+      total = $4
+  }
+
+  END {
+      if (NR > 0) {
+          printf "%s\t%d\t%d\t%.0f\n", chr, start, end, total
+      }
+  }
+  ' > "$btmp"
 
 # If ALL_BASES=false: keep only intervals that have any counts (doesnt return whole contigs)
 # If ALL_BASES=true: map counts back to the full contig intervals (returns whole contigs)
