@@ -4,6 +4,7 @@
 
 //// import modules
 include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
+include { COMBINE_MOSDEPTH_EVENTS                                } from '../modules/combine_mosdepth_events/combine_mosdepth_events'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks/create_interval_chunks'
 include { MPILEUP                                                } from '../modules/mpileup/mpileup'
 
@@ -20,62 +21,63 @@ workflow BCFTOOLS_CALLING {
 
     main: 
 
-   /* 
+    /* 
        Create groups of genomic intervals for parallel genotyping
     */
 
-     ch_read_counts
-        .map { _sample, bed, tbi -> tuple(bed, tbi) }   // keep bed+tbi pairs
+    ch_read_counts
+        .map { _sample, starch -> starch }
         .toList()
-        .filter { lst -> lst && !lst.isEmpty() }
-        .map { pairs ->
-            def beds = pairs.collect { pair -> pair[0] }
-            def tbis = pairs.collect { pair -> pair[1] }
-            tuple("joint", beds, tbis)
-        }
-        .set { ch_counts }
+        .filter { archives -> !archives.isEmpty() }
+        .set { ch_events }
 
-    // Create mpileup intervals
-    CREATE_INTERVAL_CHUNKS_MP (
-        ch_counts,
+    COMBINE_MOSDEPTH_EVENTS(
         ch_genome_indexed,
         ch_include_bed.first(),
-        params.mp_bases_per_chunk,
-        params.min_interval_gap,
-        params.split_large_intervals,
+        ch_events,
         "false"
     )
 
+    // cohort_rle.bed column 4 is depth per base.
+    // CREATE_INTERVAL_CHUNKS_MP calculates the weight of each emitted span.
+    CREATE_INTERVAL_CHUNKS_MP(
+        ch_include_bed,
+        COMBINE_MOSDEPTH_EVENTS.out.rle,
+        params.mp_bases_per_chunk,
+        params.min_interval_gap,
+        false
+    )
+
     CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
-        .flatMap { sample, beds, tbis  ->
-            // normalize to a list for cases where there are only 1 bed output for a sample
+        .flatMap { _name, beds, tbis ->
             def bedList = (beds instanceof List) ? beds : [beds]
             def tbiList = (tbis instanceof List) ? tbis : [tbis]
 
-            assert bedList.size() == tbiList.size() :
-            "Mismatch for ${sample}: beds=${bedList.size()} tbis=${tbiList.size()}"
+            // Match indexes by filename, not by position in two glob lists.
+            def tbiByName = tbiList.collectEntries { tbi ->
+                [(tbi.name): tbi]
+            }
 
-            // emit one tuple per bed file
-            (0..<bedList.size()).collect { i ->
-                def bed = bedList[i] as Path
-                def tbiPath = tbiList[i]
-                def base = bed.getFileName().toString()
-                base = base.replaceFirst(/\.gz$/, '')
-                base = base.replaceFirst(/\.bed$/, '')
-                def interval_hash = base.startsWith('_') ? base.substring(1) : base
-                tuple(interval_hash, bed, tbiPath)
+            bedList.collect { bed ->
+                def tbi = tbiByName["${bed.name}.tbi"]
+
+                assert tbi != null :
+                    "Missing tabix index for ${bed.name}"
+
+                def interval_id = bed.name.replaceFirst(/\.bed\.gz$/, '')
+
+                tuple(interval_id, bed, tbi)
             }
         }
-        .filter { _interval_hash, interval_bed, _bed_tbi -> interval_bed && interval_bed.size() > 0 }   // drop empty
         .ifEmpty {
             log.warn(
-                "No mpileup intervals remained after coverage & inclusion filtering, " +
-                "Variant calling will be skipped. Check your max_depth argument"
+                "No mpileup intervals remained after coverage filtering; " +
+                "variant calling will be skipped."
             )
             tuple('__NO_INTERVALS__', null, null)
         }
-        .filter { interval_hash, _interval_bed, _bed_tbi ->
-            interval_hash != '__NO_INTERVALS__'
+        .filter { interval_id, _bed, _tbi ->
+            interval_id != '__NO_INTERVALS__'
         }
         .set { ch_interval_bed_mp }
 

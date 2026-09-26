@@ -120,10 +120,10 @@
           "description": "Approximate aligned bases per GATK HaplotypeCaller interval.",
           "minimum": 1
         },
-        "jc_genotypes_per_chunk": {
+        "hc_chunks_per_jc": {
           "type": "integer",
-          "default": 100000000,
-          "description": "Approximate genotypes per GATK GenotypeGVCFs interval.",
+          "default": 20,
+          "description": "Number of haplotypecaller chunks per joint calling step.",
           "minimum": 1
         },
         "mp_bases_per_chunk": {

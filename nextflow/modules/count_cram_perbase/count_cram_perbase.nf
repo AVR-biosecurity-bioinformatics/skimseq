@@ -14,61 +14,45 @@ process COUNT_CRAM_PERBASE {
         emit: perbase
 
     tuple val(sample),
-        path("${sample}.covered.bed.gz"),
-        path("${sample}.covered.bed.gz.tbi"),
-        emit: counts
+        path("${sample}.events.starch"),
+        emit: events,
+        optional: true
 
     script:
-    /*
-     * mosdepth defaults to excluding:
-     * UNMAP (4), SECONDARY (256), QCFAIL (512), DUP (1024)
-     *
-     * Exclude duplicates: 4 + 256 + 512 + 1024 = 1796
-     * Include duplicates: 4 + 256 + 512 = 772
-     */
-
     def exclude_flags = params.rmdup ? 1796 : 772
+
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Per-base counts
-    mosdepth \
-        --threads ${task.cpus} \
-        --fasta "${ref_genome}" \
-        --mapq ${params.minmq} \
-        --flag ${exclude_flags} \
-        "${sample}" \
+    mosdepth \\
+        --threads ${task.cpus} \\
+        --fasta "${ref_genome}" \\
+        --mapq ${params.minmq} \\
+        --flag ${exclude_flags} \\
+        "${sample}" \\
         "${cram}"
 
-    # Exclude regions and merge abutting intervals into joint count
-    # Note mosdepth outputs are run-length encoded, so need to Weight each depth by the interval length before merging
+    # Remove excluded bases from mosdepth's RLE depth intervals.
+    # TODO: Should the filtering be done seperately?
     bedtools subtract \
         -a "${sample}.per-base.bed.gz" \
         -b "${exclude_bed}" \
-    | awk \
-        -v min_depth="${params.min_depth}" \
-        'BEGIN { OFS="\t" }
-        \$4 >= min_depth {
-            print \$1, \$2, \$3, (\$3-\$2)*\$4
-        }' \
-    | bedtools merge \
-        -i - \
-        -c 4 \
-        -o sum \
-    | bgzip \
-        --threads ${task.cpus} \
-        --stdout \
-    > "${sample}.covered.bed.gz"
-    
-    tabix -f -p bed "${sample}.covered.bed.gz"
-    
-    # optional cleanup
-    #rm -f \
-    #    "${sample}.per-base.bed.gz" \
-    #    "${sample}.per-base.bed.gz.csi" \
-    #    "${sample}.mosdepth.global.dist.txt" \
-    #    "${sample}.mosdepth.region.dist.txt" \
-    #    "${sample}.mosdepth.summary.txt"
+        | awk -v min_depth="${params.min_depth}" '
+            BEGIN { OFS = "\\t" }
+
+            # Retain nonempty runs meeting the per-sample depth threshold.
+            # Represent each run [start,end) of depth d as two events:
+            # +d at start and -d at end.
+            # The one-base BED coordinates are only for sorting events;
+            # the cohort sweep uses the event position in column 2.
+            \$4 >= min_depth && \$4 > 0 && \$3 > \$2 {
+                print \$1, \$2, \$2 + 1,  \$4
+                print \$1, \$3, \$3 + 1, -\$4
+            }
+        ' \
+        | sort-bed - \
+        | starch --gzip - > "${sample}.events.starch"
+
     """
 }

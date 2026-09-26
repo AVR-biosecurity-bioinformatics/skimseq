@@ -259,7 +259,6 @@ done
 Run the Qfly test dataset using the test profile
 ```
 module purge
-export NXF_VER=26.07.0-edge
 module load Java/17
 
 # Local execution on a BASC node using Conda
@@ -275,7 +274,6 @@ nextflow run . -profile debug,test -config conf/basc.config --slurm_account frui
 
 # Test BMSB
 module purge
-export NXF_VER=26.07.0-edge
 module load Java/17
 module load Miniconda3/24.7.1-0
 export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"

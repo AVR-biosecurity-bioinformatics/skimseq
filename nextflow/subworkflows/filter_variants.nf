@@ -1,10 +1,9 @@
 /*
-    Filter .vcf files from GATK
+    Filter .vcf files 
 */
 
 //// import modules
 include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites/extract_vcf_sites'
-include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records/count_vcf_records'
 include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
 include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp/calc_chunk_dp'
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp/merge_chunk_dp'

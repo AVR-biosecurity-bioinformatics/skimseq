@@ -206,7 +206,7 @@ workflow ALIGNMENT {
     cram = STAGE_CRAM.out.cram
     new_cram = ch_new_cram
     perbase = COUNT_CRAM_PERBASE.out.perbase
-    counts = COUNT_CRAM_PERBASE.out.counts
+    events = COUNT_CRAM_PERBASE.out.events
 
 }
 

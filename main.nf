@@ -34,7 +34,7 @@ params {
 
     // Parallelisation
     hc_bases_per_chunk: Integer = 100_000_000           // Create GATK HaplotypeCaller intervals containing approximately this many aligned bases
-    jc_genotypes_per_chunk: Integer = 100_000_000       // Create GATK GenotypeGVCFs intervals containing approximately this many genotypes for joint calling
+    hc_chunks_per_jc: Integer = 20                      // Create GATK GenotypeGVCFs intervals by merging this many hc chunks
     mp_bases_per_chunk: Integer = 250_000_000           // Create bcftools mpileup intervals containing approximately this many aligned bases
     split_large_intervals: Boolean = true               // Split any intervals that are over hc_bases_per_chunk. Makes more even intervals at risk of artefacts near interval end
     min_interval_gap: Integer = 100                     // Minimum gap of missing data (N or no reads) between intervals to consider them separate interval

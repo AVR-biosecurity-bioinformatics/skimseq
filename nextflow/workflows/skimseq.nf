@@ -3,8 +3,7 @@
 //// import subworkflows
 include { ALIGNMENT                                                 } from '../subworkflows/alignment'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
-include { GATK_SINGLE                                               } from '../subworkflows/gatk_single'
-include { GATK_JOINT                                                } from '../subworkflows/gatk_joint'
+include { GATK_CALLING                                              } from '../subworkflows/gatk_calling'
 include { BCFTOOLS_CALLING                                          } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
@@ -303,7 +302,7 @@ workflow SKIMSEQ {
         ch_exclude_bed
     )
     
-    ALIGNMENT.out.counts
+    ALIGNMENT.out.events
         .set{ ch_read_counts }
 
     /*
@@ -343,45 +342,31 @@ workflow SKIMSEQ {
     }
     
     // Set empty channels to recieve publishing outputs for optional workflows
-    ch_gvcf = channel.empty()
     ch_new_gvcf = channel.empty()
     ch_merged_unfiltered_vcf = channel.empty()
     if ( params.variant_caller == "gatk" ){
 
         // Single sample calling with haplotypecaller
-        GATK_SINGLE (
+        GATK_CALLING (
             ch_sample_names,
             ALIGNMENT.out.cram,
             ch_reads_grouped,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_read_counts
+            ch_read_counts,
+            ch_long_bed,
+            ch_short_bed
         )
-
-        // For joint calling
-        GATK_SINGLE.out.gvcf
-            .set{ ch_gvcf }
 
         // For publishing only
-        GATK_SINGLE.out.new_gvcf
+        GATK_CALLING.out.new_gvcf
             .set { ch_new_gvcf }
 
-        // Joint call genotypes        
-        GATK_JOINT (
-            ch_gvcf,
-            ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_genotype,
-            ch_long_bed,
-            ch_short_bed,
-            ch_sample_names
-        )
-
-        GATK_JOINT.out.vcf
+        GATK_CALLING.out.vcf
             .set{ ch_unfiltered_vcfs }
 
-        GATK_JOINT.out.merged_unfiltered_vcf
+        GATK_CALLING.out.merged_unfiltered_vcf
             .set{ ch_merged_unfiltered_vcf }
 
     } else if (params.variant_caller == "bcftools"){
@@ -401,6 +386,7 @@ workflow SKIMSEQ {
         BCFTOOLS_CALLING.out.merged_unfiltered_vcf
             .set{ ch_merged_unfiltered_vcf }
     }
+
 
     /*
     Filter SNPs, INDELs, and invariant sites
