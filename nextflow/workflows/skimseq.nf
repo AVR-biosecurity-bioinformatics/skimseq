@@ -330,6 +330,7 @@ workflow SKIMSEQ {
         ch_mito_bed,
         ch_mito_shifted_bed,
         MASK_GENOME.out.numt_mask_bed,
+        ch_read_counts,
         ch_dummy_file
     )
 
