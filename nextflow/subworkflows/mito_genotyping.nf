@@ -3,7 +3,6 @@
 */
 
 //// import modules
-include { CONSENSUS_MITO                           } from '../modules/consensus_mito/consensus_mito'
 include { REALIGN_MITO                             } from '../modules/realign_mito/realign_mito'
 include { REALIGN_MITO as REALIGN_MITO_SHIFTED     } from '../modules/realign_mito/realign_mito'
 include { PILEUP_MITO                              } from '../modules/pileup_mito/pileup_mito'
@@ -14,8 +13,7 @@ include { COMBINE_MOSDEPTH_EVENTS as COMBINE_MITO_EVENTS } from '../modules/comb
 include { COMBINE_MOSDEPTH_EVENTS as COMBINE_MITO_EVENTS_SHIFTED } from '../modules/combine_mosdepth_events/combine_mosdepth_events'
 include { CREATE_INTERVAL_CHUNKS as CREATE_MITO_CHUNKS } from '../modules/create_interval_chunks/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_MITO_CHUNKS_SHIFTED } from '../modules/create_interval_chunks/create_interval_chunks'
-include { GATHER_MITO_PILEUPS as GATHER_MITO_ORIGINAL } from '../modules/gather_mito_pileups/gather_mito_pileups'
-include { GATHER_MITO_PILEUPS as GATHER_MITO_SHIFTED  } from '../modules/gather_mito_pileups/gather_mito_pileups'
+include { CONSENSUS_MITO                           } from '../modules/consensus_mito/consensus_mito'
 
 workflow MITO_GENOTYPING {
 
@@ -74,14 +72,12 @@ workflow MITO_GENOTYPING {
     */
     COUNT_MITO_PERBASE(
         REALIGN_MITO.out.mito_cram,
-        ch_mito_indexed,
-        ch_dummy_file
+        ch_mito_indexed
     )
 
     COUNT_MITO_PERBASE_SHIFTED(
         REALIGN_MITO_SHIFTED.out.mito_cram,
-        ch_shifted_mito_indexed,
-        ch_dummy_file
+        ch_shifted_mito_indexed
     )
 
     // Collect event archives independently for each reference.
@@ -100,6 +96,7 @@ workflow MITO_GENOTYPING {
     COMBINE_MITO_EVENTS(
         ch_mito_indexed,
         ch_mito_bed,
+        ch_dummy_file,
         ch_original_mito_events,
         true
     )
@@ -107,6 +104,7 @@ workflow MITO_GENOTYPING {
     COMBINE_MITO_EVENTS_SHIFTED(
         ch_shifted_mito_indexed,
         ch_mito_shifted_bed,
+        ch_dummy_file,
         ch_shifted_mito_events,
         true
     )

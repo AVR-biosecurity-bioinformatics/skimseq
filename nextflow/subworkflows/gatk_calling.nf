@@ -142,6 +142,7 @@ workflow GATK_CALLING {
     COMBINE_MOSDEPTH_EVENTS(
         ch_genome_indexed,
         ch_include_bed.first(),
+        ch_mask_bed_genotype,
         ch_hc_events,
         "true"
     )

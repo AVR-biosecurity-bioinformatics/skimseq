@@ -34,6 +34,7 @@ workflow BCFTOOLS_CALLING {
     COMBINE_MOSDEPTH_EVENTS(
         ch_genome_indexed,
         ch_include_bed.first(),
+        ch_mask_bed_genotype,
         ch_events,
         "false"
     )

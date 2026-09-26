@@ -5,8 +5,9 @@ process COMBINE_MOSDEPTH_EVENTS {
     input:
     tuple path(ref_genome), path(genome_index_files)
     path(include_bed)
+    path(exclude_bed)
     path(event_archives)
-    val(zero_fill)
+    val(retain_full_contig)
 
     output:
     path("cohort_rle.starch"), emit: rle, optional: true
@@ -28,26 +29,43 @@ process COMBINE_MOSDEPTH_EVENTS {
         exit 1
     fi
 
-    # include_bed selects whole contigs. Obtain their full lengths
-    # from the FAI and put them in BEDOPS lexicographic order.
+    # Calling territory = union of include intervals minus excluded bases.
+    awk '
+        BEGIN { OFS = "\t" }
+        \$0 !~ /^#/ && NF >= 3 && \$3 > \$2 {
+            print \$1, \$2, \$3
+        }
+    ' "${include_bed}" |
+        sort-bed - |
+        bedtools merge -i - |
+        bedtools subtract -a stdin -b "${exclude_bed}" \
+        > allowed_regions.bed
+
+    if [[ ! -s allowed_regions.bed ]]; then
+        exit 0
+    fi
+
+    # The sweep needs full contig lengths so it can correctly
+    # track events that start before an included interval. Its output
+    # will be clipped to included_regions.bed afterwards.
     awk '
         BEGIN { OFS = "\\t" }
 
         FILENAME == ARGV[1] {
-            if (\$0 !~ /^#/ && \$1 != "")
-                selected[\$1] = 1
+            selected[\$1] = 1
             next
         }
 
         \$1 in selected && \$2 > 0 {
             print \$1, 0, \$2
         }
-    ' "${include_bed}" "${ref_genome}.fai" |
+    ' allowed_regions.bed "${ref_genome}.fai" |
         sort-bed - > contigs.bed
 
     if [[ ! -s contigs.bed ]]; then
         exit 0
     fi
+
 
     fd_limit=\$(ulimit -Sn)
     fd_needed=\$(( \${#archives[@]} + 32 ))
@@ -60,8 +78,8 @@ process COMBINE_MOSDEPTH_EVENTS {
 
     # The first AWK input lists selected contigs and their lengths.
     # The second is the BEDOPS-sorted stream of depth-change events.
-    bedops --everything "\${archives[@]}" |
-        awk -v fill="${zero_fill}" '
+    bedops --everything "\${archives[@]}" \
+    | awk -v fill="${retain_full_contig}" '
             BEGIN {
                 OFS = "\\t"
                 contig_i = 1
@@ -204,12 +222,48 @@ process COMBINE_MOSDEPTH_EVENTS {
 
                 flush()
             }
-        ' contigs.bed - > cohort_rle.bed
+        ' contigs.bed - > cohort_contigs_rle.bed
+
+    # Clip the swept BED4 depth track to the allowed territory
+    if [[ "${retain_full_contig}" == "true" ]]; then
+        if [[ -s allowed_regions.bed ]]; then
+            {
+                # Keep measured depth only inside the allowed territory.
+                bedtools intersect \
+                    -a cohort_contigs_rle.bed \
+                    -b allowed_regions.bed
+
+                # Set everything else on selected contigs to depth 0.
+                # This prevents excluded intervals contributing
+                # But still retains their full coordinates for genomicsDB
+                bedtools subtract \
+                    -a contigs.bed \
+                    -b allowed_regions.bed |
+                    awk '
+                        BEGIN { OFS = "\\t" }
+                        { print \$1, \$2, \$3, 0 }
+                    '
+            } |
+                sort-bed - > cohort_rle.bed
+        else
+            # No allowed bases: every selected contig has depth 0.
+            awk '
+                BEGIN { OFS = "\\t" }
+                { print \$1, \$2, \$3, 0 }
+            ' contigs.bed > cohort_rle.bed
+        fi
+    else
+        # Covered-only mode: omit bases outside the allowed territory.
+        bedtools intersect \
+            -a cohort_contigs_rle.bed \
+            -b allowed_regions.bed \
+            > cohort_rle.bed
+    fi
 
     if [[ -s cohort_rle.bed ]]; then
         starch --gzip cohort_rle.bed > cohort_rle.starch
     fi
 
-    rm cohort_rle.bed
+    rm -f cohort_rle.bed cohort_contigs_rle.bed
     """
 }

@@ -194,8 +194,7 @@ workflow ALIGNMENT {
     // Count per-base depths in all crams, used for masking and creating interval chunks
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
-        ch_genome_indexed,
-        ch_exclude_bed
+        ch_genome_indexed
     )
 
     // Only newly generated CRAMs should be published.
