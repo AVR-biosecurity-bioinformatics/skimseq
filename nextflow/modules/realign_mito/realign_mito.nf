@@ -11,9 +11,9 @@ process REALIGN_MITO {
 
     output:
     tuple val(sample),
-          path("${sample}.mito.bam"),
-          path("${sample}.mito.bam.bai"),
-          emit: mito_bam
+          path("${sample}.mito.cram"),
+          path("${sample}.mito.cram.crai"),
+          emit: mito_cram
           
     script:
     """
@@ -64,13 +64,13 @@ process REALIGN_MITO {
             - \
         | samtools sort \
             -@ ${task.cpus} \
-            -O BAM \
-            -o '${sample}.mito.bam' \
+            -O CRAM \
+            -o '${sample}.mito.cram' \
             -
 
     samtools index \
         -@ ${task.cpus} \
-        '${sample}.mito.bam'
+        '${sample}.mito.cram'
 
     """
 }

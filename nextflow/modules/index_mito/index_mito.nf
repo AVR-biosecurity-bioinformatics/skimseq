@@ -10,7 +10,8 @@ process INDEX_MITO {
     tuple path("mito.fa"), path("mito.fa.{fai,l2b,mbw}"),                   emit: mito_indexed
     tuple path("mito.shifted.fa"), path("mito.shifted.fa.{fai,l2b,mbw}"),   emit: shifted_mito_indexed
     path("mito.bed"),                                                       emit: bed
-    
+    path("mito_shifted.bed"),                                               emit: shifted_bed
+
     script:
     """
     #!/usr/bin/env bash
@@ -55,5 +56,8 @@ process INDEX_MITO {
 
     # Create mitochondrial bed
     awk 'BEGIN { OFS = "\\t" } {print \$1, 0, \$2 , "Mito"}' mito.fa.fai > mito.bed
+
+    # Create shifted mitochondrial bed
+    awk 'BEGIN { OFS = "\\t" } {print \$1, 0, \$2 , "Mito"}' mito.shifted.fa.fai > mito_shifted.bed
     """
 }

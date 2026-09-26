@@ -132,6 +132,12 @@
           "description": "Approximate aligned bases per bcftools mpileup interval.",
           "minimum": 1
         },
+        "mito_bases_per_chunk": {
+          "type": "integer",
+          "default": 100000000,
+          "description": "Approximate aligned bases per mito pileup interval.",
+          "minimum": 1
+        },
         "split_large_intervals": {
           "type": "boolean",
           "default": true,

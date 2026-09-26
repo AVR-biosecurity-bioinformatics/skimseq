@@ -290,7 +290,8 @@ workflow SKIMSEQ {
     ch_mito_indexed = INDEX_MITO.out.mito_indexed.first()
     ch_shifted_mito_indexed = INDEX_MITO.out.shifted_mito_indexed.first()
     ch_mito_bed = INDEX_MITO.out.bed.first()
-    
+    ch_mito_shifted_bed = INDEX_MITO.out.shifted_bed.first()
+
     /*
     Process reads per sample, aligning to the genome, and merging
     */
@@ -327,7 +328,9 @@ workflow SKIMSEQ {
         ch_mito_indexed,
         ch_shifted_mito_indexed,
         ch_mito_bed,
-        MASK_GENOME.out.numt_mask_bed
+        ch_mito_shifted_bed,
+        MASK_GENOME.out.numt_mask_bed,
+        ch_dummy_file
     )
 
     /*
