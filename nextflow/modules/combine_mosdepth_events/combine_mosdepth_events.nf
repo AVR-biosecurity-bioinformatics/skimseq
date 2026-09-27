@@ -13,25 +13,42 @@ process COMBINE_MOSDEPTH_EVENTS {
     path("cohort_rle.starch"), emit: rle, optional: true
 
     script:
-    // Use exactly the archives supplied by Nextflow.
-    def archive_args = event_archives
-        .collect { p -> "'" + p.toString().replace("'", "'\"'\"'") + "'" }
-        .join(' ')
+    def archive_list = event_archives
+        .collect { archive -> archive.toString() }
+        .join('\n')
 
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    archives=( ${archive_args} )
+    # Write one staged Starch path per line for the xargs workers.
+    printf '%s\\n' '${archive_list.replace("'", "'\"'\"'")}' > archives.list
 
-    if (( \${#archives[@]} == 0 )); then
+    n_archives=\$(wc -l < archives.list)
+    if (( n_archives == 0 )); then
         echo "No per-sample event archives were supplied" >&2
         exit 1
     fi
 
-    # Calling territory = union of include intervals minus excluded bases.
+    fd_limit=\$(ulimit -Sn)
+    fd_needed=\$((n_archives + 32))
+
+    if [[ "\$fd_limit" != "unlimited" ]] &&
+       (( fd_limit < fd_needed )); then
+        echo "Open-file limit is \$fd_limit; approximately \$fd_needed needed for \${#archives[@]} archives" >&2
+        exit 1
+    fi
+
+    if [[ "${retain_full_contig}" != "true" &&
+          "${retain_full_contig}" != "false" ]]; then
+        echo "retain_full_contig must be true or false" >&2
+        exit 1
+    fi
+
+    # Calling territory: union of include intervals minus excluded bases.
     awk '
-        BEGIN { OFS = "\t" }
+        BEGIN { OFS = "\\t" }
+
         \$0 !~ /^#/ && NF >= 3 && \$3 > \$2 {
             print \$1, \$2, \$3
         }
@@ -41,229 +58,192 @@ process COMBINE_MOSDEPTH_EVENTS {
         bedtools subtract -a stdin -b "${exclude_bed}" \
         > allowed_regions.bed
 
-    if [[ ! -s allowed_regions.bed ]]; then
-        exit 0
-    fi
-
-    # The sweep needs full contig lengths so it can correctly
-    # track events that start before an included interval. Its output
-    # will be clipped to included_regions.bed afterwards.
+    # Select whole contigs by name from include_bed, obtaining their
+    # lengths from the FAI. Do not derive this list from allowed_regions:
+    # a completely excluded contig still belongs in full-contig mode.
     awk '
         BEGIN { OFS = "\\t" }
 
         FILENAME == ARGV[1] {
-            selected[\$1] = 1
+            if (\$0 !~ /^#/ && NF >= 3 && \$3 > \$2)
+                selected[\$1] = 1
             next
         }
 
         \$1 in selected && \$2 > 0 {
             print \$1, 0, \$2
         }
-    ' allowed_regions.bed "${ref_genome}.fai" |
+    ' "${include_bed}" "${ref_genome}.fai" |
         sort-bed - > contigs.bed
 
     if [[ ! -s contigs.bed ]]; then
         exit 0
     fi
 
+    # If nothing is allowed, avoid merging all the event archives.
+    # Full-contig mode still emits the selected contigs at depth 0.
+    if [[ ! -s allowed_regions.bed ]]; then
+        if [[ "${retain_full_contig}" == "true" ]]; then
+            awk '
+                BEGIN { OFS = "\\t" }
+                { print \$1, \$2, \$3, 0 }
+            ' contigs.bed > cohort_rle.bed
 
-    fd_limit=\$(ulimit -Sn)
-    fd_needed=\$(( \${#archives[@]} + 32 ))
-
-    if [[ "\$fd_limit" != "unlimited" ]] &&
-       (( fd_limit < fd_needed )); then
-        echo "Open-file limit is \$fd_limit; approximately \$fd_needed needed for \${#archives[@]} archives" >&2
-        exit 1
+            starch --gzip cohort_rle.bed > cohort_rle.starch
+        fi
+        exit 0
     fi
 
-    # The first AWK input lists selected contigs and their lengths.
-    # The second is the BEDOPS-sorted stream of depth-change events.
-    bedops --everything "\${archives[@]}" \
-    | awk -v fill="${retain_full_contig}" '
-            BEGIN {
-                OFS = "\\t"
-                contig_i = 1
-                pos = 0
-                depth = 0
-            }
 
-            function flush() {
-                if (!held)
-                    return
+    # Function to calculate sweep across contigs
+    sweep_contig() {
+        local idx="\$1"
+        local chr="\$2"
+        local out
+        local -a worker_archives
 
-                printf "%s\\t%d\\t%d\\t%.0f\\n",
-                    held_chr, held_start, held_end, held_depth
+        # Give each contig a unique, zero-padded output filename.
+        printf -v out 'per_contig/%08d.bed' "\$idx"
 
-                held = 0
-            }
+        # Reconstruct the archive array inside this worker.
+        mapfile -t worker_archives < archives.list
 
-            function emit(chr, start, end, value) {
-                if (end <= start || (value == 0 && fill != "true"))
-                    return
+        # BEDOPS reads events for this contig only and merges them into coordinate order
+        # AWK turns the depth changes into positive-depth, non-overlapping cohort intervals.
+        bedops --chrom "\$chr" --everything "\${worker_archives[@]}" |
+            awk -v chr="\$chr" '
+                BEGIN { OFS = "\\t" }
 
-                # Coalesce adjoining spans with the same depth,
-                # including adjoining zero-depth spans.
-                if (held &&
-                    held_chr == chr &&
-                    held_end == start &&
-                    held_depth == value) {
-                    held_end = end
-                    return
-                }
-
-                flush()
-                held_chr = chr
-                held_start = start
-                held_end = end
-                held_depth = value
-                held = 1
-            }
-
-            function finish_contig() {
-                if (depth != 0) {
-                    print "Unbalanced events on " chrom[contig_i] \
+                # Event BED4: contig, position, position+1,
+                # signed change in estimated depth.
+                NF != 4 || \$1 != chr || \$2 < 0 ||
+                \$3 != \$2 + 1 {
+                    print "Invalid depth-change event: " \$0 \
                         > "/dev/stderr"
                     failed = 1
                     exit 1
                 }
 
-                # Covers the tail after the final event, or the
-                # entire contig if it had no events.
-                emit(chrom[contig_i], pos, contig_len[contig_i], 0)
-                flush()
-
-                contig_i++
-                pos = 0
-                depth = 0
-            }
-
-            function apply_events(    target_i) {
-                target_i = selected[event_chr]
-
-                # Finish selected contigs with no intervening events.
-                while (contig_i < target_i)
-                    finish_contig()
-
-                if (contig_i != target_i ||
-                    event_pos < pos ||
-                    event_pos > contig_len[contig_i]) {
-                    print "Invalid event position: " \
-                        event_chr ":" event_pos > "/dev/stderr"
-                    failed = 1
-                    exit 1
+                # Hold the first event position. We cannot emit an
+                # interval until we see the next distinct position.
+                !seen {
+                    pos = \$2
+                    change = \$4
+                    seen = 1
+                    next
                 }
 
-                # Depth BEFORE these events applies up to their
-                # position. Then update depth for the next span.
-                emit(event_chr, pos, event_pos, depth)
-                depth += change
-
-                if (depth < 0) {
-                    print "Negative cohort depth at " \
-                        event_chr ":" event_pos > "/dev/stderr"
-                    failed = 1
-                    exit 1
+                # Several samples can change depth at the same
+                # position. Apply their combined change only once.
+                \$2 == pos {
+                    change += \$4
+                    next
                 }
 
-                pos = event_pos
-            }
+                {
+                    if (\$2 < pos) {
+                        print "Events out of order on " chr \
+                            > "/dev/stderr"
+                        failed = 1
+                        exit 1
+                    }
 
-            # First input: selected contigs, in lexicographic order.
-            FILENAME == ARGV[1] {
-                chrom[++n] = \$1
-                contig_len[n] = \$3
-                selected[\$1] = n
-                next
-            }
+                    # Apply the changes held at pos. The resulting
+                    # depth is constant from pos up to this new event.
+                    depth += change
 
-            # Ignore events outside the selected contigs.
-            !(\$1 in selected) {
-                next
-            }
+                    if (depth < 0) {
+                        print "Negative cohort depth at " chr ":" pos \
+                            > "/dev/stderr"
+                        failed = 1
+                        exit 1
+                    }
 
-            NF != 4 || \$2 < 0 || \$3 != \$2 + 1 {
-                print "Malformed depth-change event: " \$0 \
-                    > "/dev/stderr"
-                failed = 1
-                exit 1
-            }
+                    # Omit zero-depth spans here. The later full-contig
+                    # step can add them back if requested.
+                    if (depth > 0)
+                        printf "%s\\t%d\\t%d\\t%.0f\\n",
+                            chr, pos, \$2, depth
 
-            !seen {
-                event_chr = \$1
-                event_pos = \$2
-                change = \$4
-                seen = 1
-                next
-            }
+                    # Begin accumulating changes at the new position.
+                    pos = \$2
+                    change = \$4
+                }
 
-            \$1 != event_chr || \$2 != event_pos {
-                apply_events()
-                event_chr = \$1
-                event_pos = \$2
-                change = \$4
-                next
-            }
+                END {
+                    if (failed)
+                        exit 1
 
-            # Sum all changes at the same position before applying
-            # them. Their order within that position does not matter.
-            {
-                change += \$4
-            }
+                    # Every positive-depth run must eventually end:
+                    # after the last event, cohort depth must be zero.
+                    if (seen && depth + change != 0) {
+                        print "Unbalanced events on " chr \
+                            > "/dev/stderr"
+                        exit 1
+                    }
+                }
+            ' > "\$out"
+    }
 
-            END {
-                if (failed)
-                    exit 1
+    # Run sweep contig across all contigs in parallel
+    mkdir -p per_contig
+    export -f sweep_contig
+    idx=0
+    while read -r chr _; do
+        idx=\$((idx + 1))
+        printf '%s\\0%s\\0' "\$idx" "\$chr"
+    done < contigs.bed |
+        xargs -0 -r -n 2 -P ${task.cpus} \
+            bash -c 'set -euo pipefail; sweep_contig "\$@"' _
 
-                if (seen)
-                    apply_events()
+    # Workers finish in arbitrary order, padded filenames restore contigs.bed order when expanded by the shell
+    shopt -s nullglob
+    contig_files=(per_contig/*.bed)
+    shopt -u nullglob
 
-                while (contig_i <= n)
-                    finish_contig()
+    # Each selected contig must produce a file, even if it has no
+    # positive-depth events and that file is empty.
+    expected=\$(wc -l < contigs.bed)
+    if (( \${#contig_files[@]} != expected )); then
+        echo "Expected \$expected contig outputs; found \${#contig_files[@]}" >&2
+        exit 1
+    fi
 
-                flush()
-            }
-        ' contigs.bed - > cohort_contigs_rle.bed
+    # Concatenate in contig order for the subsequent territory clipping.
+    cat "\${contig_files[@]}" > cohort_contigs_rle.bed
 
-    # Clip the swept BED4 depth track to the allowed territory
+    # Get depths of allowed regions only
+    bedtools intersect \
+        -a cohort_contigs_rle.bed \
+        -b allowed_regions.bed |
+        sort-bed - > allowed_depth.bed
+
+    # If retain full contigs, fill in missing positions with zero depths
     if [[ "${retain_full_contig}" == "true" ]]; then
-        if [[ -s allowed_regions.bed ]]; then
-            {
-                # Keep measured depth only inside the allowed territory.
-                bedtools intersect \
-                    -a cohort_contigs_rle.bed \
-                    -b allowed_regions.bed
-
-                # Set everything else on selected contigs to depth 0.
-                # This prevents excluded intervals contributing
-                # But still retains their full coordinates for genomicsDB
-                bedtools subtract \
-                    -a contigs.bed \
-                    -b allowed_regions.bed |
-                    awk '
-                        BEGIN { OFS = "\\t" }
-                        { print \$1, \$2, \$3, 0 }
-                    '
-            } |
-                sort-bed - > cohort_rle.bed
-        else
-            # No allowed bases: every selected contig has depth 0.
+        bedtools subtract \
+            -a contigs.bed \
+            -b allowed_depth.bed |
             awk '
                 BEGIN { OFS = "\\t" }
                 { print \$1, \$2, \$3, 0 }
-            ' contigs.bed > cohort_rle.bed
+            ' > zero_depth.bed
+
+        if [[ -s zero_depth.bed ]]; then
+            bedops --everything allowed_depth.bed zero_depth.bed \
+                > cohort_rle.bed
+        else
+            cp allowed_depth.bed cohort_rle.bed
         fi
     else
-        # Covered-only mode: omit bases outside the allowed territory.
-        bedtools intersect \
-            -a cohort_contigs_rle.bed \
-            -b allowed_regions.bed \
-            > cohort_rle.bed
+        cp allowed_depth.bed cohort_rle.bed
     fi
 
+    # Create starch file output
     if [[ -s cohort_rle.bed ]]; then
         starch --gzip cohort_rle.bed > cohort_rle.starch
     fi
 
-    rm -f cohort_rle.bed cohort_contigs_rle.bed
+    rm -f cohort_rle.bed cohort_contigs_rle.bed \
+        allowed_depth.bed zero_depth.bed
     """
 }
