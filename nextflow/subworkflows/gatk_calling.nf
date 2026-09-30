@@ -4,9 +4,12 @@
 
 //// import modules
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf/validate_gvcf'
-include { COMBINE_MOSDEPTH_EVENTS                                } from '../modules/combine_mosdepth_events/combine_mosdepth_events'
-include { SPLIT_BED_BY_CHR                                       } from '../modules/split_bed_by_chr/split_bed_by_chr' 
+include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_LONG          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
+include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_SHORT         } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
+include { COMBINE_BEDS as COMBINE_WORKLOAD_BEDS                  } from '../modules/combine_beds/combine_beds' 
+include { SUBSET_BED_TO_INTERVALS                                } from '../modules/subset_bed_to_intervals/subset_bed_to_intervals' 
 include { CREATE_JC_BED_FROM_HC                                  } from '../modules/create_jc_bed_from_hc/create_jc_bed_from_hc' 
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_IC_LONG               } from '../modules/create_interval_chunks/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_IC_SHORT              } from '../modules/create_interval_chunks/create_interval_chunks'
 include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller/haplotypecaller'
@@ -29,8 +32,26 @@ workflow GATK_CALLING {
     ch_genome_depths
     ch_long_bed
     ch_short_bed
+    ch_cohort_size
+    ch_included_bases
+    ch_dummy_file
     
     main: 
+    // Calculate nchunks
+    ch_n_chunks = ch_cohort_size
+        .combine(ch_included_bases)
+        .map { cohort_size, included_bases ->
+            long total_bases =
+                (cohort_size as long) * (included_bases as long)
+
+            long bases_per_chunk =
+                params.hc_target_sample_bases as long
+
+            Math.max(
+                1,
+                ((total_bases + bases_per_chunk - 1) / bases_per_chunk) as int
+            )
+        }
 
     /* 
         Find and validate any pre-existing GVCFs
@@ -128,58 +149,100 @@ workflow GATK_CALLING {
 
 
     /* 
-        Create interval chunks
+       Create groups of genomic intervals for parallel calling
     */
-    
-    // First split bed by chr    
-    // These must already contain full-contig coordinates.
-    SPLIT_BED_BY_CHR(ch_long_bed.first())
 
-    // Create interval chunks for long bed  (keep_whole_contigs = false)
-    CREATE_IC_LONG(
-        SPLIT_BED_BY_CHR.out.per_chr_beds.flatten(),
-        COMBINE_MOSDEPTH_EVENTS.out.rle.first(),
-        params.hc_bases_per_chunk,
-        params.min_interval_gap,
-        false
+    ch_mosdepth_workload_inputs = ch_genome_depths
+        .flatMap { _sample, workload_bed, workload_index ->
+        [workload_bed, workload_index]
+        }
+        .collect()
+
+    // For long contigs, project only included long-contig intervals.
+    SUBSET_BED_TO_INTERVALS(
+        ch_long_bed.first(),
+        ch_include_bed,
+        ch_genome_indexed
     )
 
-    // Create interval chunks for short bed (keep_whole_contigs = true)
-    CREATE_IC_SHORT(
+    PROJECT_LONG(
+        ch_mosdepth_workload_inputs,
+        SUBSET_BED_TO_INTERVALS.out.bed,
+        ch_mask_bed_genotype,
+        ch_genome_indexed
+    )
+
+    // For short contigs, project across complete contigs for
+    // compatibility with GenomicsDB.
+    PROJECT_SHORT(
+        ch_mosdepth_workload_inputs,
         ch_short_bed.first(),
-        COMBINE_MOSDEPTH_EVENTS.out.rle.first(),
-        params.hc_bases_per_chunk,
-        0,
-        true
+        ch_dummy_file,
+        ch_genome_indexed
     )
 
-    // Mix long and short contigs back together
-    CREATE_IC_LONG.out.interval_bed
-        .map { include_bed, beds, tbis -> tuple("long_${include_bed}", beds, tbis)}
-        .mix( CREATE_IC_SHORT.out.interval_bed.map { _include_bed, beds, tbis -> tuple("short", beds, tbis) })
-        .map { region_id, beds, tbis ->
-            def bedList = beds instanceof List ? beds : [beds]
-            def tbiByName = (tbis instanceof List ? tbis : [tbis])
-                .collectEntries { tbi -> [(tbi.name): tbi] }
+    // Collect the projected long- and short-contig workload BEDs.
+    ch_hc_workload_beds = PROJECT_LONG.out.bed
+        .mix(PROJECT_SHORT.out.bed)
+        .collect()
 
-            def chunks = bedList.collect { bed ->
-                def tbi = tbiByName["${bed.name}.tbi"]
+    // Combine the BEDs and restore reference coordinate order.
+    // Merging is disabled because the long- and short-contig projections
+    // cover separate genomic territories.
+    COMBINE_WORKLOAD_BEDS(
+        ch_hc_workload_beds,
+        ch_genome_indexed,
+        false,
+        0,
+        4,
+        'sum'
+    )
 
-                assert tbi != null :
-                    "Missing index for ${region_id}: ${bed.name}"
+    // Divide the combined workload track into balanced chunks.
+    CREATE_INTERVAL_CHUNKS_HC(
+        COMBINE_WORKLOAD_BEDS.out.bed,
+        ch_n_chunks,
+        params.min_interval_gap
+    )
 
-                def hc_id = "${region_id}_${bed.name.replaceFirst(/\.bed\.gz$/, '')}"
-                tuple(region_id, hc_id, bed, tbi)
-            }.sort { left, right -> left[1] <=> right[1] }
+    // Convert the combined workload-balanced chunks into a single
+    // genome-wide chunk group.
+    CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
+        .map { _workload_id, beds, tbis ->
+            def region_id = "genome"
+
+            def bed_list = beds instanceof List ? beds : [beds]
+
+            def tbi_by_name = (tbis instanceof List ? tbis : [tbis])
+                .collectEntries { tbi ->
+                    [(tbi.name): tbi]
+                }
+
+            def chunks = bed_list
+                .collect { bed ->
+                    def tbi = tbi_by_name["${bed.name}.tbi"]
+
+                    assert tbi != null :
+                        "Missing index for ${region_id}: ${bed.name}"
+
+                    def hc_id = bed.name.replaceFirst(/\.bed\.gz$/, '')
+
+                    tuple(
+                        region_id,
+                        hc_id,
+                        bed,
+                        tbi
+                    )
+                }
+                .sort { left, right ->
+                    left[1] <=> right[1]
+                }
 
             tuple(region_id, chunks)
         }
         .set { ch_hc_chunks_by_region }
 
     // Build one larger JC BED per batch from its HC BEDs.
-
-    // Plan JC batches independently for each long contig or
-    // for the short-contig group. No genome-wide toList().
     ch_hc_chunks_by_region
         .flatMap { region_id, chunks ->
             chunks
@@ -196,11 +259,15 @@ workflow GATK_CALLING {
 
     CREATE_JC_BED_FROM_HC(
         ch_jc_plan.map { jc_id, _region_id, group ->
-            tuple(jc_id, group.collect { _region, _hc_id, bed, _tbi -> bed })
+            tuple(
+                jc_id,
+                group.collect { _region, _hc_id, bed, _tbi ->
+                    bed
+                }
+            )
         },
         ch_genome_indexed
     )
-
 
     /* 
         Single sample calling with HaplotypeCaller

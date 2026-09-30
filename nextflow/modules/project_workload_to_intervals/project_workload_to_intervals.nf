@@ -1,6 +1,6 @@
 process PROJECT_WORKLOAD_TO_INTERVALS {
 
-    tag "${workload_inputs.size()} workload files"
+    tag "${workload_inputs.size()} staged files"
     conda "${moduleDir}/environment.yml"
 
     input:
@@ -51,7 +51,7 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
         bedtools intersect \
             -sorted \
             -g ${ref_genome}.fai \
-            -wao \
+            -wo \
             -a intervals.bed \
             -b stdin |
             awk '
@@ -62,25 +62,32 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
                 {
                     key = \$1 OFS \$2 OFS \$3
 
-                    if (!(key in seen)) {
-                        seen[key] = 1
-                        chrom[key] = \$1
-                        start[key] = \$2
-                        end[key] = \$3
-                        order[++n_intervals] = key
+                    if (have_key && key != previous_key) {
+                        print previous_chrom,
+                            previous_start,
+                            previous_end,
+                            weighted_sum
+
+                        weighted_sum = 0
                     }
 
-                    weighted_sum[key] += \$7 * \$8
+                    if (!have_key || key != previous_key) {
+                        previous_key = key
+                        previous_chrom = \$1
+                        previous_start = \$2
+                        previous_end = \$3
+                        have_key = 1
+                    }
+
+                    weighted_sum += \$7 * \$8
                 }
 
                 END {
-                    for (i = 1; i <= n_intervals; i++) {
-                        key = order[i]
-
-                        print chrom[key],
-                            start[key],
-                            end[key],
-                            weighted_sum[key] + 0
+                    if (have_key) {
+                        print previous_chrom,
+                            previous_start,
+                            previous_end,
+                            weighted_sum
                     }
                 }
             '
@@ -90,58 +97,93 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
     # Process each workload file independently in a loop
     # -------------------------------------------------------------
 
-    : > workload.contributions.bed
+    {
+        for workload in ${workload_files.join(' ')}; do
+            case "\${workload}" in
 
-    for workload in ${workload_files.join(' ')}; do
-        case "\${workload}" in
+                *.crai)
+                    awk '
+                        BEGIN {
+                            OFS = "\\t"
+                        }
 
-           *.crai)
-                awk '
-                    BEGIN { OFS = "\\t" }
-                    NR == FNR { ref[NR - 1] = \$1; next }
+                        NR == FNR {
+                            ref[NR - 1] = \$1
+                            next
+                        }
 
-                    \$1 >= 0 {
-                        start = \$2 - 1
-                        print ref[\$1], start, start + \$3, \$6 / \$3
-                    }
-                ' ${ref_genome}.fai <(gzip -cd "\${workload}") |
-                    project_workload \
-                    >> workload.contributions.bed
-                ;;
+                        \$1 >= 0 {
+                            start = \$2 - 1
+                            print ref[\$1], start, start + \$3, \$6 / \$3
+                        }
+                    ' ${ref_genome}.fai <(gzip -cd "\${workload}") |
+                        project_workload
+                    ;;
 
-            *.bed.gz)
-                tabix -R intervals.bed "\${workload}" |
-                    project_workload \
-                    >> workload.contributions.bed
-                ;;
-            *)
-                echo "ERROR: Unsupported workload input: \${workload}" >&2
-                exit 1
-                ;;
-        esac
-    done
+                *.bed.gz)
+                    tabix -R intervals.bed "\${workload}" |
+                        project_workload
+                    ;;
+
+                *)
+                    echo "ERROR: Unsupported workload input: \${workload}" >&2
+                    exit 1
+                    ;;
+            esac
+        done
+    } |
+        awk '
+            BEGIN {
+                OFS = "\\t"
+            }
+
+            {
+                key = \$1 OFS \$2 OFS \$3
+
+                if (!(key in seen)) {
+                    seen[key] = 1
+                    chrom[key] = \$1
+                    start[key] = \$2
+                    end[key] = \$3
+                    order[++n_intervals] = key
+                }
+
+                total[key] += \$4
+            }
+
+            END {
+                for (i = 1; i <= n_intervals; i++) {
+                    key = order[i]
+                    print chrom[key], start[key], end[key], total[key]
+                }
+            }
+        ' \
+        > workload.summed.unsorted.bed
 
     # -------------------------------------------------------------
-    # Sum contributions across workload files and calculate the
-    # mean workload per base
+    # Sort final output and restore zero workload intervals
     # -------------------------------------------------------------
 
     bedtools sort \
         -faidx ${ref_genome}.fai \
-        -i workload.contributions.bed |
-        bedtools merge \
-            -d -1 \
-            -c 4 \
-            -o sum |
+        -i workload.summed.unsorted.bed \
+        > workload.summed.bed
+
+    bedtools map \
+        -sorted \
+        -g ${ref_genome}.fai \
+        -a intervals.bed \
+        -b workload.summed.bed \
+        -c 4 \
+        -o sum \
+        -null 0 |
         awk -v n_workloads="\${n_workloads}" '
             BEGIN {
                 OFS = "\\t"
             }
 
             {
-                interval_length = \$3 - \$2
-                mean_workload = \$4 / (interval_length * n_workloads)
-
+                mean_workload = \$4 / ((\$3 - \$2) * n_workloads)
                 print \$1, \$2, \$3, mean_workload
             }
         ' \

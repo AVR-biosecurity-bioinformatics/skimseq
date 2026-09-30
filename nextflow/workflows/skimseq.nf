@@ -3,7 +3,7 @@
 // Import subworkflows
 include { ALIGNMENT                                                 } from '../subworkflows/alignment'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
-//include { GATK_CALLING                                              } from '../subworkflows/gatk_calling'
+include { GATK_CALLING                                              } from '../subworkflows/gatk_calling'
 include { BCFTOOLS_CALLING                                          } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
@@ -357,55 +357,8 @@ workflow SKIMSEQ {
     
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_new_gvcf = channel.empty()
-    //if (params.variant_caller == "bcftools"){
-//
-    //    BCFTOOLS_CALLING (
-    //        ch_sample_names,
-    //        ALIGNMENT.out.cram,
-    //        ch_genome_indexed,
-    //        ch_include_bed,
-    //        ch_mask_bed_genotype,
-    //        ch_genome_depths,
-    //        ch_popmap
-    //    )
-//
-    //    // Main chunked VCF output
-    //    BCFTOOLS_CALLING.out.vcf
-    //        .set{ ch_unfiltered_vcfs }
-    //    
-    //    // For publishing only
-    //    BCFTOOLS_CALLING.out.merged_unfiltered_vcf
-    //        .set{ ch_merged_unfiltered_vcf }
-//
-    //} else if ( params.variant_caller == "gatk" ){
-//
-    //    // Single sample calling with haplotypecaller
-    //    GATK_CALLING (
-    //        ch_sample_names,
-    //        ALIGNMENT.out.cram,
-    //        ch_reads_grouped,
-    //        ch_genome_indexed,
-    //        ch_include_bed,
-    //        ch_mask_bed_genotype,
-    //        ch_genome_depths,
-    //        ch_long_bed,
-    //        ch_short_bed
-    //    )
-//
-    //    // Main chunked VCF output
-    //    GATK_CALLING.out.vcf
-    //        .set{ ch_unfiltered_vcfs }
-//
-    //    // For publishing only
-    //    GATK_CALLING.out.merged_unfiltered_vcf
-    //        .set{ ch_merged_unfiltered_vcf }
-//
-    //    GATK_CALLING.out.new_gvcf
-    //        .set { ch_new_gvcf }
-    //}  
-
-    // TESTING
-            BCFTOOLS_CALLING (
+    if (params.variant_caller == "bcftools"){
+        BCFTOOLS_CALLING (
             ALIGNMENT.out.cram,
             ch_genome_indexed,
             ch_include_bed,
@@ -419,11 +372,41 @@ workflow SKIMSEQ {
         // Main chunked VCF output
         BCFTOOLS_CALLING.out.vcf
             .set{ ch_unfiltered_vcfs }
-        
+
         // For publishing only
         BCFTOOLS_CALLING.out.merged_unfiltered_vcf
             .set{ ch_merged_unfiltered_vcf }
 
+    } else if ( params.variant_caller == "gatk" ){
+
+        // Single sample calling with haplotypecaller
+        GATK_CALLING (
+            ch_sample_names,
+            ALIGNMENT.out.cram,
+            ch_reads_grouped,
+            ch_genome_indexed,
+            ch_include_bed,
+            ch_mask_bed_genotype,
+            ch_genome_depths,
+            ch_long_bed,
+            ch_short_bed,
+            ch_cohort_size,
+            ch_cohort_size,
+            ch_dummy_file
+
+        )
+        
+        // Main chunked VCF output
+        GATK_CALLING.out.vcf
+            .set{ ch_unfiltered_vcfs }
+
+        // For publishing only
+        GATK_CALLING.out.merged_unfiltered_vcf
+            .set{ ch_merged_unfiltered_vcf }
+
+        GATK_CALLING.out.new_gvcf
+            .set { ch_new_gvcf }
+    }  
 
     /*
     Filter SNPs, INDELs, and invariant sites

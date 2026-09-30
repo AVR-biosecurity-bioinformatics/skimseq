@@ -7,7 +7,7 @@ include { EXTRACT_GENOME_MASKS                                      } from '../m
 include { GENMAP                                                    } from '../modules/genmap/genmap' 
 include { LONGDUST                                                  } from '../modules/longdust/longdust'
 include { NUMT_MASK                                                 } from '../modules/numt_mask/numt_mask'
-include { MERGE_MASKS                                               } from '../modules/merge_masks/merge_masks' 
+include { COMBINE_BEDS as COMBINE_MASKS                             } from '../modules/combine_beds/combine_beds' 
 include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks/summarise_masks' 
 
 workflow MASK_GENOME {
@@ -71,15 +71,20 @@ workflow MASK_GENOME {
       .set{ ch_mask_bed }
 
     // Merge all masks
-    MERGE_MASKS (
-        ch_mask_bed
+    COMBINE_MASKS (
+        ch_mask_bed,
+        ch_genome_indexed,
+        true,
+        0,
+        4,
+        "distinct"
     )
-    
+
     // Summarise masks
     SUMMARISE_MASKS (
         ch_genome_indexed,
         ch_include_bed,
-        MERGE_MASKS.out.merged_masks
+        COMBINE_MASKS.out.bed
     )
 
     // Get total number of included bases - used later for chunking
@@ -89,7 +94,7 @@ workflow MASK_GENOME {
         }
 
     emit: 
-    mask_bed = MERGE_MASKS.out.merged_masks
+    mask_bed = COMBINE_MASKS.out.bed
     numt_mask_bed = NUMT_MASK.out.mask_bed
     mask_summary = SUMMARISE_MASKS.out.mask_summary
     mask_summary_bed = SUMMARISE_MASKS.out.mask_summary_bed
