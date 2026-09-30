@@ -114,10 +114,10 @@
       "description": "Controls for dividing reads, genomic intervals, genotypes and variants into chunks.",
       "type": "object",
       "properties": {
-        "hc_bases_per_chunk": {
+        "hc_target_sample_bases": {
           "type": "integer",
           "default": 100000000,
-          "description": "Approximate aligned bases per GATK HaplotypeCaller interval.",
+          "description": "Initial estimate of HaplotypeCaller chunk count from cohort size * genomic bases, then balances intervals by projected workload.",
           "minimum": 1
         },
         "hc_chunks_per_jc": {
@@ -126,16 +126,16 @@
           "description": "Number of haplotypecaller chunks per joint calling step.",
           "minimum": 1
         },
-        "mp_bases_per_chunk": {
+        "mp_target_sample_bases": {
           "type": "integer",
           "default": 250000000,
-          "description": "Approximate aligned bases per bcftools mpileup interval.",
+          "description": "Initial estimate of mpileup chunk count from cohort size * genomic bases, then balances intervals by projected workload.",
           "minimum": 1
         },
-        "mito_bases_per_chunk": {
+        "mito_target_sample_bases": {
           "type": "integer",
           "default": 100000000,
-          "description": "Approximate aligned bases per mito pileup interval.",
+          "description": "Initial estimate of mito chunk count from cohort size * genomic bases, then balances intervals by projected workload.",
           "minimum": 1
         },
         "split_large_intervals": {

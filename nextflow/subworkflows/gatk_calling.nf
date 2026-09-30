@@ -26,7 +26,7 @@ workflow GATK_CALLING {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
-    ch_read_counts
+    ch_genome_depths
     ch_long_bed
     ch_short_bed
     
@@ -130,23 +130,7 @@ workflow GATK_CALLING {
     /* 
         Create interval chunks
     */
-
-    // Use all samples contributing to this cohort, not just those with no existing bed
-    ch_read_counts
-        .map { _sample, starch -> starch }
-        .toList()
-        .filter { archives -> !archives.isEmpty() }
-        .set { ch_hc_events }
-
-    // Combine read counts - zero fill = true to ensure compatibility with later gatk JC steps
-    COMBINE_MOSDEPTH_EVENTS(
-        ch_genome_indexed,
-        ch_include_bed.first(),
-        ch_mask_bed_genotype,
-        ch_hc_events,
-        "true"
-    )
-
+    
     // First split bed by chr    
     // These must already contain full-contig coordinates.
     SPLIT_BED_BY_CHR(ch_long_bed.first())

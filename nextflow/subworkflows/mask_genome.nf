@@ -81,13 +81,20 @@ workflow MASK_GENOME {
         ch_include_bed,
         MERGE_MASKS.out.merged_masks
     )
-    
+
+    // Get total number of included bases - used later for chunking
+    ch_included_bases = SUMMARISE_MASKS.out.included_bases
+        .map { included_bases_file ->
+            included_bases_file.text.trim().toLong()
+        }
+
     emit: 
     mask_bed = MERGE_MASKS.out.merged_masks
     numt_mask_bed = NUMT_MASK.out.mask_bed
     mask_summary = SUMMARISE_MASKS.out.mask_summary
     mask_summary_bed = SUMMARISE_MASKS.out.mask_summary_bed
     mask_pass_bed = SUMMARISE_MASKS.out.mask_pass_bed
+    ch_included_bases = ch_included_bases
 
 
 }

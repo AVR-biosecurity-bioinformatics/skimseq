@@ -14,7 +14,6 @@ workflow ALIGNMENT {
     ch_sample_names
     ch_reads_grouped
     ch_genome_indexed
-    ch_exclude_bed
 
     main: 
 
@@ -25,7 +24,7 @@ workflow ALIGNMENT {
     ).first()
     
     /* 
-        Find and validate any pre-existing crams, these will be skipped
+        Find and validate any pre-existing crams, these will be skipped from alignment
         To pass validation the CRAM readgroups must contain all FASTQ readgroups for that sample
     */
     
@@ -111,7 +110,7 @@ workflow ALIGNMENT {
     }
 
 
-    // Filter the reads to only those samples who dont already have a validated cram - only these will be mapped
+    // Filter the reads to only those samples who dont already have a validated cram - only these will be aligned
     ch_reads_grouped
         .combine(ch_cram_done)
         .filter { sample, _libs, _source, _input1s, _input2s, _local_r1s, _local_r2s, done_set -> !(done_set as Set).contains(sample)}
@@ -119,7 +118,7 @@ workflow ALIGNMENT {
         .set { ch_reads_to_map }
 
     /*
-    * Run remote samples first, followed by the largest local samples.
+     Order tuple so remote samples processed first, followed by the largest to smallest local samples.
     */
     ch_reads_to_map
         .map { sample, libs, source, input1s, input2s, local_r1s, local_r2s ->
@@ -155,10 +154,11 @@ workflow ALIGNMENT {
         .set { ch_reads_grouped_by_sample }
 
     /* 
-        Read mapping
+        Pre-process and align reads to genome
+        This is handled in single mapping step
     */
 
-    // Align reads to genome, input is all libraries and reads per sample
+    // Input is all libraries and reads per-sample
     // Output is sample-level cram, no merging required
     MAP_TO_GENOME (
         ch_reads_grouped_by_sample,
@@ -167,6 +167,7 @@ workflow ALIGNMENT {
     )
 
     // Print warning if any files had different numbers of forward and reverse reads
+    // This catches corrupted FASTQs - but continues without breaking
     MAP_TO_GENOME.out.fastq_warnings
         .map { sample, warning_file ->
             tuple(
@@ -180,18 +181,18 @@ workflow ALIGNMENT {
             )
         }
     
-    // Combine pre-validated crams with newly mapped crams
+    // Combine pre-validated crams with newly generated crams
     ch_validated_cram
         .mix(MAP_TO_GENOME.out.cram)
         .distinct { sample, _cram, _crai -> sample }
         .set { ch_sample_cram }
 
-    // Helper process to stage intermediate CRAMs 
+    // Helper process to stage intermediate CRAMs - Handles resume issues
     STAGE_CRAM(
         ch_sample_cram
     )
 
-    // Count per-base depths in all crams, used for masking and creating interval chunks
+    // Count per-base read depths in all crams, used for masking and creating interval chunks
     COUNT_CRAM_PERBASE (
         STAGE_CRAM.out.cram,
         ch_genome_indexed
@@ -205,7 +206,7 @@ workflow ALIGNMENT {
     cram = STAGE_CRAM.out.cram
     new_cram = ch_new_cram
     perbase = COUNT_CRAM_PERBASE.out.perbase
-    events = COUNT_CRAM_PERBASE.out.events
+    events = COUNT_CRAM_PERBASE.out.perbase
 
 }
 

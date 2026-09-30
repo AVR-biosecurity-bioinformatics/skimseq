@@ -1,176 +1,185 @@
 process CREATE_INTERVAL_CHUNKS {
-    tag { keep_whole_contigs ? "whole-contigs" : "split-rle" }
+
+    tag "${n_chunks} workload-balanced chunks"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(include_bed)
-    path(cohort_rle)
-    val(counts_per_chunk)
-    val(min_interval_gap)
-    val(keep_whole_contigs)
+    path workload_bed
+    val n_chunks
+    val min_interval_gap
 
     output:
-    tuple val(include_bed.baseName),
+    tuple val(workload_bed.baseName),
         path("chunks/*.bed.gz"),
         path("chunks/*.bed.gz.tbi"),
-        emit: interval_bed,
-        optional: true
+        emit: interval_bed
 
     script:
     """
-    #!/usr/bin/env bash
     set -euo pipefail
 
     mkdir -p raw chunks
 
-    if (( ${counts_per_chunk} <= 0 )); then
-        echo "counts_per_chunk must be greater than zero" >&2
+    if (( ${n_chunks} < 1 )); then
+        echo "ERROR: n_chunks must be greater than zero" >&2
         exit 1
     fi
 
     if (( ${min_interval_gap} < 0 )); then
-        echo "min_interval_gap must be zero or greater" >&2
+        echo "ERROR: min_interval_gap must be zero or greater" >&2
         exit 1
     fi
 
-    if [[ "${keep_whole_contigs}" != "true" &&
-          "${keep_whole_contigs}" != "false" ]]; then
-        echo "keep_whole_contigs must be true or false" >&2
+    if [[ ! -s ${workload_bed} ]]; then
+        echo "ERROR: Workload BED is empty: ${workload_bed}" >&2
         exit 1
     fi
 
-    # Input BED4: chrom, start, end, constant cohort depth.
-    # Raw output BED4: chrom, start, end, summed workload.
-    unstarch "${cohort_rle}" \
-        | bedtools intersect \
-            -a stdin \
-            -b "${include_bed}" \
-            -u \
-        | awk -v target="${counts_per_chunk}" \
-            -v whole="${keep_whole_contigs}" '
-            BEGIN {
-                OFS = "\\t"
-                chunk = 1
-                load = 0
-            }
+    # Input BED4:
+    #   chrom  start  end  workload_per_base
+    # Total workload:
+    #   sum((end - start) * workload_per_base)
 
-            function filename() {
-                return sprintf("raw/%08d.bed", chunk)
-            }
-
-            function next_chunk() {
-                close(filename())
-                chunk++
-                load = 0
-            }
-
-            function write_span(chr, start, end, weight) {
-                printf "%s\\t%d\\t%d\\t%.0f\\n",
-                    chr, start, end, weight >> filename()
-            }
-
-            function finish_contig() {
-                if (!have_contig)
-                    return
-
-                # Never split a contig in whole-contig mode.
-                # An overweight contig occupies a chunk by itself.
-                if (load > 0 && load + contig_weight > target)
-                    next_chunk()
-
-                write_span(contig, 0, contig_end, contig_weight)
-                load += contig_weight
-            }
-
+    read -r total_bases total_workload < <(
+        awk '
             {
-                chr = \$1
-                start = \$2 + 0
-                end = \$3 + 0
-                depth = \$4 + 0
+                total_bases += \$3 - \$2
+                total_workload += (\$3 - \$2) * \$4
+            }
 
-                if (NF != 4 || start < 0 || end <= start || depth < 0) {
-                    print "Invalid cohort RLE row: " \$0 > "/dev/stderr"
-                    failed = 1
-                    exit 1
-                }
+            END {
+                print total_bases, total_workload
+            }
+        ' ${workload_bed}
+    )
 
-                if (whole == "true") {
-                    if (!have_contig || chr != contig) {
-                        finish_contig()
+    if (( ${n_chunks} > total_bases )); then
+        echo "ERROR: Cannot create ${n_chunks} non-empty chunks from \${total_bases} bases" >&2
+        exit 1
+    fi
 
-                        contig = chr
-                        contig_end = 0
-                        contig_weight = 0
-                        have_contig = 1
-                    }
+    # Use workload for balancing when non-zero workload exists.
+    # Otherwise, fall back to balancing by included sequence length.
 
-                    # Zero-filled RLE must cover the contig
-                    # continuously from position 0.
-                    if (start != contig_end) {
-                        print "RLE is not continuous on " chr \
-                            " at position " start > "/dev/stderr"
-                        failed = 1
-                        exit 1
-                    }
+    awk \
+        -v n_chunks="${n_chunks}" \
+        -v total_bases="\${total_bases}" \
+        -v total_workload="\${total_workload}" '
+        BEGIN {
+            OFS = "\\t"
 
-                    contig_weight += (end - start) * depth
-                    contig_end = end
-                    next
-                }
+            use_workload = total_workload > 0
+            target = use_workload \
+                ? total_workload / n_chunks \
+                : total_bases / n_chunks
 
-                # Split mode: include explicit zero-depth spans
-                # without adding to the chunk workload.
-                if (depth == 0) {
-                    write_span(chr, start, end, 0)
-                    next
-                }
+            chunk = 1
+            chunk_load = 0
+        }
 
-                pos = start
+        function filename() {
+            return sprintf("raw/%08d.bed", chunk)
+        }
 
-                while (pos < end) {
-                    if (load >= target)
-                        next_chunk()
+        function next_chunk() {
+            close(filename())
+            chunk++
+            chunk_load = 0
+        }
 
-                    bases = int((target - load) / depth)
+        function write_span(chrom, start, end, workload) {
+            print chrom, start, end, workload >> filename()
+        }
+
+        {
+            chrom = \$1
+            start = \$2 + 0
+            end = \$3 + 0
+            workload_per_base = \$4 + 0
+
+            if (NF != 4 ||
+                start < 0 ||
+                end <= start ||
+                workload_per_base < 0) {
+
+                print "ERROR: Invalid workload BED4 row: " \$0 \
+                    > "/dev/stderr"
+
+                failed = 1
+                exit 1
+            }
+
+            metric_per_base = use_workload \
+                ? workload_per_base \
+                : 1
+
+            pos = start
+
+            while (pos < end) {
+                if (chunk == n_chunks) {
+                    bases = end - pos
+                } else if (metric_per_base == 0) {
+                    bases = end - pos
+                } else {
+                    remaining_load = target - chunk_load
+                    bases = int(remaining_load / metric_per_base)
 
                     if (bases < 1) {
-                        if (load > 0) {
+                        if (chunk_load > 0) {
                             next_chunk()
                             continue
                         }
 
-                        # Even one base exceeds the target.
                         bases = 1
                     }
 
-                    if (bases > end - pos)
+                    if (bases > end - pos) {
                         bases = end - pos
+                    }
+                }
 
-                    weight = bases * depth
-                    write_span(chr, pos, pos + bases, weight)
+                span_workload = bases * workload_per_base
 
-                    pos += bases
-                    load += weight
+                write_span(chrom, pos, pos + bases, span_workload)
+
+                pos += bases
+                chunk_load += bases * metric_per_base
+
+                if (chunk < n_chunks &&
+                    chunk_load >= target &&
+                    pos < end) {
+
+                    next_chunk()
                 }
             }
+        }
 
-            END {
-                if (failed)
-                    exit 1
-
-                if (whole == "true")
-                    finish_contig()
-
-                close(filename())
+        END {
+            if (failed) {
+                exit 1
             }
-        '
+
+            close(filename())
+
+            if (chunk != n_chunks) {
+                printf "ERROR: Generated %d chunks instead of %d. The workload may be too concentrated to divide at base resolution.\\n", chunk, n_chunks > "/dev/stderr"
+                exit 1
+            }
+        }
+    ' ${workload_bed}
 
     shopt -s nullglob
     raw_files=(raw/*.bed)
     shopt -u nullglob
 
+    if (( \${#raw_files[@]} != ${n_chunks} )); then
+        echo "ERROR: Expected ${n_chunks} chunks, found \${#raw_files[@]}" >&2
+        exit 1
+    fi
+
     for raw_bed in "\${raw_files[@]}"; do
-        chunk_id=\$(basename "\$raw_bed" .bed)
+        chunk_id=\$(basename "\${raw_bed}" .bed)
 
         read -r first_chr first_start last_chr last_end < <(
             awk '
@@ -185,30 +194,42 @@ process CREATE_INTERVAL_CHUNKS {
                 }
 
                 END {
-                    if (NR > 0)
-                        print first_chr, first_start, last_chr, last_end
+                    print first_chr,
+                          first_start,
+                          last_chr,
+                          last_end
                 }
-            ' "\$raw_bed"
+            ' "\${raw_bed}"
         )
 
         name="\${chunk_id}_\${first_chr}_\${first_start}_\${last_chr}_\${last_end}"
-        out="chunks/\${name}.bed.gz"
+        output_bed="chunks/\${name}.bed.gz"
 
-        if [[ "${keep_whole_contigs}" == "true" ]]; then
-            # Raw BED already has exactly one full-length row
-            # per contig. Do not merge or split those rows.
-            bgzip -c "\$raw_bed" > "\$out"
-        else
-            # Merge nearby pieces within this chunk and sum weights.
-            bedtools merge \\
-                -i "\$raw_bed" \\
-                -d ${min_interval_gap} \\
-                -c 4 \\
-                -o sum |
-                bgzip -c > "\$out"
-        fi
+        bedtools merge \
+            -i "\${raw_bed}" \
+            -d ${min_interval_gap} \
+            -c 4 \
+            -o sum |
+            bgzip -c \
+            > "\${output_bed}"
 
-        tabix -p bed "\$out"
+        tabix -p bed "\${output_bed}"
+
+        # Report included territory and estimated workload.
+        read -r bases workload < <(
+            gzip -cd "\${output_bed}" |
+                awk '
+                    {
+                        bases += \$3 - \$2
+                        workload += \$4
+                    }
+
+                    END {
+                        print bases + 0, workload + 0
+                    }
+                '
+        )
+        echo "\${name}: \${bases} genomic bases, \${workload} total workload"
     done
     """
 }

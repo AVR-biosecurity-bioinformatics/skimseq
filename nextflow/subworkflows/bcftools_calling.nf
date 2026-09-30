@@ -1,52 +1,86 @@
 /*
-    Genotype samples using GATK
+    Genotype samples using bcftools
 */
 
 //// import modules
 include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
-include { COMBINE_MOSDEPTH_EVENTS                                } from '../modules/combine_mosdepth_events/combine_mosdepth_events'
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks/create_interval_chunks'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_CRAI  } from '../modules/create_interval_chunks/create_interval_chunks'
+include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_CRAI          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
+include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_MOSDEPTH      } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
 include { MPILEUP                                                } from '../modules/mpileup/mpileup'
 
 workflow BCFTOOLS_CALLING {
 
     take:
-    ch_sample_names
     ch_sample_cram
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
-    ch_read_counts
+    ch_genome_depths
     ch_popmap
+    ch_cohort_size
+    ch_included_bases
 
     main: 
 
+    // Calculate nchunks
+    ch_n_chunks = ch_cohort_size
+        .combine(ch_included_bases)
+        .map { cohort_size, included_bases ->
+            long total_bases =
+                (cohort_size as long) * (included_bases as long)
+
+            long bases_per_chunk =
+                params.mp_target_sample_bases as long
+
+            Math.max(
+                1,
+                ((total_bases + bases_per_chunk - 1) / bases_per_chunk) as int
+            )
+        }
+
+
     /* 
-       Create groups of genomic intervals for parallel genotyping
+       Create groups of genomic intervals for parallel calling
     */
 
-    ch_read_counts
-        .map { _sample, starch -> starch }
-        .toList()
-        .filter { archives -> !archives.isEmpty() }
-        .set { ch_events }
+    ch_mosdepth_workload_inputs = ch_genome_depths
+        .flatMap { _sample, workload_bed, workload_index ->
+        [workload_bed, workload_index]
+        }
+        .collect()
 
-    COMBINE_MOSDEPTH_EVENTS(
-        ch_genome_indexed,
-        ch_include_bed.first(),
+    PROJECT_MOSDEPTH(
+        ch_mosdepth_workload_inputs,
+        ch_include_bed,
         ch_mask_bed_genotype,
-        ch_events,
-        "false"
+        ch_genome_indexed
     )
 
-    // cohort_rle.bed column 4 is depth per base.
-    // CREATE_INTERVAL_CHUNKS_MP calculates the weight of each emitted span.
-    CREATE_INTERVAL_CHUNKS_MP(
+    ch_crai_workload_inputs = ch_sample_cram
+        .map { _sample, _cram, crai ->
+        crai
+        }
+        .collect()
+
+    PROJECT_CRAI(
+        ch_crai_workload_inputs,
         ch_include_bed,
-        COMBINE_MOSDEPTH_EVENTS.out.rle,
-        params.mp_bases_per_chunk,
-        params.min_interval_gap,
-        false
+        ch_mask_bed_genotype,
+        ch_genome_indexed
+    )
+
+    CREATE_INTERVAL_CHUNKS_MP(
+        PROJECT_MOSDEPTH.out.bed,
+        ch_n_chunks,
+        params.min_interval_gap
+    )
+
+    CREATE_INTERVAL_CHUNKS_CRAI(
+        PROJECT_CRAI.out.bed,
+        ch_n_chunks,
+        params.min_interval_gap
     )
 
     CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
@@ -94,13 +128,10 @@ workflow BCFTOOLS_CALLING {
         .set { ch_cram_interval }
 
     /* 
-       Call variants per sample
+       Joint call variants per chunk
     */
 
-    // Calculate cohort size for memory scaling
-    ch_cohort_size = ch_sample_names.unique().count()
-
-    // call variants for single samples across intervals
+    // Joint calling using mpileup
     MPILEUP (
         ch_cram_interval,
         ch_genome_indexed,
@@ -109,6 +140,7 @@ workflow BCFTOOLS_CALLING {
         ch_mask_bed_genotype
     )
     
+    // Merged unfiltered VCF outputs - just used for publishing
     ch_merged_unfiltered_vcf = channel.empty()
     if ( params.output_unfiltered_vcf ){
         // TODO: Make this output seperate files for each variant type

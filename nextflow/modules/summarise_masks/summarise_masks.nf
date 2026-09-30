@@ -9,8 +9,9 @@ process SUMMARISE_MASKS {
 
     output: 
     tuple path("mask_summary.bed.gz"), path("mask_summary.bed.gz.tbi"),    emit: mask_summary_bed
-    tuple path("mask_pass.bed.gz"), path("mask_pass.bed.gz.tbi"),    emit: mask_pass_bed
-    path("mask_summary.txt"),              emit: mask_summary
+    tuple path("mask_pass.bed.gz"), path("mask_pass.bed.gz.tbi"),          emit: mask_pass_bed
+    path("mask_summary.txt"),                                              emit: mask_summary
+    path "included_bases.txt",                                             emit: included_bases
 
     script:
     """
@@ -38,6 +39,11 @@ process SUMMARISE_MASKS {
         -b excluded_intervals.bed \
         | awk 'BEGIN {OFS="\\t"} {print \$1, \$2, \$3, "Included"}' \
         > retained_intervals.bed
+
+    # Sum of included bases
+    awk '{ total += \$3 - \$2 } END { print total + 0 }' \
+        retained_intervals.bed \
+        > included_bases.txt
 
     # Label everything outside the explicit masks and retained intervals as excluded.
     cat excluded_intervals.bed retained_intervals.bed \
@@ -73,6 +79,7 @@ process SUMMARISE_MASKS {
         ' \
         | sort -k1,1 \
         > mask_summary.txt
+
     """
   
 }

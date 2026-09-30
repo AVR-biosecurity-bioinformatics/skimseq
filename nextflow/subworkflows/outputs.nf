@@ -86,12 +86,13 @@ workflow OUTPUTS {
     //     .filter { record -> record[0] == 'invariant' }
     //     .first()
     //     .set { ch_final_inv }
+    
     /* 
         Create outputs
     */
 
 
-    // Create channel containing filtered VCF along with seperate SNP and INDEL vcf
+    // Create channel containing merged VCF along with seperate SNP- and INDEL-only vcfs
     ch_final_all
         .mix(ch_final_snp, ch_final_indel)
         .set{ ch_final_vcfs }
@@ -152,7 +153,7 @@ workflow OUTPUTS {
         ch_popmap
     )
 
-    // Create NJ tree
+    // Create NJ tree from distance matrix
     PLOT_TREE (
         PLINK_DIST.out.mat,
         ch_popmap

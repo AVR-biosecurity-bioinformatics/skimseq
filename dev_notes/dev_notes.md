@@ -315,7 +315,7 @@ nextflow run . \
 squeue     --user "$USER"     --format='%i|%T|%j|%R' | grep 'MAP_TO_GENOME'
 
 # Slect job_id
-job_id=21074658
+job_id=37691549
 
 node=$(squeue -h -j "$job_id" -o '%N')
 
@@ -360,4 +360,9 @@ fi
         sort -k2,2nr
 }
 REMOTE
+
+# Go inside running job on compute node
+srun --jobid=$job_id --pty /bin/bash
+cd $TMPDIR
+
 ```

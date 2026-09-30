@@ -33,10 +33,10 @@ params {
     skip_gvcf_validation: Boolean = false               // Whether validation of existing gvcf should be skipped
 
     // Parallelisation
-    hc_bases_per_chunk: Integer = 100_000_000           // Create GATK HaplotypeCaller intervals containing approximately this many aligned bases
-    hc_chunks_per_jc: Integer = 20                      // Create GATK GenotypeGVCFs intervals by merging this many hc chunks
-    mp_bases_per_chunk: Integer = 250_000_000           // Create bcftools mpileup intervals containing approximately this many aligned bases
-    mito_bases_per_chunk: Integer = 100_000_000         // Create mito intervals containing approximately this many aligned bases
+    hc_target_sample_bases: Integer = 100_000_000       // Initial estimate of HaplotypeCaller chunk count from cohort size * genomic bases, then balances intervals by projected workload.
+    hc_chunks_per_jc: Integer = 20                      // Number of HaplotypeCaller chunks combined into each GenotypeGVCFs joint-calling chunk.
+    mp_target_sample_bases: Integer = 250_000_000       // Initial estimate of mpileup chunk count from cohort size * genomic bases, then balances intervals by projected workload.
+    mito_target_sample_bases: Integer = 100_000_000     // Initial estimate of Mito chunk count from cohort size * genomic bases, then balances intervals by projected workload.
     split_large_intervals: Boolean = true               // Split any intervals that are over hc_bases_per_chunk. Makes more even intervals at risk of artefacts near interval end
     min_interval_gap: Integer = 100                     // Minimum gap of missing data (N or no reads) between intervals to consider them separate interval
 
@@ -92,7 +92,6 @@ params {
     output_indel: Boolean = true                       // Whether to output indel sites
     output_invariant: Boolean = false                  // Whether to output invariant sites
 	
-
     // GATK-specific parameters
     hc_interval_padding: Integer = 100                 // Pad intervals by this many bases for genotyping
     hc_min_pruning: Integer = 2                        // Minimum read support (dp) to retain paths in the assembly graph. Smaller number increases sensitivity at expense of false positives

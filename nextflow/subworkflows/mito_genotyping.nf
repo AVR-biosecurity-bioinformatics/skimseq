@@ -7,9 +7,6 @@ include { REALIGN_MITO                                           } from '../modu
 include { REALIGN_MITO as REALIGN_MITO_SHIFTED                   } from '../modules/realign_mito/realign_mito'
 include { PILEUP_MITO                                            } from '../modules/pileup_mito/pileup_mito'
 include { PILEUP_MITO as PILEUP_MITO_SHIFTED                     } from '../modules/pileup_mito/pileup_mito'
-include { COMBINE_MOSDEPTH_EVENTS as COMBINE_MITO_EVENTS         } from '../modules/combine_mosdepth_events/combine_mosdepth_events'
-include { COMBINE_MOSDEPTH_EVENTS as COMBINE_MITO_EVENTS_SHIFTED } from '../modules/combine_mosdepth_events/combine_mosdepth_events'
-include { SHIFT_MITO_RLE                                         } from '../modules/shift_mito_rle/shift_mito_rle'
 include { CREATE_INTERVAL_CHUNKS as CREATE_MITO_CHUNKS           } from '../modules/create_interval_chunks/create_interval_chunks'
 include { CREATE_INTERVAL_CHUNKS as CREATE_MITO_CHUNKS_SHIFTED   } from '../modules/create_interval_chunks/create_interval_chunks'
 include { CONSENSUS_MITO                                         } from '../modules/consensus_mito/consensus_mito'
@@ -24,10 +21,27 @@ workflow MITO_GENOTYPING {
     ch_mito_bed
     ch_mito_shifted_bed
     ch_numt_bed
-    ch_read_counts
-    ch_dummy_file
-   
+    ch_cohort_size
+    ch_mito_included_bases
+
     main: 
+    // Calculate cohort size for memory scaling of mpileup
+    // Also calculate number of chunks to split the job into
+    ch_mito_n_chunks = ch_cohort_size
+        .combine(ch_mito_included_bases)
+        .map { cohort_size, included_bases ->
+            long total_bases =
+                (cohort_size as long) * (included_bases as long)
+
+            long bases_per_chunk =
+                params.mito_target_sample_bases as long
+
+            Math.max(
+                1,
+                ((total_bases + bases_per_chunk - 1) / bases_per_chunk) as int
+            )
+        }
+
 
     /*
      * Realign to original mito reference
@@ -66,51 +80,15 @@ workflow MITO_GENOTYPING {
         .groupTuple(by: 0)
         .set { ch_shifted_mito_crams_grouped }
 
-    // For calculating chunks of original mitogenome
-    // Use pre-calculated mito depth from the WHOLE-GENOME reference 
-    ch_read_counts
-        .map { _sample, starch -> starch }
-        .toList()
-        .filter { archives -> !archives.isEmpty() }
-        .set { ch_mito_events }
+    /*
+      Create chunks for mito pileup
+    */
 
-    COMBINE_MITO_EVENTS(
-        ch_genome_indexed,
-        ch_mito_bed,
-        ch_dummy_file,
-        ch_mito_events,
-        true
-    )
-    
     CREATE_MITO_CHUNKS(
         ch_mito_bed,
-        COMBINE_MITO_EVENTS.out.rle.first(),
-        params.mito_bases_per_chunk,
-        0,
-        false
+        ch_mito_n_chunks,
+        0
     )
-
-    // For calculating chunks of shifted mitogenome
-    // Shift resulting bed from COMBINE_MITO_EVENTS
-
-    SHIFT_MITO_RLE(
-        COMBINE_MITO_EVENTS.out.rle,
-        ch_mito_indexed,
-        ch_shifted_mito_indexed,
-        params.mito_shift
-    )
-
-    CREATE_MITO_CHUNKS_SHIFTED(
-        ch_mito_shifted_bed,
-        SHIFT_MITO_RLE.out.rle,
-        params.mito_bases_per_chunk,
-        0,
-        false
-    )
-
-    /*
-     * Generate pileups
-     */
 
     // Pair each original-reference interval with the original-reference cohort.
     CREATE_MITO_CHUNKS.out.interval_bed
@@ -141,6 +119,11 @@ workflow MITO_GENOTYPING {
         }
         .set { ch_original_mito_pileup_inputs }
 
+    CREATE_MITO_CHUNKS_SHIFTED(
+        ch_mito_shifted_bed,
+        ch_mito_n_chunks,
+        0
+    )
     // Pair each shifted-reference interval with the shifted-reference cohort.
     CREATE_MITO_CHUNKS_SHIFTED.out.interval_bed
         .flatMap { _selector, beds, tbis ->
@@ -169,6 +152,10 @@ workflow MITO_GENOTYPING {
             tuple(label, chunk_id, bed, bed_tbi, samples, crams, crais)
         }
         .set { ch_shifted_mito_pileup_inputs }
+
+    /*
+      Generate pileups
+    */
 
     PILEUP_MITO(
         ch_original_mito_pileup_inputs,

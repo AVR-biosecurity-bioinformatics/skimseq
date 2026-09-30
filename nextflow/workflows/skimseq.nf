@@ -1,16 +1,16 @@
 
 
-//// import subworkflows
+// Import subworkflows
 include { ALIGNMENT                                                 } from '../subworkflows/alignment'
 include { MASK_GENOME                                               } from '../subworkflows/mask_genome'
-include { GATK_CALLING                                              } from '../subworkflows/gatk_calling'
+//include { GATK_CALLING                                              } from '../subworkflows/gatk_calling'
 include { BCFTOOLS_CALLING                                          } from '../subworkflows/bcftools_calling'
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
 include { QC                                                        } from '../subworkflows/qc'
 
-//// import modules
+// Import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito/index_mito'
 
@@ -30,7 +30,7 @@ workflow SKIMSEQ {
     Input channel parsing
     */    
 
-    // Check samplesheet was provided
+    // Check samplesheet was provided, otherwise fail
     if ( params.samplesheet ){
         ch_samplesheet = channel
             .fromPath (
@@ -41,7 +41,7 @@ workflow SKIMSEQ {
         println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
     }
     
-    // Parse input samplesheet
+    // Parse input samplesheet as per samplesheet schema
     ch_samplesheet = channel.fromList(
         samplesheetToList(
             params.samplesheet,
@@ -49,6 +49,7 @@ workflow SKIMSEQ {
         )
     )
 
+    // Process samplesheet and extract fields into tuple
     ch_samplesheet
         .map { sample, lib, pop, fwd, rev ->
             // sample is mandatory, schema fails if not present
@@ -64,7 +65,7 @@ workflow SKIMSEQ {
                 ? pop.toString().trim().replaceAll(/\s+/, '_')
                 : 'unknown'
 
-            // fwd is mandatory, schema fails if not provided
+            // fwd read is mandatory, schema fails if not provided
             fwd    = fwd.trim()
 
             // nf-schema may represent an empty value as [], null, or "".
@@ -72,6 +73,7 @@ workflow SKIMSEQ {
                 ? rev.toString().trim()
                 : ''
 
+            // Check if reads are remote sources (url or accession)
             def fwd_is_url = fwd ==~ /(?i)^(https?|ftp):\/\/.+/
             def rev_is_url = rev && rev ==~ /(?i)^(https?|ftp):\/\/.+/
 
@@ -83,6 +85,7 @@ workflow SKIMSEQ {
             def input2
             def local_reads
 
+            // Check remote formats
             if (fwd_is_accession) {
                 if (rev) {
                     error(
@@ -94,8 +97,7 @@ workflow SKIMSEQ {
                 input1      = fwd
                 input2      = ''
                 local_reads = []
-            }
-            else if (fwd_is_url) {
+            } else if (fwd_is_url) {
                 if (!rev_is_url) {
                     error(
                         "URL input for sample '${sample}' requires URLs in " +
@@ -106,8 +108,7 @@ workflow SKIMSEQ {
                 input1      = fwd
                 input2      = rev
                 local_reads = []
-            }
-            else {
+            } else {
                 if (!rev || rev_is_url || rev_is_accession) {
                     error(
                         "Local input for sample '${sample}' requires local " +
@@ -134,12 +135,12 @@ workflow SKIMSEQ {
         }
         .set { ch_samplesheet_parsed }
 
-    // Reads channel
+    // Create main reads channel
     ch_samplesheet_parsed
         .map { sample, lib, _pop, source, input1, input2, local_reads -> tuple(sample, lib, source, input1, input2, local_reads) }
         .set { ch_reads }
  
-    // Reads grouped by input sample
+    // Reads channel grouped by input sample - this is used for single step alignment
     ch_reads
         .groupTuple(by: 0)
         .map { sample, libs, sources, input1s, input2s, local_reads_groups ->
@@ -207,9 +208,8 @@ workflow SKIMSEQ {
         .map { sample, _lib, pop, _source, _r1, _r2, _local_reads -> tuple(sample, pop) }
         .set { ch_sample_pop }
 
-    // Validate that there are enough pops for calling_model
+    // If calling model is 'population', check that there are enough pops
     if( params.calling_model == 'population' ) {
-
         ch_sample_pop
             .map { _sample, pop -> pop }
             .unique()
@@ -231,6 +231,15 @@ workflow SKIMSEQ {
         .collectFile(name: 'popmap.tsv', newLine: false)
         .set { ch_popmap }
 
+
+    // Calculate cohort size
+    ch_cohort_size = ch_sample_names.unique().count()
+
+
+    /*
+    Nuclear genome indexing and interval creation
+    */
+
     // Reference genome channel
     if ( params.ref_genome ){
         ch_genome = channel
@@ -242,10 +251,6 @@ workflow SKIMSEQ {
         ch_genome = channel.empty()
     } 
 
-    /*
-    Process nuclear genome
-    */
-
     INDEX_GENOME (
         ch_genome, 
         params.min_chr_length
@@ -256,8 +261,7 @@ workflow SKIMSEQ {
     ch_long_bed = INDEX_GENOME.out.long_bed
     ch_short_bed = INDEX_GENOME.out.short_bed
 
-
-    // Handle optional include_bed
+    // Handle optional include_bed - i.e. target autosomes
     if ( params.include_bed ){
         ch_include_bed = channel
             .fromPath (
@@ -265,23 +269,24 @@ workflow SKIMSEQ {
                  checkIfExists: true
              )
     } else {
-        // Set to whole genome
+        // Set to whole genome bed if not provided
         ch_include_bed = ch_genome_bed
     } 
 
-    // Handle optional exclude_bed
+    // Handle optional exclude_bed - i.e. poorly assembled regions
     if (params.exclude_bed) {
-    ch_exclude_bed = channel
-        .fromPath(params.exclude_bed, checkIfExists: true)
-        .first()
+        ch_exclude_bed = channel
+            .fromPath(params.exclude_bed, checkIfExists: true)
+            .first()
     } else {
         ch_exclude_bed = ch_dummy_file.first()
     }
     
     /*
-    Process mitochondrial genome and create intervals
+    Mitogenome indexing and interval creation
     */
-        
+    
+    // Extract mitochondrial contig from genome and index
     INDEX_MITO (
         ch_genome,
         params.mito_contig
@@ -291,20 +296,23 @@ workflow SKIMSEQ {
     ch_shifted_mito_indexed = INDEX_MITO.out.shifted_mito_indexed.first()
     ch_mito_bed = INDEX_MITO.out.bed.first()
     ch_mito_shifted_bed = INDEX_MITO.out.shifted_bed.first()
+    ch_mito_included_bases = INDEX_MITO.out.included_bases
+        .map { included_bases_file ->
+            included_bases_file.text.trim().toLong()
+        }
 
     /*
-    Process reads per sample, aligning to the genome, and merging
+    Read pre-processing and alignment
     */
 
     ALIGNMENT (
         ch_sample_names,
         ch_reads_grouped,
-        ch_genome_indexed,
-        ch_exclude_bed
+        ch_genome_indexed
     )
     
     ALIGNMENT.out.events
-        .set{ ch_read_counts }
+        .set{ ch_genome_depths }
 
     /*
     Create genomic masks used to exclude regions from variant calling
@@ -317,9 +325,11 @@ workflow SKIMSEQ {
         ch_mito_indexed,
         ch_mito_bed
       )
+
+    ch_included_bases = MASK_GENOME.out.ch_included_bases
     
     /*
-    Call mitochondrial variants and make consensus fasta
+    Mitochondrial variant calling + consensus FASTA
     */
 
     MITO_GENOTYPING (
@@ -330,12 +340,12 @@ workflow SKIMSEQ {
         ch_mito_bed,
         ch_mito_shifted_bed,
         MASK_GENOME.out.numt_mask_bed,
-        ch_read_counts,
-        ch_dummy_file
+        ch_cohort_size,
+        ch_mito_included_bases
     )
 
     /*
-    Discover and genotype nuclear variants per sample
+    Nuclear variant calling
     */
 
     // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
@@ -347,49 +357,72 @@ workflow SKIMSEQ {
     
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_new_gvcf = channel.empty()
-    ch_merged_unfiltered_vcf = channel.empty()
-    if ( params.variant_caller == "gatk" ){
+    //if (params.variant_caller == "bcftools"){
+//
+    //    BCFTOOLS_CALLING (
+    //        ch_sample_names,
+    //        ALIGNMENT.out.cram,
+    //        ch_genome_indexed,
+    //        ch_include_bed,
+    //        ch_mask_bed_genotype,
+    //        ch_genome_depths,
+    //        ch_popmap
+    //    )
+//
+    //    // Main chunked VCF output
+    //    BCFTOOLS_CALLING.out.vcf
+    //        .set{ ch_unfiltered_vcfs }
+    //    
+    //    // For publishing only
+    //    BCFTOOLS_CALLING.out.merged_unfiltered_vcf
+    //        .set{ ch_merged_unfiltered_vcf }
+//
+    //} else if ( params.variant_caller == "gatk" ){
+//
+    //    // Single sample calling with haplotypecaller
+    //    GATK_CALLING (
+    //        ch_sample_names,
+    //        ALIGNMENT.out.cram,
+    //        ch_reads_grouped,
+    //        ch_genome_indexed,
+    //        ch_include_bed,
+    //        ch_mask_bed_genotype,
+    //        ch_genome_depths,
+    //        ch_long_bed,
+    //        ch_short_bed
+    //    )
+//
+    //    // Main chunked VCF output
+    //    GATK_CALLING.out.vcf
+    //        .set{ ch_unfiltered_vcfs }
+//
+    //    // For publishing only
+    //    GATK_CALLING.out.merged_unfiltered_vcf
+    //        .set{ ch_merged_unfiltered_vcf }
+//
+    //    GATK_CALLING.out.new_gvcf
+    //        .set { ch_new_gvcf }
+    //}  
 
-        // Single sample calling with haplotypecaller
-        GATK_CALLING (
-            ch_sample_names,
+    // TESTING
+            BCFTOOLS_CALLING (
             ALIGNMENT.out.cram,
-            ch_reads_grouped,
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_read_counts,
-            ch_long_bed,
-            ch_short_bed
+            ch_genome_depths,
+            ch_popmap,
+            ch_cohort_size,
+            ch_included_bases
         )
 
-        // For publishing only
-        GATK_CALLING.out.new_gvcf
-            .set { ch_new_gvcf }
-
-        GATK_CALLING.out.vcf
-            .set{ ch_unfiltered_vcfs }
-
-        GATK_CALLING.out.merged_unfiltered_vcf
-            .set{ ch_merged_unfiltered_vcf }
-
-    } else if (params.variant_caller == "bcftools"){
-
-        BCFTOOLS_CALLING (
-            ch_sample_names,
-            ALIGNMENT.out.cram,
-            ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_genotype,
-            ch_read_counts,
-            ch_popmap
-        )
+        // Main chunked VCF output
         BCFTOOLS_CALLING.out.vcf
             .set{ ch_unfiltered_vcfs }
-
+        
+        // For publishing only
         BCFTOOLS_CALLING.out.merged_unfiltered_vcf
             .set{ ch_merged_unfiltered_vcf }
-    }
 
 
     /*
@@ -409,14 +442,11 @@ workflow SKIMSEQ {
         ch_popmap
     )
 
-    //FILTER_VARIANTS.out.sample_names_filt
-        //.set { ch_sample_names_filt }
-
     FILTER_VARIANTS.out.filtered_vcf
         .set { ch_filtered_vcf }
 
     /*
-        Create outputs and visualisations
+        Main pipeline outputs
     */
 
     OUTPUTS (
@@ -426,7 +456,7 @@ workflow SKIMSEQ {
     )
 
     /*
-    Quality control plots
+        Quality control outputs
     */
 
     QC (
@@ -439,6 +469,10 @@ workflow SKIMSEQ {
         ch_exclude_bed
     )
 
+
+    /*
+        Workflow emissions (sent to main.nf for publishing)
+    */
 
     emit:
     // Masking subworkflow
@@ -482,6 +516,4 @@ workflow SKIMSEQ {
     multiqc_report   = QC.out.multiqc_report
     multiqc_plots    = QC.out.multiqc_plots
     multiqc_data     = QC.out.multiqc_data
-
-
 }
