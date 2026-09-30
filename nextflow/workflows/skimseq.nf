@@ -363,7 +363,6 @@ workflow SKIMSEQ {
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_genome_depths,
             ch_popmap,
             ch_cohort_size,
             ch_included_bases
@@ -387,7 +386,6 @@ workflow SKIMSEQ {
             ch_genome_indexed,
             ch_include_bed,
             ch_mask_bed_genotype,
-            ch_genome_depths,
             ch_long_bed,
             ch_short_bed,
             ch_cohort_size,

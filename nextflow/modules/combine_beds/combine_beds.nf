@@ -32,9 +32,9 @@ process COMBINE_BEDS {
             -c ${merge_column} \
             -o ${merge_operation} \
             > combined.bed
+        rm combined.sorted.bed
     else
         mv combined.sorted.bed combined.bed
-        rm combined.sorted.bed
     fi
     """
 }

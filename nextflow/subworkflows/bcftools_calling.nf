@@ -5,7 +5,6 @@
 //// import modules
 include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks/create_interval_chunks'
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_CRAI  } from '../modules/create_interval_chunks/create_interval_chunks'
 include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_CRAI          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
 include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_MOSDEPTH      } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
 include { MPILEUP                                                } from '../modules/mpileup/mpileup'
@@ -17,7 +16,6 @@ workflow BCFTOOLS_CALLING {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
-    ch_genome_depths
     ch_popmap
     ch_cohort_size
     ch_included_bases
@@ -43,20 +41,9 @@ workflow BCFTOOLS_CALLING {
 
     /* 
        Create groups of genomic intervals for parallel calling
+       This is done based on CRAI indexes similar to goleft indexsplit
+       This is a fast but coarse way of assessign workload
     */
-
-    ch_mosdepth_workload_inputs = ch_genome_depths
-        .flatMap { _sample, workload_bed, workload_index ->
-        [workload_bed, workload_index]
-        }
-        .collect()
-
-    PROJECT_MOSDEPTH(
-        ch_mosdepth_workload_inputs,
-        ch_include_bed,
-        ch_mask_bed_genotype,
-        ch_genome_indexed
-    )
 
     ch_crai_workload_inputs = ch_sample_cram
         .map { _sample, _cram, crai ->
@@ -72,12 +59,6 @@ workflow BCFTOOLS_CALLING {
     )
 
     CREATE_INTERVAL_CHUNKS_MP(
-        PROJECT_MOSDEPTH.out.bed,
-        ch_n_chunks,
-        params.split_large_intervals
-    )
-
-    CREATE_INTERVAL_CHUNKS_CRAI(
         PROJECT_CRAI.out.bed,
         ch_n_chunks,
         params.split_large_intervals

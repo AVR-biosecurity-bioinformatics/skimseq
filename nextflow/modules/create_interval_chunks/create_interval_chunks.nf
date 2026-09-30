@@ -9,15 +9,15 @@ process CREATE_INTERVAL_CHUNKS {
 
     output:
     tuple val(workload_bed.baseName),
-        path("chunks/*.bed.gz"),
-        path("chunks/*.bed.gz.tbi"),
+        path("*.bed.gz"),
+        path("*.bed.gz.tbi"),
         emit: interval_bed
 
     script:
     """
     set -euo pipefail
 
-    mkdir -p raw chunks
+    mkdir -p raw
 
     if (( ${n_chunks} < 1 )); then
         echo "ERROR: n_chunks must be greater than zero" >&2
@@ -116,14 +116,8 @@ process CREATE_INTERVAL_CHUNKS {
             end = \$3 + 0
             workload_per_base = \$4 + 0
 
-            if (NF != 4 ||
-                start < 0 ||
-                end <= start ||
-                workload_per_base < 0) {
-
-                print "ERROR: Invalid workload BED4 row: " \$0 \
-                    > "/dev/stderr"
-
+            if (NF != 4 || start < 0 || end <= start || workload_per_base < 0) {
+                print "ERROR: Invalid workload BED4 row: " \$0 > "/dev/stderr"
                 failed = 1
                 exit 1
             }
@@ -140,60 +134,33 @@ process CREATE_INTERVAL_CHUNKS {
                 metric_per_base = 1
             }
 
-            # -----------------------------------------------------
-            # Keep input intervals whole
-            # -----------------------------------------------------
-
+            # Keep each input interval whole.
             if (split_intervals == "false") {
-                remaining_intervals =
-                    total_intervals - interval_number + 1
-
-                remaining_chunks =
-                    n_chunks - chunk + 1
-
-                # Start a new chunk when:
-                #
-                # 1. every remaining chunk needs at least one interval; or
-                # 2. adding this interval would exceed the target.
-                #
-                # Oversized intervals are assigned whole to an otherwise
-                # empty chunk.
+                remaining_intervals = total_intervals - interval_number + 1
+                remaining_chunks = n_chunks - chunk + 1
 
                 if (chunk < n_chunks &&
                     chunk_load > 0 &&
                     (remaining_intervals == remaining_chunks ||
-                     chunk_load + interval_metric > target)) {
+                    chunk_load + interval_metric > target)) {
 
                     next_chunk()
                 }
 
-                write_span(
-                    chrom,
-                    start,
-                    end,
-                    interval_workload
-                )
-
+                write_span(chrom, start, end, interval_workload)
                 chunk_load += interval_metric
                 next
             }
 
-            # -----------------------------------------------------
-            # Allow intervals to be split at base resolution
-            # -----------------------------------------------------
-
+            # Allow input intervals to be split at base resolution.
             pos = start
 
             while (pos < end) {
-                if (chunk < n_chunks &&
-                    chunk_load >= target) {
-
+                if (chunk < n_chunks && chunk_load >= target) {
                     next_chunk()
                 }
 
-                if (chunk == n_chunks ||
-                    metric_per_base == 0) {
-
+                if (chunk == n_chunks || metric_per_base == 0) {
                     bases = end - pos
                 } else {
                     remaining_load = target - chunk_load
@@ -205,7 +172,6 @@ process CREATE_INTERVAL_CHUNKS {
                             continue
                         }
 
-                        # A single base exceeds the target workload.
                         bases = 1
                     }
 
@@ -214,15 +180,8 @@ process CREATE_INTERVAL_CHUNKS {
                     }
                 }
 
-                span_workload =
-                    bases * workload_per_base
-
-                write_span(
-                    chrom,
-                    pos,
-                    pos + bases,
-                    span_workload
-                )
+                span_workload = bases * workload_per_base
+                write_span(chrom, pos, pos + bases, span_workload)
 
                 pos += bases
                 chunk_load += bases * metric_per_base
@@ -238,9 +197,8 @@ process CREATE_INTERVAL_CHUNKS {
 
             if (chunk != n_chunks) {
                 print "ERROR: Generated " chunk \
-                      " chunks instead of " n_chunks \
-                      > "/dev/stderr"
-
+                    " chunks instead of " n_chunks \
+                    > "/dev/stderr"
                 exit 1
             }
         }
@@ -274,22 +232,24 @@ process CREATE_INTERVAL_CHUNKS {
 
                 END {
                     print first_chr,
-                          first_start,
-                          last_chr,
-                          last_end,
-                          bases + 0,
-                          workload + 0
+                        first_start,
+                        last_chr,
+                        last_end,
+                        bases + 0,
+                        workload + 0
                 }
             ' "\${raw_bed}"
         )
 
         name="\${chunk_id}_\${first_chr}_\${first_start}_\${last_chr}_\${last_end}"
-        output_bed="chunks/\${name}.bed.gz"
+        output_bed="\${name}.bed.gz"
 
         bgzip -c "\${raw_bed}" > "\${output_bed}"
         tabix -p bed "\${output_bed}"
 
         echo "\${name}: \${bases} genomic bases, \${workload} total workload"
     done
+
+    rm -rf raw
     """
 }

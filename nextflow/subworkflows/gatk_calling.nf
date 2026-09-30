@@ -29,7 +29,6 @@ workflow GATK_CALLING {
     ch_genome_indexed
     ch_include_bed
     ch_mask_bed_genotype
-    ch_genome_depths
     ch_long_bed
     ch_short_bed
     ch_cohort_size
@@ -150,11 +149,13 @@ workflow GATK_CALLING {
 
     /* 
        Create groups of genomic intervals for parallel calling
+       This is done based on CRAI indexes similar to goleft indexsplit
+       This is a fast but coarse way of assessign workload
     */
 
-    ch_mosdepth_workload_inputs = ch_genome_depths
-        .flatMap { _sample, workload_bed, workload_index ->
-        [workload_bed, workload_index]
+    ch_crai_workload_inputs = ch_sample_cram
+        .map { _sample, _cram, crai ->
+        crai
         }
         .collect()
 
@@ -166,7 +167,7 @@ workflow GATK_CALLING {
     )
 
     PROJECT_LONG(
-        ch_mosdepth_workload_inputs,
+        ch_crai_workload_inputs,
         SUBSET_BED_TO_INTERVALS.out.bed,
         ch_mask_bed_genotype,
         ch_genome_indexed
@@ -175,7 +176,7 @@ workflow GATK_CALLING {
     // For short contigs, project across complete contigs for
     // compatibility with GenomicsDB.
     PROJECT_SHORT(
-        ch_mosdepth_workload_inputs,
+        ch_crai_workload_inputs,
         ch_short_bed.first(),
         ch_dummy_file,
         ch_genome_indexed

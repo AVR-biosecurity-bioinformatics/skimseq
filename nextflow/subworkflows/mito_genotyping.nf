@@ -87,7 +87,7 @@ workflow MITO_GENOTYPING {
     CREATE_MITO_CHUNKS(
         ch_mito_bed,
         ch_mito_n_chunks,
-        params.split_large_intervals
+        true
     )
 
     // Pair each original-reference interval with the original-reference cohort.
@@ -122,7 +122,7 @@ workflow MITO_GENOTYPING {
     CREATE_MITO_CHUNKS_SHIFTED(
         ch_mito_shifted_bed,
         ch_mito_n_chunks,
-        params.split_large_intervals
+        true
     )
 
     // Pair each shifted-reference interval with the shifted-reference cohort.
