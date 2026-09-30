@@ -37,7 +37,7 @@ params {
     hc_chunks_per_jc: Integer = 20                      // Number of HaplotypeCaller chunks combined into each GenotypeGVCFs joint-calling chunk.
     mp_target_sample_bases: Integer = 250_000_000       // Initial estimate of mpileup chunk count from cohort size * genomic bases, then balances intervals by projected workload.
     mito_target_sample_bases: Integer = 100_000_000     // Initial estimate of Mito chunk count from cohort size * genomic bases, then balances intervals by projected workload.
-    split_large_intervals: Boolean = true               // Split any intervals that are over hc_bases_per_chunk. Makes more even intervals at risk of artefacts near interval end
+    split_large_intervals: Boolean = true               // Allow workload intervals to be split across chunk boundaries. Improves workload balance but may introduce boundaries within otherwise continuous genomic intervals.
     min_interval_gap: Integer = 1000                    // Minimum gap of missing data (N or no reads) between intervals to consider them separate intervals for chunking
 
 

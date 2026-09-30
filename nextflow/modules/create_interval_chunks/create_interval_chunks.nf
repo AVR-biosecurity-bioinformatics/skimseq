@@ -1,12 +1,11 @@
 process CREATE_INTERVAL_CHUNKS {
-
     tag "${n_chunks} workload-balanced chunks"
-
     conda "${moduleDir}/environment.yml"
 
     input:
     path workload_bed
     val n_chunks
+    val split_large_intervals
 
     output:
     tuple val(workload_bed.baseName),
@@ -22,6 +21,12 @@ process CREATE_INTERVAL_CHUNKS {
 
     if (( ${n_chunks} < 1 )); then
         echo "ERROR: n_chunks must be greater than zero" >&2
+        exit 1
+    fi
+
+    if [[ "${split_large_intervals}" != "true" &&
+          "${split_large_intervals}" != "false" ]]; then
+        echo "ERROR: split_large_intervals must be true or false" >&2
         exit 1
     fi
 
@@ -41,15 +46,18 @@ process CREATE_INTERVAL_CHUNKS {
     #
     #   (end - start) * workload_density
 
-    read -r total_bases total_workload < <(
+    read -r total_intervals total_bases total_workload < <(
         awk '
             {
+                total_intervals++
                 total_bases += \$3 - \$2
                 total_workload += (\$3 - \$2) * \$4
             }
 
             END {
-                print total_bases + 0, total_workload + 0
+                print total_intervals + 0,
+                      total_bases + 0,
+                      total_workload + 0
             }
         ' ${workload_bed}
     )
@@ -59,12 +67,17 @@ process CREATE_INTERVAL_CHUNKS {
         exit 1
     fi
 
-    # Divide the workload-density track into approximately balanced
-    # chunks. If all workload values are zero, balance by sequence
-    # length instead.
+    if [[ "${split_large_intervals}" == "false" ]] &&
+       (( ${n_chunks} > total_intervals )); then
+
+        echo "ERROR: Cannot create ${n_chunks} non-empty chunks from \${total_intervals} unsplittable intervals" >&2
+        exit 1
+    fi
 
     awk \
         -v n_chunks="${n_chunks}" \
+        -v split_intervals="${split_large_intervals}" \
+        -v total_intervals="\${total_intervals}" \
         -v total_bases="\${total_bases}" \
         -v total_workload="\${total_workload}" '
         BEGIN {
@@ -80,6 +93,7 @@ process CREATE_INTERVAL_CHUNKS {
 
             chunk = 1
             chunk_load = 0
+            interval_number = 0
         }
 
         function filename() {
@@ -90,6 +104,10 @@ process CREATE_INTERVAL_CHUNKS {
             close(filename())
             chunk++
             chunk_load = 0
+        }
+
+        function write_span(chrom, start, end, workload) {
+            print chrom, start, end, workload >> filename()
         }
 
         {
@@ -110,16 +128,66 @@ process CREATE_INTERVAL_CHUNKS {
                 exit 1
             }
 
+            interval_number++
+            interval_bases = end - start
+            interval_workload = interval_bases * workload_per_base
+
             if (use_workload) {
+                interval_metric = interval_workload
                 metric_per_base = workload_per_base
             } else {
+                interval_metric = interval_bases
                 metric_per_base = 1
             }
+
+            # -----------------------------------------------------
+            # Keep input intervals whole
+            # -----------------------------------------------------
+
+            if (split_intervals == "false") {
+                remaining_intervals =
+                    total_intervals - interval_number + 1
+
+                remaining_chunks =
+                    n_chunks - chunk + 1
+
+                # Start a new chunk when:
+                #
+                # 1. every remaining chunk needs at least one interval; or
+                # 2. adding this interval would exceed the target.
+                #
+                # Oversized intervals are assigned whole to an otherwise
+                # empty chunk.
+
+                if (chunk < n_chunks &&
+                    chunk_load > 0 &&
+                    (remaining_intervals == remaining_chunks ||
+                     chunk_load + interval_metric > target)) {
+
+                    next_chunk()
+                }
+
+                write_span(
+                    chrom,
+                    start,
+                    end,
+                    interval_workload
+                )
+
+                chunk_load += interval_metric
+                next
+            }
+
+            # -----------------------------------------------------
+            # Allow intervals to be split at base resolution
+            # -----------------------------------------------------
 
             pos = start
 
             while (pos < end) {
-                if (chunk < n_chunks && chunk_load >= target) {
+                if (chunk < n_chunks &&
+                    chunk_load >= target) {
+
                     next_chunk()
                 }
 
@@ -146,13 +214,15 @@ process CREATE_INTERVAL_CHUNKS {
                     }
                 }
 
-                span_workload = bases * workload_per_base
+                span_workload =
+                    bases * workload_per_base
 
-                print chrom,
-                      pos,
-                      pos + bases,
-                      span_workload \
-                      >> filename()
+                write_span(
+                    chrom,
+                    pos,
+                    pos + bases,
+                    span_workload
+                )
 
                 pos += bases
                 chunk_load += bases * metric_per_base
@@ -169,7 +239,6 @@ process CREATE_INTERVAL_CHUNKS {
             if (chunk != n_chunks) {
                 print "ERROR: Generated " chunk \
                       " chunks instead of " n_chunks \
-                      ". The workload may be too concentrated to divide into the requested number of chunks." \
                       > "/dev/stderr"
 
                 exit 1
@@ -185,8 +254,6 @@ process CREATE_INTERVAL_CHUNKS {
         echo "ERROR: Expected ${n_chunks} chunks, found \${#raw_files[@]}" >&2
         exit 1
     fi
-
-    # Name, compress, index and report each chunk.
 
     for raw_bed in "\${raw_files[@]}"; do
         chunk_id=\$(basename "\${raw_bed}" .bed)

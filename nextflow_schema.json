@@ -141,7 +141,7 @@
         "split_large_intervals": {
           "type": "boolean",
           "default": true,
-          "description": "Split intervals larger than hc_target_sample_bases."
+          "description": "Allow intervals to be split across chunk boundaries. Improves workload balance but may introduce boundaries within otherwise continuous genomic intervals."
         },
         "min_interval_gap": {
           "type": "integer",

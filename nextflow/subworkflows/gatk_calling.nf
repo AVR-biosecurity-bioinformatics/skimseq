@@ -201,7 +201,8 @@ workflow GATK_CALLING {
     // Divide the combined workload track into balanced chunks.
     CREATE_INTERVAL_CHUNKS_HC(
         COMBINE_WORKLOAD_BEDS.out.bed,
-        ch_n_chunks
+        ch_n_chunks,
+        params.split_large_intervals
     )
 
     // Convert the combined workload-balanced chunks into a single

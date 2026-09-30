@@ -1,5 +1,5 @@
 /*
-    Process reads
+    Align reads to genome
 */
 
 //// import modules
