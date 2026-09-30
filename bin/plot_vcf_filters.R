@@ -391,23 +391,6 @@ tryCatch(
     pdf(paste0(outname, "_perpop.pdf"), width = 11, height = 8)
     purrr::walk(pop_qc_plots, plot)
     try(dev.off(), silent = TRUE)
-
-    # Create a joint table of the summary files
-    # List filtering summary files
-
-    # TODO: this needs to be summarised by variant type
-    #summary_files <- list.files(pattern = "filter_summary.tsv$")
-    #summary_files <- summary_files[file.size(summary_files) > 0]
-    #df_summary <- readr::read_tsv(
-    #  summary_files,
-    #  col_names = c("FILTER", "COUNT"),
-    #  col_types = c("cn")
-    #) %>%
-    #  group_by(FILTER) %>%
-    #  summarise(COUNT = sum(COUNT))
-
-    # Write out summary file
-    #write_tsv(df_summary, paste0(outname, ".tsv"))
   },
   finally = {
     ### save R environment if script throws error code
