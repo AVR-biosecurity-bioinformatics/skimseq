@@ -7,7 +7,6 @@ process CREATE_INTERVAL_CHUNKS {
     input:
     path workload_bed
     val n_chunks
-    val min_interval_gap
 
     output:
     tuple val(workload_bed.baseName),
@@ -26,20 +25,21 @@ process CREATE_INTERVAL_CHUNKS {
         exit 1
     fi
 
-    if (( ${min_interval_gap} < 0 )); then
-        echo "ERROR: min_interval_gap must be zero or greater" >&2
-        exit 1
-    fi
-
     if [[ ! -s ${workload_bed} ]]; then
         echo "ERROR: Workload BED is empty: ${workload_bed}" >&2
         exit 1
     fi
 
     # Input BED4:
-    #   chrom  start  end  workload_per_base
-    # Total workload:
-    #   sum((end - start) * workload_per_base)
+    #
+    #   chromosome
+    #   start
+    #   end
+    #   non-negative workload density per base
+    #
+    # Integrated interval workload:
+    #
+    #   (end - start) * workload_density
 
     read -r total_bases total_workload < <(
         awk '
@@ -49,7 +49,7 @@ process CREATE_INTERVAL_CHUNKS {
             }
 
             END {
-                print total_bases, total_workload
+                print total_bases + 0, total_workload + 0
             }
         ' ${workload_bed}
     )
@@ -59,8 +59,9 @@ process CREATE_INTERVAL_CHUNKS {
         exit 1
     fi
 
-    # Use workload for balancing when non-zero workload exists.
-    # Otherwise, fall back to balancing by included sequence length.
+    # Divide the workload-density track into approximately balanced
+    # chunks. If all workload values are zero, balance by sequence
+    # length instead.
 
     awk \
         -v n_chunks="${n_chunks}" \
@@ -70,9 +71,12 @@ process CREATE_INTERVAL_CHUNKS {
             OFS = "\\t"
 
             use_workload = total_workload > 0
-            target = use_workload \
-                ? total_workload / n_chunks \
-                : total_bases / n_chunks
+
+            if (use_workload) {
+                target = total_workload / n_chunks
+            } else {
+                target = total_bases / n_chunks
+            }
 
             chunk = 1
             chunk_load = 0
@@ -86,10 +90,6 @@ process CREATE_INTERVAL_CHUNKS {
             close(filename())
             chunk++
             chunk_load = 0
-        }
-
-        function write_span(chrom, start, end, workload) {
-            print chrom, start, end, workload >> filename()
         }
 
         {
@@ -110,16 +110,22 @@ process CREATE_INTERVAL_CHUNKS {
                 exit 1
             }
 
-            metric_per_base = use_workload \
-                ? workload_per_base \
-                : 1
+            if (use_workload) {
+                metric_per_base = workload_per_base
+            } else {
+                metric_per_base = 1
+            }
 
             pos = start
 
             while (pos < end) {
-                if (chunk == n_chunks) {
-                    bases = end - pos
-                } else if (metric_per_base == 0) {
+                if (chunk < n_chunks && chunk_load >= target) {
+                    next_chunk()
+                }
+
+                if (chunk == n_chunks ||
+                    metric_per_base == 0) {
+
                     bases = end - pos
                 } else {
                     remaining_load = target - chunk_load
@@ -131,6 +137,7 @@ process CREATE_INTERVAL_CHUNKS {
                             continue
                         }
 
+                        # A single base exceeds the target workload.
                         bases = 1
                     }
 
@@ -141,17 +148,14 @@ process CREATE_INTERVAL_CHUNKS {
 
                 span_workload = bases * workload_per_base
 
-                write_span(chrom, pos, pos + bases, span_workload)
+                print chrom,
+                      pos,
+                      pos + bases,
+                      span_workload \
+                      >> filename()
 
                 pos += bases
                 chunk_load += bases * metric_per_base
-
-                if (chunk < n_chunks &&
-                    chunk_load >= target &&
-                    pos < end) {
-
-                    next_chunk()
-                }
             }
         }
 
@@ -163,7 +167,11 @@ process CREATE_INTERVAL_CHUNKS {
             close(filename())
 
             if (chunk != n_chunks) {
-                printf "ERROR: Generated %d chunks instead of %d. The workload may be too concentrated to divide at base resolution.\\n", chunk, n_chunks > "/dev/stderr"
+                print "ERROR: Generated " chunk \
+                      " chunks instead of " n_chunks \
+                      ". The workload may be too concentrated to divide into the requested number of chunks." \
+                      > "/dev/stderr"
+
                 exit 1
             }
         }
@@ -178,10 +186,12 @@ process CREATE_INTERVAL_CHUNKS {
         exit 1
     fi
 
+    # Name, compress, index and report each chunk.
+
     for raw_bed in "\${raw_files[@]}"; do
         chunk_id=\$(basename "\${raw_bed}" .bed)
 
-        read -r first_chr first_start last_chr last_end < <(
+        read -r first_chr first_start last_chr last_end bases workload < <(
             awk '
                 NR == 1 {
                     first_chr = \$1
@@ -191,13 +201,17 @@ process CREATE_INTERVAL_CHUNKS {
                 {
                     last_chr = \$1
                     last_end = \$3
+                    bases += \$3 - \$2
+                    workload += \$4
                 }
 
                 END {
                     print first_chr,
                           first_start,
                           last_chr,
-                          last_end
+                          last_end,
+                          bases + 0,
+                          workload + 0
                 }
             ' "\${raw_bed}"
         )
@@ -205,30 +219,9 @@ process CREATE_INTERVAL_CHUNKS {
         name="\${chunk_id}_\${first_chr}_\${first_start}_\${last_chr}_\${last_end}"
         output_bed="chunks/\${name}.bed.gz"
 
-        bedtools merge \
-            -i "\${raw_bed}" \
-            -d ${min_interval_gap} \
-            -c 4 \
-            -o sum |
-            bgzip -c \
-            > "\${output_bed}"
-
+        bgzip -c "\${raw_bed}" > "\${output_bed}"
         tabix -p bed "\${output_bed}"
 
-        # Report included territory and estimated workload.
-        read -r bases workload < <(
-            gzip -cd "\${output_bed}" |
-                awk '
-                    {
-                        bases += \$3 - \$2
-                        workload += \$4
-                    }
-
-                    END {
-                        print bases + 0, workload + 0
-                    }
-                '
-        )
         echo "\${name}: \${bases} genomic bases, \${workload} total workload"
     done
     """

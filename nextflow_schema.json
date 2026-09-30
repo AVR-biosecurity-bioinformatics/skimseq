@@ -141,11 +141,11 @@
         "split_large_intervals": {
           "type": "boolean",
           "default": true,
-          "description": "Split intervals larger than hc_bases_per_chunk."
+          "description": "Split intervals larger than hc_target_sample_bases."
         },
         "min_interval_gap": {
           "type": "integer",
-          "default": 100,
+          "default": 1000,
           "description": "Minimum missing-data gap used to separate genomic intervals.",
           "minimum": 0
         }

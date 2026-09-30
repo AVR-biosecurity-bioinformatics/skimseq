@@ -36,8 +36,11 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
     bedtools subtract \
         -a <(cut -f1-3 ${include_bed} | bedtools sort -faidx ${ref_genome}.fai -i stdin | bedtools merge -i stdin ) \
         -b <( cut -f1-3 ${exclude_bed} | bedtools sort -faidx ${ref_genome}.fai -i stdin | bedtools merge -i stdin ) \
+    | bedtools merge \
+        -d ${params.min_interval_gap} \
+        -i stdin \
         > intervals.bed
-
+        
     if [[ ! -s intervals.bed ]]; then
         echo "ERROR: No intervals remain after applying exclusions" >&2
         exit 1
@@ -98,6 +101,11 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
     # -------------------------------------------------------------
 
     {
+        processed=0
+        started_at=\$(date +%s)
+
+        echo "Projecting \${n_workloads} workload files" >&2
+
         for workload in ${workload_files.join(' ')}; do
             case "\${workload}" in
 
@@ -130,6 +138,17 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
                     exit 1
                     ;;
             esac
+
+            processed=\$((processed + 1))
+
+            if (( processed == 1 ||
+                processed % 10 == 0 ||
+                processed == n_workloads )); then
+
+                elapsed=\$((\$(date +%s) - started_at))
+
+                echo "[\$(date '+%Y-%m-%d %H:%M:%S')] Completed \${processed}/\${n_workloads} workload files in \${elapsed}s" >&2
+            fi
         done
     } |
         awk '

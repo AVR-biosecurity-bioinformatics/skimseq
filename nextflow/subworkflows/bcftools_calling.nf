@@ -73,14 +73,12 @@ workflow BCFTOOLS_CALLING {
 
     CREATE_INTERVAL_CHUNKS_MP(
         PROJECT_MOSDEPTH.out.bed,
-        ch_n_chunks,
-        params.min_interval_gap
+        ch_n_chunks
     )
 
     CREATE_INTERVAL_CHUNKS_CRAI(
         PROJECT_CRAI.out.bed,
-        ch_n_chunks,
-        params.min_interval_gap
+        ch_n_chunks
     )
 
     CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
