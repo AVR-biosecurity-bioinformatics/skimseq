@@ -6,7 +6,6 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
     input:
     path workload_inputs
     path include_bed
-    path exclude_bed
     tuple path(ref_genome), path(genome_index_files)
 
     output:
@@ -33,18 +32,22 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
     # Build allowed intervals in reference/FAI order
     # -------------------------------------------------------------
 
-    bedtools subtract \
-        -a <(cut -f1-3 ${include_bed} | bedtools sort -faidx ${ref_genome}.fai -i stdin | bedtools merge -i stdin ) \
-        -b <( cut -f1-3 ${exclude_bed} | bedtools sort -faidx ${ref_genome}.fai -i stdin | bedtools merge -i stdin ) \
-    | bedtools merge \
-        -d ${params.min_interval_gap} \
-        -i stdin \
-        > intervals.bed
-        
-    if [[ ! -s intervals.bed ]]; then
-        echo "ERROR: No intervals remain after applying exclusions" >&2
-        exit 1
+    # An empty interval BED is valid. It means this branch has no genomic
+    # territory, so emit an empty workload BED for downstream combination.
+    if [[ ! -s "${include_bed}" ]]; then
+        : > workload.bed
+        exit 0
     fi
+
+    cut -f1-3 "${include_bed}" \
+        | awk ' BEGIN { OFS = "\\t" } NF >= 3 && \$2 >= 0 && \$3 > \$2 { print \$1, \$2, \$3 }' \
+        | bedtools sort \
+            -faidx "${ref_genome}.fai" \
+            -i stdin \
+        | bedtools merge \
+            -d ${params.min_interval_gap} \
+            -i stdin \
+            > intervals.bed
 
     # -------------------------------------------------------------
     # Project one workload track onto the allowed intervals

@@ -9,7 +9,7 @@ process NUMT_MASK {
     val(numt_max_gap)
 
     output: 
-    path("numt_mask.bed"),                                              emit: mask_bed
+    path("numt_mask.bed"),  emit: numt_bed
 
     script:
     """

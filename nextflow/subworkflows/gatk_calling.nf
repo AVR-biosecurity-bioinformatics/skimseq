@@ -6,12 +6,10 @@
 include { VALIDATE_GVCF                                          } from '../modules/validate_gvcf/validate_gvcf'
 include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_LONG          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
 include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_SHORT         } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
+include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks/create_interval_chunks'
 include { COMBINE_BEDS as COMBINE_WORKLOAD_BEDS                  } from '../modules/combine_beds/combine_beds' 
 include { SUBSET_BED_TO_INTERVALS                                } from '../modules/subset_bed_to_intervals/subset_bed_to_intervals' 
 include { CREATE_JC_BED_FROM_HC                                  } from '../modules/create_jc_bed_from_hc/create_jc_bed_from_hc' 
-include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_HC    } from '../modules/create_interval_chunks/create_interval_chunks'
-include { CREATE_INTERVAL_CHUNKS as CREATE_IC_LONG               } from '../modules/create_interval_chunks/create_interval_chunks'
-include { CREATE_INTERVAL_CHUNKS as CREATE_IC_SHORT              } from '../modules/create_interval_chunks/create_interval_chunks'
 include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller/haplotypecaller'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import/genomicsdb_import' 
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype/joint_genotype' 
@@ -27,8 +25,7 @@ workflow GATK_CALLING {
     ch_sample_cram
     ch_reads_grouped
     ch_genome_indexed
-    ch_include_bed
-    ch_mask_bed_genotype
+    ch_calling_bed
     ch_long_bed
     ch_short_bed
     ch_cohort_size
@@ -162,14 +159,13 @@ workflow GATK_CALLING {
     // For long contigs, project only included long-contig intervals.
     SUBSET_BED_TO_INTERVALS(
         ch_long_bed.first(),
-        ch_include_bed,
+        ch_calling_bed,
         ch_genome_indexed
     )
 
     PROJECT_LONG(
         ch_crai_workload_inputs,
         SUBSET_BED_TO_INTERVALS.out.bed,
-        ch_mask_bed_genotype,
         ch_genome_indexed
     )
 
@@ -178,7 +174,6 @@ workflow GATK_CALLING {
     PROJECT_SHORT(
         ch_crai_workload_inputs,
         ch_short_bed.first(),
-        ch_dummy_file,
         ch_genome_indexed
     )
 
@@ -295,7 +290,6 @@ workflow GATK_CALLING {
     HAPLOTYPECALLER(
         ch_sample_intervals,
         ch_genome_indexed,
-        ch_mask_bed_genotype
     )
 
     /*
@@ -408,7 +402,6 @@ workflow GATK_CALLING {
     JOINT_GENOTYPE(
         GENOMICSDB_IMPORT.out.genomicsdb,
         ch_genome_indexed,
-        ch_mask_bed_genotype,
         ch_cohort_size
     )
 

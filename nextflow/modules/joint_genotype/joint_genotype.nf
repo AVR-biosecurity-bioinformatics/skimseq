@@ -17,7 +17,6 @@ process JOINT_GENOTYPE {
     input:
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
     tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
     val(cohort_size)
 
     output: 
@@ -45,8 +44,6 @@ process JOINT_GENOTYPE {
         -L "${interval_bed}" \
         -O /dev/stdout \
         --create-output-variant-index false \
-        --exclude-intervals "${exclude_bed}" \
-        --interval-exclusion-padding "${params.exclude_padding}" \
         --include-non-variant-sites "${params.output_invariant}" \
         --interval-merging-rule ALL \
         --merge-input-intervals \

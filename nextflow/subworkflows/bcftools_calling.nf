@@ -5,8 +5,7 @@
 //// import modules
 include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
 include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modules/create_interval_chunks/create_interval_chunks'
-include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_CRAI          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
-include { PROJECT_WORKLOAD_TO_INTERVALS as PROJECT_MOSDEPTH      } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
+include { PROJECT_WORKLOAD_TO_INTERVALS                          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
 include { MPILEUP                                                } from '../modules/mpileup/mpileup'
 
 workflow BCFTOOLS_CALLING {
@@ -14,11 +13,11 @@ workflow BCFTOOLS_CALLING {
     take:
     ch_sample_cram
     ch_genome_indexed
-    ch_include_bed
-    ch_mask_bed_genotype
+    ch_calling_bed
     ch_popmap
     ch_cohort_size
     ch_included_bases
+    ch_dummy_file
 
     main: 
 
@@ -51,15 +50,14 @@ workflow BCFTOOLS_CALLING {
         }
         .collect()
 
-    PROJECT_CRAI(
+    PROJECT_WORKLOAD_TO_INTERVALS(
         ch_crai_workload_inputs,
-        ch_include_bed,
-        ch_mask_bed_genotype,
+        ch_calling_bed,
         ch_genome_indexed
     )
 
     CREATE_INTERVAL_CHUNKS_MP(
-        PROJECT_CRAI.out.bed,
+        PROJECT_WORKLOAD_TO_INTERVALS.out.bed,
         ch_n_chunks,
         params.split_large_intervals
     )
@@ -117,8 +115,7 @@ workflow BCFTOOLS_CALLING {
         ch_cram_interval,
         ch_genome_indexed,
         ch_cohort_size,
-        ch_popmap.first(),
-        ch_mask_bed_genotype
+        ch_popmap.first()
     )
     
     // Merged unfiltered VCF outputs - just used for publishing

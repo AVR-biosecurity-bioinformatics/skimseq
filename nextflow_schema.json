@@ -169,15 +169,15 @@
           "format": "file-path",
           "pattern": "^.+\\.bed(\\.gz)?$"
         },
-        "use_reference_hardmasks": {
+        "exclude_reference_hardmasks": {
           "type": "boolean",
           "default": true,
-          "description": "Use hard-masked N bases already present in the reference genome."
+          "description": "Exclude hard-masked N bases already present in the reference genome."
         },
-        "use_reference_softmasks": {
+        "exclude_reference_softmasks": {
           "type": "boolean",
           "default": false,
-          "description": "Use soft-masked lowercase bases already present in the reference genome."
+          "description": "Exclude soft-masked lowercase bases already present in the reference genome."
         },
         "exclude_bed": {
           "type": ["string", "null"],
@@ -191,11 +191,6 @@
           "default": 0,
           "description": "Padding added to excluded intervals in base pairs.",
           "minimum": 0
-        },
-        "genotype_masked_bases": {
-          "type": "boolean",
-          "default": false,
-          "description": "Genotype bases masked by selected masking methods."
         },
         "filter_masked_variants": {
           "type": "boolean",

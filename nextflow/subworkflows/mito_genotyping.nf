@@ -3,6 +3,7 @@
 */
 
 //// import modules
+include { NUMT_MASK                                              } from '../modules/numt_mask/numt_mask'
 include { REALIGN_MITO                                           } from '../modules/realign_mito/realign_mito'
 include { REALIGN_MITO as REALIGN_MITO_SHIFTED                   } from '../modules/realign_mito/realign_mito'
 include { PILEUP_MITO                                            } from '../modules/pileup_mito/pileup_mito'
@@ -20,7 +21,6 @@ workflow MITO_GENOTYPING {
     ch_shifted_mito_indexed
     ch_mito_bed
     ch_mito_shifted_bed
-    ch_numt_bed
     ch_cohort_size
     ch_mito_included_bases
 
@@ -42,6 +42,18 @@ workflow MITO_GENOTYPING {
             )
         }
 
+    /*
+     Find putative numt regions in genome
+     Reads mapping to these will be pulled out and realigned to just mitogenome
+     */
+
+    NUMT_MASK (
+        ch_genome_indexed,
+        ch_mito_indexed,
+        params.numt_min_length,
+        params.numt_max_gap
+    )
+    ch_numt_bed = NUMT_MASK.out.numt_bed
 
     /*
      * Realign to original mito reference
@@ -216,5 +228,6 @@ workflow MITO_GENOTYPING {
     )
     emit: 
     mito_consensus = CONSENSUS_MITO.out.consensus
+    numt_bed = ch_numt_bed
 
 }

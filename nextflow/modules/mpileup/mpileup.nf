@@ -25,7 +25,6 @@ process MPILEUP {
 
     val(cohort_size)
     path(popmap)
-    path(exclude_bed)
     
     output: 
     tuple val(interval_hash),
@@ -86,33 +85,17 @@ process MPILEUP {
     MPILEUP_REGION_ARGS=()
     CALL_TARGET_ARGS=()
 
-    # Prepare padded exclusion intervals
-    bedtools slop \
-            -i <(zcat -f "${exclude_bed}") \
-            -g "${ref_genome}.fai" \
-            -b "${params.exclude_padding}" \
-        | bedtools sort \
-            -faidx "${ref_genome}.fai" \
-            -i - \
-        | bedtools merge \
-            -i - \
-        > excluded.padded.bed
-
     if [[ "${is_panel}" == "true" ]]; then
         echo "[targets] Detected VCF panel: ${interval_bed}" >&2
 
         # Build allele targets: CHROM POS REF,ALT  (tabix indexed)
         bcftools view -m2 -M2 "${interval_bed}" \
             | bcftools query -f '%CHROM\\t%POS\\t%REF,%ALT\\n' \
-            | bedtools intersect -v \
-                -a - \
-                -b excluded.padded.bed \
-            | cut -f 1,4,5 \
             | bgzip -c \
             > panel.alleles.tsv.gz
 
         if ! tabix -s1 -b2 -e2 panel.alleles.tsv.gz; then
-            echo "ERROR: no panel targets remain after applying exclusions" >&2
+            echo "ERROR: no panel targets remain after subsetting to biallelic sites" >&2
             exit 1
         fi
 
@@ -137,21 +120,9 @@ process MPILEUP {
 
     else
         echo "[targets] Detected BED intervals: ${interval_bed}" >&2
-
-        # Remove padded exclusion intervals from the input targets.
-        bedtools subtract \
-            -a <(zcat "${interval_bed}") \
-            -b excluded.padded.bed \
-        | bgzip -c \
-        > filtered_targets.bed.gz
         
-        if ! tabix -p bed filtered_targets.bed.gz; then
-            echo "ERROR: no BED targets remain after applying exclusions" >&2
-            exit 1
-        fi
-
-        # Create coarse regions from the filtered targets.
-        zcat filtered_targets.bed.gz \
+        # Create coarse regions from the interval bed
+        zcat ${interval_bed} \
             | bedtools merge \
                 -d 1000000000 \
                 -i - \

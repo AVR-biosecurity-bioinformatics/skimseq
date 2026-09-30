@@ -13,7 +13,6 @@ process HAPLOTYPECALLER {
         path(cram),
         path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
 
     output:
     tuple val(sample),
@@ -92,8 +91,6 @@ process HAPLOTYPECALLER {
         -L "${interval_bed}" \
         --native-pair-hmm-threads "${task.cpus}" \
         --assembly-region-padding "${params.hc_interval_padding}" \
-        --exclude-intervals "${exclude_bed}" \
-        --interval-exclusion-padding "${params.exclude_padding}" \
         --interval-merging-rule ALL \
         --min-pruning "${params.hc_min_pruning}" \
         --min-dangling-branch-length "${params.hc_min_dangling_length}" \

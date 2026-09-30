@@ -9,8 +9,6 @@ process INDEX_GENOME {
     output: 
     tuple path(ref_genome), path("*.{fai,l2b,mbw,dict}"),            emit: fasta_indexed
     path("genome.bed"),                                              emit: genome_bed
-    path("long.bed"),                                                emit: long_bed
-    path("short.bed"),                                               emit: short_bed
 
     script:
     def dict_name = "${ref_genome.baseName}.dict"
@@ -73,20 +71,6 @@ process INDEX_GENOME {
 
     # Create a BED file covering every reference base.
     awk 'BEGIN { OFS = "\\t" } { print \$1, 0, \$2} ' "${ref_genome}.fai" > "genome.bed"
-
-    # create 2 additional BED files containing short and long contigs
-    : > long.bed
-    : > short.bed
-    awk \
-        -v min_length="${min_chr_length}" \
-        'BEGIN {
-            OFS = "\\t"
-        }
-        {
-            output = \$2 >= min_length ? "long.bed" : "short.bed"
-            print \$1, 0, \$2 > output
-        }' \
-        "${ref_genome}.fai"
 
     """
 }

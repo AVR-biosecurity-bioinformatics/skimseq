@@ -16,6 +16,12 @@ process SUBSET_BED_TO_INTERVALS {
     """
     set -euo pipefail
 
+    # An empty interval selector is valid and represents no territory.
+    if [[ ! -s "${bed}" || ! -s "${include_bed}" ]]; then
+        : > ${bed.baseName}.included.bed
+        exit 0
+    fi
+
     # Merge the included intervals to prevent duplicate output records
     # where include intervals overlap.
 

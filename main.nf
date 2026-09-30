@@ -40,25 +40,6 @@ params {
     split_large_intervals: Boolean = true               // Allow workload intervals to be split across chunk boundaries. Improves workload balance but may introduce boundaries within otherwise continuous genomic intervals.
     min_interval_gap: Integer = 1000                    // Minimum gap of missing data (N or no reads) between intervals to consider them separate intervals for chunking
 
-
-    // Reference-genome masking for genotyping
-    min_chr_length: Integer = 50_000_000                // Minimum length for a contig to be considered a chromosome
-    include_bed: Path?                                  // Optional input bed file to just include these intervals for genotyping
-    use_reference_hardmasks: Boolean = true             // Use hard masks (N bases) already present in reference genome
-    use_reference_softmasks: Boolean = false            // Use soft masks (lowercase bases) already present in reference genome
-    exclude_bed: Path?                                  // Optional exclusion of certain intervals
-    exclude_padding: Integer = 0                        // Optional padding of exclusion intervals
-    genotype_masked_bases: Boolean = false              // Whether to genotype masked bases
-    filter_masked_variants: Boolean = true              // Whether to filter masked bases from vcf
-    genmap_kmer_length: Integer = 100                   // Kmer length for calculating mapability. Should be roughly close to the read lengths that will be mapped
-    genmap_error_tol: Integer = 2                       // Number of errors to tolerate in calculating mapability
-    genmap_thresh: Float = 0.99f                        // Mapability threshold removes anything less than this. 1 = completely unique Kmer
-    longdust_kmer_length: Integer = 7                   // Kmer length for longdust
-    longdust_window_size: Integer = 5_000               // Context window length for longdust. Cannot find repeats with units longer than this
-    longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
-    numt_min_length: Integer = 100                      // Minimum length of a NUMT
-    numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
-
     // read filtering and alignment
     trim_polyg: Boolean = true                          // Whether to trim polyG strings from read tails
     polyg_min_length: Integer = 10                      // Minimum length to detect polyG in the read tail.
@@ -126,6 +107,23 @@ params {
     // Debugging                                       // save all module outputs to results/modules
     debug_mode: Boolean = false                        // save all data/objects from process-level R sessions as .RData files in work dir
     rdata: Boolean = false
+
+    // Reference-genome masking for filtering
+    min_chr_length: Integer = 50_000_000                // Minimum length for a contig to be considered a chromosome
+    include_bed: Path?                                  // Optional input bed file to just include these intervals for genotyping
+    exclude_reference_hardmasks: Boolean = true         // Exclude hard masks (N bases) already present in reference genome
+    exclude_reference_softmasks: Boolean = false        // Exclude soft masks (lowercase bases) already present in reference genome
+    exclude_bed: Path?                                  // Optional exclusion of certain intervals
+    exclude_padding: Integer = 0                        // Optional padding of exclusion intervals
+    filter_masked_variants: Boolean = true              // Whether to filter masked bases from vcf
+    genmap_kmer_length: Integer = 100                   // Kmer length for calculating mapability. Should be roughly close to the read lengths that will be mapped
+    genmap_error_tol: Integer = 2                       // Number of errors to tolerate in calculating mapability
+    genmap_thresh: Float = 0.99f                        // Mapability threshold removes anything less than this. 1 = completely unique Kmer
+    longdust_kmer_length: Integer = 7                   // Kmer length for longdust
+    longdust_window_size: Integer = 5_000               // Context window length for longdust. Cannot find repeats with units longer than this
+    longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
+    numt_min_length: Integer = 100                      // Minimum length of a NUMT
+    numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
 
     // Population-level filtering
     vcf_population_min_samples: Integer = 1

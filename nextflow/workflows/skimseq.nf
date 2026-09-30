@@ -13,6 +13,7 @@ include { QC                                                        } from '../s
 // Import modules
 include { INDEX_GENOME                                              } from '../modules/index_genome/index_genome' 
 include { INDEX_MITO                                                } from '../modules/index_mito/index_mito'
+include { DEFINE_CALLING_TERRITORY                                  } from '../modules/define_calling_territory/define_calling_territory' 
 
 // Import functions
 include { samplesheetToList } from 'plugin/nf-schema'
@@ -257,20 +258,13 @@ workflow SKIMSEQ {
     )
 
     ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
-    ch_genome_bed = INDEX_GENOME.out.genome_bed
-    ch_long_bed = INDEX_GENOME.out.long_bed
-    ch_short_bed = INDEX_GENOME.out.short_bed
 
     // Handle optional include_bed - i.e. target autosomes
     if ( params.include_bed ){
-        ch_include_bed = channel
-            .fromPath (
-                 params.include_bed, 
-                 checkIfExists: true
-             )
+        ch_include_bed = channel.fromPath ( params.include_bed, checkIfExists: true)
     } else {
         // Set to whole genome bed if not provided
-        ch_include_bed = ch_genome_bed
+        ch_include_bed = INDEX_GENOME.out.genome_bed
     } 
 
     // Handle optional exclude_bed - i.e. poorly assembled regions
@@ -281,6 +275,7 @@ workflow SKIMSEQ {
     } else {
         ch_exclude_bed = ch_dummy_file.first()
     }
+
     
     /*
     Mitogenome indexing and interval creation
@@ -310,24 +305,7 @@ workflow SKIMSEQ {
         ch_reads_grouped,
         ch_genome_indexed
     )
-    
-    ALIGNMENT.out.events
-        .set{ ch_genome_depths }
-
-    /*
-    Create genomic masks used to exclude regions from variant calling
-    */
-
-    MASK_GENOME(
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_exclude_bed,
-        ch_mito_indexed,
-        ch_mito_bed
-      )
-
-    ch_included_bases = MASK_GENOME.out.ch_included_bases
-    
+        
     /*
     Mitochondrial variant calling + consensus FASTA
     */
@@ -339,33 +317,46 @@ workflow SKIMSEQ {
         ch_shifted_mito_indexed,
         ch_mito_bed,
         ch_mito_shifted_bed,
-        MASK_GENOME.out.numt_mask_bed,
         ch_cohort_size,
         ch_mito_included_bases
     )
+
+    ch_numt_bed = MITO_GENOTYPING.out.numt_bed
 
     /*
     Nuclear variant calling
     */
 
-    // If mask_before_genotyping is set, use all masks, otherwise just mask mitochondria
-    if ( !params.genotype_masked_bases ){
-            ch_mask_bed_genotype = MASK_GENOME.out.mask_bed
-         } else {
-            ch_mask_bed_genotype = ch_mito_bed
-    }
-    
+    // Create genome calling territory - this is a bed of all sites sent to chunk creation then variant calling
+    DEFINE_CALLING_TERRITORY (
+        ch_genome_indexed,
+        ch_include_bed,
+        ch_exclude_bed,
+        ch_mito_bed
+    )
+
+    ch_calling_bed = DEFINE_CALLING_TERRITORY.out.bed
+    ch_long_bed = DEFINE_CALLING_TERRITORY.out.long_bed
+    ch_short_bed = DEFINE_CALLING_TERRITORY.out.short_bed
+    ch_reference_masks = DEFINE_CALLING_TERRITORY.out.mask_bed
+
+    // Get total number of reference bases in callign territory- used later for chunking
+    ch_included_bases = DEFINE_CALLING_TERRITORY.out.reference_bases
+        .map { reference_bases_file ->
+            reference_bases_file.text.trim().toLong()
+        }
+
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_new_gvcf = channel.empty()
     if (params.variant_caller == "bcftools"){
         BCFTOOLS_CALLING (
             ALIGNMENT.out.cram,
             ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_genotype,
+            ch_calling_bed,
             ch_popmap,
             ch_cohort_size,
-            ch_included_bases
+            ch_included_bases,
+            ch_dummy_file
         )
 
         // Main chunked VCF output
@@ -384,8 +375,7 @@ workflow SKIMSEQ {
             ALIGNMENT.out.cram,
             ch_reads_grouped,
             ch_genome_indexed,
-            ch_include_bed,
-            ch_mask_bed_genotype,
+            ch_calling_bed,
             ch_long_bed,
             ch_short_bed,
             ch_cohort_size,
@@ -407,15 +397,27 @@ workflow SKIMSEQ {
     }  
 
     /*
-    Filter SNPs, INDELs, and invariant sites
+    Create genomic masks used to exclude regions from final VCF
     */
 
+    // TODO this needs to contain depth masks, and also per-sample depths etc
+    MASK_GENOME(
+        ch_genome_indexed,
+        ch_calling_bed,
+        ch_reference_masks,
+        ch_mito_bed,
+        ch_numt_bed
+      )
+    
     // If mask_before_filtering is set, use all masks, otherwise provide empty dummy file
     if ( params.filter_masked_variants ){
           ch_mask_bed_vcf = MASK_GENOME.out.mask_bed
         } else {
           ch_mask_bed_vcf = ch_dummy_file
     }
+    /*
+    Filter SNPs, INDELs, and invariant sites in chunked VCFs
+    */
     
     FILTER_VARIANTS (
         ch_unfiltered_vcfs,
@@ -446,7 +448,7 @@ workflow SKIMSEQ {
         OUTPUTS.out.final_vcf_all,
         ch_genome_indexed,
         ch_multiqc_config,
-        ch_include_bed,
+        ch_calling_bed,
         ch_exclude_bed
     )
 
