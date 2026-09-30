@@ -154,9 +154,9 @@ params {
     vcf_dp_min_global_invariant: Integer? = 6
 
     // Minimum distance from an indel
-    vcf_dist_indel_global_snp: Integer? = 5
-    vcf_dist_indel_global_indel: Integer?
-    vcf_dist_indel_global_invariant: Integer?
+    vcf_dist_indel_global_snp: Integer = 5
+    vcf_dist_indel_global_indel: Integer = 0
+    vcf_dist_indel_global_invariant: Integer = 0
 
     // Excess heterozygosity
     vcf_eh_global_snp: Float?

@@ -9,7 +9,6 @@ include { CALC_CHUNK_DP                                } from '../modules/calc_c
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp/merge_chunk_dp'
 include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing/merge_chunk_missing'
 include { FILTER_VCF                                   } from '../modules/filter_vcf/filter_vcf'
-include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist/create_filter_hist'
 include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters/plot_vcf_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters/plot_sample_filters'
 
