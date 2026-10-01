@@ -17,7 +17,6 @@ workflow BCFTOOLS_CALLING {
     ch_popmap
     ch_cohort_size
     ch_included_bases
-    ch_dummy_file
 
     main: 
 
@@ -118,25 +117,25 @@ workflow BCFTOOLS_CALLING {
         ch_popmap.first()
     )
     
-    // Merged unfiltered VCF outputs - just used for publishing
-    ch_merged_unfiltered_vcf = channel.empty()
-    if ( params.output_unfiltered_vcf ){
+    // Merged unfiltered bcf outputs - just used for publishing
+    ch_merged_unfiltered_bcf = channel.empty()
+    if ( params.output_unfiltered_bcf ){
         // TODO: Make this output seperate files for each variant type
-        MPILEUP.out.vcf
-            .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
+        MPILEUP.out.bcf
+            .map { _interval_chunk, _interval_bed, _bed_tbi, bcf, csi -> tuple('unfiltered', bcf, csi) }
             .groupTuple(by: 0)
-            .set { ch_vcf_to_merge }
+            .set { ch_bcf_to_merge }
 
         CONCAT_UNFILTERED_VCFS (
-            ch_vcf_to_merge
+            ch_bcf_to_merge
         )
     
         CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_merged_unfiltered_vcf }
+            .set { ch_merged_unfiltered_bcf }
     }
 
     emit: 
-    vcf = MPILEUP.out.vcf
-    merged_unfiltered_vcf = ch_merged_unfiltered_vcf
+    bcf = MPILEUP.out.bcf
+    merged_unfiltered_bcf = ch_merged_unfiltered_bcf
 
 }

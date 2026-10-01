@@ -1028,10 +1028,10 @@
           "default": true,
           "description": "Publish GVCF files."
         },
-        "output_unfiltered_vcf": {
+        "output_unfiltered_bcf": {
           "type": "boolean",
           "default": false,
-          "description": "Publish unfiltered VCF files."
+          "description": "Publish unfiltered bcf files."
         },
         "output_beagle_gl": {
           "type": "boolean",

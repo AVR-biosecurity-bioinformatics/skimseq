@@ -30,7 +30,6 @@ workflow GATK_CALLING {
     ch_short_bed
     ch_cohort_size
     ch_included_bases
-    ch_dummy_file
     
     main: 
     // Calculate nchunks
@@ -442,26 +441,26 @@ workflow GATK_CALLING {
     }
 
     // unfiltered cohort vcf
-    ch_merged_unfiltered_vcf = channel.empty()
-    if ( params.output_unfiltered_vcf ){
+    ch_merged_unfiltered_bcf = channel.empty()
+    if ( params.output_unfiltered_bcf ){
 
         // TODO: Make this output seperate files for each variant type
         JOINT_GENOTYPE.out.vcf
-            .map { _interval_chunk, _interval_bed, _bed_tbi, vcf, tbi -> tuple('unfiltered', vcf, tbi) }
-            .map { _type, vcf, tbi -> tuple('all', vcf, tbi) }
+            .map { _interval_chunk, _interval_bed, _bed_tbi, bcf, csi -> tuple('unfiltered', bcf, csi) }
+            .map { _type, bcf, csi -> tuple('all', bcf, csi) }
             .groupTuple(by: 0)
-            .set { ch_vcf_to_merge }
+            .set { ch_bcf_to_merge }
 
         CONCAT_UNFILTERED_VCFS (
-            ch_vcf_to_merge
+            ch_bcf_to_merge
         )
 
         CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_merged_unfiltered_vcf }
+            .set { ch_merged_unfiltered_bcf }
     }
 
     emit: 
     new_gvcf = ch_new_gvcf
-    vcf = JOINT_GENOTYPE.out.vcf
-    merged_unfiltered_vcf = ch_merged_unfiltered_vcf
+    bcf = JOINT_GENOTYPE.out.bcf
+    merged_unfiltered_bcf = ch_merged_unfiltered_bcf
 }

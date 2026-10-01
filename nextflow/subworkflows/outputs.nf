@@ -30,30 +30,30 @@ workflow OUTPUTS {
 
     // First split chunked vcfs by type
     SPLIT_VCF_BY_TYPE(
-        ch_vcfs.map { interval_hash, _interval_bed, _bed_tbi, vcf, tbi -> tuple(interval_hash, vcf, tbi) }
+        ch_vcfs.map { interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple(interval_hash, bcf, csi) }
     )
 
     // Build merge input channels from the named emits
     def ch_merge_inputs = SPLIT_VCF_BY_TYPE.out.snp_vcf
-        .map { _interval_hash, vcf, tbi -> tuple('snp', vcf, tbi) }
+        .map { _interval_hash, bcf, csi -> tuple('snp', bcf, csi) }
 
     if( params.output_indel ) {
         ch_merge_inputs = ch_merge_inputs.mix(
             SPLIT_VCF_BY_TYPE.out.indel_vcf
-                .map { _interval_hash, vcf, tbi -> tuple('indel', vcf, tbi) }
+                .map { _interval_hash, bcf, csi -> tuple('indel', bcf, csi) }
         )
     }
 
     if( params.output_invariant ) {
         ch_merge_inputs = ch_merge_inputs.mix(
             SPLIT_VCF_BY_TYPE.out.invariant_vcf
-                .map { _interval_hash, vcf, tbi -> tuple('invariant', vcf, tbi) }
+                .map { _interval_hash, bcf, csi -> tuple('invariant', bcf, csi) }
         )
     }
 
     // Keep the combined merge from the original chunk VCFs
     ch_merge_inputs = ch_merge_inputs.mix(
-        ch_vcfs.map { _interval_hash, _interval_bed, _bed_tbi, vcf, tbi -> tuple('combined', vcf, tbi) }
+        ch_vcfs.map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('combined', bcf, csi) }
     )
 
     // Group all chunked vcfs by variant type and merge
@@ -95,13 +95,13 @@ workflow OUTPUTS {
     // Create channel containing merged VCF along with seperate SNP- and INDEL-only vcfs
     ch_final_all
         .mix(ch_final_snp, ch_final_indel)
-        .set{ ch_final_vcfs }
+        .set{ ch_final_bcfs }
 
     // Create beagle GL file
     ch_beagle_gl = channel.empty()
     if (params.output_beagle_gl) {
         CREATE_BEAGLE_GL (
-            ch_final_vcfs,
+            ch_final_bcfs,
             ch_genome_indexed,
             false
         )
@@ -110,7 +110,7 @@ workflow OUTPUTS {
 
     // Import PLINK file
     PLINK_IMPORT (
-        ch_final_vcfs
+        ch_final_bcfs
     )
 
     // Run PCA on plink bed
@@ -160,8 +160,8 @@ workflow OUTPUTS {
     )
 
     emit:
-    final_vcf_all    = ch_final_all.map{ _name, vcf, tbi -> tuple( vcf, tbi)}
-    final_vcf        = CONCAT_FINAL.out.vcf
+    final_bcf_all    = ch_final_all.map{ _name, bcf, csi -> tuple( bcf, csi)}
+    final_bcf        = CONCAT_FINAL.out.vcf
     beagle_gl        = ch_beagle_gl
     plink            = PLINK_IMPORT.out.plink
     pca              = PLINK_PCA.out.pca

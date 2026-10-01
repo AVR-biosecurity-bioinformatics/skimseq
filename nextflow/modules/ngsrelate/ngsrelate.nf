@@ -3,7 +3,7 @@ process NGSRELATE {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(vcf), path(vcf_tbi)
+    tuple val(outname), path(bcf), path(csi)
 
     output: 
     tuple val(outname),
@@ -18,7 +18,7 @@ process NGSRELATE {
 
     ngsRelate \
         -p ${task.cpus} \
-        -h ${vcf} \
+        -h ${bcf} \
         -O ${outname}.res \
         -I 1 
     """

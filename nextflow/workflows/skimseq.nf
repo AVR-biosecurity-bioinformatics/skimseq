@@ -355,17 +355,16 @@ workflow SKIMSEQ {
             ch_calling_bed,
             ch_popmap,
             ch_cohort_size,
-            ch_included_bases,
-            ch_dummy_file
+            ch_included_bases
         )
 
         // Main chunked VCF output
-        BCFTOOLS_CALLING.out.vcf
-            .set{ ch_unfiltered_vcfs }
+        BCFTOOLS_CALLING.out.bcf
+            .set{ ch_unfiltered_bcfs }
 
         // For publishing only
-        BCFTOOLS_CALLING.out.merged_unfiltered_vcf
-            .set{ ch_merged_unfiltered_vcf }
+        BCFTOOLS_CALLING.out.merged_unfiltered_bcf
+            .set{ ch_merged_unfiltered_bcf }
 
     } else if ( params.variant_caller == "gatk" ){
 
@@ -379,18 +378,16 @@ workflow SKIMSEQ {
             ch_long_bed,
             ch_short_bed,
             ch_cohort_size,
-            ch_cohort_size,
-            ch_dummy_file
-
+            ch_cohort_size
         )
         
         // Main chunked VCF output
-        GATK_CALLING.out.vcf
-            .set{ ch_unfiltered_vcfs }
+        GATK_CALLING.out.bcf
+            .set{ ch_unfiltered_bcfs }
 
         // For publishing only
-        GATK_CALLING.out.merged_unfiltered_vcf
-            .set{ ch_merged_unfiltered_vcf }
+        GATK_CALLING.out.merged_unfiltered_bcf
+            .set{ ch_merged_unfiltered_bcf }
 
         GATK_CALLING.out.new_gvcf
             .set { ch_new_gvcf }
@@ -411,29 +408,29 @@ workflow SKIMSEQ {
     
     // If mask_before_filtering is set, use all masks, otherwise provide empty dummy file
     if ( params.filter_masked_variants ){
-          ch_mask_bed_vcf = MASK_GENOME.out.mask_bed
+          ch_mask_bed = MASK_GENOME.out.mask_bed
         } else {
-          ch_mask_bed_vcf = ch_dummy_file
+          ch_mask_bed = ch_dummy_file.first()
     }
     /*
     Filter SNPs, INDELs, and invariant sites in chunked VCFs
     */
     
     FILTER_VARIANTS (
-        ch_unfiltered_vcfs,
-        ch_mask_bed_vcf,
+        ch_unfiltered_bcfs,
+        ch_mask_bed,
         ch_popmap
     )
 
-    FILTER_VARIANTS.out.filtered_vcf
-        .set { ch_filtered_vcf }
+    FILTER_VARIANTS.out.filtered_bcf
+        .set { ch_filtered_bcf }
 
     /*
         Main pipeline outputs
     */
 
     OUTPUTS (
-        ch_filtered_vcf,
+        ch_filtered_bcf,
         ch_genome_indexed,
         ch_sample_pop
     )
@@ -445,7 +442,7 @@ workflow SKIMSEQ {
     QC (
         ch_reports,
         ALIGNMENT.out.cram,
-        OUTPUTS.out.final_vcf_all,
+        OUTPUTS.out.final_bcf_all,
         ch_genome_indexed,
         ch_multiqc_config,
         ch_calling_bed,
@@ -476,9 +473,9 @@ workflow SKIMSEQ {
     mito_consensus  = MITO_GENOTYPING.out.mito_consensus
 
     // VCF outputs
-    unfiltered_vcf = ch_merged_unfiltered_vcf
+    unfiltered_bcf = ch_merged_unfiltered_bcf
     new_gvcf = ch_new_gvcf
-    final_vcf = OUTPUTS.out.final_vcf
+    final_bcf = OUTPUTS.out.final_bcf
 
     // Outputs subworkflow
     beagle_gl       = OUTPUTS.out.beagle_gl

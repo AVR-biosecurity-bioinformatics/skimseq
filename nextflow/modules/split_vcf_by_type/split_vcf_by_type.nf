@@ -3,22 +3,22 @@ process SPLIT_VCF_BY_TYPE {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(vcf), path(vcf_tbi)
+    tuple val(outname), path(bcf), path(csi)
     
     output: 
     tuple val(outname),
-          path("${outname}.snp.vcf.gz"),
-          path("${outname}.snp.vcf.gz.tbi"),
+          path("${outname}.snp.bcf"),
+          path("${outname}.snp.bcf.csi"),
           emit: snp_vcf
 
     tuple val(outname),
-          path("${outname}.indel.vcf.gz"),
-          path("${outname}.indel.vcf.gz.tbi"),
+          path("${outname}.indel.bcf"),
+          path("${outname}.indel.bcf.csi"),
           emit: indel_vcf
 
     tuple val(outname),
-          path("${outname}.invariant.vcf.gz"),
-          path("${outname}.invariant.vcf.gz.tbi"),
+          path("${outname}.invariant.bcf"),
+          path("${outname}.invariant.bcf.csi"),
           emit: invariant_vcf
 
     script:
@@ -26,15 +26,15 @@ process SPLIT_VCF_BY_TYPE {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    bcftools view -Ou ${vcf} \
+    bcftools view -Ou ${bcf} \
     | tee \
-        >(bcftools view -Oz -v snps   -o ${outname}.snp.vcf.gz) \
-        >(bcftools view -Oz -v indels -o ${outname}.indel.vcf.gz) \
-    | bcftools view -Oz -v ref -o ${outname}.invariant.vcf.gz
+        >(bcftools view -Oz -v snps   -o ${outname}.snp.bcf) \
+        >(bcftools view -Oz -v indels -o ${outname}.indel.bcf) \
+    | bcftools view -Ob -v ref -o ${outname}.invariant.bcf
 
     # Index outputs
-    bcftools index -t --threads ${task.cpus} ${outname}.snp.vcf.gz
-    bcftools index -t --threads ${task.cpus} ${outname}.indel.vcf.gz
-    bcftools index -t --threads ${task.cpus} ${outname}.invariant.vcf.gz
+    bcftools index --threads ${task.cpus} ${outname}.snp.bcf
+    bcftools index --threads ${task.cpus} ${outname}.indel.bcf
+    bcftools index --threads ${task.cpus} ${outname}.invariant.bcf
     """
 }

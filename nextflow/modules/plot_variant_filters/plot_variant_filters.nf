@@ -1,4 +1,4 @@
-process PLOT_VCF_FILTERS {
+process PLOT_VARIANT_FILTERS {
     tag "${outname}"
     conda "${moduleDir}/environment.yml"
 

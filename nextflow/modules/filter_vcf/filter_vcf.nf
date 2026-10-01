@@ -7,8 +7,8 @@ process FILTER_VCF {
       tuple val(interval_hash),
             path(interval_bed),
             path(bed_tbi),
-            path(vcf),
-            path(vcf_tbi),
+            path(bcf),
+            path(csi),
             val(dpLo),
             val(dpHi)
 
@@ -20,10 +20,10 @@ process FILTER_VCF {
       tuple val(interval_hash),
             path(interval_bed),
             path(bed_tbi),
-            path("${interval_hash}.filt.vcf.gz"),
-            path("${interval_hash}.filt.vcf.gz.tbi"),
+            path("${interval_hash}.filt.bcf"),
+            path("${interval_hash}.filt.bcf.csi"),
             path("${interval_hash}.counts"),
-            emit: vcf
+            emit: bcf
 
       tuple val(interval_hash),
             path(interval_bed),
@@ -268,7 +268,7 @@ process FILTER_VCF {
             "REF:${params.vcf_min_callrate_pop_invariant}")
 
       set +e
-      bcftools view --threads ${task.cpus} -S ${interval_hash}.samples.txt -m2 -M2 -Ou "${vcf}" \
+      bcftools view --threads ${task.cpus} -S ${interval_hash}.samples.txt -m2 -M2 -Ou "${bcf}" \
       | bcftools +setGT -Ou -- \
       -t q \
       -n . \
@@ -309,10 +309,10 @@ process FILTER_VCF {
             "tmp.bcf" |
       bcftools annotate \
             --remove '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' \
-            --output-type z \
-            --output "${interval_hash}.filt.vcf.gz"
+            --output-type b \
+            --output "${interval_hash}.filt.bcf"
 
-      bcftools index --threads ${task.cpus} --tbi "${interval_hash}.filt.vcf.gz"
+      bcftools index --threads ${task.cpus} "${interval_hash}.filt.bcf"
 
       # Population-specific INFO tags vary with the retained populations, so discover
       # only those tags dynamically. Global tags are written explicitly below.
@@ -348,7 +348,7 @@ process FILTER_VCF {
       } |
       bgzip --stdout > "${interval_hash}.metrics.tsv.gz"
 
-      bcftools index --nrecords "${interval_hash}.filt.vcf.gz" | tr -d '[:space:]' > "${interval_hash}.counts"
+      bcftools index --nrecords "${interval_hash}.filt.bcf" | tr -d '[:space:]' > "${interval_hash}.counts"
       printf '\\n' >> "${interval_hash}.counts"
       """
 }

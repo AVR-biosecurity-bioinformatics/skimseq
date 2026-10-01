@@ -20,8 +20,8 @@ process JOINT_GENOTYPE {
     val(cohort_size)
 
     output: 
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
-    tuple val(interval_hash), path("*.vcf.gz"), path("*.vcf.gz.tbi"), path("*.stderr.log"),  emit: log
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.bcf"), path("*.csi"),    emit: bcf
+    tuple val(interval_hash), path("*.bcf"), path("*.csi"), path("*.stderr.log"),  emit: log
 
     script:
     """
@@ -63,10 +63,10 @@ process JOINT_GENOTYPE {
     | bcftools annotate \
         --threads "${task.cpus}" \
         --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
-        -Oz9 -o "${interval_hash}.vcf.gz"
+        -Oz9 -o "${interval_hash}.bcf"
 
     # index output
-    bcftools index -t ${interval_hash}.vcf.gz
+    bcftools index ${interval_hash}.bcf
 
     """
 }

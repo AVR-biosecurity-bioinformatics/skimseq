@@ -99,7 +99,7 @@ params {
     output_unmapped_reads: Boolean = false             // Whether to output unmapped reads as fastq
     output_cram: Boolean = true                        // Whether to output CRAM files
     output_gvcf: Boolean = true                        // Whether to output gvcf files
-    output_unfiltered_vcf: Boolean = false             // Whether to output unfiltered VCF files
+    output_unfiltered_bcf: Boolean = false             // Whether to output unfiltered VCF files
     output_beagle_gl: Boolean = false                  // Whether to output genotype likelihoods in BEAGLE format
     output_perbase_depth: Boolean = false              // Whether to output perbase read depths (large)
 
@@ -328,9 +328,9 @@ workflow {
     perbase         = SKIMSEQ.out.perbase
     mito_consensus  = SKIMSEQ.out.mito_consensus
 
-    unfiltered_vcf  = SKIMSEQ.out.unfiltered_vcf
+    unfiltered_bcf  = SKIMSEQ.out.unfiltered_bcf
     new_gvcf        = SKIMSEQ.out.new_gvcf
-    final_vcf       = SKIMSEQ.out.final_vcf
+    final_bcf       = SKIMSEQ.out.final_bcf
 
     beagle_gl       = SKIMSEQ.out.beagle_gl
     plink           = SKIMSEQ.out.plink
@@ -379,10 +379,10 @@ output {
     mito_consensus {
         path 'mito'
     }
-    unfiltered_vcf {
+    unfiltered_bcf {
         path 'vcf/unfiltered'
     }
-    final_vcf {
+    final_bcf {
         path 'vcf/filtered'
     }
 

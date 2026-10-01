@@ -30,13 +30,13 @@ process MPILEUP {
     tuple val(interval_hash),
           path(interval_bed),
           path(bed_tbi),
-          path("${interval_hash}.vcf.gz"),
-          path("${interval_hash}.vcf.gz.tbi"),
-          emit: vcf
+          path("${interval_hash}.bcf"),
+          path("${interval_hash}.bcf.csi"),
+          emit: bcf
 
     script:
     // Check if input is panel or bed
-    def is_panel = interval_bed.name.endsWith('.vcf.gz')
+    def is_panel = interval_bed.name.endsWith('.bcf')
 
     // Create list of cram files
     def cram_list = cram
@@ -185,7 +185,7 @@ process MPILEUP {
         | bcftools annotate \
             --threads ${task.cpus} \
             --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
-            -Oz --output "${interval_hash}.vcf.gz"
+            -Ob --output "${interval_hash}.bcf"
 
     # Catch error codes from piped tools so nextflow can retry
     st=("\${PIPESTATUS[@]}")
@@ -193,7 +193,7 @@ process MPILEUP {
     check_pipeline "\${st[@]}" || exit \$?
 
     # Index output
-    bcftools index -t "${interval_hash}.vcf.gz"
+    bcftools index "${interval_hash}.bcf"
 
     """
 }

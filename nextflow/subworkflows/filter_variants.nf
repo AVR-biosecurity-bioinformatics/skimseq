@@ -3,20 +3,18 @@
 */
 
 //// import modules
-include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites/extract_vcf_sites'
-include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
 include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp/calc_chunk_dp'
 include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp/merge_chunk_dp'
 include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing/merge_chunk_missing'
 include { FILTER_VCF                                   } from '../modules/filter_vcf/filter_vcf'
-include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters/plot_vcf_filters'
+include { PLOT_VARIANT_FILTERS                         } from '../modules/plot_variant_filters/plot_variant_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters/plot_sample_filters'
 
 workflow FILTER_VARIANTS {
 
     take:
-    ch_vcfs
-    ch_mask_bed_vcf
+    ch_bcfs
+    ch_mask_bed
     ch_popmap
 
     main: 
@@ -27,7 +25,7 @@ workflow FILTER_VARIANTS {
 
     // Calculate missing data and variant DP histogram for each chunk
     CALC_CHUNK_DP(
-        ch_vcfs
+        ch_bcfs
     )
 
     // Merge all chunk DP histograms together
@@ -63,23 +61,23 @@ workflow FILTER_VARIANTS {
 
     // Global site filters
     FILTER_VCF(
-        ch_vcfs.combine(ch_dp_bounds),
-        ch_mask_bed_vcf,
+        ch_bcfs.combine(ch_dp_bounds),
+        ch_mask_bed,
         ch_popmap.first(),
         MERGE_CHUNK_MISSING.out.missing_summary
     )
 
     // Remove chunks which contain no variants after filtering
-    FILTER_VCF.out.vcf
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
+    FILTER_VCF.out.bcf
+        .map { interval_hash, interval_bed, bed_tbi, bcf, csi, counts_file ->
             def n = counts_file.text.trim() as Integer
-            tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
+            tuple(interval_hash, interval_bed, bed_tbi, bcf, csi, n)
         }
-        .filter { _interval_hash, _interval_bed, _bed_tbi, _vcf, _tbi, n -> n > 0 }
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, _n ->
-            tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi)
+        .filter { _interval_hash, _interval_bed, _bed_tbi, _bcf, _csi, n -> n > 0 }
+        .map { interval_hash, interval_bed, bed_tbi, bcf, csi, _n ->
+            tuple(interval_hash, interval_bed, bed_tbi, bcf, csi)
         }
-        .set { ch_filtered_vcf }
+        .set { ch_filtered_bcf }
 
     // Create list of samples surviving filtering
     FILTER_VCF.out.samples_to_keep.first()
@@ -89,16 +87,16 @@ workflow FILTER_VARIANTS {
 
 
     // QC plots for site histograms
-    PLOT_VCF_FILTERS (
+    PLOT_VARIANT_FILTERS (
         FILTER_VCF.out.metrics.map { _interval_hash, _interval_bed, _bed_tbi, tsv -> tsv }.collect(),
         "site_filters"
     )
 
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    filtered_vcf = ch_filtered_vcf
+    filtered_bcf = ch_filtered_bcf
     sample_names_filt = ch_sample_names_filt
     sample_filter_plots = PLOT_SAMPLE_FILTERS.out.plots
     sample_missing_tsv = PLOT_SAMPLE_FILTERS.out.sample_missing_tsv
-    site_filter_plots = PLOT_VCF_FILTERS.out.plots
+    site_filter_plots = PLOT_VARIANT_FILTERS.out.plots
 }
