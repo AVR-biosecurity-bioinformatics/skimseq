@@ -160,10 +160,20 @@ workflow ALIGNMENT {
 
     // Input is all libraries and reads per-sample
     // Output is sample-level cram, no merging required
+
+    // Original ref genome path is injected to the mai ncram
+    ref_genome_uri = file(
+        params.ref_genome,
+        checkIfExists: true
+    ).toAbsolutePath()
+    .toUri()
+    .toString()
+
     MAP_TO_GENOME (
         ch_reads_grouped_by_sample,
         ch_genome_indexed,
-        ch_adapters
+        ch_adapters,
+        ref_genome_uri
     )
 
     // Print warning if any files had different numbers of forward and reverse reads

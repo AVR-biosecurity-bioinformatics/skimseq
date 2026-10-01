@@ -12,8 +12,8 @@ process MAP_TO_GENOME {
         path(local_r2s, arity: '0..*')
 
     tuple path(ref_genome), path(genome_index_files)
-
     path adapters
+    val(ref_genome_uri)
 
     output: 
     tuple val(sample),
@@ -346,6 +346,13 @@ process MAP_TO_GENOME {
     ###########################################
     # Index outputs
     ###########################################
+
+    # Reheader the output cram to use original reference path
+    samtools reheader \
+        --in-place \
+        --no-PG \
+        --command "sed 's#\\tUR:[^\\t]*#\\tUR:${ref_genome_uri}#'" \
+        "${sample}.cram"
 
     # check cram is correctly formatted
     samtools quickcheck ${sample}.cram \

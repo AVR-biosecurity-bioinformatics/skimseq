@@ -493,3 +493,31 @@ inject_sam_readgroups() {
         }
     ' "${injected_header_file}" -
 }
+
+# Inject original reference path into sam header
+inject_sam_reference_uri() {
+    local reference_uri="$1"
+
+    awk -v reference_uri="$reference_uri" '
+        BEGIN {
+            FS = OFS = "\t"
+        }
+
+        $1 == "@SQ" {
+            output = $1
+
+            for (i = 2; i <= NF; i++) {
+                if ($i !~ /^UR:/) {
+                    output = output OFS $i
+                }
+            }
+
+            print output OFS "UR:" reference_uri
+            next
+        }
+
+        {
+            print
+        }
+    '
+}
