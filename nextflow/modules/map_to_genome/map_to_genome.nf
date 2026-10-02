@@ -12,7 +12,6 @@ process MAP_TO_GENOME {
         path(local_r2s, arity: '0..*')
 
     tuple path(ref_genome), path(genome_index_files)
-    path adapters
     val(ref_genome_uri)
 
     output: 
@@ -66,10 +65,10 @@ process MAP_TO_GENOME {
         ? local_r2s.collect(shellQuote).join(' ')
         : ''
 
-    def fastp_threads   = Math.max(1, task.cpus.intdiv(4))
+    def trim_threads   = Math.max(1, task.cpus.intdiv(4))
     def sort_threads    = 1
     def overhead_threads = task.cpus >= 8 ? 2 : 1
-    def aln_threads = Math.max(1, task.cpus - fastp_threads - sort_threads - overhead_threads )
+    def aln_threads = Math.max(1, task.cpus - trim_threads - sort_threads - overhead_threads )
 
     // HydraStream connections per mate, cap to one to avoid connection issues
     def download_threads = 1
@@ -209,6 +208,19 @@ process MAP_TO_GENOME {
     sort -u readgroups.sam -o readgroups.sam
 
     ###########################################
+    # Detect adapter sequences
+    ###########################################
+
+    detect_chelae_adapters \
+        "\${READ1[0]}" \
+        "\${READ2[0]}" \
+        "${source}" \
+        "\${RG_ID[0]}" \
+        "adapters.fa" \
+        "${download_threads}" \
+        200000
+
+    ###########################################
     # Embed parameters for later CRAM validation
     ###########################################
     # These parameters get hashed and injected into CRAM as a CO line
@@ -273,8 +285,7 @@ process MAP_TO_GENOME {
     # Main workflow, consumes FIFO producers
     ###########################################
     # In case of corrupted fastq, seqkit sana fixes but pairs may become out of sync
-    # Mergepe and dropse catch this, but check if add too much to runtime
-    # NOTE: FASTP should handle out of sync pairs, but cannot be piped into thrugh <() until this PR is merged https://github.com/OpenGene/fastp/pull/707/
+    # Mergepe and dropse catch this
 
     MERGEPE_LOG="${sample}.mergepe.log"
     WARNING_FILE="${sample}.fastq_warnings.txt"
@@ -285,16 +296,9 @@ process MAP_TO_GENOME {
         "\${FASTQ2}" \
         2> >(tee "\${MERGEPE_LOG}" >&2) \
     | seqtk dropse - \
-    | fastp \
-        --stdin \
-        --adapter_fasta ${adapters} \
-        --detect_adapter_for_pe \
-        --interleaved_in \
-        ${polyGArgs} \
-        --disable_quality_filtering \
-        --dont_eval_duplication \
-        --stdout \
-        --thread "${fastp_threads}" \
+    | chelae trim \
+        --adapter-fasta adapters.fa \
+        --threads "${trim_threads}" \
     | minibwa map \
         -x ${params.minibwa_preset} \
         -k ${params.minibwa_min_seed_length} \

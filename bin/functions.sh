@@ -368,6 +368,102 @@ annotate_fastq() {
     '
 }
 
+# Sample one resolved FASTQ pair and identify its adapters.
+#
+# Arguments:
+#   1  R1 input (local path or resolved URL)
+#   2  R2 input (local path or resolved URL)
+#   3  source type: local, url, or accession
+#   4  read-group ID
+#   5  output adapter FASTA
+#   6  download threads
+#   7  maximum pairs to sample (default: 200000)
+detect_chelae_adapters() {
+    local read1="$1"
+    local read2="$2"
+    local source_type="$3"
+    local rg_id="$4"
+    local output_fasta="$5"
+    local download_threads="${6:-1}"
+    local max_pairs="${7:-200000}"
+
+    local sample_r1="${output_fasta}.sample_R1.fastq"
+    local sample_r2="${output_fasta}.sample_R2.fastq"
+    local lines_r1 lines_r2
+
+    if [[ ! "${max_pairs}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: max_pairs must be a positive integer" >&2
+        return 2
+    fi
+
+    # This subshell contains the expected SIGPIPE from stopping a stream
+    # after max_pairs reads. It does not change the caller's shell options.
+    sample_mate() (
+        local input="$1"
+        local output="$2"
+        local -a status
+
+        set +e
+
+        # No expected MD5: this is deliberately a partial download.
+        stream_fastq \
+            "${input}" \
+            "${source_type}" \
+            "${rg_id}" \
+            "" \
+            "${download_threads}" \
+        | head -n "$((max_pairs * 4))" > "${output}"
+
+        status=("${PIPESTATUS[@]}")
+
+        if (( status[1] != 0 )); then
+            echo "ERROR: could not write detection sample: ${output}" >&2
+            exit "${status[1]}"
+        fi
+
+        # The producer may receive SIGPIPE when head has enough reads.
+        if (( status[0] != 0 && status[0] != 141 )); then
+            echo \
+                "ERROR: FASTQ stream failed while sampling: ${input} " \
+                "(status ${status[0]})" >&2
+            exit "${status[0]}"
+        fi
+    )
+
+    if ! sample_mate "${read1}" "${sample_r1}" ||
+       ! sample_mate "${read2}" "${sample_r2}"; then
+        rm -f "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 1
+    fi
+
+    lines_r1=$(wc -l < "${sample_r1}")
+    lines_r2=$(wc -l < "${sample_r2}")
+
+    if (( lines_r1 == 0 ||
+          lines_r1 != lines_r2 ||
+          lines_r1 % 4 != 0 )); then
+        echo \
+            "ERROR: detection samples are empty, incomplete, or have " \
+            "different read counts (R1=${lines_r1}, R2=${lines_r2})" >&2
+        rm -f "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 1
+    fi
+
+    if ! chelae detect \
+        --inputs "${sample_r1}" "${sample_r2}" \
+        --output-fasta "${output_fasta}" \
+        --max-reads "${max_pairs}"; then
+        rm -f "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 1
+    fi
+
+    rm -f "${sample_r1}" "${sample_r2}"
+
+    if [[ ! -s "${output_fasta}" ]]; then
+        echo "ERROR: chelae detect produced no adapter FASTA" >&2
+        return 1
+    fi
+}
 
 # Inject the headers into samtools readgroups
 # This can include CO and PG lines
