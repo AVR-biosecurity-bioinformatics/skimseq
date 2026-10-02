@@ -7,7 +7,7 @@ process CRAM_STATS_RIKER {
     tuple path(ref_genome), path(genome_index_files)
     path(interval_bed)
     path(exclude_bed)
-    //tuple path(vcf), path(vcf_tbi)
+    tuple path(vcf), path(vcf_tbi)
 
     output: 
     tuple val(sample), path("${sample}.riker.tar.gz"), emit: stats
@@ -38,13 +38,11 @@ process CRAM_STATS_RIKER {
         --error::min-mapq ${params.minmq} \
         --error::min-bq ${params.minbq} \
         --error::stratify-by read_num,cycle bq \
+        --error::vcf ${vcf} \
         --gcbias::exclude-intervals "${exclude_bed}" \
         --isize::min-frac 0.05 \
         --isize::deviations 10 \
         ${riker_duplicate_args}
-
-    # Disabled for now as causes error: region reference sequence does not exist in reference sequences:
-    # --error::vcf
 
     # create a single tar file containing all of the riker outputs, to avoid creating too many intermediate files
     shopt -s nullglob

@@ -73,10 +73,6 @@ process MAP_TO_GENOME {
     // HydraStream connections per mate, cap to one to avoid connection issues
     def download_threads = 1
     
-    // FastP trimming flags
-    def polyGArgs = params.trim_polyg
-        ? "--trim_poly_g --poly_g_min_len ${params.polyg_min_length}"
-        : "--disable_trim_poly_g"
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -233,6 +229,7 @@ process MAP_TO_GENOME {
             'mapper_preset=${params.minibwa_preset}' \
             'min_seed_length=${params.minibwa_min_seed_length}' \
             'max_seed_occurrence=${params.minibwa_max_seed_occurrence}' \
+            'trim-polyg=${params.polyg_min_length}' \
             | sha256sum \
             | awk '{print \$1}'
     )
@@ -295,6 +292,7 @@ process MAP_TO_GENOME {
     | seqtk dropse - \
     | chelae trim \
         --adapter-fasta adapters.fa \
+        --trim-polyg ${params.polyg_min_length} \
         --threads "${trim_threads}" \
     | minibwa map \
         -x ${params.minibwa_preset} \

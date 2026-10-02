@@ -41,8 +41,7 @@ params {
     min_interval_gap: Integer = 1000                    // Minimum gap of missing data (N or no reads) between intervals to consider them separate intervals for chunking
 
     // read filtering and alignment
-    trim_polyg: Boolean = true                          // Whether to trim polyG strings from read tails
-    polyg_min_length: Integer = 10                      // Minimum length to detect polyG in the read tail.
+    polyg_min_length: Integer = 10                      // Minimum length to detect and trimpolyG in the read tail. set to 0 to disable.
     minibwa_preset: String = 'adap'                     // alignment preset: adap (adaptive short reads), sr (short reads), or lr (long reads)
     minibwa_min_seed_length: Integer = 19               // minimum exact-match seed length used during alignment. Smaller values increase sensitivity but may increase runtime and spurious mappings
     minibwa_max_seed_occurrence: Integer = 250          // ignore seeds occurring more than N times in the reference. Lower values reduce mappings to repetitive regions and may improve performance

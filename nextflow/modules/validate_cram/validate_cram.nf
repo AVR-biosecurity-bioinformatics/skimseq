@@ -177,6 +177,7 @@ process VALIDATE_CRAM {
             'mapper_preset=${params.minibwa_preset}' \
             'min_seed_length=${params.minibwa_min_seed_length}' \
             'max_seed_occurrence=${params.minibwa_max_seed_occurrence}' \
+            'trim-polyg=${params.polyg_min_length}' \
             | sha256sum \
             | awk '{print \$1}'
     )

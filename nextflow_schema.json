@@ -254,15 +254,10 @@
       "description": "FASTP read filterign and minibwa alignment options",
       "type": "object",
       "properties": {
-        "trim_polyg": {
-          "type": "boolean",
-          "default": "true",
-          "description": "Whether to trim polyG strings from read tails."  
-         },
-        "polyg_min_length": {
+         "polyg_min_length": {
           "type": "integer",
-          "default": 1000,
-          "description": "Minimum length to detect polyG in the read tails.",
+          "default": 10,
+          "description": "Minimum length to detect polyG in the read tails. set to 0 to disable",
           "minimum": 0
          },
         "minibwa_preset": {
