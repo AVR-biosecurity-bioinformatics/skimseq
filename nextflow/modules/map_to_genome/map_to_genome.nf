@@ -233,11 +233,8 @@ process MAP_TO_GENOME {
             'mapper_preset=${params.minibwa_preset}' \
             'min_seed_length=${params.minibwa_min_seed_length}' \
             'max_seed_occurrence=${params.minibwa_max_seed_occurrence}' \
-            'fastp_disable_trim_poly_g=true' \
-            'fastp_disable_quality_filtering=true' \
-            'fastp_disable_length_filtering=true' |
-            sha256sum |
-            awk '{print \$1}'
+            | sha256sum \
+            | awk '{print \$1}'
     )
     ## Append validation comments onto readgroups
     printf '@CO\\tSKIMSEQ_ALIGNMENT_CONFIG_SHA256:%s\\n' \
