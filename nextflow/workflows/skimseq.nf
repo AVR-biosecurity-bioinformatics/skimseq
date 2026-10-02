@@ -235,22 +235,18 @@ workflow SKIMSEQ {
     // Calculate cohort size
     ch_cohort_size = ch_sample_names.unique().count()
 
-    // Handle optional include_bed - i.e. target autosomes
-    if ( params.include_bed ){
-        ch_include_bed = channel.fromPath ( params.include_bed, checkIfExists: true)
-    } else {
-        // Set to whole genome bed if not provided
-        ch_include_bed = ch_dummy_file.first()
-    } 
+    ch_genome = params.ref_genome
+        ? channel.fromPath(params.ref_genome, checkIfExists: true)
+        : channel.empty()
 
-    // Handle optional exclude_bed - i.e. poorly assembled regions
-    if (params.exclude_bed) {
-        ch_exclude_bed = channel
-            .fromPath(params.exclude_bed, checkIfExists: true)
-            .first()
-    } else {
-        ch_exclude_bed = ch_dummy_file.first()
-    }
+    // Optional BEDs: one file if supplied, otherwise an empty list.
+    def include_beds = params.include_bed
+        ? [file(params.include_bed, checkIfExists: true)]
+        : []
+
+    def exclude_beds = params.exclude_bed
+        ? [file(params.exclude_bed, checkIfExists: true)]
+        : []
 
     /*
     Nuclear genome indexing and interval creation
@@ -267,11 +263,12 @@ workflow SKIMSEQ {
         ch_genome = channel.empty()
     } 
 
+
     PREPARE_GENOME (
         ch_genome, 
         params.min_chr_length,
-        ch_include_bed,
-        ch_exclude_bed
+        include_beds,
+        exclude_beds
     )
 
     ch_genome_indexed = PREPARE_GENOME.out.fasta_indexed.first()
