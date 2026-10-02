@@ -6,4 +6,3 @@ channels:
 
 dependencies:
   - bioconda::bedtools=2.31.1
-  - bioconda::seqkit=2.13.0

@@ -1,4 +1,4 @@
-process COUNT_CRAM_PERBASE {
+process MOSDEPTH {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
 
@@ -19,8 +19,6 @@ process COUNT_CRAM_PERBASE {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Produce numeric depth intervals for projection onto
-    # shared windows in COMBINE_MOSDEPTH_WINDOWS.
     mosdepth \\
         --threads ${task.cpus} \\
         --fasta "${ref_genome}" \\

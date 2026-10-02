@@ -246,8 +246,30 @@
           "default": 1000,
           "description": "Maximum gap between NUMT alignments in one region.",
           "minimum": 0
+        },
+        "depth_mask_low": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Flag a window as low-depth in a sample when its depth is at most this fraction of that sample's baseline (e.g. 0.5 means <=0.5x).",
+          "minimum": 0,
+          "exclusiveMaximum": 1
+        },
+        "depth_mask_high": {
+          "type": "number",
+          "default": 1.5,
+          "description": "Flag a window as high-depth in a sample when its depth is at least this multiple of that sample's baseline (e.g. 1.5 means >=1.5x)",
+          "minimum": 0,
+          "exclusiveMinimum": 1
+        },
+        "depth_mask_fraction": {
+          "type": "number",
+          "default": 0.8,
+          "description": "Mask a window when at least this fraction of samples are flagged as low-depth or, separately, high-depth (e.g. 0.8 means 80%).",
+          "exclusiveMinimum": 0,
+          "maximum": 1
         }
       }
+
     },
     "alignment_options": {
       "title": "Read filtering & Alignment",
@@ -596,7 +618,16 @@
           "description": "Maximum genotype depth; null disables this mask.",
           "minimum": 0
         },
-        "vcf_sample_max_missing": {
+        "coverage_min_depth": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "default": 1,
+          "description": "Minimum depth to determine a base as covered in a sample.",
+          "minimum": 0
+        },
+        "sample_max_missing": {
           "type": [
             "number",
             "null"
@@ -605,26 +636,6 @@
           "description": "Maximum missing-genotype fraction per sample; null disables this filter.",
           "minimum": 0,
           "maximum": 1
-        },
-        "vcf_dp_percentile_lower": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "default": 1.0,
-          "description": "Lower depth percentile; null disables it.",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "vcf_dp_percentile_upper": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "default": 99.0,
-          "description": "Upper depth percentile; null disables it.",
-          "minimum": 0,
-          "maximum": 100
         },
         "vcf_qual_global_snp": {
           "type": [

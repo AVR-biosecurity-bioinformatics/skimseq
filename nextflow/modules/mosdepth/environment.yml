@@ -5,4 +5,4 @@ channels:
   - bioconda
 
 dependencies:
-  - bioconda::bcftools=1.24
+  - bioconda::mosdepth=0.3.14

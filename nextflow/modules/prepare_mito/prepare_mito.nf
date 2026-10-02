@@ -1,4 +1,4 @@
-process INDEX_MITO {
+process PREPARE_MITO {
     tag "${ref_genome}"
     conda "${moduleDir}/environment.yml"
 

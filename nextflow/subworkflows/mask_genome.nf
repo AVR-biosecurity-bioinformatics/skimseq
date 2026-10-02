@@ -3,14 +3,18 @@
 */
 
 //// import modules
-include { GENMAP                                                    } from '../modules/genmap/genmap' 
-include { LONGDUST                                                  } from '../modules/longdust/longdust'
-include { COMBINE_BEDS as COMBINE_MASKS                             } from '../modules/combine_beds/combine_beds' 
-include { SUMMARISE_MASKS                                           } from '../modules/summarise_masks/summarise_masks' 
+include { GENMAP                            } from '../modules/genmap/genmap' 
+include { LONGDUST                          } from '../modules/longdust/longdust'
+include { COUNT_CRAM_WINDOWS                } from '../modules/count_cram_windows/count_cram_windows'
+include { SPLIT_BED_INTO_WINDOWS            } from '../modules/split_bed_into_windows/split_bed_into_windows'
+include { COMBINE_MOSDEPTH_WINDOWS          } from '../modules/combine_mosdepth_windows/combine_mosdepth_windows'
+include { COMBINE_BEDS as COMBINE_MASKS     } from '../modules/combine_beds/combine_beds' 
+include { SUMMARISE_MASKS                   } from '../modules/summarise_masks/summarise_masks' 
 
 workflow MASK_GENOME {
 
     take:
+    ch_sample_cram
     ch_genome_indexed
     ch_calling_bed
     ch_reference_masks
@@ -37,8 +41,30 @@ workflow MASK_GENOME {
 
     /*
     Read alignment based masks
-    - Cohort wide depth variation
+    - Cohort wide normalised depth
+    - breadth above minimum depth
     */
+    
+    // TODO: Change 100 to a prameter
+    SPLIT_BED_INTO_WINDOWS(
+        ch_calling_bed, 
+        ch_genome_indexed,
+        1000
+     )
+
+    // Count per-base read depths in all crams, used for masking
+    // TODO: Could later output perbase from this and use for sample coverage calculates
+    COUNT_CRAM_WINDOWS(
+        ch_sample_cram,
+        ch_genome_indexed,
+        SPLIT_BED_INTO_WINDOWS.out.windows.first()
+    )
+
+    ch_normalised_windows = COUNT_CRAM_WINDOWS.out.normalised_windows
+        .map { _sample, bed, _tbi -> bed }
+        .collect()
+
+    COMBINE_MOSDEPTH_WINDOWS(ch_normalised_windows)
 
     /*
     Variant calling based masks
@@ -54,6 +80,8 @@ workflow MASK_GENOME {
     ch_reference_masks
       .concat(GENMAP.out.mask_bed)
       .concat(LONGDUST.out.mask_bed)
+      .concat(COMBINE_MOSDEPTH_WINDOWS.out.low_mask)
+      .concat(COMBINE_MOSDEPTH_WINDOWS.out.high_mask)
       .concat(ch_numt_bed)
       .concat(ch_mito_bed)
       .collect()
@@ -81,5 +109,5 @@ workflow MASK_GENOME {
     mask_summary = SUMMARISE_MASKS.out.mask_summary
     mask_summary_bed = SUMMARISE_MASKS.out.mask_summary_bed
     mask_pass_bed = SUMMARISE_MASKS.out.mask_pass_bed
-
+    perbase = channel.empty()
 }

@@ -8,12 +8,11 @@ include { BCFTOOLS_CALLING                                          } from '../s
 include { MITO_GENOTYPING                                           } from '../subworkflows/mito_genotyping'
 include { FILTER_VARIANTS                                           } from '../subworkflows/filter_variants'
 include { OUTPUTS                                                   } from '../subworkflows/outputs'
-include { QC                                                        } from '../subworkflows/qc'
 
 // Import modules
-include { INDEX_GENOME                                              } from '../modules/index_genome/index_genome' 
-include { INDEX_MITO                                                } from '../modules/index_mito/index_mito'
-include { DEFINE_CALLING_TERRITORY                                  } from '../modules/define_calling_territory/define_calling_territory' 
+include { PREPARE_GENOME                                            } from '../modules/prepare_genome/prepare_genome' 
+include { PREPARE_MITO                                              } from '../modules/prepare_mito/prepare_mito'
+include { MULTIQC                                                   } from '../modules/multiqc/multiqc'
 
 // Import functions
 include { samplesheetToList } from 'plugin/nf-schema'
@@ -236,6 +235,22 @@ workflow SKIMSEQ {
     // Calculate cohort size
     ch_cohort_size = ch_sample_names.unique().count()
 
+    // Handle optional include_bed - i.e. target autosomes
+    if ( params.include_bed ){
+        ch_include_bed = channel.fromPath ( params.include_bed, checkIfExists: true)
+    } else {
+        // Set to whole genome bed if not provided
+        ch_include_bed = ch_dummy_file.first()
+    } 
+
+    // Handle optional exclude_bed - i.e. poorly assembled regions
+    if (params.exclude_bed) {
+        ch_exclude_bed = channel
+            .fromPath(params.exclude_bed, checkIfExists: true)
+            .first()
+    } else {
+        ch_exclude_bed = ch_dummy_file.first()
+    }
 
     /*
     Nuclear genome indexing and interval creation
@@ -252,46 +267,38 @@ workflow SKIMSEQ {
         ch_genome = channel.empty()
     } 
 
-    INDEX_GENOME (
+    PREPARE_GENOME (
         ch_genome, 
-        params.min_chr_length
+        params.min_chr_length,
+        ch_include_bed,
+        ch_exclude_bed
     )
 
-    ch_genome_indexed = INDEX_GENOME.out.fasta_indexed.first()
+    ch_genome_indexed = PREPARE_GENOME.out.fasta_indexed.first()
+    ch_calling_bed = PREPARE_GENOME.out.bed
+    ch_long_bed = PREPARE_GENOME.out.long_bed
+    ch_short_bed = PREPARE_GENOME.out.short_bed
+    ch_reference_masks = PREPARE_GENOME.out.mask_bed
+    ch_included_bases = PREPARE_GENOME.out.reference_bases
+        .map { reference_bases_file ->
+            reference_bases_file.text.trim().toLong()
+        }
 
-    // Handle optional include_bed - i.e. target autosomes
-    if ( params.include_bed ){
-        ch_include_bed = channel.fromPath ( params.include_bed, checkIfExists: true)
-    } else {
-        // Set to whole genome bed if not provided
-        ch_include_bed = INDEX_GENOME.out.genome_bed
-    } 
-
-    // Handle optional exclude_bed - i.e. poorly assembled regions
-    if (params.exclude_bed) {
-        ch_exclude_bed = channel
-            .fromPath(params.exclude_bed, checkIfExists: true)
-            .first()
-    } else {
-        ch_exclude_bed = ch_dummy_file.first()
-    }
-
-    
     /*
     Mitogenome indexing and interval creation
     */
     
     // Extract mitochondrial contig from genome and index
-    INDEX_MITO (
+    PREPARE_MITO (
         ch_genome,
         params.mito_contig
     )
 
-    ch_mito_indexed = INDEX_MITO.out.mito_indexed.first()
-    ch_shifted_mito_indexed = INDEX_MITO.out.shifted_mito_indexed.first()
-    ch_mito_bed = INDEX_MITO.out.bed.first()
-    ch_mito_shifted_bed = INDEX_MITO.out.shifted_bed.first()
-    ch_mito_included_bases = INDEX_MITO.out.included_bases
+    ch_mito_indexed = PREPARE_MITO.out.mito_indexed.first()
+    ch_shifted_mito_indexed = PREPARE_MITO.out.shifted_mito_indexed.first()
+    ch_mito_bed = PREPARE_MITO.out.bed.first()
+    ch_mito_shifted_bed = PREPARE_MITO.out.shifted_bed.first()
+    ch_mito_included_bases = PREPARE_MITO.out.included_bases
         .map { included_bases_file ->
             included_bases_file.text.trim().toLong()
         }
@@ -303,15 +310,18 @@ workflow SKIMSEQ {
     ALIGNMENT (
         ch_sample_names,
         ch_reads_grouped,
-        ch_genome_indexed
+        ch_genome_indexed,
+        ch_calling_bed
     )
-        
+
+    ch_sample_cram = ALIGNMENT.out.cram
+    
     /*
     Mitochondrial variant calling + consensus FASTA
     */
 
     MITO_GENOTYPING (
-        ALIGNMENT.out.cram,
+        ch_sample_cram,
         ch_genome_indexed,
         ch_mito_indexed,
         ch_shifted_mito_indexed,
@@ -327,30 +337,11 @@ workflow SKIMSEQ {
     Nuclear variant calling
     */
 
-    // Create genome calling territory - this is a bed of all sites sent to chunk creation then variant calling
-    DEFINE_CALLING_TERRITORY (
-        ch_genome_indexed,
-        ch_include_bed,
-        ch_exclude_bed,
-        ch_mito_bed
-    )
-
-    ch_calling_bed = DEFINE_CALLING_TERRITORY.out.bed
-    ch_long_bed = DEFINE_CALLING_TERRITORY.out.long_bed
-    ch_short_bed = DEFINE_CALLING_TERRITORY.out.short_bed
-    ch_reference_masks = DEFINE_CALLING_TERRITORY.out.mask_bed
-
-    // Get total number of reference bases in callign territory- used later for chunking
-    ch_included_bases = DEFINE_CALLING_TERRITORY.out.reference_bases
-        .map { reference_bases_file ->
-            reference_bases_file.text.trim().toLong()
-        }
-
     // Set empty channels to recieve publishing outputs for optional workflows
     ch_new_gvcf = channel.empty()
     if (params.variant_caller == "bcftools"){
         BCFTOOLS_CALLING (
-            ALIGNMENT.out.cram,
+            ch_sample_cram,
             ch_genome_indexed,
             ch_calling_bed,
             ch_popmap,
@@ -371,7 +362,7 @@ workflow SKIMSEQ {
         // Single sample calling with haplotypecaller
         GATK_CALLING (
             ch_sample_names,
-            ALIGNMENT.out.cram,
+            ch_sample_cram,
             ch_reads_grouped,
             ch_genome_indexed,
             ch_calling_bed,
@@ -399,6 +390,7 @@ workflow SKIMSEQ {
 
     // TODO this needs to contain depth masks, and also per-sample depths etc
     MASK_GENOME(
+        ch_sample_cram,
         ch_genome_indexed,
         ch_calling_bed,
         ch_reference_masks,
@@ -419,18 +411,17 @@ workflow SKIMSEQ {
     FILTER_VARIANTS (
         ch_unfiltered_bcfs,
         ch_mask_bed,
-        ch_popmap
+        ch_popmap,
+        ALIGNMENT.out.wgs_coverage,
+        ch_genome_indexed
     )
-
-    FILTER_VARIANTS.out.filtered_bcf
-        .set { ch_filtered_bcf }
 
     /*
         Main pipeline outputs
     */
 
     OUTPUTS (
-        ch_filtered_bcf,
+        FILTER_VARIANTS.out.final_bcf,
         ch_genome_indexed,
         ch_sample_pop
     )
@@ -438,36 +429,43 @@ workflow SKIMSEQ {
     /*
         Quality control outputs
     */
+    // Create reports channel for multiqc
+    ch_reports
+        .mix(
+            ALIGNMENT.out.cram_stats.map { _sample, files -> files },
+            FILTER_VARIANTS.out.vcf_stats
+        )
+        .flatten()
+        .collect()
+        .ifEmpty([])
+        .set { multiqc_files }    
 
-    QC (
-        ch_reports,
-        ALIGNMENT.out.cram,
-        OUTPUTS.out.final_bcf_all,
-        ch_genome_indexed,
-        ch_multiqc_config,
-        ch_calling_bed,
-        ch_exclude_bed
+    // Create Multiqc reports
+    MULTIQC (
+        multiqc_files,
+        ch_multiqc_config.toList()
     )
-
 
     /*
         Workflow emissions (sent to main.nf for publishing)
     */
 
     emit:
+    // Alignment subworkflow (emit only new crams for publication)
+    new_cram        = ALIGNMENT.out.new_cram
+    cram_stats      = ALIGNMENT.out.cram_stats
+
     // Masking subworkflow
     mask_summary   = MASK_GENOME.out.mask_summary
     mask_summary_bed = MASK_GENOME.out.mask_summary_bed
     mask_pass_bed = MASK_GENOME.out.mask_pass_bed
-
-    // Alignment subworkflow (emit only new crams for publication)
-    new_cram        = ALIGNMENT.out.new_cram
-    perbase         = ALIGNMENT.out.perbase
+    perbase         = MASK_GENOME.out.perbase
 
     // Filtering subworkflow
     sample_filter_plots = FILTER_VARIANTS.out.sample_filter_plots
     site_filter_plots = FILTER_VARIANTS.out.site_filter_plots
-    sample_missing_tsv = FILTER_VARIANTS.out.sample_missing_tsv
+    missing_summary = FILTER_VARIANTS.out.missing_summary
+    vcf_stats        = FILTER_VARIANTS.out.vcf_stats
 
     // Mito subworkflow
     mito_consensus  = MITO_GENOTYPING.out.mito_consensus
@@ -475,7 +473,7 @@ workflow SKIMSEQ {
     // VCF outputs
     unfiltered_bcf = ch_merged_unfiltered_bcf
     new_gvcf = ch_new_gvcf
-    final_bcf = OUTPUTS.out.final_bcf
+    final_bcf = FILTER_VARIANTS.out.final_bcf
 
     // Outputs subworkflow
     beagle_gl       = OUTPUTS.out.beagle_gl
@@ -490,10 +488,9 @@ workflow SKIMSEQ {
     newick_tree     = OUTPUTS.out.newick_tree
     popmap          = OUTPUTS.out.popmap
 
-    // QC subworkflow
-    cram_stats       = QC.out.cram_stats
-    vcf_stats        = QC.out.vcf_stats
-    multiqc_report   = QC.out.multiqc_report
-    multiqc_plots    = QC.out.multiqc_plots
-    multiqc_data     = QC.out.multiqc_data
+    // QC 
+    multiqc_report   = MULTIQC.out.report
+    multiqc_plots    = MULTIQC.out.plots
+    multiqc_data     = MULTIQC.out.data
+
 }

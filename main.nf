@@ -123,6 +123,9 @@ params {
     longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
     numt_min_length: Integer = 100                      // Minimum length of a NUMT
     numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
+    depth_mask_low: Float = 0.5f                        // Flag a window as low-depth in a sample when its depth is <= 0.nx that sample's baseline
+    depth_mask_high: Float = 1.5f                       // Flag a window as high-depth in a sample when its depth is >= n5x that sample's baseline
+    depth_mask_fraction: Float = 0.8f                   // Mask a window when at least 80% of samples are flagged as low-depth or high-depth
 
     // Population-level filtering
     vcf_population_min_samples: Integer = 1
@@ -134,11 +137,8 @@ params {
     vcf_genotype_dp_max: Integer? = 1_000
 
     // Sample-level filtering
-    vcf_sample_max_missing: Float? = 0.5f
-
-    // Depth-percentile filtering
-    vcf_dp_percentile_lower: Float? = 1.0f
-    vcf_dp_percentile_upper: Float? = 99.0f
+    coverage_min_depth: Integer? = 1                    // Minimum depth to determine a base as covered in a sample.
+    sample_max_missing: Float? = 0.5f
 
     // Minimum site QUAL
     vcf_qual_global_snp: Float? = 30.0f
@@ -345,7 +345,7 @@ workflow {
 
     // QC outputs
     sample_filter_plots = SKIMSEQ.out.sample_filter_plots
-    sample_missing_tsv = SKIMSEQ.out.sample_missing_tsv
+    missing_summary   = SKIMSEQ.out.missing_summary
     site_filter_plots = SKIMSEQ.out.site_filter_plots
     cram_stats      = SKIMSEQ.out.cram_stats
     vcf_stats       = SKIMSEQ.out.vcf_stats
@@ -432,7 +432,7 @@ output {
     sample_filter_plots {
         path 'qc'
     }   
-    sample_missing_tsv {
+    missing_summary {
         path 'qc'
     }  
     site_filter_plots {

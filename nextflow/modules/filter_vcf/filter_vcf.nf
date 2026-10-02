@@ -8,9 +8,7 @@ process FILTER_VCF {
             path(interval_bed),
             path(bed_tbi),
             path(bcf),
-            path(csi),
-            val(dpLo),
-            val(dpHi)
+            path(csi)
 
       path mask_bed
       path popmap
@@ -22,8 +20,28 @@ process FILTER_VCF {
             path(bed_tbi),
             path("${interval_hash}.filt.bcf"),
             path("${interval_hash}.filt.bcf.csi"),
-            path("${interval_hash}.counts"),
-            emit: bcf
+            emit: all_bcf
+
+      tuple val(interval_hash),
+            path(interval_bed),
+            path(bed_tbi),
+            path("${interval_hash}.snp.bcf"),
+            path("${interval_hash}.snp.bcf.csi"),
+            emit: snp_bcf
+
+      tuple val(interval_hash),
+            path(interval_bed),
+            path(bed_tbi),
+            path("${interval_hash}.indel.bcf"),
+            path("${interval_hash}.indel.bcf.csi"),
+            emit: indel_bcf
+
+      tuple val(interval_hash),
+            path(interval_bed),
+            path(bed_tbi),
+            path("${interval_hash}.invariant.bcf"),
+            path("${interval_hash}.invariant.bcf.csi"),
+            emit: invariant_bcf
 
       tuple val(interval_hash),
             path(interval_bed),
@@ -46,7 +64,7 @@ process FILTER_VCF {
       sort -k1,1 -k2,2n -k3,3n ${mask_bed} | uniq > vcf_masks.bed
 
       # Find samples above the missing fraction filter
-      awk -v thr="${params.vcf_sample_max_missing}" 'NR==1 {next} \$4!="NA" && (\$4+0) < thr {print \$1}' "${missing_summary}" > ${interval_hash}.samples.txt
+      awk -v thr="${params.sample_max_missing}" 'NR==1 {next} \$4!="NA" && (\$4+0) < thr {print \$1}' "${missing_summary}" > ${interval_hash}.samples.txt
 
       # Create sample_groups.tsv:
       # first keep only samples in samples.txt
@@ -207,16 +225,6 @@ process FILTER_VCF {
             "INDEL:${params.vcf_dp_min_global_indel}" \
             "REF:${params.vcf_dp_min_global_invariant}")
 
-      DP_LOWER_PERC_EXPR=\$(make_filter_expr DP "<" GLOBAL \
-            "SNP:${dpLo}" \
-            "INDEL:${dpLo}" \
-            "REF:${dpLo}")
-
-      DP_UPPER_PERC_EXPR=\$(make_filter_expr DP ">" GLOBAL \
-            "SNP:${dpHi}" \
-            "INDEL:${dpHi}" \
-            "REF:${dpHi}")
-
       EH_EXPR=\$(make_filter_expr ExcHet "<" GLOBAL \
             "SNP:${params.vcf_eh_global_snp}" \
             "INDEL:${params.vcf_eh_global_indel}" \
@@ -282,8 +290,6 @@ process FILTER_VCF {
       | bcftools filter -Ou -s MASK_FAIL -m+ -M vcf_masks.bed \
       | bcftools filter -Ou -s QUAL_FAIL -m+ -e "\$QUAL_EXPR" \
       | bcftools filter -Ou -s DP_MIN_FAIL -m+ -e "\$DP_MIN_EXPR" \
-      | bcftools filter -Ou -s DP_LOWER_PERC_FAIL -m+ -e "\$DP_LOWER_PERC_EXPR" \
-      | bcftools filter -Ou -s DP_UPPER_PERC_FAIL -m+ -e "\$DP_UPPER_PERC_EXPR" \
       | bcftools filter -Ou -s EH_FAIL -m+ -e "\$EH_EXPR" \
       | bcftools filter -Ou -s HWE_FAIL -m+ -e "\$HWE_EXPR" \
       | bcftools filter -Ou -s MAF_FAIL -m+ -e "\$MAF_EXPR" \
@@ -313,6 +319,36 @@ process FILTER_VCF {
             --output "${interval_hash}.filt.bcf"
 
       bcftools index --threads ${task.cpus} "${interval_hash}.filt.bcf"
+
+      # Split the final PASS-only, annotation-cleaned BCF.
+      filtered_bcf="${interval_hash}.filt.bcf"
+
+      bcftools view \
+            --threads ${task.cpus} \
+            -v snps \
+            -Ob \
+            -o "${interval_hash}.snp.bcf" \
+            "\${filtered_bcf}"
+
+      bcftools view \
+            --threads ${task.cpus} \
+            -v indels \
+            -Ob \
+            -o "${interval_hash}.indel.bcf" \
+            "\${filtered_bcf}"
+
+      bcftools view \
+            --threads ${task.cpus} \
+            -i 'TYPE="ref"' \
+            -Ob \
+            -o "${interval_hash}.invariant.bcf" \
+            "\${filtered_bcf}"
+
+      for type in snp indel invariant; do
+            bcftools index \
+                  --threads ${task.cpus} \
+                  "${interval_hash}.\${type}.bcf"
+      done
 
       # Population-specific INFO tags vary with the retained populations, so discover
       # only those tags dynamically. Global tags are written explicitly below.
@@ -347,8 +383,5 @@ process FILTER_VCF {
             "tmp.bcf"
       } |
       bgzip --stdout > "${interval_hash}.metrics.tsv.gz"
-
-      bcftools index --nrecords "${interval_hash}.filt.bcf" | tr -d '[:space:]' > "${interval_hash}.counts"
-      printf '\\n' >> "${interval_hash}.counts"
       """
 }

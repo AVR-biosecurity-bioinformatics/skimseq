@@ -6,12 +6,11 @@ process CRAM_STATS_RIKER {
     tuple val(sample), path(cram), path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
     path(interval_bed)
-    path(exclude_bed)
-    tuple path(vcf), path(vcf_tbi)
 
     output: 
     tuple val(sample), path("${sample}.riker.tar.gz"), emit: stats
-    
+    tuple val(sample), path("${sample}.wgs-coverage.txt"), emit: wgs_coverage
+
     script:
     def riker_duplicate_args = params.rmdup ? '' : [
         '--wgs::include-duplicates',
@@ -38,8 +37,6 @@ process CRAM_STATS_RIKER {
         --error::min-mapq ${params.minmq} \
         --error::min-bq ${params.minbq} \
         --error::stratify-by read_num,cycle bq \
-        --error::vcf ${vcf} \
-        --gcbias::exclude-intervals "${exclude_bed}" \
         --isize::min-frac 0.05 \
         --isize::deviations 10 \
         ${riker_duplicate_args}
@@ -56,8 +53,13 @@ process CRAM_STATS_RIKER {
 
     tar -czf "${sample}.riker.tar.gz" "\${riker_outputs[@]}"
 
-    # Remove the individual files after successfully creating the archive.
-    rm -f -- "\${riker_outputs[@]}"
+    # Keep the coverage table for the separate Nextflow output.
+    coverage_file="${sample}.wgs-coverage.txt"
 
+    for file in "\${riker_outputs[@]}"; do
+        if [[ "\${file}" != "\${coverage_file}" ]]; then
+            rm -f -- "\${file}"
+        fi
+    done
     """
 }

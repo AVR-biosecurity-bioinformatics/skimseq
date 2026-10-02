@@ -6,7 +6,8 @@
 include { VALIDATE_CRAM                         } from '../modules/validate_cram/validate_cram'
 include { MAP_TO_GENOME                         } from '../modules/map_to_genome/map_to_genome'
 include { STAGE_CRAM                            } from '../modules/stage_cram/stage_cram'
-include { COUNT_CRAM_PERBASE                    } from '../modules/count_cram_perbase/count_cram_perbase'
+include { CRAM_STATS_RIKER                      } from '../modules/cram_stats_riker/cram_stats_riker'
+include { EXTRACT_UNMAPPED                      } from '../modules/extract_unmapped/extract_unmapped'
 
 workflow ALIGNMENT {
 
@@ -14,6 +15,7 @@ workflow ALIGNMENT {
     ch_sample_names
     ch_reads_grouped
     ch_genome_indexed
+    ch_calling_bed
 
     main: 
 
@@ -195,21 +197,30 @@ workflow ALIGNMENT {
         ch_sample_cram
     )
 
-    // Count per-base read depths in all crams, used for masking and creating interval chunks
-    COUNT_CRAM_PERBASE (
-        STAGE_CRAM.out.cram,
-        ch_genome_indexed
-    )
-
     // Only newly generated CRAMs should be published.
     MAP_TO_GENOME.out.cram
         .set { ch_new_cram }
 
+    // generate QC statistics for the merged .cram files
+    CRAM_STATS_RIKER (
+        STAGE_CRAM.out.cram,
+        ch_genome_indexed,
+        ch_calling_bed.first()
+    )
+
+    // Optional: extract unmapped reads 
+    if( params.output_unmapped_reads ) {
+        EXTRACT_UNMAPPED (
+           ch_sample_cram,
+           ch_genome_indexed
+        )
+    }
+
     emit: 
     cram = STAGE_CRAM.out.cram
     new_cram = ch_new_cram
-    perbase = COUNT_CRAM_PERBASE.out.perbase
-    events = COUNT_CRAM_PERBASE.out.perbase
+    cram_stats = CRAM_STATS_RIKER.out.stats
+    wgs_coverage = CRAM_STATS_RIKER.out.wgs_coverage
 
 }
 

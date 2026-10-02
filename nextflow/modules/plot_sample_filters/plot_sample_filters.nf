@@ -23,7 +23,7 @@ process PLOT_SAMPLE_FILTERS {
         })
 
         threshold <- as.numeric(
-            "${params.vcf_sample_max_missing}"
+            "${params.sample_max_missing}"
         )
 
         if (
@@ -33,8 +33,8 @@ process PLOT_SAMPLE_FILTERS {
             threshold > 1
         ) {
             stop(
-                "vcf_sample_max_missing must be a single value between 0 and 1; got: ",
-                "${params.vcf_sample_max_missing}"
+                "sample_max_missing must be a single value between 0 and 1; got: ",
+                "${params.sample_max_missing}"
             )
         }
 
