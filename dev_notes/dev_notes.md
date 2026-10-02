@@ -315,7 +315,7 @@ nextflow run . \
 squeue     --user "$USER"     --format='%i|%T|%j|%R' | grep 'MAP_TO_GENOME'
 
 # Select job_id
-job_id=37749905
+job_id=37846091
 
 node=$(squeue -h -j "$job_id" -o '%N')
 
