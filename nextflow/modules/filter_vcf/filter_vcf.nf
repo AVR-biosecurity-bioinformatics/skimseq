@@ -130,7 +130,7 @@ process FILTER_VCF {
                   population_join=" || "
                   ;;
             *)
-                  echo "ERROR: vcf_population_fail_mode must be ALL or ANY, got '\$population_fail_mode'" >&2
+                  echo "ERROR: vcf_population_fail_mode must be ALL or ANY, got '${params.vcf_population_fail_mode}'" >&2
                   exit 1
                   ;;
       esac
@@ -195,7 +195,7 @@ process FILTER_VCF {
 
                         clause=\$(join_by "\$population_join" "\${pop_clauses[@]}")
 
-                        if [[ "\$population_fail_mode" == "ANY" ]]; then
+                        if [[ "${params.vcf_population_fail_mode}" == "ANY" ]]; then
                         clause="(\$clause)"
                         fi
 

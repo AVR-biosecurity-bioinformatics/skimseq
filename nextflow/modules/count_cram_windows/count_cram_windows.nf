@@ -16,7 +16,8 @@ process COUNT_CRAM_WINDOWS {
     tuple val(sample),
           path("${sample}.normalised.regions.bed.gz"),
           path("${sample}.normalised.regions.bed.gz.csi"),
-          emit: normalised_windows
+          emit: normalised_windows,
+          optional: true
 
     script:
     def exclude_flags = params.rmdup ? 1796 : 772
@@ -53,8 +54,8 @@ process COUNT_CRAM_WINDOWS {
     n=\$(wc -l < positive_depths.sorted)
 
     if (( n == 0 )); then
-        echo "ERROR: no positive-depth windows for ${sample}" >&2
-        exit 1
+        echo "WARNING: no positive-depth windows for ${sample}; retaining raw windows and skipping normalisation" >&2
+        exit 0
     fi
 
     baseline=\$(

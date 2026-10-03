@@ -204,9 +204,26 @@ workflow SKIMSEQ {
         .set { ch_sample_names }
 
     // Sample names and pops channel
+    // One population assignment per sample, regardless of the number of libraries
     ch_samplesheet_parsed
-        .map { sample, _lib, pop, _source, _r1, _r2, _local_reads -> tuple(sample, pop) }
+        .map { sample, _lib, pop, _source, _r1, _r2, _local_reads ->
+            tuple(sample, pop)
+        }
+        .groupTuple(by: 0)
+        .map { sample, pops ->
+            def unique_pops = pops.toSet().toList().sort()
+
+            if (unique_pops.size() != 1) {
+                error(
+                    "Sample '${sample}' has conflicting population assignments: " +
+                    "${unique_pops.join(', ')}."
+                )
+            }
+
+            tuple(sample, unique_pops.first())
+        }
         .set { ch_sample_pop }
+
 
     // If calling model is 'population', check that there are enough pops
     if( params.calling_model == 'population' ) {
@@ -228,7 +245,7 @@ workflow SKIMSEQ {
     // Create popmap tsv file for population-based calling and filtering
     ch_sample_pop
         .map { sample, pop -> "${sample}\t${pop}\n" }
-        .collectFile(name: 'popmap.tsv', newLine: false)
+        .collectFile(name: 'popmap.tsv', newLine: false, sort: true)
         .set { ch_popmap }
 
 
@@ -401,6 +418,7 @@ workflow SKIMSEQ {
         } else {
           ch_mask_bed = ch_dummy_file.first()
     }
+
     /*
     Filter SNPs, INDELs, and invariant sites in chunked VCFs
     */

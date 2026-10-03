@@ -389,6 +389,7 @@ detect_chelae_adapters() {
 
     local sample_r1="${output_fasta}.sample_R1.fastq"
     local sample_r2="${output_fasta}.sample_R2.fastq"
+    local detect_log="${output_fasta}.detect.log"
     local lines_r1 lines_r2
 
     if [[ ! "${max_pairs}" =~ ^[1-9][0-9]*$ ]]; then
@@ -396,8 +397,6 @@ detect_chelae_adapters() {
         return 2
     fi
 
-    # This subshell contains the expected SIGPIPE from stopping a stream
-    # after max_pairs reads. It does not change the caller's shell options.
     sample_mate() (
         local input="$1"
         local output="$2"
@@ -411,8 +410,8 @@ detect_chelae_adapters() {
             "${source_type}" \
             "${rg_id}" \
             "" \
-            "${download_threads}" \
-        | head -n "$((max_pairs * 4))" > "${output}"
+            "${download_threads}" |
+            head -n "$((max_pairs * 4))" > "${output}"
 
         status=("${PIPESTATUS[@]}")
 
@@ -421,18 +420,18 @@ detect_chelae_adapters() {
             exit "${status[1]}"
         fi
 
-        # The producer may receive SIGPIPE when head has enough reads.
+        # The producer may receive SIGPIPE when head stops reading.
         if (( status[0] != 0 && status[0] != 141 )); then
-            echo \
-                "ERROR: FASTQ stream failed while sampling: ${input} " \
-                "(status ${status[0]})" >&2
+            echo "ERROR: FASTQ stream failed while sampling: ${input} (status ${status[0]})" >&2
             exit "${status[0]}"
         fi
     )
 
+    rm -f -- "${output_fasta}"
+
     if ! sample_mate "${read1}" "${sample_r1}" ||
        ! sample_mate "${read2}" "${sample_r2}"; then
-        rm -f "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
         return 1
     fi
 
@@ -442,27 +441,48 @@ detect_chelae_adapters() {
     if (( lines_r1 == 0 ||
           lines_r1 != lines_r2 ||
           lines_r1 % 4 != 0 )); then
-        echo \
-            "ERROR: detection samples are empty, incomplete, or have " \
-            "different read counts (R1=${lines_r1}, R2=${lines_r2})" >&2
-        rm -f "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        echo "ERROR: detection samples are empty, incomplete, or differ in read count (R1=${lines_r1}, R2=${lines_r2})" >&2
+        rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
         return 1
     fi
 
-    if ! chelae detect \
+    # Adapter discovery is not meaningful for very small inputs.
+    # Chelae's default minimum is 20 usable detections, which requires
+    # at least 20 pairs even if every pair has adapter read-through.
+    if (( lines_r1 / 4 < 20 )); then
+        echo \
+            "WARNING: only $((lines_r1 / 4)) read pair(s) available; " \
+            "skipping adapter detection and using --kit all" >&2
+        rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 0
+    fi
+
+    if chelae detect \
         --inputs "${sample_r1}" "${sample_r2}" \
         --output-fasta "${output_fasta}" \
-        --max-reads "${max_pairs}"; then
-        rm -f "${sample_r1}" "${sample_r2}" "${output_fasta}"
-        return 1
+        --max-reads "${max_pairs}" \
+        2>&1 | tee "${detect_log}" >&2; then
+
+        rm -f -- "${sample_r1}" "${sample_r2}"
+
+        if [[ ! -s "${output_fasta}" ]]; then
+            echo "ERROR: chelae detect succeeded but produced no adapter FASTA" >&2
+            return 1
+        fi
+
+        return 0
     fi
 
-    rm -f "${sample_r1}" "${sample_r2}"
+    rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
 
-    if [[ ! -s "${output_fasta}" ]]; then
-        echo "ERROR: chelae detect produced no adapter FASTA" >&2
-        return 1
+    if grep -Fq 'No adapter reached --min-fraction' "${detect_log}" ||
+       grep -Fq 'No usable PE adapter detections' "${detect_log}"; then
+        echo "WARNING: no detectable adapter consensus; trimming will use --kit all" >&2
+        return 0
     fi
+
+    echo "ERROR: chelae detect failed unexpectedly; diagnostic output is above" >&2
+    return 1
 }
 
 # Inject the headers into samtools readgroups

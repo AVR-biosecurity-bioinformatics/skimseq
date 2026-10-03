@@ -132,23 +132,23 @@ params {
     vcf_population_fail_mode: String = 'ALL'
 
     // Genotype-level masking
-    vcf_genotype_qual: Integer? = 0
-    vcf_genotype_dp_min: Integer? = 1
-    vcf_genotype_dp_max: Integer? = 1_000
+    vcf_genotype_qual: Integer = 0
+    vcf_genotype_dp_min: Integer = 1
+    vcf_genotype_dp_max: Integer = 1_000
 
     // Sample-level filtering
-    coverage_min_depth: Integer? = 1                    // Minimum depth to determine a base as covered in a sample.
-    sample_max_missing: Float? = 0.5f
+    coverage_min_depth: Integer = 1                    // Minimum depth to determine a base as covered in a sample.
+    sample_max_missing: Float = 0.5f
 
     // Minimum site QUAL
-    vcf_qual_global_snp: Float? = 30.0f
-    vcf_qual_global_indel: Float? = 30.0f
-    vcf_qual_global_invariant: Float?
+    vcf_qual_global_snp: Float = 30.0f
+    vcf_qual_global_indel: Float = 30.0f
+    vcf_qual_global_invariant: Float = 0
 
     // Minimum site depth
-    vcf_dp_min_global_snp: Integer? = 6
-    vcf_dp_min_global_indel: Integer? = 6
-    vcf_dp_min_global_invariant: Integer? = 6
+    vcf_dp_min_global_snp: Integer = 6
+    vcf_dp_min_global_indel: Integer = 6
+    vcf_dp_min_global_invariant: Integer = 6
 
     // Minimum distance from an indel
     vcf_dist_indel_global_snp: Integer = 5
@@ -156,49 +156,49 @@ params {
     vcf_dist_indel_global_invariant: Integer = 0
 
     // Excess heterozygosity
-    vcf_eh_global_snp: Float?
-    vcf_eh_global_indel: Float?
-    vcf_eh_global_invariant: Float?
+    vcf_eh_global_snp: Float = 0
+    vcf_eh_global_indel: Float = 0
+    vcf_eh_global_invariant: Float = 0
 
-    vcf_eh_pop_snp: Float?
-    vcf_eh_pop_indel: Float?
-    vcf_eh_pop_invariant: Float?
+    vcf_eh_pop_snp: Float = 0
+    vcf_eh_pop_indel: Float = 0
+    vcf_eh_pop_invariant: Float = 0
 
     // Hardy-Weinberg equilibrium
-    vcf_hwe_global_snp: Float?
-    vcf_hwe_global_indel: Float?
-    vcf_hwe_global_invariant: Float?
+    vcf_hwe_global_snp: Float = 0
+    vcf_hwe_global_indel: Float = 0
+    vcf_hwe_global_invariant: Float = 0
 
-    vcf_hwe_pop_snp: Float?
-    vcf_hwe_pop_indel: Float?
-    vcf_hwe_pop_invariant: Float?
+    vcf_hwe_pop_snp: Float = 0
+    vcf_hwe_pop_indel: Float = 0
+    vcf_hwe_pop_invariant: Float = 0
 
     // Minor allele frequency
-    vcf_maf_global_snp: Float? = 0.05f
-    vcf_maf_global_indel: Float? = 0.05f
-    vcf_maf_global_invariant: Float?
+    vcf_maf_global_snp: Float = 0.05f
+    vcf_maf_global_indel: Float = 0.05f
+    vcf_maf_global_invariant: Float = 0
 
-    vcf_maf_pop_snp: Float?
-    vcf_maf_pop_indel: Float?
-    vcf_maf_pop_invariant: Float?
+    vcf_maf_pop_snp: Float = 0
+    vcf_maf_pop_indel: Float = 0
+    vcf_maf_pop_invariant: Float = 0
 
     // Minimum number of called samples
-    vcf_min_samples_global_snp: Integer? = 1
-    vcf_min_samples_global_indel: Integer? = 1
-    vcf_min_samples_global_invariant: Integer? = 1
+    vcf_min_samples_global_snp: Integer = 1
+    vcf_min_samples_global_indel: Integer = 1
+    vcf_min_samples_global_invariant: Integer = 1
 
-    vcf_min_samples_pop_snp: Integer?
-    vcf_min_samples_pop_indel: Integer?
-    vcf_min_samples_pop_invariant: Integer?
+    vcf_min_samples_pop_snp: Integer = 0
+    vcf_min_samples_pop_indel: Integer = 0
+    vcf_min_samples_pop_invariant: Integer = 0
 
     // Minimum call rate
-    vcf_min_callrate_global_snp: Float? = 0.5f
-    vcf_min_callrate_global_indel: Float? = 0.5f
-    vcf_min_callrate_global_invariant: Float? = 0.5f
+    vcf_min_callrate_global_snp: Float = 0.5f
+    vcf_min_callrate_global_indel: Float = 0.5f
+    vcf_min_callrate_global_invariant: Float = 0.5f
 
-    vcf_min_callrate_pop_snp: Float?
-    vcf_min_callrate_pop_indel: Float?
-    vcf_min_callrate_pop_invariant: Float?
+    vcf_min_callrate_pop_snp: Float = 0
+    vcf_min_callrate_pop_indel: Float = 0
+    vcf_min_callrate_pop_invariant: Float = 0
 }
 
 /*

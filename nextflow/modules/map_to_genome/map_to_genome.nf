@@ -207,6 +207,7 @@ process MAP_TO_GENOME {
     # Detect adapter sequences
     ###########################################
 
+    ADAPTER_FASTA="adapters.fa"
     detect_chelae_adapters \
         "\${READ1[0]}" \
         "\${READ2[0]}" \
@@ -215,6 +216,14 @@ process MAP_TO_GENOME {
         "adapters.fa" \
         "${download_threads}" \
         200000
+
+    # If adapters were found, use those, otherwise check for all kits
+    if [[ -s "\${ADAPTER_FASTA}" ]]; then
+        ADAPTER_ARGS=(--adapter-fasta "\${ADAPTER_FASTA}")
+    else
+        echo "WARNING: no adapter consensus for \${RG_ID[0]}; falling back to --kit all" >&2
+        ADAPTER_ARGS=(--kit all)
+    fi
 
     ###########################################
     # Embed parameters for later CRAM validation
@@ -291,7 +300,7 @@ process MAP_TO_GENOME {
         2> >(tee "\${MERGEPE_LOG}" >&2) \
     | seqtk dropse - \
     | chelae trim \
-        --adapter-fasta adapters.fa \
+        "\${ADAPTER_ARGS[@]}" \
         --trim-polyg ${params.polyg_min_length} \
         --threads "${trim_threads}" \
     | minibwa map \
