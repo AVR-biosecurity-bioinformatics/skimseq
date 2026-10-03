@@ -257,11 +257,47 @@ workflow {
     main:
     startupMessage()
 
+    def nullableParams = [
+        'help',
+        'slurm_account',
+        'include_bed',
+        'exclude_bed',
+        'samplesheet',
+        'ref_genome',
+        'mito_contig'
+    ] as Set
+
+    // Explicitly reject null values except for parameters that are intentionally
+    // nullable. This catches old-format params.yml files where parameters with
+    // non-null defaults were explicitly set to null.
+    def invalid_null_params = params
+        .findAll { name, value ->
+            !nullableParams.contains(name) &&
+            (
+                value == null ||
+                value.toString().trim().equalsIgnoreCase('null')
+            )
+        }
+        .keySet()
+        .sort()
+
+    if (invalid_null_params) {
+        error """
+        The following parameters have null values but are not nullable:
+
+        ${invalid_null_params.join('\n  ')}
+
+        Remove these parameters from the configuration to use their defaults,
+        or assign explicit values.
+        """.stripIndent().trim()
+    }
+
     // validate inpiut params
     validateParameters(
+        parametersSchema: 'nextflow_schema.json',
         cast_cli_params: true
     )
-    log.info paramsSummaryLog(workflow)
+    log.info paramsSummaryLog()
 
     // Hack to enforce cram_store and gvcf_store to be within results directory
     // TODO: Replace directory-based reuse with CRAM/GVCF manifests.

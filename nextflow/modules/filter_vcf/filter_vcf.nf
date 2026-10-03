@@ -276,30 +276,30 @@ process FILTER_VCF {
             "REF:${params.vcf_min_callrate_pop_invariant}")
 
       set +e
-      bcftools view --threads ${task.cpus} -S ${interval_hash}.samples.txt -m2 -M2 -Ou "${bcf}" \
-      | bcftools +setGT -Ou -- \
-      -t q \
-      -n . \
-      -i "FORMAT/GQ<${params.vcf_genotype_qual} || FORMAT/DP<${params.vcf_genotype_dp_min} || FORMAT/DP>${params.vcf_genotype_dp_max}" \
-      | bcftools +fill-tags -Ou - -- \
+      bcftools view --threads ${task.cpus} -S ${interval_hash}.samples.txt -m2 -M2 -Ou "${bcf}" \\
+      | bcftools +setGT -Ou -- \\
+      -t q \\
+      -n . \\
+      -i "FORMAT/GQ<${params.vcf_genotype_qual} || FORMAT/DP<${params.vcf_genotype_dp_min} || FORMAT/DP>${params.vcf_genotype_dp_max}" \\
+      | bcftools +fill-tags -Ou - -- \\
       -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING' \
-      | bcftools +fill-tags -Ou - -- \
-      -S sample_groups.tsv \
-      -t 'NS,MAF,HWE,ExcHet,CR:1=1-F_MISSING' \
-      | bcftools filter -Ou --SnpGap "${params.vcf_dist_indel_global_snp}"  --IndelGap "${params.vcf_dist_indel_global_indel}" \
-      | bcftools filter -Ou -s MASK_FAIL -m+ -M vcf_masks.bed \
-      | bcftools filter -Ou -s QUAL_FAIL -m+ -e "\$QUAL_EXPR" \
-      | bcftools filter -Ou -s DP_MIN_FAIL -m+ -e "\$DP_MIN_EXPR" \
-      | bcftools filter -Ou -s EH_FAIL -m+ -e "\$EH_EXPR" \
-      | bcftools filter -Ou -s HWE_FAIL -m+ -e "\$HWE_EXPR" \
-      | bcftools filter -Ou -s MAF_FAIL -m+ -e "\$MAF_EXPR" \
-      | bcftools filter -Ou -s NS_FAIL -m+ -e "\$NS_EXPR" \
-      | bcftools filter -Ou -s CR_FAIL -m+ -e "\$CR_EXPR" \
-      | bcftools filter -Ou -s POP_EH_FAIL  -m+ -e "\$POP_EH_EXPR" \
-      | bcftools filter -Ou -s POP_HWE_FAIL -m+ -e "\$POP_HWE_EXPR" \
-      | bcftools filter -Ou -s POP_MAF_FAIL -m+ -e "\$POP_MAF_EXPR" \
-      | bcftools filter -Ou -s POP_NS_FAIL  -m+ -e "\$POP_NS_EXPR" \
-      | bcftools filter -Ou -s POP_CR_FAIL  -m+ -e "\$POP_CR_EXPR" \
+      | bcftools +fill-tags -Ou - -- \\
+      -S sample_groups.tsv \\
+      -t 'NS,MAF,HWE,ExcHet,CR:1=1-F_MISSING' \\
+      | bcftools filter -Ou --SnpGap "${params.vcf_dist_indel_global_snp}"  --IndelGap "${params.vcf_dist_indel_global_indel}" \\
+      | bcftools filter -Ou -s MASK_FAIL -m+ -M vcf_masks.bed \\
+      | bcftools filter -Ou -s QUAL_FAIL -m+ -e "\$QUAL_EXPR" \\
+      | bcftools filter -Ou -s DP_MIN_FAIL -m+ -e "\$DP_MIN_EXPR" \\
+      | bcftools filter -Ou -s EH_FAIL -m+ -e "\$EH_EXPR" \\
+      | bcftools filter -Ou -s HWE_FAIL -m+ -e "\$HWE_EXPR" \\
+      | bcftools filter -Ou -s MAF_FAIL -m+ -e "\$MAF_EXPR" \\
+      | bcftools filter -Ou -s NS_FAIL -m+ -e "\$NS_EXPR" \\
+      | bcftools filter -Ou -s CR_FAIL -m+ -e "\$CR_EXPR" \\
+      | bcftools filter -Ou -s POP_EH_FAIL  -m+ -e "\$POP_EH_EXPR" \\
+      | bcftools filter -Ou -s POP_HWE_FAIL -m+ -e "\$POP_HWE_EXPR" \\
+      | bcftools filter -Ou -s POP_MAF_FAIL -m+ -e "\$POP_MAF_EXPR" \\
+      | bcftools filter -Ou -s POP_NS_FAIL  -m+ -e "\$POP_NS_EXPR" \\
+      | bcftools filter -Ou -s POP_CR_FAIL  -m+ -e "\$POP_CR_EXPR" \\
       | bcftools view --threads ${task.cpus} -Ob -o tmp.bcf
 
       # Catch error codes from piped tools so nextflow can retry
