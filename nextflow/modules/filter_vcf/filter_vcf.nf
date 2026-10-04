@@ -44,10 +44,8 @@ process FILTER_VCF {
             emit: invariant_bcf
 
       tuple val(interval_hash),
-            path(interval_bed),
-            path(bed_tbi),
-            path("${interval_hash}.metrics.tsv.gz"),
-            emit: metrics
+            path("${interval_hash}.filter_hist.tsv"),
+            emit: filter_hist
 
       path("${interval_hash}.samples.txt"),
             emit: samples_to_keep
@@ -350,38 +348,12 @@ process FILTER_VCF {
                   "${interval_hash}.\${type}.bcf"
       done
 
-      # Population-specific INFO tags vary with the retained populations, so discover
-      # only those tags dynamically. Global tags are written explicitly below.
-      mapfile -t POP_INFO_TAGS < <(
-      bcftools view --header-only "tmp.bcf" |
-      awk '
-            /^##INFO=<ID=/ {
-                  tag = \$0
-                  sub(/^##INFO=<ID=/, "", tag)
-                  sub(/,.*/, "", tag)
 
-                  if (tag ~ /^(NS|MAF|HWE|ExcHet|CR)_[^_]+\$/)
-                  print tag
-            }
-      '
-      )
-
-      header=\$'CHROM\\tPOS\\tFILTER\\tQUAL\\tTYPE\\tDP\\tExcHet\\tHWE\\tMAF\\tNS\\tCR'
-      format='%CHROM\\t%POS\\t%FILTER\\t%QUAL\\t%INFO/TYPE\\t%INFO/DP\\t%INFO/ExcHet\\t%INFO/HWE\\t%INFO/MAF\\t%INFO/NS\\t%INFO/CR'
-
-      for tag in "\${POP_INFO_TAGS[@]}"; do
-      header+=\$'\\t'"\$tag"
-      format+=\$'\\t'"%INFO/\$tag"
-      done
-
-      format+='\\n'
-
-      {
-      printf '%s\\n' "\$header"
-      bcftools query \
-            --format "\$format" \
-            "tmp.bcf"
-      } |
-      bgzip --stdout > "${interval_hash}.metrics.tsv.gz"
+      # Create filter histograms
+      create_vcf_filter_histograms \
+            "tmp.bcf" \
+            "${interval_hash}.filter_hist.tsv" \
+            "${interval_hash}.filter_summary.tsv" \
+            100 10 10
       """
 }

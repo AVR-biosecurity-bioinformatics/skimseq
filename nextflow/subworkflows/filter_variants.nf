@@ -58,11 +58,12 @@ workflow FILTER_VARIANTS {
         .unique()
         .set { ch_sample_names_filt }
 
+    ch_filter_hists = FILTER_VCF.out.filter_hist
+        .map { _interval_hash, histogram -> histogram }
+        .collect()
+
     // QC plots for site histograms
-    PLOT_VARIANT_FILTERS (
-        FILTER_VCF.out.metrics.map { _interval_hash, _interval_bed, _bed_tbi, tsv -> tsv }.collect(),
-        "site_filters"
-    )
+    PLOT_VARIANT_FILTERS(ch_filter_hists)
 
     // Build merge input channels from the named emits
     def ch_merge_inputs = FILTER_VCF.out.snp_bcf

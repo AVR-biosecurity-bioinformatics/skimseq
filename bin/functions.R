@@ -303,3 +303,78 @@ read_plink_pca <- function(eigenvec_file, eigenval_file) {
     eigenvalues = eigenvalues
   )
 }
+
+# Read variant QC histogram outptus of filter_vcf
+read_variant_filter_histograms <- function(directory = "histograms") {
+    files <- list.files(directory, full.names = TRUE)
+    files <- files[endsWith(basename(files), ".filter_hist.tsv")]
+
+    if (!length(files)) {
+        stop("No filter histogram TSV files found in: ", directory)
+    }
+
+    required <- c(
+        "RULE", "POP", "FILTER", "TYPE",
+        "BIN", "XMIN", "XMAX", "COUNT"
+    )
+
+    tables <- lapply(files, function(file) {
+        x <- data.table::fread(file)
+
+        missing <- setdiff(required, names(x))
+        if (length(missing)) {
+            stop(
+                "Missing columns in ", file, ": ",
+                paste(missing, collapse = ", ")
+            )
+        }
+
+        x[, ..required]
+    })
+
+    hist <- data.table::rbindlist(tables, use.names = TRUE)
+
+    if (!nrow(hist)) {
+        stop("Histogram files contain no counts.")
+    }
+
+    hist[, `:=`(
+        BIN = as.numeric(BIN),
+        XMIN = as.numeric(XMIN),
+        XMAX = as.numeric(XMAX),
+        COUNT = as.numeric(COUNT)
+    )]
+
+    if (
+        anyNA(hist) ||
+        any(!is.finite(hist$BIN)) ||
+        any(!is.finite(hist$XMIN)) ||
+        any(!is.finite(hist$XMAX)) ||
+        any(!is.finite(hist$COUNT)) ||
+        any(hist$XMAX <= hist$XMIN) ||
+        any(hist$COUNT < 0) ||
+        any(!hist$FILTER %in% c("PASS", "FAIL"))
+    ) {
+        stop("Histogram files contain missing or invalid values.")
+    }
+
+    # A bin number must represent the same x interval in every chunk.
+    edges <- hist[
+        ,
+        .(
+            n_xmin = data.table::uniqueN(signif(XMIN, 12)),
+            n_xmax = data.table::uniqueN(signif(XMAX, 12))
+        ),
+        by = .(RULE, BIN)
+    ]
+
+    if (any(edges$n_xmin != 1L | edges$n_xmax != 1L)) {
+        stop("Inconsistent bin boundaries across histogram files.")
+    }
+
+    hist[
+        ,
+        .(COUNT = sum(COUNT)),
+        by = .(RULE, POP, FILTER, TYPE, BIN, XMIN, XMAX)
+    ]
+}

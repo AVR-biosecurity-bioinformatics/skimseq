@@ -637,3 +637,190 @@ inject_sam_reference_uri() {
         }
     '
 }
+# Usage:
+# create_vcf_filter_histograms INPUT_BCF HIST_TSV SUMMARY_TSV \
+#                              NBINS QUAL_WIDTH DP_WIDTH
+#
+# Defaults:
+#   QUAL:   width 10
+#   DP:     width 10
+#   NS:     width 1
+#   MAF:    width 0.5 / NBINS
+#   Other frequency/proportion metrics: width 1 / NBINS
+#
+# Bins have no upper limit. All intervals must use the same settings.
+create_vcf_filter_histograms() {
+    local input="${1:?Missing input BCF}"
+    local histogram="${2:?Missing histogram output}"
+    local summary="${3:?Missing filter-summary output}"
+    local nbins="${4:-100}"
+    local qual_width="${5:-10}"
+    local dp_width="${6:-10}"
+
+    if ! [[ "$nbins" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: NBINS must be a positive integer" >&2
+        return 2
+    fi
+
+    # Discover population INFO fields present in this interval.
+    local -a pop_tags
+    mapfile -t pop_tags < <(
+        bcftools view --header-only "$input" |
+        awk '
+            /^##INFO=<ID=/ {
+                tag = $0
+                sub(/^##INFO=<ID=/, "", tag)
+                sub(/,.*/, "", tag)
+
+                if (tag ~ /^(NS|MAF|HWE|ExcHet|CR)_.+$/)
+                    print tag
+            }
+        '
+    )
+
+    local header format tag
+
+    header=$'FILTER\tTYPE\tQUAL\tDP\tExcHet\tHWE\tMAF\tNS\tCR'
+    format='%FILTER\t%INFO/TYPE\t%QUAL\t%INFO/DP\t%INFO/ExcHet\t%INFO/HWE\t%INFO/MAF\t%INFO/NS\t%INFO/CR'
+
+    for tag in "${pop_tags[@]}"; do
+        header+=$'\t'"$tag"
+        format+="\\t%INFO/$tag"
+    done
+
+    format+='\n'
+
+    {
+        printf '%s\n' "$header"
+        bcftools query --format "$format" "$input"
+    } |
+    awk -F '\t' \
+        -v OFS='\t' \
+        -v nbins="$nbins" \
+        -v qual_width="$qual_width" \
+        -v dp_width="$dp_width" \
+        -v summary="$summary" '
+        BEGIN {
+            if (qual_width <= 0 || dp_width <= 0) {
+                print "ERROR: QUAL_WIDTH and DP_WIDTH must be positive" \
+                    > "/dev/stderr"
+                exit 2
+            }
+
+            print "RULE", "POP", "FILTER", "TYPE", \
+                  "BIN", "XMIN", "XMAX", "COUNT"
+
+            print "FILTER", "COUNT" > summary
+        }
+
+        NR == 1 {
+            for (i = 3; i <= NF; i++) {
+                name = $i
+
+                if (name ~ /^(QUAL|DP|ExcHet|HWE|MAF|NS|CR)$/) {
+                    rule[i] = name
+                    pop[i] = "."
+                } else if (name ~ /^(NS|MAF|HWE|ExcHet|CR)_.+$/) {
+                    rule[i] = name
+                    sub(/_.*/, "", rule[i])
+
+                    pop[i] = name
+                    sub(/^[^_]+_/, "", pop[i])
+                }
+
+                if (!(i in rule)) continue
+
+                if (rule[i] == "QUAL")
+                    width[i] = qual_width
+                else if (rule[i] == "DP")
+                    width[i] = dp_width
+                else if (rule[i] == "NS")
+                    width[i] = 1
+                else if (rule[i] == "MAF")
+                    width[i] = 0.5 / nbins
+                else
+                    width[i] = 1 / nbins
+            }
+
+            next
+        }
+
+        {
+            filter_summary[$1]++
+
+            delete failed
+            n_tags = split($1, tags, ";")
+
+            for (t = 1; t <= n_tags; t++)
+                failed[tags[t]] = 1
+
+            type = $2
+
+            for (i = 3; i <= NF; i++) {
+                if (!(i in rule)) continue
+
+                value = $i
+
+                # Do not turn missing or malformed values into zero.
+                if (value !~ /^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?$/)
+                    continue
+
+                value += 0
+
+                if (pop[i] == ".") {
+                    if (rule[i] == "ExcHet")
+                        fail_tag = "EH_FAIL"
+                    else if (rule[i] == "DP")
+                        fail_tag = "DP_MIN_FAIL"
+                    else
+                        fail_tag = toupper(rule[i]) "_FAIL"
+                } else {
+                    if (rule[i] == "ExcHet")
+                        fail_tag = "POP_EH_FAIL"
+                    else
+                        fail_tag = "POP_" toupper(rule[i]) "_FAIL"
+                }
+
+                filter_class = (fail_tag in failed) ? "FAIL" : "PASS"
+
+                # Zero-based fixed-width bin. int() truncates toward zero,
+                # so adjust negative values to obtain floor() behaviour.
+                bin = int(value / width[i])
+                if (value < 0 && value != bin * width[i])
+                    bin--
+
+                counts[rule[i], pop[i], filter_class, type, bin]++
+            }
+        }
+
+        END {
+            for (filter in filter_summary)
+                print filter, filter_summary[filter] > summary
+
+            for (key in counts) {
+                split(key, fields, SUBSEP)
+
+                metric = fields[1]
+                bin = fields[5] + 0
+
+                if (metric == "QUAL")
+                    bin_width = qual_width
+                else if (metric == "DP")
+                    bin_width = dp_width
+                else if (metric == "NS")
+                    bin_width = 1
+                else if (metric == "MAF")
+                    bin_width = 0.5 / nbins
+                else
+                    bin_width = 1 / nbins
+
+                xmin = bin * bin_width
+                xmax = xmin + bin_width
+
+                printf "%s\t%s\t%s\t%s\t%d\t%.17g\t%.17g\t%d\n", \
+                    fields[1], fields[2], fields[3], fields[4], \
+                    bin, xmin, xmax, counts[key]
+            }
+        }
+    ' > "$histogram"
+}
