@@ -278,7 +278,7 @@ process FILTER_VCF {
       | bcftools +setGT -Ou -- \\
       -t q \\
       -n . \\
-      -i "FORMAT/GQ<${params.vcf_genotype_qual} || FORMAT/DP<${params.vcf_genotype_dp_min} || FORMAT/DP>${params.vcf_genotype_dp_max}" \\
+      -i "FORMAT/GQ<${params.vcf_genotype_qual} | FORMAT/DP<${params.vcf_genotype_dp_min} | FORMAT/DP>${params.vcf_genotype_dp_max}" \\
       | bcftools +fill-tags -Ou - -- \\
       -t 'AC,AN,NS,MAF,F_MISSING,HWE,ExcHet,TYPE,CR:1=1-F_MISSING' \
       | bcftools +fill-tags -Ou - -- \\
