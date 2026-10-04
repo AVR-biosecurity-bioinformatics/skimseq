@@ -3,7 +3,7 @@ process CALC_CHUNK_DP {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(vcf), path(vcf_tbi)
+    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(bcf), path(csi)
 
     output: 
     tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.dphist.tsv"),  emit: chunk_dp
@@ -14,12 +14,12 @@ process CALC_CHUNK_DP {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    bcftools query -f '%DP\\n' "${vcf}" |
+    bcftools query -f '%DP\\n' "${bcf}" |
         awk '{ count[\$1 + 0]++ } END { for (depth in count) print depth "\\t" count[depth] }' |
         LC_ALL=C sort -nk1,1 > "${interval_hash}.dphist.tsv"
 
     # total records and missing records for chunk
-    bcftools +setGT "${vcf}" -Ou -- \
+    bcftools +setGT "${bcf}" -Ou -- \
         -t q \
         -n . \
         -i 'FORMAT/GQ < ${params.vcf_genotype_qual} | FORMAT/DP < ${params.vcf_genotype_dp_min} | FORMAT/DP > ${params.vcf_genotype_dp_max}' |

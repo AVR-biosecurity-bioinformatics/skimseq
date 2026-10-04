@@ -3,7 +3,7 @@ process PLINK_IMPORT {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(vcf), path(vcf_tbi)
+    tuple val(outname), path(bcf), path(csi)
 
     output: 
     tuple val(outname), path("${outname}.{bim,bed,fam}"),                           emit: plink
@@ -14,10 +14,12 @@ process PLINK_IMPORT {
     set -euo pipefail
 
     # Create PLINK bed file
+    # TODO: Add filters
     plink2 \
         --threads ${task.cpus} \
         --memory ${task.memory.mega} \
-        --vcf ${vcf} \
+        --bcf ${bcf} \
+        --mind 0.9 \
         --allow-extra-chr \
         --double-id \
         --make-bed \

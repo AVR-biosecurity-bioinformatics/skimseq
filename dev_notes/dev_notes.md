@@ -259,7 +259,6 @@ done
 Run the Qfly test dataset using the test profile
 ```
 module purge
-export NXF_VER=26.07.0-edge
 module load Java/17
 
 # Local execution on a BASC node using Conda
@@ -275,7 +274,6 @@ nextflow run . -profile debug,test -config conf/basc.config --slurm_account frui
 
 # Test BMSB
 module purge
-export NXF_VER=26.07.0-edge
 module load Java/17
 module load Miniconda3/24.7.1-0
 export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
@@ -289,6 +287,24 @@ nextflow run . \
     -resume \
     -with-trace trace.txt scratch=false
 
+# Test Corrupted dorsalis + download of CNSA and SRA
+cd /group/pathogens/IAWS/Personal/Alexp/skimseq
+module purge
+export NXF_VER=26.07.0-edge
+module load Java/17
+module load Miniconda3/24.7.1-0
+export NXF_CONDA_CACHEDIR="/group/pathogens/IAWS/Personal/Alexp/conda_cache"
+nextflow run . \
+    -config conf/basc.config \
+    --slurm_account fruitfly \
+    --samplesheet sample_sheet.csv \
+    --ref_genome /group/referencedata/mspd-db/genomes/insect/bactrocera_dorsalis/GWHFHGK00000000.1/GWHFHGK00000000.1.genome.fasta \
+    --mito_contig GWHFHGK00000009.1 \
+    -w /group/sequencing/assembly/Alex/test_runs/work \
+    -resume \
+    -with-trace trace.txt scratch=false
+
+
 ```
 
 
@@ -298,8 +314,8 @@ nextflow run . \
 # List all jobs
 squeue     --user "$USER"     --format='%i|%T|%j|%R' | grep 'MAP_TO_GENOME'
 
-# Slect job_id
-job_id=21074658
+# Select job_id
+job_id=37895740
 
 node=$(squeue -h -j "$job_id" -o '%N')
 
@@ -344,4 +360,9 @@ fi
         sort -k2,2nr
 }
 REMOTE
+
+# Go inside running job on compute node
+srun --jobid=$job_id --pty /bin/bash
+cd $TMPDIR
+
 ```

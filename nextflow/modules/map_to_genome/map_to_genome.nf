@@ -12,8 +12,7 @@ process MAP_TO_GENOME {
         path(local_r2s, arity: '0..*')
 
     tuple path(ref_genome), path(genome_index_files)
-
-    path adapters
+    val(ref_genome_uri)
 
     output: 
     tuple val(sample),
@@ -66,43 +65,14 @@ process MAP_TO_GENOME {
         ? local_r2s.collect(shellQuote).join(' ')
         : ''
 
-    // Allocate a small share of available CPUs to supporting stages.
-    def support_threads = Math.max(
-        1,
-        task.cpus.intdiv(8)
-    )
+    def trim_threads   = Math.max(1, task.cpus.intdiv(4))
+    def sort_threads    = 1
+    def overhead_threads = task.cpus >= 8 ? 2 : 1
+    def aln_threads = Math.max(1, task.cpus - trim_threads - sort_threads - overhead_threads )
 
-    def fastp_threads = support_threads
-    def sort_threads  = support_threads
-
-    // Reserve capacity for seqkit, seqtk, RG injection, dupblaster,
-    // HydraStream coordination, and shell overhead.
-    def overhead_threads = task.cpus >= 8
-        ? support_threads
-        : 0
-
-    // Assign the remaining CPUs to the primary bottleneck: minibwa.
-    def aln_threads = Math.max(
-        1,
-        task.cpus -
-            fastp_threads -
-            sort_threads -
-            overhead_threads
-    )
-
-    // HydraStream connections per mate. These primarily control
-    // network concurrency rather than representing dedicated CPU cores.
-    def download_threads = source == 'local'
-        ? 1
-        : Math.max(
-            1,
-            Math.min(4, task.cpus.intdiv(4))
-        )
+    // HydraStream connections per mate, cap to one to avoid connection issues
+    def download_threads = 1
     
-    // FastP trimming flags
-    def polyGArgs = params.trim_polyg
-        ? "--trim_poly_g --poly_g_min_len ${params.polyg_min_length}"
-        : "--disable_trim_poly_g"
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -121,20 +91,16 @@ process MAP_TO_GENOME {
     PID1=""
     PID2=""
 
-    declare -a LOCAL1=(${local_r1_array} )
-    declare -a LOCAL2=(${local_r2_array})
-    declare -a URL1=(${url1_array})
-    declare -a URL2=(${url2_array})
+    # These need to be declared so they can be indexed using [i]
     declare -a ACCESSIONS=(${accession_array})
     declare -a LIBS=(${lib_array})
+
     declare -a READ1=()
     declare -a READ2=()
     declare -a MD5_R1=()
     declare -a MD5_R2=()
     declare -a RG_ID=()
     declare -a RG_PU=()
-
-    STREAM_TYPE=""
 
     # Exit Trap to catch and cleanup incomplete downloads
     cleanup() {
@@ -157,40 +123,42 @@ process MAP_TO_GENOME {
     # Resolve local and remote read sources
     ###########################################
 
-    # Resolve SRA / ENA accessions to URLs
-    if [[ "${source}" == "accession" ]]; then
-        URL1=()
-        URL2=()
-
-        for ACC in "\${ACCESSIONS[@]}"; do
-            read -r \
-                RESOLVED_URL1 \
-                RESOLVED_MD5_1 \
-                RESOLVED_URL2 \
-                RESOLVED_MD5_2 \
-                < <(
-                    resolve_fastqs "\${ACC}"
-                )
-
-            URL1+=("\${RESOLVED_URL1}")
-            URL2+=("\${RESOLVED_URL2}")
-            MD5_R1+=("\${RESOLVED_MD5_1}")
-            MD5_R2+=("\${RESOLVED_MD5_2}")
-        done
-    fi
-
     # Resolve local vs remote sources
     case "${source}" in
         local)
-            READ1=("\${LOCAL1[@]}")
-            READ2=("\${LOCAL2[@]}")
-            STREAM_TYPE="local"
+            READ1=(${local_r1_array})
+            READ2=(${local_r2_array})
             ;;
 
-        url|accession)
-            READ1=("\${URL1[@]}")
-            READ2=("\${URL2[@]}")
-            STREAM_TYPE="remote"
+        url)
+            READ1=(${url1_array})
+            READ2=(${url2_array})
+            ;;
+
+        accession)
+            # Resolve SRA / ENA accessions to URLs
+            for ACC in "\${ACCESSIONS[@]}"; do
+                if ! read -r \
+                    RESOLVED_URL1 \
+                    RESOLVED_MD5_1 \
+                    RESOLVED_URL2 \
+                    RESOLVED_MD5_2 \
+                    < <(resolve_fastqs "\${ACC}")
+                then
+                    echo "ERROR: failed to resolve accession '\${ACC}'" >&2
+                    exit 1
+                fi
+
+                READ1+=("\${RESOLVED_URL1}")
+                READ2+=("\${RESOLVED_URL2}")
+                MD5_R1+=("\${RESOLVED_MD5_1}")
+                MD5_R2+=("\${RESOLVED_MD5_2}")
+            done
+            ;;
+
+        *)
+            echo "ERROR: unsupported input type '${source}'" >&2
+            exit 1
             ;;
     esac
 
@@ -203,18 +171,20 @@ process MAP_TO_GENOME {
     # Loop through inputs, validate remotes and extract readgroups
     : > readgroups.sam
     for i in "\${!READ1[@]}"; do
-        if [[ "\${STREAM_TYPE}" == "remote" ]]; then
-            validate_gzip_url "\${READ1[\${i}]}"
-            validate_gzip_url "\${READ2[\${i}]}"
-        fi
-
         FCID=""
         LANE=""
+        
+        if [[ "${source}" == "accession" ]]; then
+            RG_INPUT="\${ACCESSIONS[\${i}]}"
+        else
+            RG_INPUT="\${READ1[\${i}]}"
+        fi
+
         # get_flowcell_lane extracts FCID and LANE from local or remote fastq
         read -r FCID LANE < <(
             get_flowcell_lane \
-                "\${READ1[\${i}]}" \
-                "\${STREAM_TYPE}"
+                "\${RG_INPUT}" \
+                "${source}"
         )
 
         CURRENT_LIB="\${LIBS[\${i}]}"
@@ -234,6 +204,28 @@ process MAP_TO_GENOME {
     sort -u readgroups.sam -o readgroups.sam
 
     ###########################################
+    # Detect adapter sequences
+    ###########################################
+
+    ADAPTER_FASTA="adapters.fa"
+    detect_chelae_adapters \
+        "\${READ1[0]}" \
+        "\${READ2[0]}" \
+        "${source}" \
+        "\${RG_ID[0]}" \
+        "adapters.fa" \
+        "${download_threads}" \
+        200000
+
+    # If adapters were found, use those, otherwise check for all kits
+    if [[ -s "\${ADAPTER_FASTA}" ]]; then
+        ADAPTER_ARGS=(--adapter-fasta "\${ADAPTER_FASTA}")
+    else
+        echo "WARNING: no adapter consensus for \${RG_ID[0]}; falling back to --kit all" >&2
+        ADAPTER_ARGS=(--kit all)
+    fi
+
+    ###########################################
     # Embed parameters for later CRAM validation
     ###########################################
     # These parameters get hashed and injected into CRAM as a CO line
@@ -246,11 +238,9 @@ process MAP_TO_GENOME {
             'mapper_preset=${params.minibwa_preset}' \
             'min_seed_length=${params.minibwa_min_seed_length}' \
             'max_seed_occurrence=${params.minibwa_max_seed_occurrence}' \
-            'fastp_disable_trim_poly_g=true' \
-            'fastp_disable_quality_filtering=true' \
-            'fastp_disable_length_filtering=true' |
-            sha256sum |
-            awk '{print \$1}'
+            'trim-polyg=${params.polyg_min_length}' \
+            | sha256sum \
+            | awk '{print \$1}'
     )
     ## Append validation comments onto readgroups
     printf '@CO\\tSKIMSEQ_ALIGNMENT_CONFIG_SHA256:%s\\n' \
@@ -264,13 +254,14 @@ process MAP_TO_GENOME {
     # Create FIFO producers
     mkfifo "\${FASTQ1}" "\${FASTQ2}"
 
-    # Start streaming R1 files.
+    # Start streaming R1 & R2 files concurrently.
     (
         set -euo pipefail
 
         for i in "\${!READ1[@]}"; do
             stream_fastq \
                 "\${READ1[\${i}]}" \
+                "${source}" \
                 "\${RG_ID[\${i}]}" \
                 "\${MD5_R1[\${i}]:-}" \
                 "${download_threads}"
@@ -285,6 +276,7 @@ process MAP_TO_GENOME {
         for i in "\${!READ2[@]}"; do
             stream_fastq \
                 "\${READ2[\${i}]}" \
+                "${source}" \
                 "\${RG_ID[\${i}]}" \
                 "\${MD5_R2[\${i}]:-}" \
                 "${download_threads}"
@@ -296,8 +288,7 @@ process MAP_TO_GENOME {
     # Main workflow, consumes FIFO producers
     ###########################################
     # In case of corrupted fastq, seqkit sana fixes but pairs may become out of sync
-    # Mergepe and dropse catch this, but check if add too much to runtime
-    # NOTE: FASTP should handle out of sync pairs, but cannot be piped into thrugh <() until this PR is merged https://github.com/OpenGene/fastp/pull/707/
+    # Mergepe and dropse catch this
 
     MERGEPE_LOG="${sample}.mergepe.log"
     WARNING_FILE="${sample}.fastq_warnings.txt"
@@ -308,16 +299,10 @@ process MAP_TO_GENOME {
         "\${FASTQ2}" \
         2> >(tee "\${MERGEPE_LOG}" >&2) \
     | seqtk dropse - \
-    | fastp \
-        --stdin \
-        --adapter_fasta ${adapters} \
-        --detect_adapter_for_pe \
-        --interleaved_in \
-        ${polyGArgs} \
-        --disable_quality_filtering \
-        --dont_eval_duplication \
-        --stdout \
-        --thread "${fastp_threads}" \
+    | chelae trim \
+        "\${ADAPTER_ARGS[@]}" \
+        --trim-polyg ${params.polyg_min_length} \
+        --threads "${trim_threads}" \
     | minibwa map \
         -x ${params.minibwa_preset} \
         -k ${params.minibwa_min_seed_length} \
@@ -327,6 +312,7 @@ process MAP_TO_GENOME {
         - \
     | inject_sam_readgroups readgroups.sam \
     | dupblaster \
+        --metrics-prefix ${sample} \
         -o - \
     | samtools sort \
         -@ "${sort_threads}" \
@@ -358,15 +344,23 @@ process MAP_TO_GENOME {
     (( r2_status != 0 && r2_status != 141 ))
     then
         echo \
-            "ERROR: FASTQ streaming failed for '${sample}'; " \
-            "R1 status=\${r1_status}, R2 status=\${r2_status}" \
+            "ERROR: transient FASTQ streaming failure for '${sample}'; " \
+            "R1=\${r1_status}, R2=\${r2_status}" \
             >&2
-        exit 1
+        # Exit 75 is caught for retry
+        exit 75
     fi
 
     ###########################################
     # Index outputs
     ###########################################
+
+    # Reheader the output cram to use original reference path
+    samtools reheader \
+        --in-place \
+        --no-PG \
+        --command "sed 's#\\tUR:[^\\t]*#\\tUR:${ref_genome_uri}#'" \
+        "${sample}.cram"
 
     # check cram is correctly formatted
     samtools quickcheck ${sample}.cram \

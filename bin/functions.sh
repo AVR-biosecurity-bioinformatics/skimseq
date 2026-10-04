@@ -53,6 +53,7 @@ download_fastq_stream_hs() {
         return 2
     fi
 
+    # Switch FTP to HTTPS
     url="${url/#ftp:\/\//https:\/\/}"
 
     log_dir=$(
@@ -60,6 +61,7 @@ download_fastq_stream_hs() {
             "${TMPDIR:-.}/hydrastream.XXXXXX"
     ) || return 1
 
+    # set up hydrastream args
     local -a args=(
         "${url}"
         --threads "${threads}"
@@ -68,6 +70,7 @@ download_fastq_stream_hs() {
         --output "${log_dir}"
     )
 
+    # add MD5 to args only if provided
     if [[ -n "${expected_md5}" ]]; then
         args+=(
             --typehash md5
@@ -86,17 +89,18 @@ download_fastq_stream_hs() {
 # Streaming helper
 stream_fastq() {
     local input="$1"
-    local rg_id="$2"
-    local expected_md5="${3:-}"
-    local download_threads="${4:-4}"
+    local source_type="$2"
+    local rg_id="$3"
+    local expected_md5="${4:-}"
+    local download_threads="${5:-4}"
 
     {
-        case "${STREAM_TYPE}" in
+        case "${source_type}" in
             local)
-                salvage_fastq_stream "${input}"
+                stream_local_fastq "${input}"
                 ;;
 
-            remote)
+            url|accession)
                 download_fastq_stream_hs \
                     "${input}" \
                     "${expected_md5}" \
@@ -106,7 +110,9 @@ stream_fastq() {
                 ;;
 
             *)
-                echo "ERROR: unsupported stream type '${STREAM_TYPE}'" >&2
+                echo \
+                    "ERROR: unsupported source type '${source_type}' for '${input}'" \
+                    >&2
                 return 2
                 ;;
         esac
@@ -114,7 +120,7 @@ stream_fastq() {
         annotate_fastq "${rg_id}"
 }
 
-salvage_fastq_stream() {
+stream_local_fastq() {
     local input="$1"
     local -a status
 
@@ -141,65 +147,43 @@ salvage_fastq_stream() {
     return 0
 }
 
-# Validate that a file from URL begins with the gzip magic bytes 1f 8b.
-# The request is limited to the first two bytes. Do not use
-# --retry-all-errors here because closing a short validation stream can
-# otherwise cause curl write errors to be retried.
-validate_gzip_url() {
-    local url="$1"
-    local magic
+# Parse a shortread header
+# Parse a short-read header and return:
+#   flowcell/accession lane
+parse_shortread_header() {
+    local read_header="$1"
+    local qname
+    local accession
+    local -a fields
 
-    if [[ -z "${url}" ]]; then
-        echo "ERROR: validate_gzip_url received an empty URL" >&2
-        return 2
-    fi
-
-    echo "Validating remote gzip stream: ${url}" >&2
-
-    magic=$(
-        curl \
-            --fail \
-            --silent \
-            --show-error \
-            --location \
-            --range 0-1 \
-            --retry 3 \
-            --retry-delay 5 \
-            --connect-timeout 30 \
-            --max-time 60 \
-            "${url}" \
-        | od -An -N2 -tx1 \
-        | tr -d '[:space:]'
-    )
-
-    if [[ "${magic}" != "1f8b" ]]; then
-        echo "ERROR: URL did not return gzip data: ${url}" >&2
-        echo "ERROR: expected gzip signature 1f8b, received '${magic:-no data}'" >&2
+    if [[ -z "${read_header}" ]]; then
+        echo "ERROR: received an empty FASTQ header" >&2
         return 1
     fi
 
-    return 0
-}
-
-# Parse a shortread header
-parse_shortread_header() {
-    local read_header="$1"
-    local -a fields
-
     # Retain only the first whitespace-delimited component.
-    read_header="${read_header#@}"
-    read_header="${read_header%%[[:space:]]*}"
-    read_header="${read_header%/1}"
-    read_header="${read_header%/2}"
+    qname="${read_header#@}"
+    qname="${qname%%[[:space:]]*}"
+    qname="${qname%/1}"
+    qname="${qname%/2}"
 
-    IFS=':' read -r -a fields <<< "${read_header}"
+    # ENA/SRA archive header, for example:
+    # SRR22045830.1
+    # ERR123456.123
+    # DRR123456.123
+    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
+        accession="${BASH_REMATCH[1]}"
+        printf '%s %s\n' "${accession}" "1"
+        return 0
+    fi
 
-    # Expected structure:
+    # Standard Illumina-style header:
     # instrument:run:flowcell:lane:tile:x:y
+    IFS=':' read -r -a fields <<< "${qname}"
+
     if (( ${#fields[@]} < 4 )); then
         echo \
-            "ERROR: header has fewer than four colon-delimited fields: " \
-            "'${read_header}'" \
+            "ERROR: unsupported FASTQ header; expected an Illumina or SRA/ENA header: '${qname}'" \
             >&2
         return 1
     fi
@@ -209,8 +193,7 @@ parse_shortread_header() {
 
     if [[ -z "${fcid}" || ! "${lane}" =~ ^[0-9]+$ ]]; then
         echo \
-            "ERROR: could not parse flowcell and lane from FASTQ header " \
-            "'${read_header}'" \
+            "ERROR: could not parse flowcell and lane from FASTQ header: '${qname}'" \
             >&2
         return 1
     fi
@@ -218,16 +201,22 @@ parse_shortread_header() {
     printf '%s %s\n' "${fcid}" "${lane}"
 }
 
-
 # Get local flowcell and lane
 get_local_flowcell_lane() {
     local fastq="$1"
     local read_header
 
     read_header=$(
-        gzip -dc -- "${fastq}" |
+        set +o pipefail
+
+        gzip -dc -- "${fastq}" 2>/dev/null |
             head -n 1
     )
+
+    if [[ -z "${read_header}" ]]; then
+        echo "ERROR: could not read FASTQ header from '${fastq}'" >&2
+        return 1
+    fi
 
     parse_shortread_header "${read_header}"
 }
@@ -236,8 +225,6 @@ get_local_flowcell_lane() {
 get_remote_flowcell_lane() {
     local url="$1"
     local read_header
-    local qname
-    local accession
 
     read_header=$(
         set +o pipefail
@@ -257,40 +244,39 @@ get_remote_flowcell_lane() {
         return 1
     fi
 
-    qname="${read_header#@}"
-    qname="${qname%%[[:space:]]*}"
-
-    # ENA/SRA archive header, e.g. SRR13005336.1
-    if [[ "${qname}" =~ ^((SRR|ERR|DRR)[0-9]+)\.[0-9]+$ ]]; then
-        accession="${BASH_REMATCH[1]}"
-        printf '%s %s\n' "${accession}" "1"
-        return 0
-    fi
-
     parse_shortread_header "${read_header}"
 }
+
 
 # Joint flowcell lane parsing function
 get_flowcell_lane() {
     local input="$1"
-    local stream_type="$2"
+    local source_type="$2"
     local flowcell_lane
     local fcid
     local lane
 
-    case "${stream_type}" in
+    case "${source_type}" in
         local)
             flowcell_lane=$(
                 get_local_flowcell_lane "${input}"
             ) || return 1
             ;;
-        remote)
+        url)
             flowcell_lane=$(
                 get_remote_flowcell_lane "${input}"
             ) || return 1
             ;;
+        accession)
+            if [[ "${input}" =~ ^(SRR|ERR|DRR)[0-9]+$ ]]; then
+                printf '%s %s\n' "${input}" "1"
+                return 0
+            fi
+            echo "ERROR: invalid FASTQ accession '${input}'" >&2
+            return 1
+            ;;
         *)
-            echo "ERROR: unsupported stream type '${stream_type}' for '${input}'" >&2
+            echo "ERROR: unsupported stream type '${source_type}' for '${input}'" >&2
             return 1
             ;;
     esac
@@ -382,6 +368,122 @@ annotate_fastq() {
     '
 }
 
+# Sample one resolved FASTQ pair and identify its adapters.
+#
+# Arguments:
+#   1  R1 input (local path or resolved URL)
+#   2  R2 input (local path or resolved URL)
+#   3  source type: local, url, or accession
+#   4  read-group ID
+#   5  output adapter FASTA
+#   6  download threads
+#   7  maximum pairs to sample (default: 200000)
+detect_chelae_adapters() {
+    local read1="$1"
+    local read2="$2"
+    local source_type="$3"
+    local rg_id="$4"
+    local output_fasta="$5"
+    local download_threads="${6:-1}"
+    local max_pairs="${7:-200000}"
+
+    local sample_r1="${output_fasta}.sample_R1.fastq"
+    local sample_r2="${output_fasta}.sample_R2.fastq"
+    local detect_log="${output_fasta}.detect.log"
+    local lines_r1 lines_r2
+
+    if [[ ! "${max_pairs}" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: max_pairs must be a positive integer" >&2
+        return 2
+    fi
+
+    sample_mate() (
+        local input="$1"
+        local output="$2"
+        local -a status
+
+        set +e
+
+        # No expected MD5: this is deliberately a partial download.
+        stream_fastq \
+            "${input}" \
+            "${source_type}" \
+            "${rg_id}" \
+            "" \
+            "${download_threads}" |
+            head -n "$((max_pairs * 4))" > "${output}"
+
+        status=("${PIPESTATUS[@]}")
+
+        if (( status[1] != 0 )); then
+            echo "ERROR: could not write detection sample: ${output}" >&2
+            exit "${status[1]}"
+        fi
+
+        # The producer may receive SIGPIPE when head stops reading.
+        if (( status[0] != 0 && status[0] != 141 )); then
+            echo "ERROR: FASTQ stream failed while sampling: ${input} (status ${status[0]})" >&2
+            exit "${status[0]}"
+        fi
+    )
+
+    rm -f -- "${output_fasta}"
+
+    if ! sample_mate "${read1}" "${sample_r1}" ||
+       ! sample_mate "${read2}" "${sample_r2}"; then
+        rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 1
+    fi
+
+    lines_r1=$(wc -l < "${sample_r1}")
+    lines_r2=$(wc -l < "${sample_r2}")
+
+    if (( lines_r1 == 0 ||
+          lines_r1 != lines_r2 ||
+          lines_r1 % 4 != 0 )); then
+        echo "ERROR: detection samples are empty, incomplete, or differ in read count (R1=${lines_r1}, R2=${lines_r2})" >&2
+        rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 1
+    fi
+
+    # Adapter discovery is not meaningful for very small inputs.
+    # Chelae's default minimum is 20 usable detections, which requires
+    # at least 20 pairs even if every pair has adapter read-through.
+    if (( lines_r1 / 4 < 20 )); then
+        echo \
+            "WARNING: only $((lines_r1 / 4)) read pair(s) available; " \
+            "skipping adapter detection and using --kit all" >&2
+        rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
+        return 0
+    fi
+
+    if chelae detect \
+        --inputs "${sample_r1}" "${sample_r2}" \
+        --output-fasta "${output_fasta}" \
+        --max-reads "${max_pairs}" \
+        2>&1 | tee "${detect_log}" >&2; then
+
+        rm -f -- "${sample_r1}" "${sample_r2}"
+
+        if [[ ! -s "${output_fasta}" ]]; then
+            echo "ERROR: chelae detect succeeded but produced no adapter FASTA" >&2
+            return 1
+        fi
+
+        return 0
+    fi
+
+    rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
+
+    if grep -Fq 'No adapter reached --min-fraction' "${detect_log}" ||
+       grep -Fq 'No usable PE adapter detections' "${detect_log}"; then
+        echo "WARNING: no detectable adapter consensus; trimming will use --kit all" >&2
+        return 0
+    fi
+
+    echo "ERROR: chelae detect failed unexpectedly; diagnostic output is above" >&2
+    return 1
+}
 
 # Inject the headers into samtools readgroups
 # This can include CO and PG lines
@@ -506,4 +608,219 @@ inject_sam_readgroups() {
             }
         }
     ' "${injected_header_file}" -
+}
+
+# Inject original reference path into sam header
+inject_sam_reference_uri() {
+    local reference_uri="$1"
+
+    awk -v reference_uri="$reference_uri" '
+        BEGIN {
+            FS = OFS = "\t"
+        }
+
+        $1 == "@SQ" {
+            output = $1
+
+            for (i = 2; i <= NF; i++) {
+                if ($i !~ /^UR:/) {
+                    output = output OFS $i
+                }
+            }
+
+            print output OFS "UR:" reference_uri
+            next
+        }
+
+        {
+            print
+        }
+    '
+}
+# Usage:
+# create_vcf_filter_histograms INPUT_BCF HIST_TSV SUMMARY_TSV \
+#                              NBINS QUAL_WIDTH DP_WIDTH
+#
+# Defaults:
+#   QUAL:   width 10
+#   DP:     width 10
+#   NS:     width 1
+#   MAF:    width 0.5 / NBINS
+#   Other frequency/proportion metrics: width 1 / NBINS
+#
+# Bins have no upper limit. All intervals must use the same settings.
+create_vcf_filter_histograms() {
+    local input="${1:?Missing input BCF}"
+    local histogram="${2:?Missing histogram output}"
+    local summary="${3:?Missing filter-summary output}"
+    local nbins="${4:-100}"
+    local qual_width="${5:-10}"
+    local dp_width="${6:-10}"
+
+    if ! [[ "$nbins" =~ ^[1-9][0-9]*$ ]]; then
+        echo "ERROR: NBINS must be a positive integer" >&2
+        return 2
+    fi
+
+    # Discover population INFO fields present in this interval.
+    local -a pop_tags
+    mapfile -t pop_tags < <(
+        bcftools view --header-only "$input" |
+        awk '
+            /^##INFO=<ID=/ {
+                tag = $0
+                sub(/^##INFO=<ID=/, "", tag)
+                sub(/,.*/, "", tag)
+
+                if (tag ~ /^(NS|MAF|HWE|ExcHet|CR)_.+$/)
+                    print tag
+            }
+        '
+    )
+
+    local header format tag
+
+    header=$'FILTER\tTYPE\tQUAL\tDP\tExcHet\tHWE\tMAF\tNS\tCR'
+    format='%FILTER\t%INFO/TYPE\t%QUAL\t%INFO/DP\t%INFO/ExcHet\t%INFO/HWE\t%INFO/MAF\t%INFO/NS\t%INFO/CR'
+
+    for tag in "${pop_tags[@]}"; do
+        header+=$'\t'"$tag"
+        format+="\\t%INFO/$tag"
+    done
+
+    format+='\n'
+
+    {
+        printf '%s\n' "$header"
+        bcftools query --format "$format" "$input"
+    } |
+    awk -F '\t' \
+        -v OFS='\t' \
+        -v nbins="$nbins" \
+        -v qual_width="$qual_width" \
+        -v dp_width="$dp_width" \
+        -v summary="$summary" '
+        BEGIN {
+            if (qual_width <= 0 || dp_width <= 0) {
+                print "ERROR: QUAL_WIDTH and DP_WIDTH must be positive" \
+                    > "/dev/stderr"
+                exit 2
+            }
+
+            print "RULE", "POP", "FILTER", "TYPE", \
+                  "BIN", "XMIN", "XMAX", "COUNT"
+
+            print "FILTER", "COUNT" > summary
+        }
+
+        NR == 1 {
+            for (i = 3; i <= NF; i++) {
+                name = $i
+
+                if (name ~ /^(QUAL|DP|ExcHet|HWE|MAF|NS|CR)$/) {
+                    rule[i] = name
+                    pop[i] = "."
+                } else if (name ~ /^(NS|MAF|HWE|ExcHet|CR)_.+$/) {
+                    rule[i] = name
+                    sub(/_.*/, "", rule[i])
+
+                    pop[i] = name
+                    sub(/^[^_]+_/, "", pop[i])
+                }
+
+                if (!(i in rule)) continue
+
+                if (rule[i] == "QUAL")
+                    width[i] = qual_width
+                else if (rule[i] == "DP")
+                    width[i] = dp_width
+                else if (rule[i] == "NS")
+                    width[i] = 1
+                else if (rule[i] == "MAF")
+                    width[i] = 0.5 / nbins
+                else
+                    width[i] = 1 / nbins
+            }
+
+            next
+        }
+
+        {
+            filter_summary[$1]++
+
+            delete failed
+            n_tags = split($1, tags, ";")
+
+            for (t = 1; t <= n_tags; t++)
+                failed[tags[t]] = 1
+
+            type = $2
+
+            for (i = 3; i <= NF; i++) {
+                if (!(i in rule)) continue
+
+                value = $i
+
+                # Do not turn missing or malformed values into zero.
+                if (value !~ /^[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?$/)
+                    continue
+
+                value += 0
+
+                if (pop[i] == ".") {
+                    if (rule[i] == "ExcHet")
+                        fail_tag = "EH_FAIL"
+                    else if (rule[i] == "DP")
+                        fail_tag = "DP_MIN_FAIL"
+                    else
+                        fail_tag = toupper(rule[i]) "_FAIL"
+                } else {
+                    if (rule[i] == "ExcHet")
+                        fail_tag = "POP_EH_FAIL"
+                    else
+                        fail_tag = "POP_" toupper(rule[i]) "_FAIL"
+                }
+
+                filter_class = (fail_tag in failed) ? "FAIL" : "PASS"
+
+                # Zero-based fixed-width bin. int() truncates toward zero,
+                # so adjust negative values to obtain floor() behaviour.
+                bin = int(value / width[i])
+                if (value < 0 && value != bin * width[i])
+                    bin--
+
+                counts[rule[i], pop[i], filter_class, type, bin]++
+            }
+        }
+
+        END {
+            for (filter in filter_summary)
+                print filter, filter_summary[filter] > summary
+
+            for (key in counts) {
+                split(key, fields, SUBSEP)
+
+                metric = fields[1]
+                bin = fields[5] + 0
+
+                if (metric == "QUAL")
+                    bin_width = qual_width
+                else if (metric == "DP")
+                    bin_width = dp_width
+                else if (metric == "NS")
+                    bin_width = 1
+                else if (metric == "MAF")
+                    bin_width = 0.5 / nbins
+                else
+                    bin_width = 1 / nbins
+
+                xmin = bin * bin_width
+                xmax = xmin + bin_width
+
+                printf "%s\t%s\t%s\t%s\t%d\t%.17g\t%.17g\t%d\n", \
+                    fields[1], fields[2], fields[3], fields[4], \
+                    bin, xmin, xmax, counts[key]
+            }
+        }
+    ' > "$histogram"
 }

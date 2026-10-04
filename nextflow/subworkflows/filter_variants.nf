@@ -1,25 +1,23 @@
 /*
-    Filter .vcf files from GATK
+    Filter .vcf files 
 */
 
 //// import modules
-include { EXTRACT_VCF_SITES                            } from '../modules/extract_vcf_sites/extract_vcf_sites'
-include { COUNT_VCF_RECORDS                            } from '../modules/count_vcf_records/count_vcf_records'
-include { SUBSET_VCF_TO_SITES                          } from '../modules/subset_vcf_to_sites/subset_vcf_to_sites'
-include { CALC_CHUNK_DP                                } from '../modules/calc_chunk_dp/calc_chunk_dp'
-include { MERGE_CHUNK_DP                               } from '../modules/merge_chunk_dp/merge_chunk_dp'
-include { MERGE_CHUNK_MISSING                          } from '../modules/merge_chunk_missing/merge_chunk_missing'
+include { MERGE_RIKER_COVERAGE                         } from '../modules/merge_riker_coverage/merge_riker_coverage'
 include { FILTER_VCF                                   } from '../modules/filter_vcf/filter_vcf'
-include { CREATE_FILTER_HIST                           } from '../modules/create_filter_hist/create_filter_hist'
-include { PLOT_VCF_FILTERS                             } from '../modules/plot_vcf_filters/plot_vcf_filters'
+include { PLOT_VARIANT_FILTERS                         } from '../modules/plot_variant_filters/plot_variant_filters'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters/plot_sample_filters'
+include { CONCAT_VCFS as CONCAT_FINAL                  } from '../modules/concat_vcfs/concat_vcfs'
+include { VCF_STATS as VCF_STATS_FILTERED              } from '../modules/vcf_stats/vcf_stats'
 
 workflow FILTER_VARIANTS {
 
     take:
-    ch_vcfs
-    ch_mask_bed_vcf
+    ch_bcfs
+    ch_mask_bed
     ch_popmap
+    ch_wgs_coverage
+    ch_genome_indexed
 
     main: 
    
@@ -27,36 +25,19 @@ workflow FILTER_VARIANTS {
         Calculate depth and per-sample missing data filters
     */
 
-    // Calculate missing data and variant DP histogram for each chunk
-    CALC_CHUNK_DP(
-        ch_vcfs
-    )
-
-    // Merge all chunk DP histograms together
-    MERGE_CHUNK_DP(
-        CALC_CHUNK_DP.out.chunk_dp.map { _interval_hash, _interval_bed, _bed_tbi, dphist -> dphist }.collect(),
-        params.vcf_dp_percentile_lower,
-        params.vcf_dp_percentile_upper
-    )
-
-    MERGE_CHUNK_DP.out.dp_bounds
-        .map { f ->
-            def lines = f.readLines()
-            def hdr = lines[0].split('\t')
-            def row = lines[1].split('\t')
-            def m = [hdr, row].transpose().collectEntries { k, v -> [(k): v] }
-            tuple(m.DPlower as Integer, m.DPupper as Integer)
-        }
-        .set { ch_dp_bounds }
-
     // Merge per-sample missing data from all chunks into a single table
-    MERGE_CHUNK_MISSING(
-        CALC_CHUNK_DP.out.chunk_missing.map { _interval_hash, _interval_bed, _bed_tbi, missing -> missing }.collect()
-    )
+    ch_coverage_files = ch_wgs_coverage
+        .map { _sample, stats -> stats }
+        .collect()
 
+    MERGE_RIKER_COVERAGE(
+        ch_coverage_files
+        )
+
+    ch_missing_summary = MERGE_RIKER_COVERAGE.out.missing_summary
     // QC plots for sample missing data
     PLOT_SAMPLE_FILTERS(
-        MERGE_CHUNK_MISSING.out.missing_summary
+        ch_missing_summary
     )
 
     /*
@@ -65,23 +46,11 @@ workflow FILTER_VARIANTS {
 
     // Global site filters
     FILTER_VCF(
-        ch_vcfs.combine(ch_dp_bounds),
-        ch_mask_bed_vcf,
+        ch_bcfs,
+        ch_mask_bed,
         ch_popmap.first(),
-        MERGE_CHUNK_MISSING.out.missing_summary
+        ch_missing_summary
     )
-
-    // Remove chunks which contain no variants after filtering
-    FILTER_VCF.out.vcf
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, counts_file ->
-            def n = counts_file.text.trim() as Integer
-            tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi, n)
-        }
-        .filter { _interval_hash, _interval_bed, _bed_tbi, _vcf, _tbi, n -> n > 0 }
-        .map { interval_hash, interval_bed, bed_tbi, vcf, tbi, _n ->
-            tuple(interval_hash, interval_bed, bed_tbi, vcf, tbi)
-        }
-        .set { ch_filtered_vcf }
 
     // Create list of samples surviving filtering
     FILTER_VCF.out.samples_to_keep.first()
@@ -89,18 +58,60 @@ workflow FILTER_VARIANTS {
         .unique()
         .set { ch_sample_names_filt }
 
+    ch_filter_hists = FILTER_VCF.out.filter_hist
+        .map { _interval_hash, histogram -> histogram }
+        .collect()
 
     // QC plots for site histograms
-    PLOT_VCF_FILTERS (
-        FILTER_VCF.out.metrics.map { _interval_hash, _interval_bed, _bed_tbi, tsv -> tsv }.collect(),
-        "site_filters"
+    PLOT_VARIANT_FILTERS(ch_filter_hists)
+
+    // Build merge input channels from the named emits
+    def ch_merge_inputs = FILTER_VCF.out.snp_bcf
+        .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('snp', bcf, csi) }
+
+    if( params.output_indel ) {
+        ch_merge_inputs = ch_merge_inputs.mix(
+            FILTER_VCF.out.indel_bcf
+                .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('indel', bcf, csi) }
+        )
+    }
+
+    if( params.output_invariant ) {
+        ch_merge_inputs = ch_merge_inputs.mix(
+            FILTER_VCF.out.invariant_bcf
+                .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('invariant', bcf, csi) }
+        )
+    }
+
+    // Keep the combined merge from the original chunk VCFs
+    ch_merge_inputs = ch_merge_inputs.mix(
+            FILTER_VCF.out.all_bcf
+                .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('combined', bcf, csi) }
+        )
+
+
+    // Group all chunked vcfs by variant type and merge
+    ch_merge_inputs
+        .groupTuple(by: 0)
+        .set { ch_filtered_vcfs_to_merge }
+
+    // Group all filtered sitelists by variant type and merge
+    CONCAT_FINAL (
+        ch_filtered_vcfs_to_merge
+    )
+
+    // Calculate VCF statistics on the final file
+    VCF_STATS_FILTERED (
+        CONCAT_FINAL.out.vcf.filter { record -> record[0] == 'combined' }.map{ _name, bcf, csi -> tuple( bcf, csi)},
+        ch_genome_indexed
     )
 
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    filtered_vcf = ch_filtered_vcf
+    final_bcf = CONCAT_FINAL.out.vcf
     sample_names_filt = ch_sample_names_filt
     sample_filter_plots = PLOT_SAMPLE_FILTERS.out.plots
-    sample_missing_tsv = PLOT_SAMPLE_FILTERS.out.sample_missing_tsv
-    site_filter_plots = PLOT_VCF_FILTERS.out.plots
+    missing_summary = ch_missing_summary
+    site_filter_plots = PLOT_VARIANT_FILTERS.out.plots
+    vcf_stats = VCF_STATS_FILTERED.out.vcfstats
 }

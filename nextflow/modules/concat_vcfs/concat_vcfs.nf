@@ -1,61 +1,112 @@
 process CONCAT_VCFS {
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(vcf), path(vcf_tbi)
-    
-    output: 
-    tuple val(outname),  path("${outname}.{vcf,g.vcf}.gz"), path("${outname}.{vcf,g.vcf}.gz.tbi"),       emit: vcf
-    
+    tuple val(outname), path(variants), path(indices)
+
+    output:
+    tuple val(outname),
+          path("${outname}.{bcf,g.bcf,vcf.gz,g.vcf.gz}"),
+          path("${outname}.{bcf,g.bcf,vcf.gz,g.vcf.gz}.{csi,tbi}"),
+          emit: vcf
+
     script:
-    def vcf_list = vcf
+    def variant_list = variants
         .collect { file -> file.name }
         .unique()
         .sort()
         .join('\n')
+
     """
     #!/usr/bin/env bash
-     
-    # Write one staged VCF filename per line.
-    printf '%s\\n' '${vcf_list}' > vcf.list
 
-    if [[ ! -s vcf.list ]]; then
-        echo "ERROR: no VCF files were supplied" >&2
+    set -euo pipefail
+
+    # Write one staged VCF/BCF filename per line.
+    printf '%s\n' '${variant_list}' > variants.list
+
+    if [[ ! -s variants.list ]]; then
+        echo "ERROR: no VCF/BCF files were supplied" >&2
         exit 1
     fi
 
-    # Detect vcf type (.g.vcf.gz or .vcf.gz) from the first file
-    first=\$(head -n 1 vcf.list)
-    if [[ "\$first" == *.g.vcf.gz ]]; then
-        extension=".g.vcf.gz"
-    elif [[ "\$first" == *.vcf.gz ]]; then
-        extension=".vcf.gz"
-    else
-        echo "ERROR: unrecognised VCF extension: \$first" >&2
-        exit 1
-    fi
+    first=\$(head -n 1 variants.list)
 
-    OUTVCF="${outname}\${extension}"
+    # Determine the complete input suffix. Test the more-specific gVCF
+    # suffixes before their ordinary VCF/BCF counterparts.
+    case "\$first" in
+        *.g.vcf.gz)
+            extension=".g.vcf.gz"
+            output_type="z"
+            index_type="tbi"
+            ;;
+        *.vcf.gz)
+            extension=".vcf.gz"
+            output_type="z"
+            index_type="tbi"
+            ;;
+        *.g.bcf)
+            extension=".g.bcf"
+            output_type="b"
+            index_type="csi"
+            ;;
+        *.bcf)
+            extension=".bcf"
+            output_type="b"
+            index_type="csi"
+            ;;
+        *)
+            echo "ERROR: unrecognised VCF/BCF extension: \$first" >&2
+            exit 1
+            ;;
+    esac
 
-    bcftools view --header-only "\$first" \
-        | awk 'BEGIN {FS="[=,>]"; OFS="\\t"} /^##contig=<ID=/ {print \$3, ++rank}' \
-        > contig_rank.tsv
+    OUTFILE="${outname}\${extension}"
 
-    : > vcf.metadata.tsv
-    : > vcf.skipped.list
+    # Ensure that all inputs have exactly the same suffix. This prevents,
+    # for example, mixing .bcf and .g.bcf or .bcf and .vcf.gz inputs.
+    while IFS= read -r file; do
+        [[ -n "\$file" ]] || continue
 
+        if [[ "\$file" != *"\${extension}" ]]; then
+            echo "ERROR: input formats are inconsistent" >&2
+            echo "       Expected: *\${extension}" >&2
+            echo "       Found:    \$file" >&2
+            exit 1
+        fi
+    done < variants.list
+
+    # Extract the reference contig order from the first input header.
+    bcftools view --header-only "\$first" |
+        awk '
+            BEGIN {
+                FS = "[=,>]"
+                OFS = "\\t"
+            }
+            /^##contig=<ID=/ {
+                print \$3, ++rank
+            }
+        ' > contig_rank.tsv
+
+    : > variants.metadata.tsv
+    : > variants.skipped.list
+
+    # Determine the first coordinate in each non-empty input.
     while IFS= read -r file; do
         [[ -n "\$file" ]] || continue
 
         first_position=\$(
-            bcftools query -f '%CHROM\\t%POS\\n' "\$file" 2>/dev/null \
-                | head -n 1 \
-                || true
+            bcftools query \
+                --format '%CHROM\\t%POS\\n' \
+                "\$file" 2>/dev/null |
+                head -n 1 ||
+                true
         )
 
         if [[ -z "\$first_position" ]]; then
-            printf '%s\\n' "\$file" >> vcf.skipped.list
+            printf '%s\\n' "\$file" >> variants.skipped.list
             continue
         fi
 
@@ -63,60 +114,91 @@ process CONCAT_VCFS {
         position=\${first_position#*\$'\\t'}
 
         rank=\$(
-            awk -v chromosome="\$chromosome" \
-                '\$1 == chromosome {print \$2; found=1; exit}
-                 END {if (!found) print 999999}' \
-                contig_rank.tsv
+            awk -v chromosome="\$chromosome" '
+                \$1 == chromosome {
+                    print \$2
+                    found = 1
+                    exit
+                }
+                END {
+                    if (!found) {
+                        print 999999
+                    }
+                }
+            ' contig_rank.tsv
         )
 
-        printf '%s\\t%s\\t%s\\n' "\$rank" "\$position" "\$file" \
-            >> vcf.metadata.tsv
-    done < vcf.list
+        printf '%s\\t%s\\t%s\\n' \
+            "\$rank" \
+            "\$position" \
+            "\$file" \
+            >> variants.metadata.tsv
 
-    LC_ALL=C sort -k1,1n -k2,2n -k3,3 vcf.metadata.tsv \
-        | cut -f3- \
-        > vcf.ordered.list
+    done < variants.list
 
-    if [[ -s vcf.skipped.list ]]; then
-        n_skipped=\$(wc -l < vcf.skipped.list)
-        echo "WARNING: skipped \${n_skipped} empty VCF file(s)" >&2
+    LC_ALL=C sort \
+        -k1,1n \
+        -k2,2n \
+        -k3,3 \
+        variants.metadata.tsv |
+        cut -f3- \
+        > variants.ordered.list
+
+    if [[ -s variants.skipped.list ]]; then
+        n_skipped=\$(wc -l < variants.skipped.list)
+
+        echo "WARNING: skipped \${n_skipped} empty VCF/BCF file(s):" >&2
+        sed 's/^/  /' variants.skipped.list >&2
     fi
 
-    if [[ ! -s vcf.ordered.list ]]; then
-        echo "WARNING: all input VCFs were empty; writing header-only output" >&2
+    if [[ ! -s variants.ordered.list ]]; then
+        echo "WARNING: all inputs were empty; writing header-only output" >&2
 
-        bcftools view --header-only "\$first" \
-            | bgzip --threads ${task.cpus} --stdout \
-            > "\${OUTVCF}"
-
-        bcftools index --tbi --threads ${task.cpus} "\${OUTVCF}"
-        exit 0
+        bcftools view \
+            --header-only \
+            --output-type "\$output_type" \
+            --threads ${task.cpus} \
+            --output "\$OUTFILE" \
+            "\$first"
+    else
+        # Naive concat is appropriate because all inputs have the same
+        # underlying format. It also checks for compatible headers.
+        bcftools concat \
+            --naive \
+            --file-list variants.ordered.list \
+            --output "\$OUTFILE"
     fi
 
-    bcftools concat \
-        --naive \
-        --file-list vcf.ordered.list \
-        --output "\${OUTVCF}"
+    if [[ "\$index_type" == "tbi" ]]; then
+        index_options=(--tbi)
+    else
+        index_options=(--csi)
+    fi
 
+    # Indexing also verifies coordinate sort order.
     if ! bcftools index \
-        --tbi \
+        --force \
+        "\${index_options[@]}" \
         --threads ${task.cpus} \
-        "\${OUTVCF}" \
-        >/dev/null 2>&1
+        "\$OUTFILE"
     then
-        echo "WARNING: concatenated VCF is not sorted; sorting output" >&2
+        echo "WARNING: output is not coordinate sorted; sorting output" >&2
 
-        sorted_vcf="${outname}.sorted\${extension}"
+        SORTED="${outname}.sorted\${extension}"
 
         bcftools sort \
-            --max-mem "${task.memory.giga}G" \
-            --output-type z \
-            --output "\$sorted_vcf" \
-            "\${OUTVCF}"
+            --max-mem "${task.memory.toMega()}M" \
+            --output-type "\$output_type" \
+            --output "\$SORTED" \
+            "\$OUTFILE"
 
-        mv -f "\$sorted_vcf" "\${OUTVCF}"
-        bcftools index --tbi --threads ${task.cpus} "\${OUTVCF}"
+        mv -f "\$SORTED" "\$OUTFILE"
+
+        bcftools index \
+            --force \
+            "\${index_options[@]}" \
+            --threads ${task.cpus} \
+            "\$OUTFILE"
     fi
-
     """
 }

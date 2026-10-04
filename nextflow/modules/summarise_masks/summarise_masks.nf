@@ -9,8 +9,8 @@ process SUMMARISE_MASKS {
 
     output: 
     tuple path("mask_summary.bed.gz"), path("mask_summary.bed.gz.tbi"),    emit: mask_summary_bed
-    tuple path("mask_pass.bed.gz"), path("mask_pass.bed.gz.tbi"),    emit: mask_pass_bed
-    path("mask_summary.txt"),              emit: mask_summary
+    tuple path("mask_pass.bed.gz"), path("mask_pass.bed.gz.tbi"),          emit: mask_pass_bed
+    path("mask_summary.txt"),                                              emit: mask_summary
 
     script:
     """
@@ -73,6 +73,7 @@ process SUMMARISE_MASKS {
         ' \
         | sort -k1,1 \
         > mask_summary.txt
+
     """
   
 }

@@ -3,13 +3,33 @@ process HAPLOTYPECALLER {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
+    tuple val(sample),
+        val(jc_id),
+        val(interval_hash),
+        val(n_hc_in_jc),
+        val(order),
+        path(interval_bed),
+        path(bed_tbi),
+        path(cram),
+        path(cram_index)
     tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
 
-    output: 
-    tuple val(sample), val(interval_hash), val(n_intervals), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
-    tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
+    output:
+    tuple val(sample),
+        val(jc_id),
+        val(interval_hash),
+        val(n_hc_in_jc),
+        val(order),
+        path("*.g.vcf.gz"),
+        path("*.g.vcf.gz.tbi"),
+        emit: gvcf_intervals
+
+    tuple val(sample),
+        val(jc_id),
+        val(interval_hash),
+        path("*.stderr.log"),
+        path("*.assembly.tsv"),
+        emit: log
 
     script: 
     """
@@ -71,8 +91,6 @@ process HAPLOTYPECALLER {
         -L "${interval_bed}" \
         --native-pair-hmm-threads "${task.cpus}" \
         --assembly-region-padding "${params.hc_interval_padding}" \
-        --exclude-intervals "${exclude_bed}" \
-        --interval-exclusion-padding "${params.exclude_padding}" \
         --interval-merging-rule ALL \
         --min-pruning "${params.hc_min_pruning}" \
         --min-dangling-branch-length "${params.hc_min_dangling_length}" \

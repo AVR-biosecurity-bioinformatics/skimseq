@@ -1,103 +1,69 @@
 process PILEUP_MITO {
-    tag "${cohort}: ${samples.size()} samples"
+    tag "${cohort}: ${chunk_id} (${samples.size()} samples)"
     conda "${moduleDir}/environment.yml"
 
     input:
     tuple val(cohort),
+          val(chunk_id),
+          path(interval_bed),
+          path(bed_tbi),
           val(samples),
           path(bams),
-          path(bais),
-          path(shifted_bams),
-          path(shifted_bais)
+          path(bais)
 
     tuple path(mito_fasta),
           path(mito_index_files)
 
-    tuple path(shifted_mito_fasta),
-          path(shifted_mito_index_files)
-
     output:
     tuple val(cohort),
-          path("${cohort}.samples.tsv"),
-          path("${cohort}.original.all_sites.tsv"),
-          path("${cohort}.shifted.all_sites.tsv"),
+          val(chunk_id),
+          path("${cohort}.${chunk_id}.samples.tsv"),
+          path("${cohort}.${chunk_id}.all_sites.tsv"),
           emit: counts
 
     script:
-    def ordered = [
-        samples,
-        bams,
-        shifted_bams
-    ]
-        .transpose()
+    // Keep sample IDs and BAM paths paired while sorting.
+    def ordered = (0..<samples.size())
+        .collect { i -> [samples[i], bams[i]] }
         .sort { a, b -> a[0].toString() <=> b[0].toString() }
 
-    def originalArgs = ordered
-        .collect { _sample, bam, _shiftedBam -> "'${bam}'" }
-        .join(' ')
-
-    def shiftedArgs = ordered
-        .collect { _sample, _bam, shiftedBam -> "'${shiftedBam}'" }
-        .join(' ')
-
-    def sampleLines = (0..<ordered.size())
-        .collect { index ->
-            def item = ordered[index]
-
-            [
-                index + 1,
-                item[0],
-                item[1],
-                item[2]
-            ].join('\t')
+    def sampleManifest = (
+        ['input_index\tsample_id\tbam'] +
+        ordered.withIndex().collect { entry, i ->
+            "${i + 1}\t${entry[0]}\t${entry[1].name}"
         }
-        .join('\n')
-
-    def sampleManifest = [
-        'input_index\tsample_id\toriginal_bam\tshifted_bam',
-        sampleLines
-    ].join('\n') + '\n'
+    ).join('\n') + '\n'
 
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    printf '%s' '${sampleManifest}' > '${cohort}.samples.tsv'
+    # The manifest and bam.list now have exactly the same order.
+    cat > "${cohort}.${chunk_id}.samples.tsv" <<'EOF'
+${sampleManifest}EOF
 
-    # All-sites pileup against the original mitochondrial reference.
-    #
-    # Do not use:
-    #   -v  variants only
-    #   -c  VCF output; forces variant-only mode
-    #   -y  conservative variant-calling preset
-    #
-    # Allele filtering remains permissive so that final depth, VAF,
-    # mixed-site and non-SNV filtering can be performed downstream.
-    minipileup \\
-        -f '${mito_fasta}' \\
-        -C \\
-        -e \\
-        -q ${params.mito_minmq} \\
-        -Q ${params.mito_minbq} \\
-        -T ${params.mito_trim_read_ends} \\
-        -s 1 \\
-        -a 0 \\
-        -p 0 \\
-        ${originalArgs} \\
-        > '${cohort}.original.all_sites.tsv'
+    cut -f3 "${cohort}.${chunk_id}.samples.tsv" |
+        tail -n +2 > bam.list
 
-    # All-sites pileup against the shifted mitochondrial reference.
-    minipileup \\
-        -f '${shifted_mito_fasta}' \\
-        -C \\
-        -e \\
-        -q ${params.mito_minmq} \\
-        -Q ${params.mito_minbq} \\
-        -T ${params.mito_trim_read_ends} \\
-        -s 1 \\
-        -a 0 \\
-        -p 0 \\
-        ${shiftedArgs} \\
-        > '${cohort}.shifted.all_sites.tsv'
+    [[ -s bam.list ]] || {
+        echo "No BAMs supplied for ${cohort}:${chunk_id}" >&2
+        exit 1
+    }
+
+    bcftools mpileup \\
+        --bam-list bam.list \\
+        --regions-file "${interval_bed}" \\
+        --threads ${task.cpus} \\
+        --count-orphans \\
+        --no-BAQ \\
+        --fasta-ref "${mito_fasta}" \\
+        --min-MQ ${params.mito_minmq} \\
+        --min-BQ ${params.mito_minbq} \\
+        --max-depth ${params.mito_max_depth_per_sample} \\
+        --annotate FORMAT/AD \\
+        -Ou |
+        bcftools query \\
+            -f '%CHROM\\t%POS\\t%REF\\t%ALT[\\t%AD]\\n' \\
+        > "${cohort}.${chunk_id}.all_sites.tsv"
     """
 }
