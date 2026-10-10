@@ -327,10 +327,15 @@ workflow SKIMSEQ {
     /*
     * Warnings channel.
     */
-    channel
+    warnings = channel
         .topic('warnings')
-        .view()
+        .filter { warning ->
+            warning
+        }
 
+    warnings.view { warning ->
+        "WARNING: ${warning}"
+    }
     /*
         Workflow emissions (sent to main.nf for publishing)
     */

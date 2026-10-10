@@ -439,11 +439,15 @@ detect_chelae_adapters() {
     lines_r2=$(wc -l < "${sample_r2}")
 
     if (( lines_r1 == 0 ||
-          lines_r1 != lines_r2 ||
-          lines_r1 % 4 != 0 )); then
-        echo "ERROR: detection samples are empty, incomplete, or differ in read count (R1=${lines_r1}, R2=${lines_r2})" >&2
+        lines_r1 != lines_r2 ||
+        lines_r1 % 4 != 0 )); then
+
+        echo \
+            "WARNING: adapter detection skipped because detection samples are empty, incomplete, or differ in read count (R1=${lines_r1}, R2=${lines_r2}); using --kit all" >&2
+
         rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
-        return 1
+
+        return 0
     fi
 
     # Adapter discovery is not meaningful for very small inputs.
