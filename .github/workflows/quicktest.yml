@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  NEXTFLOW_VERSION: "26.04.6"
+  NEXTFLOW_VERSION: "26.04.7"
   NF_SCHEMA_VERSION: "3.0.0"
   NF_WAVE_VERSION: "1.21.0"
   NXF_HOME: ${{ github.workspace }}/.nextflow
