@@ -1,22 +1,43 @@
+nextflow.enable.types = true
+
 process CRAM_STATS_RIKER {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
-    path(interval_bed)
+    record(
+        sample: String,
+        cram: Path,
+        crai: Path
+    )
 
-    output: 
-    tuple val(sample), path("${sample}.riker.tar.gz"), emit: stats
-    tuple val(sample), path("${sample}.wgs-coverage.txt"), emit: wgs_coverage
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>,
+        genome_bed: Path
+    )
+
+    output:
+    record(
+        sample: sample,
+        stats: file("${sample}.riker.tar.gz"),
+        wgs_coverage: file("${sample}.wgs-coverage.txt")
+    )
+
+    topic:
+    file("${sample}.riker.tar.gz") >> 'multiqc'
 
     script:
-    def riker_duplicate_args = params.rmdup ? '' : [
-        '--wgs::include-duplicates',
-        '--error::include-duplicates',
-        '--isize::include-duplicates'
-    ].join(' ')
+    def riker_duplicate_args = params.rmdup
+        ? ''
+        : [
+            '--wgs::include-duplicates',
+            '--error::include-duplicates',
+            '--isize::include-duplicates'
+        ].join(' ')
+
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -29,11 +50,11 @@ process CRAM_STATS_RIKER {
         --tools alignment isize basic gcbias wgs error \
         --aln::min-mapq ${params.minmq} \
         --aln::max-insert-size 10000 \
-        --wgs::intervals "${interval_bed}" \
+        --wgs::intervals "${genome_bed}" \
         --wgs::min-mapq ${params.minmq} \
         --wgs::min-bq ${params.minbq} \
         --wgs::coverage-cap 250 \
-        --error::intervals "${interval_bed}" \
+        --error::intervals "${genome_bed}" \
         --error::min-mapq ${params.minmq} \
         --error::min-bq ${params.minbq} \
         --error::stratify-by read_num,cycle bq \

@@ -1,16 +1,28 @@
+nextflow.enable.types = true
+
 process CREATE_JC_BED_FROM_HC {
     tag "${jc_id}"
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(jc_id), path('hc/*')
-    tuple path(ref_genome), path(genome_index_files)
+    record(
+        jc_id: String,
+        hc_files: Iterable<Path>
+    )
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+    
+    stage:
+    stageAs hc_files, 'hc/*'
 
     output:
-    tuple val(jc_id),
-          path("${jc_id}.bed.gz"),
-          path("${jc_id}.bed.gz.tbi"),
-          emit: interval_bed
+    record(
+        jc_id: jc_id,
+        interval_bed: file("${jc_id}.bed.gz"),
+        interval_index: file("${jc_id}.bed.gz.tbi")
+    )
 
     script:
     """

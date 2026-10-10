@@ -1,19 +1,33 @@
+nextflow.enable.types = true
+
 process COMBINE_MOSDEPTH_WINDOWS {
+
     tag "cohort depth"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path normalised_files
+    normalised_files: Bag<Path>
 
     output:
-    path "cohort.depth.bed",      emit: summary
-    path "cohort.high_depth.bed", emit: high_mask
-    path "cohort.low_depth.bed",  emit: low_mask
+    record(
+        summary: file("cohort.depth.bed"),
+        high_mask: file("cohort.high_depth.bed"),
+        low_mask: file("cohort.low_depth.bed")
+    )
 
     script:
-    def low = params.depth_mask_low == null ? 0.5 : params.depth_mask_low
-    def high = params.depth_mask_high == null ? 1.5 : params.depth_mask_high
-    def fraction = params.depth_mask_fraction == null ? 0.8 : params.depth_mask_fraction
+    def low = params.depth_mask_low == null
+        ? 0.5
+        : params.depth_mask_low
+
+    def high = params.depth_mask_high == null
+        ? 1.5
+        : params.depth_mask_high
+
+    def fraction = params.depth_mask_fraction == null
+        ? 0.8
+        : params.depth_mask_fraction
 
     """
     #!/usr/bin/env bash

@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
     Genotype samples using GATK
 */
@@ -13,34 +15,46 @@ include { CREATE_JC_BED_FROM_HC                                  } from '../modu
 include { HAPLOTYPECALLER                                        } from '../modules/haplotypecaller/haplotypecaller'
 include { GENOMICSDB_IMPORT                                      } from '../modules/genomicsdb_import/genomicsdb_import' 
 include { JOINT_GENOTYPE                                         } from '../modules/joint_genotype/joint_genotype' 
-include { STAGE_GVCF                                             } from '../modules/stage_gvcf/stage_gvcf'
+//include { STAGE_GVCF                                             } from '../modules/stage_gvcf/stage_gvcf'
 include { CONCAT_VCFS as CONCAT_GVCFS_JC                         } from '../modules/concat_vcfs/concat_vcfs'
 include { CONCAT_VCFS as CONCAT_GVCFS_SAMPLE                     } from '../modules/concat_vcfs/concat_vcfs'
 include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
 
+include {
+    SampleReads
+    SampleCram
+    PreparedGenome
+    VariantChunk
+    VariantFile
+    SampleGvcf 
+} from '../types'
+
+
 workflow GATK_CALLING {
 
     take:
-    ch_sample_names
-    ch_sample_cram
-    ch_reads_grouped
-    ch_genome_indexed
-    ch_calling_bed
-    ch_long_bed
-    ch_short_bed
-    ch_cohort_size
-    ch_included_bases
+    sample_cram: Channel<SampleCram>
+    reads_grouped: Channel<SampleReads>
+    genome: Value<PreparedGenome>
+    cohort_size: Value<Integer>
     
     main: 
-    // Calculate nchunks
-    ch_n_chunks = ch_cohort_size
-        .combine(ch_included_bases)
-        .map { cohort_size, included_bases ->
-            long total_bases =
-                (cohort_size as long) * (included_bases as long)
 
-            long bases_per_chunk =
-                params.hc_target_sample_bases as long
+    // Calculate number of chunks for parallel calling
+    included_bases = genome
+        .map { prepared ->
+            prepared.reference_bases.text.trim().toLong()
+        }
+
+    n_chunks = cohort_size
+        .combine(included_bases)
+        .map { cohort_size_value, included_bases_value ->
+
+            def total_bases =
+                cohort_size_value * included_bases_value
+
+            def bases_per_chunk =
+                params.hc_target_sample_bases
 
             Math.max(
                 1,
@@ -53,95 +67,121 @@ workflow GATK_CALLING {
     */
     
     // Use existing gvcfs if they are present and the option is set
-    if( params.use_existing_gvcf ) {
-        ch_sample_names
+    if (params.use_existing_gvcf) {
+
+        existing_gvcf = sample_cram
             .map { sample ->
-                def gvcf = file("${params.gvcf_store}/${sample}.g.vcf.gz")
-                def tbi = file("${gvcf}.tbi")
-                tuple(sample, gvcf, tbi)
+
+                def vcf = file(
+                    "${params.gvcf_store}/${sample.sample}.g.vcf.gz"
+                )
+                def index = file("${vcf}.tbi")
+
+                record(
+                    sample: sample.sample,
+                    vcf: vcf,
+                    index: index
+                )
             }
-            .filter { _sample, gvcf, tbi -> gvcf.exists() && tbi.exists() }
-            .set { ch_existing_gvcf }
+            .filter { candidate ->
+                candidate.vcf.exists() &&
+                    candidate.index.exists()
+            }
 
+        if (!params.skip_gvcf_validation) {
 
-        // Validate gvcf files by default
-        if( !params.skip_gvcf_validation ) {
+            gvcf_validation_input = reads_grouped
+                .join(
+                    existing_gvcf,
+                    by: 'sample'
+                )
 
-            ch_reads_grouped
-                .join(ch_existing_gvcf, by: 0)
-                .set { ch_gvcf_validation_input }
-
-            VALIDATE_GVCF (
-                ch_gvcf_validation_input,
-                ch_genome_indexed
+            validation_results = VALIDATE_GVCF(
+                gvcf_validation_input,
+                genome
             )
+                .map { result ->
 
-            // Convert stdout to a string for status (PASS or FAIL), and join to initial reads
-            VALIDATE_GVCF.out.status
-                .map { sample, stdout -> [ sample, stdout.trim() ] }
-                .join( ch_existing_gvcf, by: 0 )
-                .map { sample, status, gvcf, tbi -> [ sample, gvcf, tbi, status ] }
-                .branch {  _sample, _gvcf, _tbi, status ->
-                    fail: status == 'FAIL'
-                    pass: status == 'PASS'
-                    invalid: true
-                }
-                .set { gvcf_validation_routes }
+                    def status = result.status.trim()
 
-            // Fail loudly if validator emits anythign other that pass/fail
-            gvcf_validation_routes.invalid
-                .map { sample, _gvcf, _tbi, status ->
-                    throw new IllegalStateException(
-                        "Unexpected GVCF validation status for " +
-                        "${sample}: '${status}'"
+                    if (
+                        status != 'PASS' &&
+                        status != 'FAIL'
+                    ) {
+                        throw new IllegalStateException(
+                            "Unexpected GVCF validation status for " +
+                            "${result.sample}: '${status}'"
+                        )
+                    }
+
+                    record(
+                        sample: result.sample,
+                        vcf: result.vcf,
+                        index: result.index,
+                        status: status
                     )
                 }
-                .set { _invalid_gvcf_status }
 
-            // Compatible existing GVCFs.
-            gvcf_validation_routes.pass
-                .map { sample, gvcf, tbi, _status -> [ sample, gvcf, tbi ] } 
-                .set { ch_validated_gvcf }
-                
-            // Print warning if any gvcf files exist but fail validation
-            gvcf_validation_routes.fail
-                .map {  sample, _gvcf, _tbi, _status -> sample } 
+            validated_gvcf = validation_results
+                .filter { result ->
+                    result.status == 'PASS'
+                }
+                .map { result ->
+                    record(
+                        sample: result.sample,
+                        vcf: result.vcf,
+                        index: result.index
+                    )
+                }
+
+            validation_results
+                .filter { result ->
+                    result.status == 'FAIL'
+                }
+                .map { result ->
+                    result.sample
+                }
                 .unique()
                 .collect()
                 .subscribe { failed_samples ->
-                    if (failed_samples) {
+                    if (!failed_samples.isEmpty()) {
                         log.warn(
                             "GVCF validation failed for " +
-                            "${failed_samples.size()} sample(s): " +
-                            failed_samples.join(', ')
+                                "${failed_samples.size()} sample(s): " +
+                                failed_samples.join(', ')
                         )
                     }
                 }
 
         } else {
-          // Skip validation, assume all existing gvcfs are compatible
-          ch_validated_gvcf = ch_existing_gvcf 
+            validated_gvcf = existing_gvcf
         }
 
-        // Set of samples that do not need single-sample variant calling.
-        ch_validated_gvcf
-            .map { sample, _gvcf, _tbi -> sample}
-            .toList()
-            .map { ids -> ids as Set } 
-            .set { ch_gvcf_done }
-
-    } else{
-        ch_gvcf_done = channel.value([] as Set)
-        ch_validated_gvcf = channel.empty()
+    } else {
+        validated_gvcf = channel.empty()
     }
 
     // Retain crams only for samples without a validated existing GVCF
-    ch_sample_cram
-        .combine(ch_gvcf_done)  
-        .filter { sample, _gvcf, _tbi, doneSet -> !(doneSet as Set).contains(sample) }
-        .map {  sample, gvcf, tbi, _doneSet -> tuple( sample, gvcf, tbi) }
-        .set { ch_cram_for_hc }
+    gvcf_done = validated_gvcf
+        .map { result ->
+            result.sample
+        }
+        .collect()
 
+    cram_for_hc = sample_cram
+        .combine(
+            done_samples: gvcf_done
+        )
+        .filter { sample ->
+            !sample.done_samples.contains(sample.sample)
+        }
+        .map { sample ->
+            record(
+                sample: sample.sample,
+                cram: sample.cram,
+                crai: sample.crai
+            )
+        }
 
     /* 
        Create groups of genomic intervals for parallel calling
@@ -149,146 +189,178 @@ workflow GATK_CALLING {
        This is a fast but coarse way of assessign workload
     */
 
-    ch_crai_workload_inputs = ch_sample_cram
-        .map { _sample, _cram, crai ->
-        crai
+    crai_workload_inputs = sample_cram
+        .map { sample ->
+            sample.crai
         }
         .collect()
 
-    // For long contigs, project only included long-contig intervals.
-    SUBSET_BED_TO_INTERVALS(
-        ch_long_bed.first(),
-        ch_calling_bed,
-        ch_genome_indexed
+    long_intervals = SUBSET_BED_TO_INTERVALS(
+        genome.map { prepared -> prepared.long_bed},
+        genome.map { prepared -> prepared.genome_bed},
+        genome
     )
 
-    PROJECT_LONG(
-        ch_crai_workload_inputs,
-        SUBSET_BED_TO_INTERVALS.out.bed,
-        ch_genome_indexed
+    /*
+    * For long contigs, project workload only across included calling
+    * intervals on long contigs.
+    */
+    long_projection_genome = genome
+        .combine(
+            intervals: long_intervals
+        )
+        .map { prepared ->
+            record(
+                ref_genome: prepared.ref_genome,
+                genome_index_files: prepared.genome_index_files,
+                genome_bed: prepared.intervals
+            )
+        }
+
+    /*
+    * For short contigs, project workload across the complete short-contig
+    * territory for GenomicsDB compatibility.
+    */
+    short_projection_genome = genome
+        .map { prepared ->
+            record(
+                ref_genome: prepared.ref_genome,
+                genome_index_files: prepared.genome_index_files,
+                genome_bed: prepared.short_bed
+            )
+        }
+
+    long_workload = PROJECT_LONG(
+        crai_workload_inputs,
+        long_projection_genome
     )
 
-    // For short contigs, project across complete contigs for
-    // compatibility with GenomicsDB.
-    PROJECT_SHORT(
-        ch_crai_workload_inputs,
-        ch_short_bed.first(),
-        ch_genome_indexed
+    short_workload = PROJECT_SHORT(
+        crai_workload_inputs,
+        short_projection_genome
     )
 
-    // Collect the projected long- and short-contig workload BEDs.
-    ch_hc_workload_beds = PROJECT_LONG.out.bed
-        .mix(PROJECT_SHORT.out.bed)
-        .collect()
+    hc_workload_beds = long_workload
+        .combine(short_workload)
+        .map { long_bed, short_bed ->
+            [long_bed, short_bed]
+        }
 
-    // Combine the BEDs and restore reference coordinate order.
-    // Merging is disabled because the long- and short-contig projections
-    // cover separate genomic territories.
-    COMBINE_WORKLOAD_BEDS(
-        ch_hc_workload_beds,
-        ch_genome_indexed,
+    combined_workload = COMBINE_WORKLOAD_BEDS(
+        hc_workload_beds,
+        genome,
         false,
         0,
         4,
         'sum'
     )
 
-    // Divide the combined workload track into balanced chunks.
-    CREATE_INTERVAL_CHUNKS_HC(
-        COMBINE_WORKLOAD_BEDS.out.bed,
-        ch_n_chunks,
+    interval_chunks = CREATE_INTERVAL_CHUNKS_HC(
+        combined_workload,
+        n_chunks,
         params.split_large_intervals
     )
 
     // Convert the combined workload-balanced chunks into a single
     // genome-wide chunk group.
-    CREATE_INTERVAL_CHUNKS_HC.out.interval_bed
-        .map { _workload_id, beds, tbis ->
-            def region_id = "genome"
+    hc_chunks = interval_chunks
+        .flatMap { chunks ->
 
-            def bed_list = beds instanceof List ? beds : [beds]
-
-            def tbi_by_name = (tbis instanceof List ? tbis : [tbis])
-                .collectEntries { tbi ->
-                    [(tbi.name): tbi]
+            chunks.beds
+                .toSorted { bed ->
+                    bed.name
                 }
+                .withIndex()
+                .collect { bed, order ->
 
-            def chunks = bed_list
-                .collect { bed ->
-                    def tbi = tbi_by_name["${bed.name}.tbi"]
+                    def interval_index = chunks.tbis.find { tbi ->
+                        tbi.name == "${bed.name}.tbi"
+                    }
 
-                    assert tbi != null :
-                        "Missing index for ${region_id}: ${bed.name}"
+                    if (interval_index == null) {
+                        throw new IllegalStateException(
+                            "Missing index for ${bed.name}"
+                        )
+                    }
 
                     def hc_id = bed.name.replaceFirst(/\.bed\.gz$/, '')
 
-                    tuple(
-                        region_id,
-                        hc_id,
-                        bed,
-                        tbi
+                    def jc_number =
+                        ((order / params.hc_chunks_per_jc) as Integer) + 1
+
+                    record(
+                        jc_id: "genome_jc_${jc_number}",
+                        hc_id: hc_id,
+                        order: order,
+                        interval_bed: bed,
+                        interval_index: interval_index
                     )
                 }
-                .sort { left, right ->
-                    left[1] <=> right[1]
-                }
-
-            tuple(region_id, chunks)
         }
-        .set { ch_hc_chunks_by_region }
 
     // Build one larger JC BED per batch from its HC BEDs.
-    ch_hc_chunks_by_region
-        .flatMap { region_id, chunks ->
-            chunks
-                .collate(params.hc_chunks_per_jc)
-                .withIndex()
-                .collect { group, index ->
-                    def jc_id =
-                        "${region_id}_jc_${String.format('%05d', index + 1)}"
-
-                    tuple(jc_id, region_id, group)
-                }
-        }
-        .set { ch_jc_plan }
-
-    CREATE_JC_BED_FROM_HC(
-        ch_jc_plan.map { jc_id, _region_id, group ->
+    jc_bed_inputs = hc_chunks
+        .map { chunk ->
             tuple(
-                jc_id,
-                group.collect { _region, _hc_id, bed, _tbi ->
-                    bed
-                }
+                chunk.jc_id,
+                chunk.interval_bed
             )
-        },
-        ch_genome_indexed
+        }
+        .groupBy()
+        .map { jc_id, hc_files ->
+            record(
+                jc_id: jc_id,
+                hc_files: hc_files
+            )
+        }
+
+    jc_beds = CREATE_JC_BED_FROM_HC(
+        jc_bed_inputs,
+        genome
     )
+
+    existing_batch_gvcf = jc_beds
+        .map { interval ->
+            record(
+                jc_id: interval.jc_id
+            )
+        }
+        .combine(validated_gvcf)
+        .map { jc, gvcf ->
+            record(
+                jc_id: jc.jc_id,
+                sample: gvcf.sample,
+                vcf: gvcf.vcf,
+                index: gvcf.index
+            )
+        }
 
     /* 
         Single sample calling with HaplotypeCaller
     */
 
-    // ch_jc_plan: tuple(jc_id, region_id, group)
-    // group entries: tuple(region_id, hc_id, bed, tbi)
-    ch_jc_plan
-        .flatMap { jc_id, _region_id, group ->
-            group.withIndex().collect { chunk, order ->
-                tuple(jc_id, chunk[1], group.size(), order, chunk[2], chunk[3])
-            }
-        }
-        .combine(ch_cram_for_hc)
-        .map { jc_id, hc_id, n_hc_in_jc, order, bed, tbi,
-            sample, cram, crai ->
-            tuple(
-                sample, jc_id, hc_id, n_hc_in_jc, order,
-                bed, tbi, cram, crai
+    sample_intervals = hc_chunks
+        .combine(cram_for_hc)
+        .map { pair ->
+
+            def chunk = pair[0]
+            def sample = pair[1]
+
+            record(
+                sample: sample.sample,
+                jc_id: chunk.jc_id,
+                hc_id: chunk.hc_id,
+                order: chunk.order,
+                interval_bed: chunk.interval_bed,
+                interval_index: chunk.interval_index,
+                cram: sample.cram,
+                crai: sample.crai
             )
         }
-        .set { ch_sample_intervals }
 
-    HAPLOTYPECALLER(
-        ch_sample_intervals,
-        ch_genome_indexed,
+    hc_results = HAPLOTYPECALLER(
+        sample_intervals,
+        genome
     )
 
     /*
@@ -297,170 +369,230 @@ workflow GATK_CALLING {
     * HAPLOTYPECALLER.out.gvcf_intervals:
     * tuple(sample, jc_id, hc_id, n_hc_in_jc, order, gvcf, tbi)
     */
-    HAPLOTYPECALLER.out.gvcf_intervals
-        .map { sample, jc_id, _hc_id, n_hc_in_jc, _order, gvcf, tbi ->
+    jc_concat_plan = hc_results
+        .map { result ->
             tuple(
-                groupKey([sample, jc_id], n_hc_in_jc),
-                tuple(gvcf, tbi)
+                record(
+                    sample: result.sample,
+                    jc_id: result.jc_id
+                ),
+                result
             )
         }
-        .groupTuple()
+        .groupBy()
         .map { key, files ->
-            def (sample, jc_id) = key.getGroupTarget()
 
-            tuple(
-                "${sample}.${jc_id}",
-                sample,
-                jc_id,
-                files.collect { file_pair -> file_pair[0] },
-                files.collect { file_pair -> file_pair[1] }
+            def ordered = files
+                .toSorted { result ->
+                    result.order
+                }
+
+            record(
+                outname: "${key.sample}.${key.jc_id}",
+                sample: key.sample,
+                jc_id: key.jc_id,
+                variants: ordered.collect { result ->
+                    result.gvcf
+                },
+                indices: ordered.collect { result ->
+                    result.gvcf_index
+                }
             )
         }
-        .set { ch_jc_concat_plan }
 
-    // Keep identifiers for restoring sample and jc_id after concat.
-    ch_jc_concat_plan
-        .map { outname, sample, jc_id, _gvcfs, _tbis ->
-            tuple(outname, sample, jc_id)
+    jc_concat_results = CONCAT_GVCFS_JC(
+        jc_concat_plan
+    )
+
+    jc_concat_ids = jc_concat_plan
+        .map { plan ->
+            record(
+                outname: plan.outname,
+                sample: plan.sample,
+                jc_id: plan.jc_id
+            )
         }
-        .set { ch_jc_concat_ids }
 
-    // Existing CONCAT_VCFS input: tuple(outname, gvcfs, tbis).
-    ch_jc_concat_plan
-        .map { outname, _sample, _jc_id, gvcfs, tbis ->
-            tuple(outname, gvcfs, tbis)
+    new_batch_gvcf = jc_concat_results
+        .join(
+            jc_concat_ids,
+            by: 'outname'
+        )
+        .map { result ->
+            record(
+                jc_id: result.jc_id,
+                sample: result.sample,
+                vcf: result.vcf,
+                index: result.index
+            )
         }
-        .set { ch_jc_concat_input }
-
-    CONCAT_GVCFS_JC(ch_jc_concat_input)
-
-    // tuple(jc_id, sample, batch_gvcf, batch_tbi)
-    CONCAT_GVCFS_JC.out.vcf
-        .join(ch_jc_concat_ids, by: 0)
-        .map { _outname, gvcf, tbi, sample, jc_id ->
-            tuple(jc_id, sample, gvcf, tbi)
-        }
-        .set { ch_new_batch_gvcf }
-
-    /*
-    * Add each validated whole-sample gVCF to every JC batch.
-    * The matching JC BED will restrict the import territory.
-    */
-    CREATE_JC_BED_FROM_HC.out.interval_bed
-        .map { jc_id, _bed, _bed_tbi -> jc_id }
-        .combine(ch_validated_gvcf)
-        .map { jc_id, sample, gvcf, tbi ->
-            tuple(jc_id, sample, gvcf, tbi)
-        }
-        .set { ch_existing_batch_gvcf }
-
-    // Reuse this value channel both for grouping and resource scaling.
-    ch_cohort_size = ch_sample_names.unique().count()
 
     /*
     * Release a JC batch for processing once its expected number of samples is ready.
     * Keep each sample, gVCF and index together while grouping.
     */
-    ch_new_batch_gvcf
-        .mix(ch_existing_batch_gvcf)
-        .combine(ch_cohort_size)
-        .map { jc_id, sample, gvcf, tbi, n_samples ->
+    gvcf_intervals = new_batch_gvcf
+        .mix(existing_batch_gvcf)
+        .map { gvcf ->
             tuple(
-                groupKey(jc_id, n_samples),
-                tuple(sample, gvcf, tbi)
+                gvcf.jc_id,
+                record(
+                    sample: gvcf.sample,
+                    vcf: gvcf.vcf,
+                    index: gvcf.index
+                )
             )
         }
-        .groupTuple()
-        .map { key, files ->
-            def jc_id = key.getGroupTarget()
-            def ordered = files.sort { a, b -> a[0] <=> b[0] }
-            def samples = ordered.collect { entry -> entry[0] }
+        .groupBy()
+        .map { jc_id, files ->
 
-            assert samples.size() == samples.toSet().size() :
-                "Duplicate sample in JC batch ${jc_id}: ${samples}"
+            def ordered = files
+                .toSorted { result ->
+                    result.sample
+                }
 
-            tuple(
-                jc_id,
-                ordered.collect { entry -> entry[1] },
-                ordered.collect { entry -> entry[2] }
+            def samples = ordered.collect { result ->
+                result.sample
+            }
+
+            if (samples.size() != samples.toSet().size()) {
+                throw new IllegalStateException(
+                    "Duplicate sample in JC batch ${jc_id}: ${samples}"
+                )
+            }
+
+            record(
+                jc_id: jc_id,
+                gvcfs: ordered.collect { result ->
+                    result.vcf
+                },
+                indices: ordered.collect { result ->
+                    result.index
+                }
             )
         }
-        .join(CREATE_JC_BED_FROM_HC.out.interval_bed, by: 0)
-        .map { jc_id, gvcfs, gvcf_tbis, jc_bed, jc_bed_tbi ->
-            // Matches the existing GENOMICSDB_IMPORT five-field input.
-            tuple(jc_id, jc_bed, jc_bed_tbi, gvcfs, gvcf_tbis)
+        .join(
+            jc_beds,
+            by: 'jc_id'
+        )
+        .map { result ->
+            record(
+                jc_id: result.jc_id,
+                interval_bed: result.interval_bed,
+                interval_index: result.interval_index,
+                gvcfs: result.gvcfs,
+                indices: result.indices
+            )
         }
-        .set { ch_gvcf_interval }
 
-    GENOMICSDB_IMPORT(
-        ch_gvcf_interval,
-        ch_genome_indexed,
-        ch_cohort_size
+    genomicsdb_results = GENOMICSDB_IMPORT(
+        gvcf_intervals,
+        genome,
+        cohort_size
     )
 
-    JOINT_GENOTYPE(
-        GENOMICSDB_IMPORT.out.genomicsdb,
-        ch_genome_indexed,
-        ch_cohort_size
+    joint_genotype_results = JOINT_GENOTYPE(
+        genomicsdb_results,
+        genome,
+        cohort_size
     )
+
+    // Normalise back to cannonical variant type
+    joint_variants = joint_genotype_results
+        .map { result ->
+            record(
+                interval_id: result.jc_id,
+                interval_bed: result.interval_bed,
+                interval_index: result.bed_tbi,
+                variants: result.bcf,
+                variants_index: result.bcf_index
+            )
+        }
 
     
     /* 
     * Extra publishing
     */
     
-    // Per-sample gvcfs
-    ch_new_gvcf = channel.empty()
-    if ( params.output_gvcf ){
-        HAPLOTYPECALLER.out.gvcf_intervals
-            .map { sample, _jc_id, hc_id, _n_hc_in_jc, _order, gvcf, tbi ->
-                tuple(sample, tuple(hc_id, gvcf, tbi))
-            }
-            .groupTuple(by: 0)
-            .map { sample, pieces ->
-                // Keep each gVCF paired with its index.
-                // Do not assume HC completion order is genomic order.
+    // Per-sample gVCFs
+    if (params.output_gvcf) {
+
+        whole_sample_concat = hc_results
+            .map { result ->
                 tuple(
-                    sample,
-                    pieces.collect { piece -> piece[1] },
-                    pieces.collect { piece -> piece[2] }
+                    result.sample,
+                    record(
+                        hc_id: result.hc_id,
+                        order: result.order,
+                        gvcf: result.gvcf,
+                        gvcf_index: result.gvcf_index
+                    )
                 )
             }
-            .set { ch_whole_sample_to_concat }
+            .groupBy()
+            .map { sample, pieces ->
 
-        CONCAT_GVCFS_SAMPLE(ch_whole_sample_to_concat)
+                def ordered = pieces
+                    .toSorted { piece ->
+                        piece.order
+                    }
 
-        CONCAT_GVCFS_SAMPLE.out.vcf
-            .set { ch_new_gvcf }
+                record(
+                    outname: sample,
+                    variants: ordered.collect { piece ->
+                        piece.gvcf
+                    },
+                    indices: ordered.collect { piece ->
+                        piece.gvcf_index
+                    }
+                )
+            }
 
-        ch_validated_gvcf
-            .mix(ch_new_gvcf)
-            .set { ch_sample_gvcf }
-
-        STAGE_GVCF(ch_sample_gvcf)
-    }
-
-    // unfiltered cohort vcf
-    ch_merged_unfiltered_bcf = channel.empty()
-    if ( params.output_unfiltered_bcf ){
-
-        // TODO: Make this output seperate files for each variant type
-        JOINT_GENOTYPE.out.vcf
-            .map { _interval_chunk, _interval_bed, _bed_tbi, bcf, csi -> tuple('unfiltered', bcf, csi) }
-            .map { _type, bcf, csi -> tuple('all', bcf, csi) }
-            .groupTuple(by: 0)
-            .set { ch_bcf_to_merge }
-
-        CONCAT_UNFILTERED_VCFS (
-            ch_bcf_to_merge
+        new_gvcf = CONCAT_GVCFS_SAMPLE(
+            whole_sample_concat
         )
 
-        CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_merged_unfiltered_bcf }
+    } else {
+
+        new_gvcf = channel.empty()
     }
 
-    emit: 
-    new_gvcf = ch_new_gvcf
-    bcf = JOINT_GENOTYPE.out.bcf
-    merged_unfiltered_bcf = ch_merged_unfiltered_bcf
+
+    // Unfiltered cohort BCF
+    merged_unfiltered_variants = channel.empty()
+
+    if (params.output_unfiltered_bcf) {
+
+        variants_to_merge = joint_variants
+            .map { result ->
+                tuple(
+                    'unfiltered',
+                    record(
+                        variant: result.variants,
+                        index: result.variants_index
+                    )
+                )
+            }
+            .groupBy()
+            .map { outname, files ->
+                record(
+                    outname: outname,
+                    variants: files.collect { result ->
+                        result.variant
+                    },
+                    indices: files.collect { result ->
+                        result.index
+                    }
+                )
+            }
+        merged_unfiltered_variants = CONCAT_UNFILTERED_VCFS(
+            variants_to_merge
+        )
+    }
+
+
+    emit:
+    new_gvcf: Channel<VariantFile> = new_gvcf
+    variants: Channel<VariantChunk> = joint_variants
+    merged_unfiltered_variants: Channel<VariantFile> = merged_unfiltered_variants
 }

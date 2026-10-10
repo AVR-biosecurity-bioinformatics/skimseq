@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process COMBINE_BEDS {
 
     tag "${input_beds.size()} BED files"
@@ -5,15 +7,23 @@ process COMBINE_BEDS {
     conda "${moduleDir}/environment.yml"
 
     input:
-    path input_beds, stageAs: "input????.bed"
-    tuple path(ref_genome), path(genome_index_files)
-    val merge_intervals
-    val merge_distance
-    val merge_column
-    val merge_operation
+    input_beds: List<Path>
+
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+
+    merge_intervals: Boolean
+    merge_distance: Integer
+    merge_column: Integer
+    merge_operation: String
+
+    stage:
+    stageAs input_beds, "input????.bed"
 
     output:
-    path "combined.bed", emit: bed
+    file("combined.bed")
 
     script:
     """

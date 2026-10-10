@@ -1,20 +1,25 @@
+nextflow.enable.types = true
+
 process PLOT_PCA {
 
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(eigval), path(eigvec)
-    path popmap
+    record(
+        outname: String,
+        eigenval: Path,
+        eigenvec: Path
+    )
+    popmap: Path
 
     output:
-    tuple val(outname),
-          path("${outname}_pca.pdf"),
-          emit: plots
-
-    tuple val(outname),
-          path("${outname}_pca.tsv"),
-          emit: coordinates
+    record(
+        outname: outname,
+        plot: file("${outname}_pca.pdf"),
+        coordinates: file("${outname}_pca.tsv")
+    )
 
     script:
     """
@@ -39,8 +44,8 @@ process PLOT_PCA {
 
         # Read and validate the PLINK PCA outputs.
         pca <- read_plink_pca(
-            eigenvec_file = "${eigvec}",
-            eigenval_file = "${eigval}"
+            eigenvec_file = "${eigenvec}",
+            eigenval_file = "${eigenval}"
         )
 
         plot_data <- pca\$coordinates

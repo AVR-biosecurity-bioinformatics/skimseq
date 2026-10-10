@@ -1,14 +1,24 @@
+nextflow.enable.types = true
+
 process PLOT_ORDINATION {
-    tag "${distmat}"
+
+    tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(distmat)
-    path(popmap)
-    val(covariance)
+    record(
+        outname: String,
+        mat: Path
+    )
+    popmap: Path
+    covariance: Boolean
 
-    output: 
-    path("*.pdf"),             emit: plots
+    output:
+    record(
+        outname: outname,
+        plots: files("*.pdf")
+    )
 
     script:
     """
@@ -28,10 +38,10 @@ process PLOT_ORDINATION {
         })
 
 
-        prefix <- "${distmat.simpleName}"
+        prefix <- "${outname}"
         plot_file <- paste0(prefix, "_mds.pdf")
 
-        M <- read_distance_matrix("${distmat}")
+        M <- read_distance_matrix("${mat}")
 
         popmap <- read_popmap("${popmap}")
 

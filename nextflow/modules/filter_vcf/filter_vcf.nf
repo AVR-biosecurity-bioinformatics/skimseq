@@ -1,54 +1,44 @@
+nextflow.enable.types = true
+
 process FILTER_VCF {
 
-    tag "${interval_hash}"
-    conda "${moduleDir}/environment.yml"
+      tag "${interval_id}"
+
+      conda "${moduleDir}/environment.yml"
 
       input:
-      tuple val(interval_hash),
-            path(interval_bed),
-            path(bed_tbi),
-            path(bcf),
-            path(csi)
-
-      path mask_bed
-      path popmap
-      path missing_summary
+      record(
+            interval_id: String,
+            interval_bed: Path,
+            interval_index: Path,
+            variants: Path,
+            variants_index: Path
+      )
+      mask_bed: Path
+      popmap: Path
+      missing_summary: Path
 
       output:
-      tuple val(interval_hash),
-            path(interval_bed),
-            path(bed_tbi),
-            path("${interval_hash}.filt.bcf"),
-            path("${interval_hash}.filt.bcf.csi"),
-            emit: all_bcf
+      record(
+            interval_id: interval_id,
+            interval_bed: interval_bed,
+            interval_index: interval_index,
 
-      tuple val(interval_hash),
-            path(interval_bed),
-            path(bed_tbi),
-            path("${interval_hash}.snp.bcf"),
-            path("${interval_hash}.snp.bcf.csi"),
-            emit: snp_bcf
+            all_bcf: file("${interval_id}.filt.bcf"),
+            all_bcf_index: file("${interval_id}.filt.bcf.csi"),
 
-      tuple val(interval_hash),
-            path(interval_bed),
-            path(bed_tbi),
-            path("${interval_hash}.indel.bcf"),
-            path("${interval_hash}.indel.bcf.csi"),
-            emit: indel_bcf
+            snp_bcf: file("${interval_id}.snp.bcf"),
+            snp_bcf_index: file("${interval_id}.snp.bcf.csi"),
 
-      tuple val(interval_hash),
-            path(interval_bed),
-            path(bed_tbi),
-            path("${interval_hash}.invariant.bcf"),
-            path("${interval_hash}.invariant.bcf.csi"),
-            emit: invariant_bcf
+            indel_bcf: file("${interval_id}.indel.bcf"),
+            indel_bcf_index: file("${interval_id}.indel.bcf.csi"),
 
-      tuple val(interval_hash),
-            path("${interval_hash}.filter_hist.tsv"),
-            emit: filter_hist
+            invariant_bcf: file("${interval_id}.invariant.bcf"),
+            invariant_bcf_index: file("${interval_id}.invariant.bcf.csi"),
 
-      path("${interval_hash}.samples.txt"),
-            emit: samples_to_keep
+            filter_hist: file("${interval_id}.filter_hist.tsv"),
+            samples_to_keep: file("${interval_id}.samples.txt")
+      )
 
       script:
       """
@@ -62,7 +52,7 @@ process FILTER_VCF {
       sort -k1,1 -k2,2n -k3,3n ${mask_bed} | uniq > vcf_masks.bed
 
       # Find samples above the missing fraction filter
-      awk -v thr="${params.sample_max_missing}" 'NR==1 {next} \$4!="NA" && (\$4+0) < thr {print \$1}' "${missing_summary}" > ${interval_hash}.samples.txt
+      awk -v thr="${params.sample_max_missing}" 'NR==1 {next} \$4!="NA" && (\$4+0) < thr {print \$1}' "${missing_summary}" > ${interval_id}.samples.txt
 
       # Create sample_groups.tsv:
       # first keep only samples in samples.txt
@@ -88,7 +78,7 @@ process FILTER_VCF {
                   }
             }
       } 
-      ' "${interval_hash}.samples.txt" "${popmap}" > sample_groups.tsv
+      ' "${interval_id}.samples.txt" "${popmap}" > sample_groups.tsv
 
       # Return success only for enabled threshold values.
       enabled() {
@@ -274,7 +264,7 @@ process FILTER_VCF {
             "REF:${params.vcf_min_callrate_pop_invariant}")
 
       set +e
-      bcftools view --threads ${task.cpus} -S ${interval_hash}.samples.txt -m2 -M2 -Ou "${bcf}" \\
+      bcftools view --threads ${task.cpus} -S ${interval_id}.samples.txt -m2 -M2 -Ou "${variants}" \\
       | bcftools +setGT -Ou -- \\
       -t q \\
       -n . \\
@@ -314,46 +304,46 @@ process FILTER_VCF {
       bcftools annotate \
             --remove '^INFO/AC,INFO/AN,INFO/NS,INFO/MAF,INFO/F_MISSING,INFO/HWE,INFO/ExcHet,INFO/TYPE,INFO/CR' \
             --output-type b \
-            --output "${interval_hash}.filt.bcf"
+            --output "${interval_id}.filt.bcf"
 
-      bcftools index --threads ${task.cpus} "${interval_hash}.filt.bcf"
+      bcftools index --threads ${task.cpus} "${interval_id}.filt.bcf"
 
       # Split the final PASS-only, annotation-cleaned BCF.
-      filtered_bcf="${interval_hash}.filt.bcf"
+      filtered_bcf="${interval_id}.filt.bcf"
 
       bcftools view \
             --threads ${task.cpus} \
             -v snps \
             -Ob \
-            -o "${interval_hash}.snp.bcf" \
+            -o "${interval_id}.snp.bcf" \
             "\${filtered_bcf}"
 
       bcftools view \
             --threads ${task.cpus} \
             -v indels \
             -Ob \
-            -o "${interval_hash}.indel.bcf" \
+            -o "${interval_id}.indel.bcf" \
             "\${filtered_bcf}"
 
       bcftools view \
             --threads ${task.cpus} \
             -i 'TYPE="ref"' \
             -Ob \
-            -o "${interval_hash}.invariant.bcf" \
+            -o "${interval_id}.invariant.bcf" \
             "\${filtered_bcf}"
 
       for type in snp indel invariant; do
             bcftools index \
                   --threads ${task.cpus} \
-                  "${interval_hash}.\${type}.bcf"
+                  "${interval_id}.\${type}.bcf"
       done
 
 
       # Create filter histograms
       create_vcf_filter_histograms \
             "tmp.bcf" \
-            "${interval_hash}.filter_hist.tsv" \
-            "${interval_hash}.filter_summary.tsv" \
+            "${interval_id}.filter_hist.tsv" \
+            "${interval_id}.filter_summary.tsv" \
             100 10 10
       """
 }

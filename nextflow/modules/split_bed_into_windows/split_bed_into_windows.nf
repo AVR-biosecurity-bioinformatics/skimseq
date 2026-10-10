@@ -1,25 +1,30 @@
+nextflow.enable.types = true
+
 process SPLIT_BED_INTO_WINDOWS {
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path include_bed
-    tuple path(ref_genome), path(genome_index_files)
-    val(window_size)
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>,
+        genome_bed: Path
+    )
 
     output:
-    path "windows.bed", emit: windows
+    file("windows.bed")
 
     script:
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    if [[ ! -s "${include_bed}" ]]; then
+    if [[ ! -s "${genome_bed}" ]]; then
         : > windows.bed
         exit 0
     fi
 
-    cut -f1-3 "${include_bed}" |
+    cut -f1-3 "${genome_bed}" |
         awk '
             BEGIN { OFS = "\\t" }
             NF >= 3 && \$2 >= 0 && \$3 > \$2 {
@@ -32,7 +37,7 @@ process SPLIT_BED_INTO_WINDOWS {
 
     bedtools makewindows \\
         -b included.sorted.bed \\
-        -w ${window_size} \\
+        -w ${params.depth_window_size} \\
         > windows.bed
     """
 }

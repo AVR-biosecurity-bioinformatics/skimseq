@@ -1,42 +1,49 @@
+nextflow.enable.types = true
+
 process PREPARE_GENOME {
+
     tag "${ref_genome}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(ref_genome)
-    val(min_chr_length)
-    path(include_beds, arity: '0..*')
-    path(exclude_beds, arity: '0..*')
+    record(
+        ref_genome: Path,
+        ref_genome_uri: String
+    )
+
+    min_chr_length: Integer
+    include_beds: List<Path>
+    exclude_beds: List<Path>
 
     output:
-    tuple path(ref_genome), path("*.{fai,sa,l2b,mbw,dict}"),
-        emit: fasta_indexed
-
-    path("genome.bed"),
-        emit: genome_bed
-
-    path("calling_territory.bed"),
-        emit: bed
-
-    path("reference_masks.bed"),
-        emit: mask_bed
-
-    path("reference_bases.txt"),
-        emit: reference_bases
-
-    path("long_contigs.bed"),
-        emit: long_bed
-
-    path("short_contigs.bed"),
-        emit: short_bed
+    record(
+        ref_genome: ref_genome,
+        ref_genome_uri: ref_genome_uri,
+        genome_index_files: files("*.{fai,sa,l2b,mbw,dict}"),
+        genome_bed: file("calling_territory.bed"),
+        reference_masks: file("reference_masks.bed"),
+        reference_bases: file("reference_bases.txt"),
+        long_bed: file("long_contigs.bed"),
+        short_bed: file("short_contigs.bed")
+    )
 
     script:
     if (include_beds.size() > 1 || exclude_beds.size() > 1) {
-        error "PREPARE_GENOME expects at most one include BED and one exclude BED"
+        error(
+            "PREPARE_GENOME expects at most one include BED " +
+            "and one exclude BED"
+        )
     }
 
-    def include_bed = include_beds ? include_beds[0].toString() : ''
-    def exclude_bed = exclude_beds ? exclude_beds[0].toString() : ''
+    def include_bed = include_beds
+        ? include_beds[0].name
+        : ''
+
+    def exclude_bed = exclude_beds
+        ? exclude_beds[0].name
+        : ''
+
     def dict_name = "${ref_genome.baseName}.dict"
 
     """

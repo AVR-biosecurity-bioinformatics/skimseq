@@ -1,12 +1,17 @@
+nextflow.enable.types = true
+
 process PLOT_VARIANT_FILTERS {
 
     conda "${moduleDir}/environment.yml"
 
     input:
-    path 'histograms/*'
+    histograms: Iterable<Path>
+
+    stage:
+    stageAs histograms, 'histograms/*'
 
     output:
-    path('vcf_filters_*.pdf'), emit: plots
+    files("vcf_filters_*.pdf")
 
     script:
     '''

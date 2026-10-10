@@ -1,24 +1,37 @@
+nextflow.enable.types = true
+
 process VCF_STATS {
-    tag "${bcf}"
+
+    tag "${vcf}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple path(bcf), path(csi)
-    tuple path(ref_genome), path(genome_index_files)    
-    
+    record(
+        vcf: Path,
+        index: Path
+    )
 
-    output: 
-    path("vcfstats.txt"),            emit: vcfstats
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
+    output:
+    file("vcfstats.txt")
+
+    topic:
+    file("vcfstats.txt") >> 'multiqc'
+ 
     script:
     """
     #!/usr/bin/env bash
     set -euo pipefail
     
-    bcftools stats \
-        --threads ${task.cpus} \
-        -F ${bcf} \
-        -s - \
-        ${bcf} > "vcfstats.txt"
+    bcftools stats \\
+        --threads ${task.cpus} \\
+        -F ${vcf} \\
+        -s - \\
+        ${vcf} > "vcfstats.txt"
     """
 }

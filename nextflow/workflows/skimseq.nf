@@ -1,4 +1,4 @@
-
+nextflow.enable.types = true
 
 // Import subworkflows
 include { ALIGNMENT                                                 } from '../subworkflows/alignment'
@@ -16,245 +16,125 @@ include { MULTIQC                                                   } from '../m
 
 // Import functions
 include { samplesheetToList } from 'plugin/nf-schema'
+include {
+    parseSamplesheetRow
+    groupSampleReads
+} from '../functions/samplesheet'
+
+// Import record types
+include {
+    SamplesheetRow
+    SampleCram
+    CramStats
+    PreparedGenome
+    PreparedMito
+    MitoConsensus
+    VariantFile
+    MaskSummary
+    PlinkDataset
+} from '../types'
 
 workflow SKIMSEQ {
+
+    take:
+    samplesheet: Channel<SamplesheetRow>
 
     main: 
 
     // Create default channels
-    ch_dummy_file = channel.fromPath("$baseDir/assets/dummy_file.txt", checkIfExists: true)
-    ch_reports = channel.empty()
-    ch_multiqc_config   = channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+    dummy_file = channel.value(file("$baseDir/assets/dummy_file.txt",checkIfExists: true ))
+    multiqc_config = channel.value(file("$projectDir/assets/multiqc_config.yml",checkIfExists: true))
+    
+     
 
     /*
-    Input channel parsing
-    */    
+     * Parse samplesheet rows into library-level records.
+     */
 
-    // Check samplesheet was provided, otherwise fail
-    if ( params.samplesheet ){
-        ch_samplesheet = channel
-            .fromPath (
-                params.samplesheet,
-                checkIfExists: true
-            )
-    } else {
-        println "\n*** ERROR: 'params.samplesheet' must be given ***\n"
-    }
-    
-    // Parse input samplesheet as per samplesheet schema
-    ch_samplesheet = channel.fromList(
-        samplesheetToList(
-            params.samplesheet,
-            "${projectDir}/assets/schema_samplesheet.json"
-        )
-    )
+    ch_reads = samplesheet
+        .map { row ->
+            parseSamplesheetRow(row)
+        }
 
-    // Process samplesheet and extract fields into tuple
-    ch_samplesheet
-        .map { sample, lib, pop, fwd, rev ->
-            // sample is mandatory, schema fails if not present
-            sample = sample.toString().trim()
 
-            // If lib not provided, or is whitespace, set to sample
-            lib = lib && lib != [] && lib.toString().trim()
-                ? lib.toString().trim()
-                : sample
+    /*
+     * Group libraries belonging to the same sample.
+     */
 
-            // If pop is not provided or contains only whitespace, use "unknown".
-            pop = pop && pop != [] && pop.toString().trim()
-                ? pop.toString().trim().replaceAll(/\s+/, '_')
-                : 'unknown'
-
-            // fwd read is mandatory, schema fails if not provided
-            fwd    = fwd.trim()
-
-            // nf-schema may represent an empty value as [], null, or "".
-            rev = rev && rev != []
-                ? rev.toString().trim()
-                : ''
-
-            // Check if reads are remote sources (url or accession)
-            def fwd_is_url = fwd ==~ /(?i)^(https?|ftp):\/\/.+/
-            def rev_is_url = rev && rev ==~ /(?i)^(https?|ftp):\/\/.+/
-
-            def fwd_is_accession = fwd ==~ /(?i)^(SRR|ERR|DRR)\d+$/
-            def rev_is_accession = rev && rev ==~ /(?i)^(SRR|ERR|DRR)\d+$/
-
-            def source
-            def input1
-            def input2
-            def local_reads
-
-            // Check remote formats
-            if (fwd_is_accession) {
-                if (rev) {
-                    error(
-                        "Run accession '${fwd}' for sample '${sample}' must " +
-                        "not have a value in the rev column."
-                    )
-                }
-                source      = 'accession'
-                input1      = fwd
-                input2      = ''
-                local_reads = []
-            } else if (fwd_is_url) {
-                if (!rev_is_url) {
-                    error(
-                        "URL input for sample '${sample}' requires URLs in " +
-                        "both fwd and rev columns; found rev='${rev}'."
-                    )
-                }
-                source      = 'url'
-                input1      = fwd
-                input2      = rev
-                local_reads = []
-            } else {
-                if (!rev || rev_is_url || rev_is_accession) {
-                    error(
-                        "Local input for sample '${sample}' requires local " +
-                        "files in both fwd and rev columns; found rev='${rev}'."
-                    )
-                }
-                def r1 = file(fwd, checkIfExists: true)
-                def r2 = file(rev, checkIfExists: true)
-                source      = 'local'
-                input1      = r1.name
-                input2      = r2.name
-                local_reads = [r1, r2]
-            }
-
+    ch_reads_grouped = ch_reads
+        .map { read ->
             tuple(
-                sample,
-                lib,
-                pop,
-                source,
-                input1,
-                input2,
-                local_reads
+                read.sample,
+                read
             )
         }
-        .set { ch_samplesheet_parsed }
+        .groupBy()
+        .map { sample, reads ->
+            groupSampleReads(
+                sample,
+                reads
+            )
+        }
 
-    // Create main reads channel
-    ch_samplesheet_parsed
-        .map { sample, lib, _pop, source, input1, input2, local_reads -> tuple(sample, lib, source, input1, input2, local_reads) }
-        .set { ch_reads }
- 
-    // Reads channel grouped by input sample - this is used for single step alignment
-    ch_reads
-        .groupTuple(by: 0)
-        .map { sample, libs, sources, input1s, input2s, local_reads_groups ->
 
-            def unique_sources = sources.unique(false)
-            if (unique_sources.size() != 1) {
-                error(
-                    "Sample '${sample}' contains multiple input source types: " +
-                    "${unique_sources.join(', ')}. Mixed local, URL, and " +
-                    "accession inputs are not currently supported within one " +
-                    "MAP_TO_GENOME task."
-                )
-            }
+    // Sample names channel.
+    sample_names = ch_reads_grouped
+        .map { reads ->
+            reads.sample
+        }
+
+    // Create popmap file
+    popmap = ch_reads_grouped
+        .collect()
+        .map { sample_reads ->
+
+            def sorted_samples = sample_reads
+                .toSorted { reads ->
+                    reads.sample
+                }
+
+            def populations = sorted_samples
+                .collect { reads ->
+                    reads.pop
+                }
+                .toSet()
 
             if (
-                libs.size() != sources.size() ||
-                libs.size() != input1s.size() ||
-                libs.size() != input2s.size() ||
-                libs.size() != local_reads_groups.size()
+                params.calling_model == 'population' &&
+                populations.size() < 2
             ) {
                 error(
-                    "Input metadata is inconsistent for sample '${sample}': " +
-                    "libs=${libs.size()}, " +
-                    "sources=${sources.size()}, " +
-                    "input1=${input1s.size()}, " +
-                    "input2=${input2s.size()}, " +
-                    "local read groups=${local_reads_groups.size()}."
+                    "calling_model='population' requires at least two " +
+                    "populations. Found ${populations.size()} population(s): " +
+                    "${populations.join(', ')}"
                 )
             }
 
-            def source = unique_sources.first()
-
-            if (source == 'local') {
-                local_reads_groups.eachWithIndex { pair, i ->
-                    if (!(pair instanceof Collection) || pair.size() != 2) {
-                        error(
-                            "Invalid local FASTQ pair for sample '${sample}', " +
-                            "row ${i + 1}: ${pair}. Expected [R1, R2]."
-                        )
-                    }
+            def content = sorted_samples
+                .collect { reads ->
+                    "${reads.sample}\t${reads.pop}"
                 }
+                .join('\n') + '\n'
+
+            def popmap_file = file("${workflow.workDir}/popmap.tsv")
+
+            if (
+                !popmap_file.exists() ||
+                popmap_file.text != content
+            ) {
+                popmap_file.text = content
             }
 
-            def local_r1s = source == 'local'
-                ? local_reads_groups.collect { pair -> pair[0] }
-                : []
-
-            def local_r2s = source == 'local'
-                ? local_reads_groups.collect { pair -> pair[1] }
-                : []
-
-            // Return tuple
-            tuple(sample, libs, source, input1s, input2s, local_r1s, local_r2s )
+            popmap_file
         }
-        .set { ch_reads_grouped }
-
-    // Sample names channel
-    ch_samplesheet_parsed
-        .map { sample, _lib, _pop, _source, _r1, _r2, _local_reads -> sample }
-        .unique()
-        .set { ch_sample_names }
-
-    // Sample names and pops channel
-    // One population assignment per sample, regardless of the number of libraries
-    ch_samplesheet_parsed
-        .map { sample, _lib, pop, _source, _r1, _r2, _local_reads ->
-            tuple(sample, pop)
-        }
-        .groupTuple(by: 0)
-        .map { sample, pops ->
-            def unique_pops = pops.toSet().toList().sort()
-
-            if (unique_pops.size() != 1) {
-                error(
-                    "Sample '${sample}' has conflicting population assignments: " +
-                    "${unique_pops.join(', ')}."
-                )
-            }
-
-            tuple(sample, unique_pops.first())
-        }
-        .set { ch_sample_pop }
-
-
-    // If calling model is 'population', check that there are enough pops
-    if( params.calling_model == 'population' ) {
-        ch_sample_pop
-            .map { _sample, pop -> pop }
-            .unique()
-            .toList()
-            .subscribe { pops ->
-
-                if( pops.size() < 2 ) {
-                    error """
-                    calling_model='population' requires at least two populations.
-                    Found ${pops.size()} population(s): ${pops.join(', ')}
-                    """
-                }
-            }
-    }
-
-    // Create popmap tsv file for population-based calling and filtering
-    ch_sample_pop
-        .map { sample, pop -> "${sample}\t${pop}\n" }
-        .collectFile(name: 'popmap.tsv', newLine: false, sort: true)
-        .set { ch_popmap }
-
 
     // Calculate cohort size
-    ch_cohort_size = ch_sample_names.unique().count()
-
-    ch_genome = params.ref_genome
-        ? channel.fromPath(params.ref_genome, checkIfExists: true)
-        : channel.empty()
+    cohort_size = sample_names
+        .unique()
+        .collect()
+        .map { samples ->
+            samples.size()
+        }
 
     // Optional BEDs: one file if supplied, otherwise an empty list.
     def include_beds = params.include_bed
@@ -266,246 +146,234 @@ workflow SKIMSEQ {
         : []
 
     /*
-    Nuclear genome indexing and interval creation
+    * Prepare nuclear and mitochondrial references.
     */
 
-    // Reference genome channel
-    if ( params.ref_genome ){
-        ch_genome = channel
-            .fromPath (
-                params.ref_genome, 
-                checkIfExists: true
-            )
-    } else {
-        ch_genome = channel.empty()
-    } 
+    genome_input = channel.of(
+        record(
+            ref_genome: params.ref_genome,
+            ref_genome_uri: "file://${params.ref_genome}"
+        )
+    )
 
-
-    PREPARE_GENOME (
-        ch_genome, 
+    prepared_genome_outputs = PREPARE_GENOME(
+        genome_input,
         params.min_chr_length,
         include_beds,
         exclude_beds
     )
 
-    ch_genome_indexed = PREPARE_GENOME.out.fasta_indexed.first()
-    ch_calling_bed = PREPARE_GENOME.out.bed
-    ch_long_bed = PREPARE_GENOME.out.long_bed
-    ch_short_bed = PREPARE_GENOME.out.short_bed
-    ch_reference_masks = PREPARE_GENOME.out.mask_bed
-    ch_included_bases = PREPARE_GENOME.out.reference_bases
-        .map { reference_bases_file ->
-            reference_bases_file.text.trim().toLong()
-        }
-
-    /*
-    Mitogenome indexing and interval creation
-    */
-    
-    // Extract mitochondrial contig from genome and index
-    PREPARE_MITO (
-        ch_genome,
+    // Keep this invocation queue-driven by passing the process output directly.
+    prepared_mito_outputs = PREPARE_MITO(
+        prepared_genome_outputs,
         params.mito_contig
     )
 
-    ch_mito_indexed = PREPARE_MITO.out.mito_indexed.first()
-    ch_shifted_mito_indexed = PREPARE_MITO.out.shifted_mito_indexed.first()
-    ch_mito_bed = PREPARE_MITO.out.bed.first()
-    ch_mito_shifted_bed = PREPARE_MITO.out.shifted_bed.first()
-    ch_mito_included_bases = PREPARE_MITO.out.included_bases
-        .map { included_bases_file ->
-            included_bases_file.text.trim().toLong()
+    /*
+    * Expose reusable singleton references to downstream workflows.
+    */
+
+    prepared_genome = prepared_genome_outputs
+        .collect()
+        .map { genomes ->
+            if (genomes.size() != 1) {
+                error(
+                    "Expected exactly one prepared genome, " +
+                    "found ${genomes.size()}"
+                )
+            }
+
+            genomes.toList()[0]
         }
 
+    prepared_mito = prepared_mito_outputs
+        .collect()
+        .map { mitos ->
+            if (mitos.size() != 1) {
+                error(
+                    "Expected exactly one prepared mitogenome, " +
+                    "found ${mitos.size()}"
+                )
+            }
+
+            mitos.toList()[0]
+        }
+
+    mito_bed = prepared_mito
+        .map { mito ->
+            mito.mito_bed
+        }
     /*
     Read pre-processing and alignment
     */
 
-    ALIGNMENT (
-        ch_sample_names,
+    alignment_results = ALIGNMENT (
+        sample_names,
         ch_reads_grouped,
-        ch_genome_indexed,
-        ch_calling_bed
+        prepared_genome
     )
-
-    ch_sample_cram = ALIGNMENT.out.cram
-    
+        
     /*
-    Mitochondrial variant calling + consensus FASTA
+    * Mitochondrial variant calling + consensus FASTA.
     */
 
-    MITO_GENOTYPING (
-        ch_sample_cram,
-        ch_genome_indexed,
-        ch_mito_indexed,
-        ch_shifted_mito_indexed,
-        ch_mito_bed,
-        ch_mito_shifted_bed,
-        ch_cohort_size,
-        ch_mito_included_bases
+    mito_genotyping = MITO_GENOTYPING(
+        alignment_results.cram,
+        prepared_genome,
+        prepared_mito,
+        cohort_size
     )
-
-    ch_numt_bed = MITO_GENOTYPING.out.numt_bed
 
     /*
     Nuclear variant calling
     */
 
-    // Set empty channels to recieve publishing outputs for optional workflows
+    // Default optional output.
     ch_new_gvcf = channel.empty()
-    if (params.variant_caller == "bcftools"){
-        BCFTOOLS_CALLING (
-            ch_sample_cram,
-            ch_genome_indexed,
-            ch_calling_bed,
-            ch_popmap,
-            ch_cohort_size,
-            ch_included_bases
+
+    if (params.variant_caller == 'bcftools') {
+
+        bcftools_results = BCFTOOLS_CALLING(
+            alignment_results.cram,
+            prepared_genome,
+            popmap,
+            cohort_size
         )
 
-        // Main chunked VCF output
-        BCFTOOLS_CALLING.out.bcf
-            .set{ ch_unfiltered_bcfs }
+        chunked_unfiltered_variants =
+            bcftools_results.variants
 
-        // For publishing only
-        BCFTOOLS_CALLING.out.merged_unfiltered_bcf
-            .set{ ch_merged_unfiltered_bcf }
+        merged_unfiltered_variants =
+            bcftools_results.merged_unfiltered_variants
 
-    } else if ( params.variant_caller == "gatk" ){
+    } else if (params.variant_caller == 'gatk') {
 
-        // Single sample calling with haplotypecaller
-        GATK_CALLING (
-            ch_sample_names,
-            ch_sample_cram,
+        gatk_results = GATK_CALLING(
+            alignment_results.cram,
             ch_reads_grouped,
-            ch_genome_indexed,
-            ch_calling_bed,
-            ch_long_bed,
-            ch_short_bed,
-            ch_cohort_size,
-            ch_cohort_size
+            prepared_genome,
+            cohort_size
         )
-        
-        // Main chunked VCF output
-        GATK_CALLING.out.bcf
-            .set{ ch_unfiltered_bcfs }
 
-        // For publishing only
-        GATK_CALLING.out.merged_unfiltered_bcf
-            .set{ ch_merged_unfiltered_bcf }
+        chunked_unfiltered_variants =
+            gatk_results.variants
 
-        GATK_CALLING.out.new_gvcf
-            .set { ch_new_gvcf }
-    }  
+        merged_unfiltered_variants =
+            gatk_results.merged_unfiltered_variants
+
+        ch_new_gvcf =
+            gatk_results.new_gvcf
+
+    } else {
+
+        error "Unknown variant caller: ${params.variant_caller}"
+    }
 
     /*
     Create genomic masks used to exclude regions from final VCF
     */
 
-    // TODO this needs to contain depth masks, and also per-sample depths etc
-    MASK_GENOME(
-        ch_sample_cram,
-        ch_genome_indexed,
-        ch_calling_bed,
-        ch_reference_masks,
-        ch_mito_bed,
-        ch_numt_bed
-      )
-    
-    // If mask_before_filtering is set, use all masks, otherwise provide empty dummy file
-    if ( params.filter_masked_variants ){
-          ch_mask_bed = MASK_GENOME.out.mask_bed
-        } else {
-          ch_mask_bed = ch_dummy_file.first()
+    masking_results = MASK_GENOME(
+        alignment_results.cram,
+        prepared_genome,
+        mito_bed,
+        mito_genotyping.numt_bed
+    )
+
+    // Use the generated mask for variant filtering when enabled.
+    // Otherwise use the empty dummy BED.
+    if (params.filter_masked_variants) {
+        mask_bed = masking_results.mask_bed
+    } else {
+        mask_bed = dummy_file
     }
 
     /*
-    Filter SNPs, INDELs, and invariant sites in chunked VCFs
+    * Filter SNPs, INDELs, and invariant sites in chunked VCFs.
     */
-    
-    FILTER_VARIANTS (
-        ch_unfiltered_bcfs,
-        ch_mask_bed,
-        ch_popmap,
-        ALIGNMENT.out.wgs_coverage,
-        ch_genome_indexed
+
+    filtered_variants = FILTER_VARIANTS(
+        chunked_unfiltered_variants,
+        mask_bed,
+        popmap,
+        alignment_results.cram_stats,
+        prepared_genome
     )
 
     /*
-        Main pipeline outputs
+    * Main pipeline outputs.
     */
 
-    OUTPUTS (
-        FILTER_VARIANTS.out.final_bcf,
-        ch_genome_indexed,
-        ch_sample_pop
+    outputs = OUTPUTS(
+        filtered_variants.final_bcf,
+        popmap
     )
 
     /*
-        Quality control outputs
+       Multiqc
     */
-    // Create reports channel for multiqc
-    ch_reports
-        .mix(
-            ALIGNMENT.out.cram_stats.map { _sample, files -> files },
-            FILTER_VARIANTS.out.vcf_stats
-        )
-        .flatten()
+
+    // Collect multiqc inputs from 'multiqc' topic channel
+    multiqc_files = channel
+        .topic('multiqc')
         .collect()
-        .ifEmpty([])
-        .set { multiqc_files }    
 
-    // Create Multiqc reports
-    MULTIQC (
+    // Create MultiQC report.
+    multiqc = MULTIQC(
         multiqc_files,
-        ch_multiqc_config.toList()
+        multiqc_config
     )
+
+    /*
+    * Warnings channel.
+    */
+    channel
+        .topic('warnings')
+        .view()
 
     /*
         Workflow emissions (sent to main.nf for publishing)
     */
 
     emit:
-    // Alignment subworkflow (emit only new crams for publication)
-    new_cram        = ALIGNMENT.out.new_cram
-    cram_stats      = ALIGNMENT.out.cram_stats
+
+    // Alignment subworkflow
+    new_cram: Channel<SampleCram> = alignment_results.new_cram
+    cram_stats: Channel<CramStats> = alignment_results.cram_stats
 
     // Masking subworkflow
-    mask_summary   = MASK_GENOME.out.mask_summary
-    mask_summary_bed = MASK_GENOME.out.mask_summary_bed
-    mask_pass_bed = MASK_GENOME.out.mask_pass_bed
-    perbase         = MASK_GENOME.out.perbase
+    mask_summary: Value<MaskSummary> = masking_results.summary
+    mask_bed: Value<Path> = masking_results.mask_bed
 
     // Filtering subworkflow
-    sample_filter_plots = FILTER_VARIANTS.out.sample_filter_plots
-    site_filter_plots = FILTER_VARIANTS.out.site_filter_plots
-    missing_summary = FILTER_VARIANTS.out.missing_summary
-    vcf_stats        = FILTER_VARIANTS.out.vcf_stats
+    sample_filter_plots: Value<Set<Path>> = filtered_variants.sample_filter_plots
+    site_filter_plots: Value<Set<Path>> = filtered_variants.site_filter_plots
+    missing_summary: Value<Path> = filtered_variants.missing_summary
+    vcf_stats: Channel<Path> = filtered_variants.vcf_stats
 
     // Mito subworkflow
-    mito_consensus  = MITO_GENOTYPING.out.mito_consensus
+    mito_consensus: Value<MitoConsensus> = mito_genotyping.mito_consensus
 
     // VCF outputs
-    unfiltered_bcf = ch_merged_unfiltered_bcf
-    new_gvcf = ch_new_gvcf
-    final_bcf = FILTER_VARIANTS.out.final_bcf
+    merged_unfiltered_variants: Channel<VariantFile> = merged_unfiltered_variants
+    new_gvcf: Channel<VariantFile> = ch_new_gvcf
+    final_bcf: Channel<VariantFile> = filtered_variants.final_bcf
 
     // Outputs subworkflow
-    beagle_gl       = OUTPUTS.out.beagle_gl
-    plink           = OUTPUTS.out.plink
-    pca             = OUTPUTS.out.pca
-    relationship    = OUTPUTS.out.relationship
-    king            = OUTPUTS.out.king
-    distance        = OUTPUTS.out.distance
-    ordination_plot = OUTPUTS.out.ordination_plot
-    pca_plot        = OUTPUTS.out.pca_plot
-    tree_plot       = OUTPUTS.out.tree_plot
-    newick_tree     = OUTPUTS.out.newick_tree
-    popmap          = OUTPUTS.out.popmap
+    plink: Channel<PlinkDataset> = outputs.plink
+    beagle_gl = outputs.beagle_gl
+    pca = outputs.pca
+    relationship = outputs.relationship
+    king = outputs.king
+    distance = outputs.distance
+    ordination_plot = outputs.ordination_plot
+    pca_plot = outputs.pca_plot
+    tree_plot = outputs.tree
 
-    // QC 
-    multiqc_report   = MULTIQC.out.report
-    multiqc_plots    = MULTIQC.out.plots
-    multiqc_data     = MULTIQC.out.data
+    // Other output
+    popmap: Value<Path> = popmap
+
+    // QC
+    multiqc_report: Value<Path> = multiqc
 
 }

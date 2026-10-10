@@ -1,68 +1,88 @@
+nextflow.enable.types = true
+
+def shellQuote(value: String) {
+    return "'${value.replace("'", "'\"'\"'")}'"
+}
+
 process MAP_TO_GENOME {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample),
-        val(libs),
-        val(source),
-        val(input1s),
-        val(input2s),
-        path(local_r1s, arity: '0..*'),
-        path(local_r2s, arity: '0..*')
+    record(
+        sample: String,
+        libs: List<String>,
+        source: String,
+        input1s: List<String>,
+        input2s: List<String>,
+        local_r1s: List<Path>,
+        local_r2s: List<Path>
+    )
 
-    tuple path(ref_genome), path(genome_index_files)
-    val(ref_genome_uri)
+    record(
+        ref_genome: Path,
+        ref_genome_uri: String,
+        genome_index_files: Set<Path>
+    )
 
-    output: 
-    tuple val(sample),
-          path("${sample}.cram"),
-          path("${sample}.cram.crai"),
-          emit: cram
+    output:
+    record(
+        sample: sample,
+        cram: file("${sample}.cram"),
+        crai: file("${sample}.cram.crai")
+    )
 
-    tuple val(sample),
-        path("${sample}.fastq_warnings.txt"),
-        optional: true,
-        emit: fastq_warnings
+    topic:
+    // Emit warnings to dedicated topic channel
+    eval(
+        """
+        if [[ -s "${sample}.fastq_warnings.txt" ]]; then
+            cat "${sample}.fastq_warnings.txt"
+        fi
+        """
+    ) >> 'warnings'
 
     script:
-    // Quote values safely for insertion into Bash arrays.
-    def shellQuote = { value ->
-        "'${value.toString().replace("'", "'\"'\"'")}'"
-    }
-
-    // Set up bash arrays
+    // Set up Bash arrays.
     def lib_array = libs
-        .collect(shellQuote)
+        .collect { value ->
+            shellQuote(value)
+        }
         .join(' ')
 
-    def accession_array = source == 'accession'
+    def accession_array =  source == 'accession'
         ? input1s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
-    def url1_array = source == 'url'
+    def url1_array =  source == 'url'
         ? input1s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
-    def url2_array = source == 'url'
+    def url2_array =  source == 'url'
         ? input2s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
-    def local_r1_array = source == 'local'
-        ? local_r1s.collect(shellQuote).join(' ')
+    def local_r1_array =  source == 'local'
+        ? local_r1s
+            .collect { value -> shellQuote(value.name) }
+            .join(' ')
         : ''
 
-    def local_r2_array = source == 'local'
-        ? local_r2s.collect(shellQuote).join(' ')
+    def local_r2_array =  source == 'local'
+        ? local_r2s
+            .collect { value -> shellQuote(value.name) }
+            .join(' ')
         : ''
 
     def trim_threads   = Math.max(1, task.cpus.intdiv(4))

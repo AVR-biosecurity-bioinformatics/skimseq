@@ -1,20 +1,32 @@
+nextflow.enable.types = true
+
 process PLINK_DIST {
+
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(plinkfiles)
+    record(
+        outname: String,
+        bed: Path,
+        bim: Path,
+        fam: Path
+    )
 
     output:
-    path("${outname}.mat"), emit: mat
+    record(
+        outname: outname,
+        mat: file("${outname}.mat")
+    )
 
     script:
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    N_SAMPLES=\$(wc -l < "${outname}.fam")
-    N_VARIANTS=\$(wc -l < "${outname}.bim")
+    N_SAMPLES=\$(wc -l < "${fam}")
+    N_VARIANTS=\$(wc -l < "${bim}")
 
     if (( N_SAMPLES < 2 )); then
         echo "ERROR: distance matrix requires at least two samples" >&2
@@ -28,7 +40,7 @@ process PLINK_DIST {
 
     plink \
         --threads ${task.cpus} \
-        --memory ${task.memory.mega} \
+        --memory ${task.memory.toMega()} \
         --bfile "${outname}" \
         --allow-extra-chr \
         --distance square 1-ibs flat-missing \
@@ -37,8 +49,12 @@ process PLINK_DIST {
     paste \
         <(awk '{ print \$2 }' tmp.mdist.id) \
         tmp.mdist \
-    > "${outname}.mat"
+        > "${outname}.mat"
 
-    rm -f tmp.mdist tmp.mdist.id tmp.log tmp.nosex
+    rm -f \
+        tmp.mdist \
+        tmp.mdist.id \
+        tmp.log \
+        tmp.nosex
     """
 }

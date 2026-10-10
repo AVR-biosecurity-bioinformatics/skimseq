@@ -1,16 +1,29 @@
+nextflow.enable.types = true
+
 process MOSDEPTH {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
+    record(
+        sample: String,
+        cram: Path,
+        crai: Path
+    )
+
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
     output:
-    tuple val(sample),
-          path("${sample}.per-base.bed.gz"),
-          path("${sample}.per-base.bed.gz.csi"),
-          emit: perbase
+    record(
+        sample: sample,
+        perbase: file("${sample}.per-base.bed.gz"),
+        perbase_index: file("${sample}.per-base.bed.gz.csi")
+    )
 
     script:
     def exclude_flags = params.rmdup ? 1796 : 772

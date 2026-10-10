@@ -267,6 +267,13 @@
           "description": "Mask a window when at least this fraction of samples are flagged as low-depth or, separately, high-depth (e.g. 0.8 means 80%).",
           "exclusiveMinimum": 0,
           "maximum": 1
+        },
+        "depth_window_size": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Window size for depth masking",
+          "exclusiveMinimum": 0,
+          "maximum": 10000000000
         }
       }
 

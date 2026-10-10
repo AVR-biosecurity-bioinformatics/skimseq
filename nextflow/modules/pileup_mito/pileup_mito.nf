@@ -1,52 +1,85 @@
+nextflow.enable.types = true
+
+include {
+    SampleCram
+} from '../../types'
+
 process PILEUP_MITO {
-    tag "${cohort}: ${chunk_id} (${samples.size()} samples)"
+
+    tag "${shifted ? 'shifted' : 'original'}: ${interval_id} (${samples.size()} samples)"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(cohort),
-          val(chunk_id),
-          path(interval_bed),
-          path(bed_tbi),
-          val(samples),
-          path(bams),
-          path(bais)
+    record(
+        interval_id: String,
+        interval_bed: Path,
+        interval_index: Path,
+        samples: Bag<SampleCram>
+    )
 
-    tuple path(mito_fasta),
-          path(mito_index_files)
+    record(
+        mito_genome: Path,
+        mito_index_files: Set<Path>,
+        mito_bed: Path,
+        shifted_mito_genome: Path,
+        shifted_mito_index_files: Set<Path>,
+        shifted_mito_bed: Path
+    )
+
+    shifted: Boolean
+
+    stage:
+    stageAs samples.collect { sample -> sample.cram }, "*"
+    stageAs samples.collect { sample -> sample.crai }, "*"
 
     output:
-    tuple val(cohort),
-          val(chunk_id),
-          path("${cohort}.${chunk_id}.samples.tsv"),
-          path("${cohort}.${chunk_id}.all_sites.tsv"),
-          emit: counts
+    record(
+        reference: shifted ? 'shifted' : 'original',
+        interval_id: interval_id,
+        samples_tsv: file("${shifted ? 'shifted' : 'original'}.${interval_id}.samples.tsv"),
+        counts_tsv: file("${shifted ? 'shifted' : 'original'}.${interval_id}.all_sites.tsv")
+    )
 
     script:
-    // Keep sample IDs and BAM paths paired while sorting.
-    def ordered = (0..<samples.size())
-        .collect { i -> [samples[i], bams[i]] }
-        .sort { a, b -> a[0].toString() <=> b[0].toString() }
-
-    def sampleManifest = (
-        ['input_index\tsample_id\tbam'] +
-        ordered.withIndex().collect { entry, i ->
-            "${i + 1}\t${entry[0]}\t${entry[1].name}"
+    // Deterministic sample ordering.
+    def ordered_samples = samples
+        .toSorted { sample ->
+            sample.sample
         }
-    ).join('\n') + '\n'
+
+    def sample_manifest =
+        'input_index\tsample_id\tbam\n' +
+        ordered_samples
+            .withIndex()
+            .collect { sample, i ->
+                "${i + 1}\t${sample.sample}\t${sample.cram.name}\n"
+            }
+            .join('')
+
+    def reference = shifted
+        ? 'shifted'
+        : 'original'
+
+    def mito_fasta = shifted
+        ? shifted_mito_genome
+        : mito_genome
+
+    def samples_file = "${reference}.${interval_id}.samples.tsv"
 
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # The manifest and bam.list now have exactly the same order.
-    cat > "${cohort}.${chunk_id}.samples.tsv" <<'EOF'
-${sampleManifest}EOF
+    printf '%s' '${sample_manifest}' \
+        > "${samples_file}"
 
-    cut -f3 "${cohort}.${chunk_id}.samples.tsv" |
-        tail -n +2 > bam.list
+    awk 'NR > 1 { print \$3 }' \
+        "${samples_file}" \
+        > bam.list
 
     [[ -s bam.list ]] || {
-        echo "No BAMs supplied for ${cohort}:${chunk_id}" >&2
+        echo "No CRAMs supplied for ${reference}:${interval_id}" >&2
         exit 1
     }
 
@@ -64,6 +97,6 @@ ${sampleManifest}EOF
         -Ou |
         bcftools query \\
             -f '%CHROM\\t%POS\\t%REF\\t%ALT[\\t%AD]\\n' \\
-        > "${cohort}.${chunk_id}.all_sites.tsv"
+        > "${reference}.${interval_id}.all_sites.tsv"
     """
 }

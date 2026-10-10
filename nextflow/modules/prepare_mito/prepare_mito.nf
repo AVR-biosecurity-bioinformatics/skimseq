@@ -1,17 +1,29 @@
+nextflow.enable.types = true
+
 process PREPARE_MITO {
+
     tag "${ref_genome}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(ref_genome)
-    val(mito_contig)
+    record(
+        ref_genome: Path,
+        ref_genome_uri: String
+    )
 
-    output: 
-    tuple path("mito.fa"), path("mito.fa.{fai,l2b,mbw}"),                   emit: mito_indexed
-    tuple path("mito.shifted.fa"), path("mito.shifted.fa.{fai,l2b,mbw}"),   emit: shifted_mito_indexed
-    path("mito.bed"),                                                       emit: bed
-    path("mito_shifted.bed"),                                               emit: shifted_bed
-    path "included_bases.txt",                                              emit: included_bases
+    mito_contig: String
+
+    output:
+    record(
+        mito_genome: file("mito.fa"),
+        mito_index_files: files("mito.fa.{fai,l2b,mbw}"),
+        mito_bed: file("mito.bed"),
+        shifted_mito_genome: file("mito.shifted.fa"),
+        shifted_mito_index_files: files("mito.shifted.fa.{fai,l2b,mbw}"),
+        shifted_mito_bed: file("mito_shifted.bed"),
+        included_bases: file("included_bases.txt")
+    )
 
     script:
     """

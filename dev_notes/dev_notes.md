@@ -315,7 +315,7 @@ nextflow run . \
 squeue     --user "$USER"     --format='%i|%T|%j|%R' | grep 'MAP_TO_GENOME'
 
 # Select job_id
-job_id=37895740
+job_id=37915556
 
 node=$(squeue -h -j "$job_id" -o '%N')
 
@@ -365,4 +365,21 @@ REMOTE
 srun --jobid=$job_id --pty /bin/bash
 cd $TMPDIR
 
+```
+
+
+# FInd where code has been used
+
+```
+grep -RIn \
+    -e 'LibraryReads' \
+    -e 'MitoInterval' \
+    -e 'MitoGenome' \
+    -e 'MappingResult' \
+    main.nf nextflow/
+
+
+grep -RIn \
+    -e 'callingbed '\
+    main.nf nextflow/
 ```

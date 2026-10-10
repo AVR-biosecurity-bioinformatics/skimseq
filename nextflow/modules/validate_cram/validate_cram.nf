@@ -1,50 +1,66 @@
+nextflow.enable.types = true
+
+def shellQuote(value: String) {
+    return "'${value.replace("'", "'\"'\"'")}'"
+}
+
 process VALIDATE_CRAM {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample),
-        val(libs),
-        val(source),
-        val(input1s),
-        val(input2s),
-        path(local_r1s, arity: '0..*'),
-        path(local_r2s, arity: '0..*'),
-        path(cram),
-        path(crai)
+    record(
+        sample: String,
+        libs: List<String>,
+        source: String,
+        input1s: List<String>,
+        input2s: List<String>,
+        local_r1s: List<Path>,
+        local_r2s: List<Path>,
+        cram: Path,
+        crai: Path
+    )
 
-    tuple path(ref_genome),
-        path(genome_index_files)
-
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+    
     output:
-    tuple val(sample), stdout, emit: status
+    record(
+        sample: sample,
+        cram: cram,
+        crai: crai,
+        status: stdout()
+    )
 
     script:
-    def shellQuote = { value ->
-        "'${value.toString().replace("'", "'\"'\"'")}'"
-    }
-
-    // Set up bash arrays
     def lib_array = libs
-        .collect(shellQuote)
+        .collect { value ->
+            shellQuote(value)
+        }
         .join(' ')
 
     def accession_array = source == 'accession'
         ? input1s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
     def url1_array = source == 'url'
         ? input1s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
     def local_r1_array = source == 'local'
-        ? local_r1s.collect(shellQuote).join(' ')
+        ? local_r1s
+            .collect { value -> shellQuote(value.name) }
+            .join(' ')
         : ''
 
     """

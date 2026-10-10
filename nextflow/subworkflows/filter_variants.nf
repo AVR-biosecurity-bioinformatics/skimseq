@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 /*
     Filter .vcf files 
 */
@@ -10,14 +12,23 @@ include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_s
 include { CONCAT_VCFS as CONCAT_FINAL                  } from '../modules/concat_vcfs/concat_vcfs'
 include { VCF_STATS as VCF_STATS_FILTERED              } from '../modules/vcf_stats/vcf_stats'
 
+// Import record types
+include {
+    VariantChunk
+    VariantFile
+    PreparedGenome
+    CramStats
+} from '../types'
+
+
 workflow FILTER_VARIANTS {
 
     take:
-    ch_bcfs
-    ch_mask_bed
-    ch_popmap
-    ch_wgs_coverage
-    ch_genome_indexed
+    bcfs: Channel<VariantChunk>
+    mask_bed: Value<Path>
+    popmap: Value<Path>
+    wgs_coverage: Channel<CramStats>
+    genome: Value<PreparedGenome>
 
     main: 
    
@@ -26,92 +37,172 @@ workflow FILTER_VARIANTS {
     */
 
     // Merge per-sample missing data from all chunks into a single table
-    ch_coverage_files = ch_wgs_coverage
-        .map { _sample, stats -> stats }
+    coverage_files = wgs_coverage
+        .map { coverage ->
+            coverage.wgs_coverage
+        }
         .collect()
 
-    MERGE_RIKER_COVERAGE(
-        ch_coverage_files
-        )
-
-    ch_missing_summary = MERGE_RIKER_COVERAGE.out.missing_summary
-    // QC plots for sample missing data
-    PLOT_SAMPLE_FILTERS(
-        ch_missing_summary
+    missing_summary = MERGE_RIKER_COVERAGE(
+        coverage_files
     )
+
+    // QC plots for sample missing data
+    sample_filter_results = PLOT_SAMPLE_FILTERS(
+        missing_summary
+    )
+    sample_filter_plots = sample_filter_results
+        .map { result -> result.plots }
 
     /*
         Filter VCF
     */
 
     // Global site filters
-    FILTER_VCF(
-        ch_bcfs,
-        ch_mask_bed,
-        ch_popmap.first(),
-        ch_missing_summary
+    filtered = FILTER_VCF(
+        bcfs,
+        mask_bed,
+        popmap,
+        missing_summary
     )
 
-    // Create list of samples surviving filtering
-    FILTER_VCF.out.samples_to_keep.first()
-        .splitText( by: 1 )
-        .unique()
-        .set { ch_sample_names_filt }
-
-    ch_filter_hists = FILTER_VCF.out.filter_hist
-        .map { _interval_hash, histogram -> histogram }
+    filter_hists = filtered
+        .map { chunk ->
+            chunk.filter_hist
+        }
         .collect()
 
     // QC plots for site histograms
-    PLOT_VARIANT_FILTERS(ch_filter_hists)
-
-    // Build merge input channels from the named emits
-    def ch_merge_inputs = FILTER_VCF.out.snp_bcf
-        .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('snp', bcf, csi) }
-
-    if( params.output_indel ) {
-        ch_merge_inputs = ch_merge_inputs.mix(
-            FILTER_VCF.out.indel_bcf
-                .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('indel', bcf, csi) }
-        )
-    }
-
-    if( params.output_invariant ) {
-        ch_merge_inputs = ch_merge_inputs.mix(
-            FILTER_VCF.out.invariant_bcf
-                .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('invariant', bcf, csi) }
-        )
-    }
-
-    // Keep the combined merge from the original chunk VCFs
-    ch_merge_inputs = ch_merge_inputs.mix(
-            FILTER_VCF.out.all_bcf
-                .map { _interval_hash, _interval_bed, _bed_tbi, bcf, csi -> tuple('combined', bcf, csi) }
-        )
-
-
-    // Group all chunked vcfs by variant type and merge
-    ch_merge_inputs
-        .groupTuple(by: 0)
-        .set { ch_filtered_vcfs_to_merge }
-
-    // Group all filtered sitelists by variant type and merge
-    CONCAT_FINAL (
-        ch_filtered_vcfs_to_merge
+    site_filter_plots = PLOT_VARIANT_FILTERS(
+        filter_hists
     )
 
+    // Create channel of samples surviving filtering.
+    sample_names_filt = filtered
+        .map { result ->
+            result.samples_to_keep
+        }
+        .collect()
+        .map { files ->
+            files.find { _file ->
+                true
+            }
+        }
+
+
+    /*
+    * Expand each filtered interval into the variant outputs that should
+    * be concatenated.
+    */
+
+ merge_inputs = filtered
+    .flatMap { result ->
+
+        def required = [
+            record(
+                outname: 'snp',
+                variant: result.snp_bcf,
+                index: result.snp_bcf_index
+            ),
+            record(
+                outname: 'combined',
+                variant: result.all_bcf,
+                index: result.all_bcf_index
+            )
+        ]
+
+        def indel = params.output_indel
+            ? [
+                record(
+                    outname: 'indel',
+                    variant: result.indel_bcf,
+                    index: result.indel_bcf_index
+                )
+            ]
+            : []
+
+        def invariant = params.output_invariant
+            ? [
+                record(
+                    outname: 'invariant',
+                    variant: result.invariant_bcf,
+                    index: result.invariant_bcf_index
+                )
+            ]
+            : []
+
+        required + indel + invariant
+    }
+
+    /*
+    * Group chunk-level variant files by output type.
+    *
+    * groupBy() requires keyed tuples, so temporarily convert:
+    *
+    *     record(outname, variant, index)
+    *
+    * into:
+    *
+    *     tuple(outname, record(variant, index))
+    */
+
+    variants_by_type = merge_inputs
+        .map { result ->
+            tuple(
+                result.outname,
+                record(
+                    variant: result.variant,
+                    index: result.index
+                )
+            )
+        }
+        .groupBy()
+
+    /*
+    * Convert each grouped value into the generic CONCAT_VCFS input:
+    *
+    *     record(
+    *         outname: String,
+    *         variants: Iterable<Path>,
+    *         indices: Iterable<Path>
+    *     )
+    */
+
+    variants_to_concat = variants_by_type
+        .map { outname, files ->
+            record(
+                outname: outname,
+                variants: files.collect { result ->
+                    result.variant
+                },
+                indices: files.collect { result ->
+                    result.index
+                }
+            )
+        }
+
+    /*
+    * Concatenate all chunks independently for each variant type.
+    */
+
+    final_variants = CONCAT_FINAL(variants_to_concat)
+
     // Calculate VCF statistics on the final file
-    VCF_STATS_FILTERED (
-        CONCAT_FINAL.out.vcf.filter { record -> record[0] == 'combined' }.map{ _name, bcf, csi -> tuple( bcf, csi)},
-        ch_genome_indexed
+    combined_variants = final_variants
+        .filter { result ->
+            result.outname == 'combined'
+        }
+    vcf_stats = VCF_STATS_FILTERED(
+        combined_variants,
+        genome
     )
 
     // Subset the merged vcf channels to each variant type for emission
     emit:
-    final_bcf = CONCAT_FINAL.out.vcf
-    sample_names_filt = ch_sample_names_filt
-    sample_filter_plots = PLOT_SAMPLE_FILTERS.out.plots
-    missing_summary = ch_missing_summary
-    site_filter_plots = PLOT_VARIANT_FILTERS.out.plots
-    vcf_stats = VCF_STATS_FILTERED.out.vcfstats
+    final_bcf: Channel<VariantFile> = final_variants
+    sample_names_filt: Value<Path> = sample_names_filt
+    sample_filter_plots: Value<Set<Path>> = sample_filter_plots
+    missing_summary: Value<Path> = missing_summary
+    site_filter_plots: Value<Set<Path>> = site_filter_plots
+    vcf_stats: Channel<Path> = vcf_stats
 }

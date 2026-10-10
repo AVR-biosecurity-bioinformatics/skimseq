@@ -1,6 +1,9 @@
+nextflow.enable.types = true
+
 /*
     Genotype samples using bcftools
 */
+
 
 //// import modules
 include { CONCAT_VCFS as CONCAT_UNFILTERED_VCFS                  } from '../modules/concat_vcfs/concat_vcfs' 
@@ -8,27 +11,38 @@ include { CREATE_INTERVAL_CHUNKS as CREATE_INTERVAL_CHUNKS_MP    } from '../modu
 include { PROJECT_WORKLOAD_TO_INTERVALS                          } from '../modules/project_workload_to_intervals/project_workload_to_intervals'
 include { MPILEUP                                                } from '../modules/mpileup/mpileup'
 
+// Import record types
+include {
+    SampleCram
+    PreparedGenome
+    VariantChunk
+    VariantFile
+} from '../types'
+
 workflow BCFTOOLS_CALLING {
 
     take:
-    ch_sample_cram
-    ch_genome_indexed
-    ch_calling_bed
-    ch_popmap
-    ch_cohort_size
-    ch_included_bases
+    sample_cram: Channel<SampleCram>
+    genome: Value<PreparedGenome>
+    popmap: Value<Path>
+    cohort_size: Value<Integer>
 
     main: 
+    included_bases = genome
+        .map { prepared ->
+            prepared.reference_bases.text.trim().toLong()
+        }
 
-    // Calculate nchunks
-    ch_n_chunks = ch_cohort_size
-        .combine(ch_included_bases)
-        .map { cohort_size, included_bases ->
-            long total_bases =
-                (cohort_size as long) * (included_bases as long)
+    // Calculate number of chunks for parallel calling
+    n_chunks = cohort_size
+        .combine(included_bases)
+        .map { cohort_size_value, included_bases_value ->
 
-            long bases_per_chunk =
-                params.mp_target_sample_bases as long
+            def total_bases =
+                cohort_size_value * included_bases_value
+
+            def bases_per_chunk =
+                params.mp_target_sample_bases
 
             Math.max(
                 1,
@@ -36,106 +50,176 @@ workflow BCFTOOLS_CALLING {
             )
         }
 
-
-    /* 
-       Create groups of genomic intervals for parallel calling
-       This is done based on CRAI indexes similar to goleft indexsplit
-       This is a fast but coarse way of assessign workload
+    /*
+    * Estimate cohort workload from the CRAM indexes.
     */
 
-    ch_crai_workload_inputs = ch_sample_cram
-        .map { _sample, _cram, crai ->
-        crai
+    crai_workload_inputs = sample_cram
+        .map { sample ->
+            sample.crai
         }
         .collect()
 
-    PROJECT_WORKLOAD_TO_INTERVALS(
-        ch_crai_workload_inputs,
-        ch_calling_bed,
-        ch_genome_indexed
+    projected_workload = PROJECT_WORKLOAD_TO_INTERVALS(
+        crai_workload_inputs,
+        genome
     )
 
-    CREATE_INTERVAL_CHUNKS_MP(
-        PROJECT_WORKLOAD_TO_INTERVALS.out.bed,
-        ch_n_chunks,
+    interval_chunks = CREATE_INTERVAL_CHUNKS_MP(
+        projected_workload,
+        n_chunks,
         params.split_large_intervals
     )
 
-    CREATE_INTERVAL_CHUNKS_MP.out.interval_bed
-        .flatMap { _name, beds, tbis ->
-            def bedList = (beds instanceof List) ? beds : [beds]
-            def tbiList = (tbis instanceof List) ? tbis : [tbis]
-
-            // Match indexes by filename, not by position in two glob lists.
-            def tbiByName = tbiList.collectEntries { tbi ->
-                [(tbi.name): tbi]
-            }
-
-            bedList.collect { bed ->
-                def tbi = tbiByName["${bed.name}.tbi"]
-
-                assert tbi != null :
-                    "Missing tabix index for ${bed.name}"
-
-                def interval_id = bed.name.replaceFirst(/\.bed\.gz$/, '')
-
-                tuple(interval_id, bed, tbi)
-            }
-        }
-        .ifEmpty {
-            log.warn(
-                "No mpileup intervals remained after coverage filtering; " +
-                "variant calling will be skipped."
-            )
-            tuple('__NO_INTERVALS__', null, null)
-        }
-        .filter { interval_id, _bed, _tbi ->
-            interval_id != '__NO_INTERVALS__'
-        }
-        .set { ch_interval_bed_mp }
-
-    // combine sample-level cram with each interval_bed file and interval chunk
-    // Then group by interval for joint genotyping
-    ch_sample_cram 
-        .combine ( ch_interval_bed_mp )
-        .map { _sample, cram, crai, interval_chunk, _interval_bed, _bed_tbi -> [ interval_chunk, cram, crai ] }
-        .groupTuple ( by: 0 )
-        // join to get back interval_file
-        .join ( ch_interval_bed_mp, by: 0 )
-        .map { interval_chunk, cram, crai, interval_bed, bed_tbi -> [ interval_chunk, interval_bed, bed_tbi, cram, crai ] }
-        .set { ch_cram_interval }
-
-    /* 
-       Joint call variants per chunk
+    /*
+    * Expand the chunk result into one record per interval.
+    *
+    * CREATE_INTERVAL_CHUNKS returns:
+    *
+    * record(
+    *     name: String,
+    *     beds: Set<Path>,
+    *     tbis: Set<Path>
+    * )
     */
 
-    // Joint calling using mpileup
-    MPILEUP (
-        ch_cram_interval,
-        ch_genome_indexed,
-        ch_cohort_size,
-        ch_popmap.first()
-    )
-    
-    // Merged unfiltered bcf outputs - just used for publishing
-    ch_merged_unfiltered_bcf = channel.empty()
-    if ( params.output_unfiltered_bcf ){
-        // TODO: Make this output seperate files for each variant type
-        MPILEUP.out.bcf
-            .map { _interval_chunk, _interval_bed, _bed_tbi, bcf, csi -> tuple('unfiltered', bcf, csi) }
-            .groupTuple(by: 0)
-            .set { ch_bcf_to_merge }
+    interval_beds = interval_chunks
+        .flatMap { chunks ->
+            chunks.beds.collect { bed ->
 
-        CONCAT_UNFILTERED_VCFS (
-            ch_bcf_to_merge
+                def tbi = chunks.tbis.find { candidate ->
+                    candidate.name == "${bed.name}.tbi"
+                }
+
+                if (tbi == null) {
+                    throw new IllegalStateException(
+                        "Missing tabix index for ${bed.name}"
+                    )
+                }
+
+                record(
+                    interval_id: bed.name.replaceFirst(/\.bed\.gz$/, ''),
+                    interval_bed: bed,
+                    bed_tbi: tbi
+                )
+            }
+        }
+
+    /*
+    * Form the Cartesian product:
+    *
+    *     every sample CRAM × every interval
+    *
+    * combine() returns a tuple containing:
+    *
+    *     SampleCram, IntervalRecord
+    */
+
+    sample_interval_pairs = sample_cram
+        .combine(interval_beds)
+        .map { sample, interval ->
+            tuple(
+                interval.interval_id,
+                sample
+            )
+        }
+
+    samples_by_interval = sample_interval_pairs
+        .groupBy()
+
+    interval_samples = samples_by_interval
+        .map { interval_id, samples ->
+            record(
+                interval_id: interval_id,
+                samples: samples
+            )
+        }
+
+    interval_records = interval_beds
+        .map { interval ->
+            record(
+                interval_id: interval.interval_id,
+                interval_bed: interval.interval_bed,
+                interval_index: interval.bed_tbi
+            )
+        }
+
+    cram_intervals = interval_samples
+        .join(
+            interval_records,
+            by: 'interval_id'
         )
-    
-        CONCAT_UNFILTERED_VCFS.out.vcf
-            .set { ch_merged_unfiltered_bcf }
+        .map { result ->
+            def samples = result.samples
+                .toSorted { sample ->
+                    sample.sample
+                }
+
+            record(
+                interval_id: result.interval_id,
+                interval_bed: result.interval_bed,
+                interval_index: result.interval_index,
+                crams: samples.collect { sample ->
+                    sample.cram
+                },
+                crais: samples.collect { sample ->
+                    sample.crai
+                }
+            )
+        }
+    /*
+    * Joint variant calling, once per interval.
+    */
+
+    variant_chunks = MPILEUP(
+        cram_intervals,
+        genome,
+        cohort_size,
+        popmap
+    )
+
+    /*
+    * Optionally concatenate unfiltered variants for publication.
+    */
+
+    merged_unfiltered_variants = channel.empty()
+
+    if (params.output_unfiltered_bcf) {
+
+        variants_to_merge = variant_chunks
+            .map { result ->
+                tuple(
+                    'unfiltered',
+                    record(
+                        variant: result.variants,
+                        index: result.variants_index
+                    )
+                )
+            }
+            .groupBy()
+            .map { outname, files ->
+                record(
+                    outname: outname,
+                    variants: files.collect { result ->
+                        result.variant
+                    },
+                    indices: files.collect { result ->
+                        result.index
+                    }
+                )
+            }
+
+        merged_unfiltered_variants = CONCAT_UNFILTERED_VCFS(
+            variants_to_merge
+        )
     }
 
-    emit: 
-    bcf = MPILEUP.out.bcf
-    merged_unfiltered_bcf = ch_merged_unfiltered_bcf
+    /*
+    * Outputs.
+    */
+
+    emit:
+    variants: Channel<VariantChunk> = variant_chunks
+    merged_unfiltered_variants: Channel<VariantFile> = merged_unfiltered_variants
 
 }

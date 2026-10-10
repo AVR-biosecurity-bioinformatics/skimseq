@@ -1,45 +1,60 @@
+nextflow.enable.types = true
+
 process CONSENSUS_MITO {
-    tag "${cohort}"
+    //tag "${cohort}"
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(cohort),
-          path(samples_tsv),
-          path(original_counts),
-          path(shifted_counts)
+    record(
+        samples_tsv: Path,
+        original_counts: Iterable<Path>,
+        shifted_counts: Iterable<Path>
+    )
 
-    tuple path(mito_fasta),
-          path(mito_index_files)
-
+    record(
+        mito_genome: Path
+    )
     output:
-    tuple val(cohort),
-          path("${cohort}.mito.consensus.fa"),
-          path("${cohort}.mito.calls.tsv.gz"),
-          path("${cohort}.mito.qc.tsv"),
-          emit: consensus
+    record(
+        consensus_fasta: file("mito.consensus.fa"),
+        calls: file("mito.calls.tsv.gz"),
+        qc: file("mito.qc.tsv")
+    )
 
     script:
+    def original_counts_files = original_counts.join(' ')
+    def shifted_counts_files = shifted_counts.join(' ')
+
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    call_mito_consensus.py \
-        --samples '${samples_tsv}' \
-        --reference '${mito_fasta}' \
-        --original-counts '${original_counts}' \
-        --shifted-counts '${shifted_counts}' \
-        --shift-bases ${params.mito_shift} \
-        --breakpoint-window ${params.mito_breakpoint_window} \
-        --min-depth ${params.mito_min_depth} \
-        --major-af ${params.mito_major_af} \
-        --mixed-min-af ${params.mito_het_af} \
-        --min-minor-depth ${params.mito_het_min_depth} \
-        --max-non-snv-af ${params.mito_max_non_snv_af} \
-        --het-mode '${params.mito_het_mode}' \
-        --out-fasta '${cohort}.mito.consensus.fa' \
-        --out-calls '${cohort}.mito.calls.tsv' \
-        --out-qc '${cohort}.mito.qc.tsv'
+    cat "${samples_tsv}"
+ 
+    # Concatenate pileup chunks in genomic order.
+    cat ${original_counts_files} \
+        > original.all_sites.tsv
 
-    gzip ${cohort}.mito.calls.tsv
-    """
+    cat ${shifted_counts_files} \
+        > shifted.all_sites.tsv
+
+      call_mito_consensus.py \
+            --samples "${samples_tsv}" \
+            --reference "${mito_genome}" \
+            --original-counts "original.all_sites.tsv" \
+            --shifted-counts "shifted.all_sites.tsv" \
+            --shift-bases ${params.mito_shift} \
+            --breakpoint-window ${params.mito_breakpoint_window} \
+            --min-depth ${params.mito_min_depth} \
+            --major-af ${params.mito_major_af} \
+            --mixed-min-af ${params.mito_het_af} \
+            --min-minor-depth ${params.mito_het_min_depth} \
+            --max-non-snv-af ${params.mito_max_non_snv_af} \
+            --het-mode "${params.mito_het_mode}" \
+            --out-fasta "mito.consensus.fa" \
+            --out-calls "mito.calls.tsv" \
+            --out-qc "mito.qc.tsv"
+
+      gzip "mito.calls.tsv"
+      """
 }

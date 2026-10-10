@@ -1,15 +1,24 @@
+nextflow.enable.types = true
+
 process NGSRELATE {
+
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(bcf), path(csi)
+    record(
+        outname: String,
+        bcf: Path,
+        csi: Path
+    )
 
-    output: 
-    tuple val(outname),
-          path("${outname}.rel"),
-          path("${outname}.rel.id"),
-          emit: rel
+    output:
+    record(
+        outname: outname,
+        rel: file("${outname}.rel"),
+        rel_id: file("${outname}.rel.id")
+    )
 
     script:
     """

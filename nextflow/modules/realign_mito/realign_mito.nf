@@ -1,21 +1,52 @@
+nextflow.enable.types = true
+include {
+    SampleCram
+    PreparedMito
+    PreparedGenome
+} from '../../types'
+
 process REALIGN_MITO {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
-    tuple path(mito_fasta), path(mito_index_files)
-    path mito_bed
-    path numt_bed
+    record(
+        sample: String,
+        cram: Path,
+        crai: Path
+    )
+
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+
+    record(
+        mito_genome: Path,
+        mito_index_files: Set<Path>,
+        mito_bed: Path,
+        shifted_mito_genome: Path,
+        shifted_mito_index_files: Set<Path>,
+        shifted_mito_bed: Path
+    )
+    numt_bed: Path
+    shifted: Boolean
 
     output:
-    tuple val(sample),
-          path("${sample}.mito.cram"),
-          path("${sample}.mito.cram.crai"),
-          emit: mito_cram
-          
+    record(
+        reference: shifted ? 'shifted' : 'original',
+        sample: sample,
+        cram: file("${sample}.mito.cram"),
+        crai: file("${sample}.mito.cram.crai")
+    )
+
     script:
+    def mito_fasta = shifted
+        ? shifted_mito_genome
+        : mito_genome
+
     """
     #!/usr/bin/env bash
     set -euo pipefail

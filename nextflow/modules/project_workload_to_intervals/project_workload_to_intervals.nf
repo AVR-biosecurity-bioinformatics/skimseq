@@ -1,23 +1,30 @@
+nextflow.enable.types = true
+
 process PROJECT_WORKLOAD_TO_INTERVALS {
 
     tag "${workload_inputs.size()} staged files"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path workload_inputs
-    path include_bed
-    tuple path(ref_genome), path(genome_index_files)
+    workload_inputs: Bag<Path>
+
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>,
+        genome_bed: Path
+    )
 
     output:
-    path "workload.bed", emit: bed
+    file("workload.bed")
 
     script:
     def workload_files = workload_inputs
-        .flatten()
         .findAll { workload ->
-        workload.name.endsWith('.crai') ||
-        workload.name.endsWith('.bed.gz')
-    }
+            workload.name.endsWith('.crai') ||
+            workload.name.endsWith('.bed.gz')
+        }
+
     """
     set -euo pipefail
 
@@ -34,12 +41,12 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
 
     # An empty interval BED is valid. It means this branch has no genomic
     # territory, so emit an empty workload BED for downstream combination.
-    if [[ ! -s "${include_bed}" ]]; then
+    if [[ ! -s "${genome_bed}" ]]; then
         : > workload.bed
         exit 0
     fi
 
-    cut -f1-3 "${include_bed}" \
+    cut -f1-3 "${genome_bed}" \
         | awk ' BEGIN { OFS = "\\t" } NF >= 3 && \$2 >= 0 && \$3 > \$2 { print \$1, \$2, \$3 }' \
         | bedtools sort \
             -faidx "${ref_genome}.fai" \
@@ -110,9 +117,12 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
         echo "Projecting \${n_workloads} workload files" >&2
 
         for workload in ${workload_files.join(' ')}; do
+            echo "Starting \$((processed + 1))/\${n_workloads}: \${workload}" >&2
+
             case "\${workload}" in
 
-                *.crai)
+            *.crai)
+                gzip -cd "\${workload}" |
                     awk '
                         BEGIN {
                             OFS = "\\t"
@@ -127,9 +137,12 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
                             start = \$2 - 1
                             print ref[\$1], start, start + \$3, \$6 / \$3
                         }
-                    ' ${ref_genome}.fai <(gzip -cd "\${workload}") |
-                        project_workload
-                    ;;
+                    ' ${ref_genome}.fai - > workload.current.bed
+
+                project_workload < workload.current.bed
+
+                rm -f workload.current.bed
+                ;;
 
                 *.bed.gz)
                     tabix -R intervals.bed "\${workload}" |
@@ -143,15 +156,9 @@ process PROJECT_WORKLOAD_TO_INTERVALS {
             esac
 
             processed=\$((processed + 1))
+            elapsed=\$((\$(date +%s) - started_at))
 
-            if (( processed == 1 ||
-                processed % 10 == 0 ||
-                processed == n_workloads )); then
-
-                elapsed=\$((\$(date +%s) - started_at))
-
-                echo "[\$(date '+%Y-%m-%d %H:%M:%S')] Completed \${processed}/\${n_workloads} workload files in \${elapsed}s" >&2
-            fi
+            echo "[\$(date '+%Y-%m-%d %H:%M:%S')] Completed \${processed}/\${n_workloads}: \${workload} in \${elapsed}s" >&2
         done
     } |
         awk '

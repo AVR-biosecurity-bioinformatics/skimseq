@@ -1,21 +1,27 @@
+nextflow.enable.types = true
+
 process MERGE_RIKER_COVERAGE {
+
     tag "merge_riker_coverage"
-    //conda "${moduleDir}/environment.yml"
+
+    // conda "${moduleDir}/environment.yml"
 
     input:
-    path coverage_files
+    coverage_files: Iterable<Path>
+    
+    stage:
+    stageAs coverage_files, "coverage????.tsv"
 
     output:
-    path "missing_summary.tsv", emit: missing_summary
+    file("missing_summary.tsv")
 
     script:
-
     """
     #!/usr/bin/env bash
     set -euo pipefail
     shopt -s nullglob
 
-    files=( *.wgs-coverage.txt )
+    files=( coverage*.tsv )
 
     if (( \${#files[@]} == 0 )); then
         echo "ERROR: no Riker wgs-coverage files supplied" >&2

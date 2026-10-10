@@ -1,50 +1,66 @@
+nextflow.enable.types = true
+
+def shellQuote(value: String) {
+    return "'${value.replace("'", "'\"'\"'")}'"
+}
+
 process VALIDATE_GVCF {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample),
-        val(libs),
-        val(source),
-        val(input1s),
-        val(input2s),
-        path(local_r1s, arity: '0..*'),
-        path(local_r2s, arity: '0..*'),
-        path(gvcf),
-        path(tbi)
+    record(
+        sample: String,
+        libs: List<String>,
+        source: String,
+        input1s: List<String>,
+        local_r1s: List<Path>,
+        vcf: Path,
+        index: Path
+    )
 
-    tuple path(ref_genome),
-        path(genome_index_files)
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
     output:
-    tuple val(sample), stdout, emit: status
+    record(
+        sample: sample,
+        vcf: vcf,
+        index: index,
+        status: stdout()
+    )
 
     script:
-    def shellQuote = { value ->
-        "'${value.toString().replace("'", "'\"'\"'")}'"
-    }
 
-    // Set up bash arrays
+    // Set up Bash arrays.
     def lib_array = libs
-        .collect(shellQuote)
+        .collect { value ->
+            shellQuote(value)
+        }
         .join(' ')
 
     def accession_array = source == 'accession'
         ? input1s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
     def url1_array = source == 'url'
         ? input1s
-            .findAll { value -> value != null && value.toString().trim() }
-            .collect(shellQuote)
+            .findAll { value -> !value.isEmpty() }
+            .collect { value -> shellQuote(value) }
             .join(' ')
         : ''
 
     def local_r1_array = source == 'local'
-        ? local_r1s.collect(shellQuote).join(' ')
+        ? local_r1s
+            .collect { value -> shellQuote(value.name) }
+            .join(' ')
         : ''
 
     """
@@ -104,31 +120,31 @@ process VALIDATE_GVCF {
     fi
 
     ###########################################
-    # Validate GVCF structure and index
+    # Validate vcf structure and index
     ###########################################
 
     if [[ "\${STATUS}" == "PASS" ]]; then
-        if [[ ! -s "${gvcf}" || ! -s "${tbi}" ]] ||
-           ! bcftools view --header-only "${gvcf}" > observed_header.vcf
+        if [[ ! -s "${vcf}" || ! -s "${index}" ]] ||
+           ! bcftools view --header-only "${vcf}" > observed_header.vcf
         then
             STATUS="FAIL"
         fi
     fi
 
-    # Confirm that the GVCF index can be read.
+    # Confirm that the vcf index can be read.
     if [[ "\${STATUS}" == "PASS" ]]; then
-        if ! bcftools index --nrecords "${gvcf}" >/dev/null; then
+        if ! bcftools index --nrecords "${vcf}" >/dev/null; then
             STATUS="FAIL"
         fi
     fi
 
     ###########################################
-    # Validate GVCF sample name
+    # Validate vcf sample name
     ###########################################
 
     if [[ "\${STATUS}" == "PASS" ]]; then
         mapfile -t OBSERVED_SAMPLES < <(
-            bcftools query --list-samples "${gvcf}"
+            bcftools query --list-samples "${vcf}"
         )
 
         if (( \${#OBSERVED_SAMPLES[@]} != 1 )) ||
@@ -158,7 +174,7 @@ process VALIDATE_GVCF {
             then
                 RG_ID="\${FCID}.\${LANE}.\${CURRENT_LIB}"
 
-                # The GVCF stores literal '\\t' sequences in ##RG records,
+                # The vcf stores literal '\\t' sequences in ##RG records,
                 # rather than actual tab characters.
                 printf '@RG\\\\tID:%s\\\\tLB:%s\\\\tPL:%s\\\\tPU:%s\\\\tSM:%s\\n' \
                     "\${RG_ID}" \
@@ -178,7 +194,7 @@ process VALIDATE_GVCF {
         -o expected_readgroups.txt
 
     ###########################################
-    # Extract observed GVCF read groups
+    # Extract observed vcf read groups
     ###########################################
 
     : > observed_readgroups.txt

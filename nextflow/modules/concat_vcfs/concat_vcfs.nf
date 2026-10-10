@@ -1,23 +1,27 @@
+nextflow.enable.types = true
+
 process CONCAT_VCFS {
+
     tag "${outname}"
 
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(variants), path(indices)
+    record(
+        outname: String,
+        variants: Iterable<Path>,
+        indices: Iterable<Path>
+    )
 
     output:
-    tuple val(outname),
-          path("${outname}.{bcf,g.bcf,vcf.gz,g.vcf.gz}"),
-          path("${outname}.{bcf,g.bcf,vcf.gz,g.vcf.gz}.{csi,tbi}"),
-          emit: vcf
+    record(
+        outname: outname,
+        vcf: file("${outname}.{bcf,g.bcf,vcf.gz,g.vcf.gz}"),
+        index: file("${outname}.{bcf,g.bcf,vcf.gz,g.vcf.gz}.{csi,tbi}")
+    )
 
     script:
-    def variant_list = variants
-        .collect { file -> file.name }
-        .unique()
-        .sort()
-        .join('\n')
+    def variant_list = variants.join('\n')
 
     """
     #!/usr/bin/env bash

@@ -1,67 +1,64 @@
+nextflow.enable.types = true
+
 process MPILEUP {
-    tag "${ref_genome}:${interval_hash}"
+
+    tag "${ref_genome}:${interval_id}"
+
     conda "${moduleDir}/environment.yml"
 
-    // Scale memory based on cohort size
-    memory {
-        def n = cohort_size as int
+    // Scale memory based on cohort size.
+    memory ((8.GB + 60.MB * cohort_size) * task.attempt)    
 
-        def base = 8.GB
-        def per_sample = 60.MB * n
-        def requested = base + per_sample
-
-        requested * task.attempt
-    }
-    
     input:
-    tuple val(interval_hash),
-          path(interval_bed),
-          path(bed_tbi),
-          path(cram),
-          path(cram_index)
+    record(
+        interval_id: String,
+        interval_bed: Path,
+        interval_index: Path,
+        crams: Iterable<Path>,
+        crais: Iterable<Path>
+    )
 
-    tuple path(ref_genome),
-          path(genome_index_files)
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
-    val(cohort_size)
-    path(popmap)
-    
-    output: 
-    tuple val(interval_hash),
-          path(interval_bed),
-          path(bed_tbi),
-          path("${interval_hash}.bcf"),
-          path("${interval_hash}.bcf.csi"),
-          emit: bcf
+    cohort_size: Integer
+    popmap: Path
+
+    output:
+    record(
+        interval_id: interval_id,
+        interval_bed: interval_bed,
+        interval_index: interval_index,
+        variants: file("${interval_id}.bcf"),
+        variants_index: file("${interval_id}.bcf.csi")
+    )
 
     script:
-    // Check if input is panel or bed
     def is_panel = interval_bed.name.endsWith('.bcf')
 
-    // Create list of cram files
-    def cram_list = cram
-        .collect { file -> file.name }
-        .unique()
-        .sort()
-        .join('\n')
-    
-    // toggle duplicate removal
+    // Create list of staged CRAM filenames.
+    def cram_list = crams.join('\n')
+
+    // Toggle duplicate removal.
     def skip_flags = params.rmdup
         ? 'UNMAP,SECONDARY,SUPPLEMENTARY,QCFAIL,DUP'
         : 'UNMAP,SECONDARY,SUPPLEMENTARY,QCFAIL'
-    
-    // toggle invariant outputs
+
+    // Toggle invariant outputs.
     def variant_flag = params.output_invariant
         ? ''
         : '--variants-only'
 
-    // toggle calling model
+    // Toggle calling model.
     def calling_model_args =
         params.calling_model == 'sample'
             ? '--group-samples -'
             : params.calling_model == 'population'
             ? "--group-samples '${popmap}'"
             : ''
+
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -185,7 +182,7 @@ process MPILEUP {
         | bcftools annotate \
             --threads ${task.cpus} \
             --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
-            -Ob --output "${interval_hash}.bcf"
+            -Ob --output "${interval_id}.bcf"
 
     # Catch error codes from piped tools so nextflow can retry
     st=("\${PIPESTATUS[@]}")
@@ -193,7 +190,7 @@ process MPILEUP {
     check_pipeline "\${st[@]}" || exit \$?
 
     # Index output
-    bcftools index "${interval_hash}.bcf"
+    bcftools index "${interval_id}.bcf"
 
     """
 }

@@ -1,17 +1,22 @@
+nextflow.enable.types = true
+
 process CREATE_INTERVAL_CHUNKS {
+
     tag "${n_chunks} workload-balanced chunks"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path workload_bed
-    val n_chunks
-    val split_large_intervals
+    workload_bed: Path
+    n_chunks: Integer
+    split_large_intervals: Boolean
 
     output:
-    tuple val(workload_bed.baseName),
-        path("*.bed.gz"),
-        path("*.bed.gz.tbi"),
-        emit: interval_bed
+    record(
+        name: workload_bed.baseName,
+        beds: files("*.bed.gz"),
+        tbis: files("*.bed.gz.tbi")
+    )
 
     script:
     """

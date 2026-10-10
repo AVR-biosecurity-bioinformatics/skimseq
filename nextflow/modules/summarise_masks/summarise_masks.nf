@@ -1,16 +1,28 @@
+nextflow.enable.types = true
+
 process SUMMARISE_MASKS {
+
     tag "${ref_genome}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple path(ref_genome), path(indexes)
-    path(include_bed)
-    path(exclude_bed)
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>,
+        genome_bed: Path
+    )
 
-    output: 
-    tuple path("mask_summary.bed.gz"), path("mask_summary.bed.gz.tbi"),    emit: mask_summary_bed
-    tuple path("mask_pass.bed.gz"), path("mask_pass.bed.gz.tbi"),          emit: mask_pass_bed
-    path("mask_summary.txt"),                                              emit: mask_summary
+    exclude_bed: Path
+
+    output:
+    record(
+        mask_summary_bed: file("mask_summary.bed.gz"),
+        mask_summary_bed_tbi: file("mask_summary.bed.gz.tbi"),
+        mask_pass_bed: file("mask_pass.bed.gz"),
+        mask_pass_bed_tbi: file("mask_pass.bed.gz.tbi"),
+        mask_summary: file("mask_summary.txt")
+    )
 
     script:
     """
@@ -21,7 +33,7 @@ process SUMMARISE_MASKS {
 
     # Normalise inputs.
     awk 'BEGIN {OFS="\\t"} NF >= 3 {print \$1, \$2, \$3}' \
-        "${include_bed}" \
+        "${genome_bed}" \
         | bedtools sort -i - -g "\$FAI" \
         > included_intervals.bed
 

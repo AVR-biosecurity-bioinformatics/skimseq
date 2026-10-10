@@ -1,26 +1,44 @@
+nextflow.enable.types = true
+
 process COUNT_CRAM_WINDOWS {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
-    path windows_bed
+    record(
+        sample: String,
+        cram: Path,
+        crai: Path
+    )
+
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+
+    windows_bed: Path
 
     output:
-    tuple val(sample),
-          path("${sample}.regions.bed.gz"),
-          path("${sample}.regions.bed.gz.csi"),
-          emit: windows
-
-    tuple val(sample),
-          path("${sample}.normalised.regions.bed.gz"),
-          path("${sample}.normalised.regions.bed.gz.csi"),
-          emit: normalised_windows,
-          optional: true
+    record(
+        sample: sample,
+        windows: file("${sample}.regions.bed.gz"),
+        windows_csi: file("${sample}.regions.bed.gz.csi"),
+        normalised_windows: file(
+            "${sample}.normalised.regions.bed.gz",
+            optional: true
+        ),
+        normalised_windows_csi: file(
+            "${sample}.normalised.regions.bed.gz.csi",
+            optional: true
+        )
+    )
 
     script:
-    def exclude_flags = params.rmdup ? 1796 : 772
+    def exclude_flags = params.rmdup
+        ? 1796
+        : 772
 
     """
     #!/usr/bin/env bash

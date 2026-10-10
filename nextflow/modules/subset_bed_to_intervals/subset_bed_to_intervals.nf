@@ -1,3 +1,5 @@
+nextflow.enable.types = true
+
 process SUBSET_BED_TO_INTERVALS {
 
     tag "${bed.baseName}"
@@ -5,12 +7,16 @@ process SUBSET_BED_TO_INTERVALS {
     conda "${moduleDir}/environment.yml"
 
     input:
-    path bed
-    path include_bed
-    tuple path(ref_genome), path(genome_index_files)
+    bed: Path
+    include_bed: Path
+
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
     output:
-    path "${bed.baseName}.included.bed", emit: bed
+    file("${bed.baseName}.included.bed")
 
     script:
     """

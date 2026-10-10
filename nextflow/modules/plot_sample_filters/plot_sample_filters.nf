@@ -1,13 +1,19 @@
+nextflow.enable.types = true
+
 process PLOT_SAMPLE_FILTERS {
+
     tag "${missing_summary}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(missing_summary)
+    missing_summary: Path
 
-    output: 
-    path("*.pdf"),               emit: plots
-    path("sample_missing.tsv"),  emit: sample_missing_tsv
+    output:
+    record(
+        plots: files("*.pdf"),
+        sample_missing_tsv: file("sample_missing.tsv")
+    )
 
     script:
     """

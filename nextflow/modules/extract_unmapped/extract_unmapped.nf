@@ -1,13 +1,25 @@
+nextflow.enable.types = true
+
 process EXTRACT_UNMAPPED {
     tag "${sample}"
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
+    record(
+        sample: String,
+        cram: Path,
+        crai: Path
+    )
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
-    output: 
-    tuple val(sample), path("*.unmapped.R{1,2}.fastq.gz"),  emit: unmapped_fastq
+    output:
+    record(
+        sample: sample,
+        unmapped_fastq: files("*.unmapped.R{1,2}.fastq.gz")
+    )
     
     script:
     """

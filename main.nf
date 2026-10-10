@@ -1,4 +1,6 @@
 #!/usr/bin/env nextflow
+
+nextflow.enable.types = true
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     AVR-biosecurity-bioinformatics/skimseq
@@ -14,14 +16,15 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+
 params {
     // General
     help: Boolean = false
     slurm_account: String?
 
     // Primary inputs
-    samplesheet: Path?
-    ref_genome: Path?
+    samplesheet: Path
+    ref_genome: Path
     mito_contig: String?
 
     // Intermediate inputs
@@ -126,6 +129,7 @@ params {
     depth_mask_low: Float = 0.5f                        // Flag a window as low-depth in a sample when its depth is <= 0.nx that sample's baseline
     depth_mask_high: Float = 1.5f                       // Flag a window as high-depth in a sample when its depth is >= n5x that sample's baseline
     depth_mask_fraction: Float = 0.8f                   // Mask a window when at least 80% of samples are flagged as low-depth or high-depth
+    depth_window_size: Integer = 1000                   // Window size used for masking
 
     // Population-level filtering
     vcf_population_min_samples: Integer = 1
@@ -202,18 +206,21 @@ params {
 }
 
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    PRINT PARAMS SUMMARY
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ Imports
 */
 
-// include functions from nf-schema
+include {
+    SamplesheetRow
+} from './nextflow/types'
 
+//// workflows
+include { SKIMSEQ                                                   } from './nextflow/workflows/skimseq'
+
+// include functions from nf-schema
 include {
     paramsHelp
     validateParameters
     paramsSummaryLog
-    samplesheetToList
 } from 'plugin/nf-schema'
 
 ///// define functions 
@@ -234,17 +241,6 @@ def pipelineHeader() {
     """.stripIndent()
 }
 
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT LOCAL MODULES/SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//// workflows
-include { SKIMSEQ                                                   } from './nextflow/workflows/skimseq'
-
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -257,164 +253,115 @@ workflow {
     main:
     startupMessage()
 
-    def nullableParams = [
-        'help',
-        'slurm_account',
-        'include_bed',
-        'exclude_bed',
-        'samplesheet',
-        'ref_genome',
-        'mito_contig'
-    ] as Set
-
-    // Explicitly reject null values except for parameters that are intentionally
-    // nullable. This catches old-format params.yml files where parameters with
-    // non-null defaults were explicitly set to null.
-    def invalid_null_params = params
-        .findAll { name, value ->
-            !nullableParams.contains(name) &&
-            (
-                value == null ||
-                value.toString().trim().equalsIgnoreCase('null')
-            )
-        }
-        .keySet()
-        .sort()
-
-    if (invalid_null_params) {
-        error """
-        The following parameters have null values but are not nullable:
-
-        ${invalid_null_params.join('\n  ')}
-
-        Remove these parameters from the configuration to use their defaults,
-        or assign explicit values.
-        """.stripIndent().trim()
-    }
-
     // validate inpiut params
-    validateParameters(
-        parametersSchema: 'nextflow_schema.json',
-        cast_cli_params: true
+    validateParameters()
+    log.info(
+        paramsSummaryLog() as String
     )
-    log.info paramsSummaryLog()
-
-    // Hack to enforce cram_store and gvcf_store to be within results directory
-    // TODO: Replace directory-based reuse with CRAM/GVCF manifests.
-    // Workflow outputs currently require publication beneath workflow.outputDir.
-    def outdir = new File(workflow.outputDir.toString()).canonicalPath
-
-    if( params.output_cram ) {
-        def cramStore = new File(params.cram_store).canonicalPath
-
-        if( !cramStore.startsWith(outdir) ) {
-            error """
-            params.cram_store must be located within workflow.outputDir
-
-            workflow.outputDir = ${outdir}
-            cram_store         = ${cramStore}
-
-            External CRAM output locations are currently unsupported.
-            """
-        }
-    }
-
-    if( params.output_gvcf ) {
-        def gvcfStore = new File(params.gvcf_store).canonicalPath
-
-        if( !gvcfStore.startsWith(outdir) ) {
-            error """
-            params.gvcf_store must be located within workflow.outputDir
-
-            workflow.outputDir = ${outdir}
-            gvcf_store         = ${gvcfStore}
-
-            External GVCF output locations are currently unsupported.
-            """
-        }
-    }
-
-    workflow.onComplete = {
-        if ( workflow.success ) {
-        log.info "[$workflow.complete] >> Pipeline finished SUCCESSFULLY after $workflow.duration"
-        } else {
-        log.info "[$workflow.complete] >> Pipeline finished with ERRORS after $workflow.duration"
-        }
-    }
 
     // Print help message, supply typical command line usage for the pipeline
     if (params.help) {
-        //    log.info startupMessage()
-        log.info paramsHelp("nextflow run AVR-biosecurity-bioinformatics/skimseq") // TODO: add typical commands for pipeline
-        exit 0
+        def help_message = paramsHelp() as String
+        log.info help_message
+        exit 0, ''
     }
 
+    // Parse samplesheet
+    samplesheet = channel.of(params.samplesheet)
+        .flatMap { csv ->
+            csv.splitCsv(header: true)
+        }
+        .map { row ->
 
-    ///// run main skimseq workflow
-    SKIMSEQ ()
+            def fields = row as Map
+
+            def sample = fields['sample'] as String
+            def lib = fields['lib'] as String
+            def pop = fields['pop'] as String
+            def fwd = fields['fwd'] as String
+            def rev = fields['rev'] as String
+
+            record(
+                sample: sample.trim(),
+                lib: lib?.trim() ?: null,
+                pop: pop?.trim() ?: null,
+                fwd: fwd.trim(),
+                rev: rev?.trim() ?: null
+            )
+        }
+        
+    // Run main SKIMSEQ workflow.
+    skimseq = SKIMSEQ(
+        samplesheet
+    )
 
     publish:
 
-    mask_summary     = SKIMSEQ.out.mask_summary
-    mask_summary_bed = SKIMSEQ.out.mask_summary_bed
-    mask_pass_bed    = SKIMSEQ.out.mask_pass_bed
+    mask_summary     = skimseq.mask_summary
+    mask_bed         = skimseq.mask_bed
 
-    new_cram        = SKIMSEQ.out.new_cram
-    perbase         = SKIMSEQ.out.perbase
-    mito_consensus  = SKIMSEQ.out.mito_consensus
+    new_cram        = skimseq.new_cram
+    mito_consensus  = skimseq.mito_consensus
 
-    unfiltered_bcf  = SKIMSEQ.out.unfiltered_bcf
-    new_gvcf        = SKIMSEQ.out.new_gvcf
-    final_bcf       = SKIMSEQ.out.final_bcf
+    unfiltered_variants  = skimseq.merged_unfiltered_variants
+    new_gvcf        = skimseq.new_gvcf
+    final_bcf       = skimseq.final_bcf
 
-    beagle_gl       = SKIMSEQ.out.beagle_gl
-    plink           = SKIMSEQ.out.plink
-    pca             = SKIMSEQ.out.pca
-    relationship    = SKIMSEQ.out.relationship
-    king            = SKIMSEQ.out.king
-    distance        = SKIMSEQ.out.distance
-    ordination_plot = SKIMSEQ.out.ordination_plot
-    pca_plot        = SKIMSEQ.out.pca_plot
-    tree_plot       = SKIMSEQ.out.tree_plot
-    newick_tree     = SKIMSEQ.out.newick_tree
-    popmap          = SKIMSEQ.out.popmap
+    beagle_gl       = skimseq.beagle_gl
+    plink           = skimseq.plink
+    pca             = skimseq.pca
+    relationship    = skimseq.relationship
+    king            = skimseq.king
+    distance        = skimseq.distance
+    ordination_plot = skimseq.ordination_plot
+    pca_plot        = skimseq.pca_plot
+    tree_plot       = skimseq.tree_plot
+    popmap          = skimseq.popmap
 
     // QC outputs
-    sample_filter_plots = SKIMSEQ.out.sample_filter_plots
-    missing_summary   = SKIMSEQ.out.missing_summary
-    site_filter_plots = SKIMSEQ.out.site_filter_plots
-    cram_stats      = SKIMSEQ.out.cram_stats
-    vcf_stats       = SKIMSEQ.out.vcf_stats
-    multiqc_report  = SKIMSEQ.out.multiqc_report
-    multiqc_plots   = SKIMSEQ.out.multiqc_plots
-    multiqc_data    = SKIMSEQ.out.multiqc_data
-
+    sample_filter_plots = skimseq.sample_filter_plots
+    missing_summary   = skimseq.missing_summary
+    site_filter_plots = skimseq.site_filter_plots
+    cram_stats      = skimseq.cram_stats
+    vcf_stats       = skimseq.vcf_stats
+    multiqc_report  = skimseq.multiqc_report
+    
+    onComplete:
+    if (workflow.success) {
+        log.info(
+            "[$workflow.complete] >> Pipeline finished SUCCESSFULLY " +
+            "after $workflow.duration"
+        )
+    } else {
+        log.info(
+            "[$workflow.complete] >> Pipeline finished with ERRORS " +
+            "after $workflow.duration"
+        )
+    }
+}
 }
 
 output {
     mask_summary {
         path 'qc'
     }
-    mask_summary_bed {
-        path 'qc'
-    }
-    mask_pass_bed {
+    mask_bed {
         path 'qc'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
     // Only publishes newly generated crams and GVCFS, doesnt overwrite those that passed validation
     new_cram {
         enabled params.output_cram
-        path new File(params.cram_store).name
+        path 'cram'
     }
     new_gvcf {
         enabled params.output_gvcf
-        path new File(params.gvcf_store).name
+        path 'gvcf'
     }
     mito_consensus {
         path 'mito'
     }
-    unfiltered_bcf {
+    unfiltered_variants {
         path 'vcf/unfiltered'
     }
     final_bcf {
@@ -449,15 +396,8 @@ output {
     tree_plot {
         path 'visualisation/trees'
     }
-    newick_tree {
-        path 'visualisation/trees'
-    }
     popmap {
         path 'metadata'
-    }
-    perbase {
-        enabled params.output_perbase_depth
-        path 'qc/cram_stats/perbase_depth'
     }
     cram_stats {
         path 'qc/cram_stats/cram_qc_data'
@@ -477,10 +417,4 @@ output {
     multiqc_report {
         path 'qc'
     }   
-    multiqc_plots {
-        path 'qc'
-    }    
-    multiqc_data {
-        path 'qc'
-    }    
 }

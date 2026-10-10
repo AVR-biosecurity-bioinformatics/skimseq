@@ -1,15 +1,24 @@
+nextflow.enable.types = true
+
 process PLOT_TREE {
 
-    tag "${distmat.simpleName}"
+    tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path distmat
-    path popmap
+    record(
+        outname: String,
+        mat: Path
+    )
+    popmap: Path
 
     output:
-    path "${distmat.simpleName}_tree.pdf", emit: plots
-    path "${distmat.simpleName}_tree.nwk", emit: newick_tree
+    record(
+        outname: outname,
+        plot: file("${outname}_tree.pdf"),
+        newick_tree: file("${outname}_tree.nwk")
+    )
 
     script:
     """
@@ -31,11 +40,11 @@ process PLOT_TREE {
             library(ggtree)
         })
 
-        prefix <- "${distmat.simpleName}"
+        prefix <- "${outname}"
         tree_file <- paste0(prefix, "_tree.nwk")
         plot_file <- paste0(prefix, "_tree.pdf")
 
-        M <- read_distance_matrix("${distmat}")
+        M <- read_distance_matrix("${mat}")
 
         popmap <- read_popmap("${popmap}")
 

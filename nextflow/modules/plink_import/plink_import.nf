@@ -1,13 +1,26 @@
+nextflow.enable.types = true
+
 process PLINK_IMPORT {
+
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(bcf), path(csi)
+    record(
+        outname: String,
+        vcf: Path,
+        index: Path
+    )
 
-    output: 
-    tuple val(outname), path("${outname}.{bim,bed,fam}"),                           emit: plink
-    
+    output:
+    record(
+        outname: outname,
+        bed: file("${outname}.bed"),
+        bim: file("${outname}.bim"),
+        fam: file("${outname}.fam")
+    )
+
     script:
     """
     #!/usr/bin/env bash
@@ -17,8 +30,8 @@ process PLINK_IMPORT {
     # TODO: Add filters
     plink2 \
         --threads ${task.cpus} \
-        --memory ${task.memory.mega} \
-        --bcf ${bcf} \
+        --memory ${task.memory.toMega()} \
+        --bcf ${vcf} \
         --mind 0.9 \
         --allow-extra-chr \
         --double-id \
