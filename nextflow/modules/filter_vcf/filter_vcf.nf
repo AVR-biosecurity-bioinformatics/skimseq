@@ -37,6 +37,7 @@ process FILTER_VCF {
             invariant_bcf_index: file("${interval_id}.invariant.bcf.csi"),
 
             filter_hist: file("${interval_id}.filter_hist.tsv"),
+            mask_hist: file("${interval_id}.mask_hist.tsv"),
             samples_to_keep: file("${interval_id}.samples.txt")
       )
 
@@ -48,11 +49,83 @@ process FILTER_VCF {
       # Source dependent functions
       source "\$(command -v functions.sh)"
 
-      # Make sure mask file is sorted and unique (and 0-based, half-open)
-      sort -k1,1 -k2,2n -k3,3n ${mask_bed} | uniq > vcf_masks.bed
+      ###########################################
+      # Set up mask filters
+      ###########################################
+
+      case "${mask_bed}" in
+            *.gz) gzip -dc "${mask_bed}" ;;
+            *)    cat "${mask_bed}" ;;
+      esac |
+      awk '
+            BEGIN { FS=OFS="\\t" }
+            /^#/ || /^track[[:space:]]/ || /^browser[[:space:]]/ || NF == 0 { next }
+            {
+                  sub(/\\r\$/, "", \$NF)
+
+                  if (NF < 3 || \$2 !~ /^[0-9]+\$/ ||
+                      \$3 !~ /^[0-9]+\$/ || (\$3+0) <= (\$2+0)) {
+                        print "ERROR: invalid mask BED line " NR > "/dev/stderr"
+                        exit 1
+                  }
+
+                  name = (NF >= 4 && \$4 != "" && \$4 != "." ? \$4 : "Excluded")
+                  if (name != "Included")
+                        print \$1, \$2, \$3, name
+            }
+      ' |
+      LC_ALL=C sort -u -k1,1 -k2,2n -k3,3n -k4,4 > vcf_masks.bed
+
+      mkdir -p mask_beds
+      cut -f4 vcf_masks.bed | LC_ALL=C sort -u > mask_names.txt
+
+      printf 'filter_id\\tmask_name\\n' > "${interval_id}.mask_labels.tsv"
+      MASK_FILTERS=()
+
+      while IFS= read -r mask_name; do
+            slug=\$(printf '%s' "\$mask_name" | LC_ALL=C tr -c 'A-Za-z0-9_' '_')
+            filter_id="MASK_\${slug}_FAIL"
+            bed_file="mask_beds/\${filter_id}.bed"
+
+            if [[ -e "\$bed_file" ]]; then
+                  echo "ERROR: mask names produce the same label: \$filter_id" >&2
+                  exit 1
+            fi
+
+            MASK_NAME="\$mask_name" awk '
+                  BEGIN { FS=OFS="\\t" }
+                  \$4 == ENVIRON["MASK_NAME"] { print \$1, \$2, \$3 }
+            ' vcf_masks.bed > "\$bed_file"
+
+            MASK_FILTERS+=("\$filter_id")
+            printf '%s\\t%s\\n' "\$filter_id" "\$mask_name" \
+                  >> "${interval_id}.mask_labels.tsv"
+      done < mask_names.txt
+
+      apply_mask_filters() {
+            local index="\${1:-0}"
+
+            if (( index == \${#MASK_FILTERS[@]} )); then
+                  cat
+            else
+                  bcftools filter -Ou \
+                        -s "\${MASK_FILTERS[\$index]}" \
+                        -m+ --mask-overlap 1 \
+                        -M "mask_beds/\${MASK_FILTERS[\$index]}.bed" |
+                  apply_mask_filters "\$((index + 1))"
+            fi
+      }
+
+      ###########################################
+      # Set up per-sample missing filters
+      ###########################################
 
       # Find samples above the missing fraction filter
       awk -v thr="${params.sample_max_missing}" 'NR==1 {next} \$4!="NA" && (\$4+0) < thr {print \$1}' "${missing_summary}" > ${interval_id}.samples.txt
+
+      ###########################################
+      # Set up Population filters
+      ###########################################
 
       # Create sample_groups.tsv:
       # first keep only samples in samples.txt
@@ -263,6 +336,10 @@ process FILTER_VCF {
             "INDEL:${params.vcf_min_callrate_pop_indel}" \
             "REF:${params.vcf_min_callrate_pop_invariant}")
 
+      ###########################################
+      # Apply soft-filters to VCF (this doesnt yet remove positions)
+      ###########################################
+
       set +e
       bcftools view --threads ${task.cpus} -S ${interval_id}.samples.txt -m2 -M2 -Ou "${variants}" \\
       | bcftools +setGT -Ou -- \\
@@ -275,7 +352,7 @@ process FILTER_VCF {
       -S sample_groups.tsv \\
       -t 'NS,MAF,HWE,ExcHet,CR:1=1-F_MISSING' \\
       | bcftools filter -Ou --SnpGap "${params.vcf_dist_indel_global_snp}"  --IndelGap "${params.vcf_dist_indel_global_indel}" \\
-      | bcftools filter -Ou -s MASK_FAIL -m+ -M vcf_masks.bed \\
+      | apply_mask_filters 0  \\
       | bcftools filter -Ou -s QUAL_FAIL -m+ -e "\$QUAL_EXPR" \\
       | bcftools filter -Ou -s DP_MIN_FAIL -m+ -e "\$DP_MIN_EXPR" \\
       | bcftools filter -Ou -s EH_FAIL -m+ -e "\$EH_EXPR" \\
@@ -295,7 +372,10 @@ process FILTER_VCF {
       set -e
       check_pipeline "\${st[@]}" || exit \$?
 
+      ###########################################
       # Write records passing all soft filters.
+      ###########################################
+
       bcftools view \
             --threads ${task.cpus} \
             --apply-filters PASS \
@@ -338,12 +418,16 @@ process FILTER_VCF {
                   "${interval_id}.\${type}.bcf"
       done
 
+      ###########################################
+      # Create QC summaries
+      ###########################################
 
       # Create filter histograms
       create_vcf_filter_histograms \
             "tmp.bcf" \
             "${interval_id}.filter_hist.tsv" \
             "${interval_id}.filter_summary.tsv" \
-            100 10 10
+            100 10 10 \
+            "${interval_id}.mask_hist.tsv"
       """
 }

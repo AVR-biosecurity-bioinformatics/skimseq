@@ -641,6 +641,7 @@ inject_sam_reference_uri() {
         }
     '
 }
+
 # Usage:
 # create_vcf_filter_histograms INPUT_BCF HIST_TSV SUMMARY_TSV \
 #                              NBINS QUAL_WIDTH DP_WIDTH
@@ -660,6 +661,7 @@ create_vcf_filter_histograms() {
     local nbins="${4:-100}"
     local qual_width="${5:-10}"
     local dp_width="${6:-10}"
+    local mask_histogram="${7:-${histogram%.tsv}.mask.tsv}"
 
     if ! [[ "$nbins" =~ ^[1-9][0-9]*$ ]]; then
         echo "ERROR: NBINS must be a positive integer" >&2
@@ -703,18 +705,34 @@ create_vcf_filter_histograms() {
         -v nbins="$nbins" \
         -v qual_width="$qual_width" \
         -v dp_width="$dp_width" \
-        -v summary="$summary" '
+        -v summary="$summary" \
+        -v mask_histogram="$mask_histogram" '
+        function bin_width(metric) {
+            if (metric == "QUAL") return qual_width
+            if (metric == "DP")   return dp_width
+            if (metric == "NS")   return 1
+            if (metric == "MAF")  return 0.5 / nbins
+            return 1 / nbins
+        }
+
         BEGIN {
             if (qual_width <= 0 || dp_width <= 0) {
                 print "ERROR: QUAL_WIDTH and DP_WIDTH must be positive" \
                     > "/dev/stderr"
+                invalid = 1
                 exit 2
             }
 
+            # Existing outputs remain unchanged.
             print "RULE", "POP", "FILTER", "TYPE", \
                   "BIN", "XMIN", "XMAX", "COUNT"
 
             print "FILTER", "COUNT" > summary
+
+            # Additional mask-stratified output.
+            print "RULE", "POP", "MASK", "TYPE", \
+                  "BIN", "XMIN", "XMAX", "COUNT", \
+                  "N_VALID", "N_RECORDS" > mask_histogram
         }
 
         NR == 1 {
@@ -732,33 +750,47 @@ create_vcf_filter_histograms() {
                     sub(/^[^_]+_/, "", pop[i])
                 }
 
-                if (!(i in rule)) continue
-
-                if (rule[i] == "QUAL")
-                    width[i] = qual_width
-                else if (rule[i] == "DP")
-                    width[i] = dp_width
-                else if (rule[i] == "NS")
-                    width[i] = 1
-                else if (rule[i] == "MAF")
-                    width[i] = 0.5 / nbins
-                else
-                    width[i] = 1 / nbins
+                if (i in rule)
+                    width[i] = bin_width(rule[i])
             }
 
             next
         }
 
         {
+            # Preserve counts of complete FILTER combinations.
             filter_summary[$1]++
 
             delete failed
+            delete masks
+
             n_tags = split($1, tags, ";")
 
-            for (t = 1; t <= n_tags; t++)
+            for (t = 1; t <= n_tags; t++) {
                 failed[tags[t]] = 1
 
+                # Discover mask labels generically.
+                if (tags[t] ~ /^MASK_.*_FAIL$/)
+                    masks[tags[t]] = 1
+            }
+
+            has_mask = 0
+            for (mask in masks) {
+                has_mask = 1
+                break
+            }
+
+            if (has_mask)
+                masks["AnyMask"] = 1
+            else
+                masks["Unmasked"] = 1
+
             type = $2
+
+            # Count each record once per mask group, including records
+            # with missing metric values.
+            for (mask in masks)
+                mask_records[mask, type]++
 
             for (i = 3; i <= NF; i++) {
                 if (!(i in rule)) continue
@@ -787,44 +819,56 @@ create_vcf_filter_histograms() {
 
                 filter_class = (fail_tag in failed) ? "FAIL" : "PASS"
 
-                # Zero-based fixed-width bin. int() truncates toward zero,
-                # so adjust negative values to obtain floor() behaviour.
+                # Zero-based fixed-width bin with floor behaviour.
                 bin = int(value / width[i])
                 if (value < 0 && value != bin * width[i])
                     bin--
 
+                # Existing metric-specific PASS/FAIL histogram.
                 counts[rule[i], pop[i], filter_class, type, bin]++
+
+                # New mask-specific histograms and valid denominators.
+                for (mask in masks) {
+                    mask_counts[rule[i], pop[i], mask, type, bin]++
+                    mask_valid[rule[i], pop[i], mask, type]++
+                }
             }
         }
 
         END {
+            if (invalid)
+                exit 2
+
             for (filter in filter_summary)
                 print filter, filter_summary[filter] > summary
 
             for (key in counts) {
                 split(key, fields, SUBSEP)
 
-                metric = fields[1]
                 bin = fields[5] + 0
-
-                if (metric == "QUAL")
-                    bin_width = qual_width
-                else if (metric == "DP")
-                    bin_width = dp_width
-                else if (metric == "NS")
-                    bin_width = 1
-                else if (metric == "MAF")
-                    bin_width = 0.5 / nbins
-                else
-                    bin_width = 1 / nbins
-
-                xmin = bin * bin_width
-                xmax = xmin + bin_width
+                w = bin_width(fields[1])
 
                 printf "%s\t%s\t%s\t%s\t%d\t%.17g\t%.17g\t%d\n", \
                     fields[1], fields[2], fields[3], fields[4], \
-                    bin, xmin, xmax, counts[key]
+                    bin, bin * w, (bin + 1) * w, counts[key]
             }
+
+            for (key in mask_counts) {
+                split(key, fields, SUBSEP)
+
+                bin = fields[5] + 0
+                w = bin_width(fields[1])
+
+                printf "%s\t%s\t%s\t%s\t%d\t%.17g\t%.17g\t%d\t%d\t%d\n", \
+                    fields[1], fields[2], fields[3], fields[4], \
+                    bin, bin * w, (bin + 1) * w, mask_counts[key], \
+                    mask_valid[fields[1], fields[2], fields[3], fields[4]], \
+                    mask_records[fields[3], fields[4]] \
+                    > mask_histogram
+            }
+
+            close(summary)
+            close(mask_histogram)
         }
     ' > "$histogram"
 }

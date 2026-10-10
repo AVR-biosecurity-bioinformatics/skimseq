@@ -8,6 +8,7 @@ nextflow.enable.types = true
 include { MERGE_RIKER_COVERAGE                         } from '../modules/merge_riker_coverage/merge_riker_coverage'
 include { FILTER_VCF                                   } from '../modules/filter_vcf/filter_vcf'
 include { PLOT_VARIANT_FILTERS                         } from '../modules/plot_variant_filters/plot_variant_filters'
+include { PLOT_VARIANT_MASKS                           } from '../modules/plot_variant_masks/plot_variant_masks'
 include { PLOT_SAMPLE_FILTERS                          } from '../modules/plot_sample_filters/plot_sample_filters'
 include { CONCAT_VCFS as CONCAT_FINAL                  } from '../modules/concat_vcfs/concat_vcfs'
 include { VCF_STATS as VCF_STATS_FILTERED              } from '../modules/vcf_stats/vcf_stats'
@@ -66,15 +67,27 @@ workflow FILTER_VARIANTS {
         missing_summary
     )
 
+    // QC plots for site histograms
     filter_hists = filtered
         .map { chunk ->
             chunk.filter_hist
         }
         .collect()
 
-    // QC plots for site histograms
     site_filter_plots = PLOT_VARIANT_FILTERS(
         filter_hists
+    )
+
+    // QC plots for mask histograms
+
+    mask_hists = filtered
+        .map { chunk ->
+            chunk.mask_hist
+        }
+        .collect()
+
+    mask_filter_plots = PLOT_VARIANT_MASKS(
+        mask_hists
     )
 
     // Create channel of samples surviving filtering.
@@ -204,5 +217,6 @@ workflow FILTER_VARIANTS {
     sample_filter_plots: Value<Set<Path>> = sample_filter_plots
     missing_summary: Value<Path> = missing_summary
     site_filter_plots: Value<Set<Path>> = site_filter_plots
+    mask_filter_plots: Value<Set<Path>> = mask_filter_plots
     vcf_stats: Channel<Path> = vcf_stats
 }

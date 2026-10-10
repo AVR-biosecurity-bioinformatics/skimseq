@@ -322,6 +322,7 @@ workflow {
     sample_filter_plots = skimseq.sample_filter_plots
     missing_summary   = skimseq.missing_summary
     site_filter_plots = skimseq.site_filter_plots
+    mask_filter_plots = skimseq.mask_filter_plots
     cram_stats      = skimseq.cram_stats
     vcf_stats       = skimseq.vcf_stats
     multiqc_report  = skimseq.multiqc_report
@@ -413,7 +414,10 @@ output {
     }  
     site_filter_plots {
         path 'qc'
-    }  
+    } 
+    mask_filter_plots {
+        path 'qc'
+    }   
     multiqc_report {
         path 'qc'
     }   

@@ -353,6 +353,7 @@ workflow SKIMSEQ {
     // Filtering subworkflow
     sample_filter_plots: Value<Set<Path>> = filtered_variants.sample_filter_plots
     site_filter_plots: Value<Set<Path>> = filtered_variants.site_filter_plots
+    mask_filter_plots: Value<Set<Path>> = filtered_variants.mask_filter_plots
     missing_summary: Value<Path> = filtered_variants.missing_summary
     vcf_stats: Channel<Path> = filtered_variants.vcf_stats
 
