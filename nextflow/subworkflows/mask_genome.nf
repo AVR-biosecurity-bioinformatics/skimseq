@@ -115,10 +115,10 @@ workflow MASK_GENOME {
     combined_mask_channel = COMBINE_MASKS(
         mask_paths,
         genome,
-        true,
-        0,
-        4,
-        'distinct'
+        false, // Preserve individual labelled intervals.
+        0,     // Ignored when merging is disabled.
+        4,     // Ignored.
+        'distinct' // Ignored.
     )
 
     combined_mask = combined_mask_channel

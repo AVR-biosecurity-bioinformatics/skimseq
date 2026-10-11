@@ -27,19 +27,25 @@ process PLOT_VARIANT_MASKS {
 
     Rscript --vanilla - "$functions_r" <<'RSCRIPT'
     args <- commandArgs(trailingOnly = TRUE)
-    source(args[[1L]])
 
     suppressPackageStartupMessages({
         library(data.table)
         library(ggplot2)
     })
-    
+
+    source(args[[1L]])
+
     # Reading, validation and aggregation are handled by functions.R.
     mask_data <- read_variant_mask_histograms("histograms")
 
-    # AnyMask is useful for union counts, but redundant in distributions.
-    plot_steps <- copy(mask_data$steps[MASK != "AnyMask"])
-    record_totals <- copy(mask_data$records)
+    plot_steps <- mask_data$steps
+    record_totals <- mask_data$records
+
+    rm(mask_data)
+    invisible(gc())
+
+    # Keep the union for count plots, but not distribution panels.
+    plot_steps <- plot_steps[MASK != "AnyMask"]
 
     rule_order <- c(
         "QUAL", "DP", "ExcHet", "HWE", "MAF", "NS", "CR"
@@ -53,8 +59,7 @@ process PLOT_VARIANT_MASKS {
         )
     )]
 
-    # Include only categories actually present.
-    present_masks <- unique(plot_steps$MASK)
+    present_masks <- unique(as.character(plot_steps$MASK))
 
     mask_order <- c(
         intersect("Unmasked", present_masks),
@@ -84,48 +89,87 @@ process PLOT_VARIANT_MASKS {
 
     plot_theme <- theme_classic() +
         theme(
-            legend.position = "bottom",
-            legend.title = element_blank(),
-            axis.text.x = element_text(angle = 45, hjust = 1)
+            legend.position = "none",
+            axis.text.x = element_text(angle = 45, hjust = 1),
+            strip.background = element_rect(
+                fill = "grey95",
+                colour = "black"
+            )
         )
 
-    distribution_plot <- function(x, title, per_population = FALSE) {
-        p <- ggplot(
+        distribution_plot <- function(
             x,
-            aes(
-                x = POSITION,
-                y = PERCENT,
-                colour = MASK,
-                group = MASK
-            )
-        ) +
-            geom_step(direction = "hv", linewidth = 0.65) +
-            scale_colour_manual(
-                values = colours,
-                breaks = mask_order,
-                labels = unname(mask_labels[mask_order])
-            ) +
-            scale_x_continuous(
-                breaks = scales::breaks_pretty(n = 6)
-            ) +
-            plot_theme +
-            labs(
-                title = title,
-                subtitle = "Normalised separately within each mask category",
-                caption = paste(
-                    "Categories overlap. Unmasked does not imply PASS.",
-                    "Missing metric values are excluded from denominators."
-                ),
-                x = NULL,
-                y = "Sites within category (% per bin)"
-            )
+            variant_type,
+            selected_rule,
+            per_population = FALSE
+        ) {
+            # Show only mask categories present on this page.
+            page_masks <- mask_order[
+                mask_order %in% as.character(unique(x$MASK))
+            ]
 
-        if (per_population) {
-            p + facet_wrap(~POP, scales = "free_y")
-        } else {
-            p + facet_wrap(~RULE, scales = "free")
+            p <- ggplot(
+                x,
+                aes(
+                    x = POSITION,
+                    y = PERCENT,
+                    colour = MASK,
+                    group = MASK
+                )
+            ) +
+                geom_step(
+                    direction = "hv",
+                    linewidth = 0.65,
+                    alpha = 0.85
+                ) +
+                scale_colour_manual(
+                    values = colours,
+                    breaks = page_masks,
+                    labels = unname(mask_labels[page_masks])
+                ) +
+                scale_x_continuous(
+                    breaks = scales::breaks_pretty(n = 8)
+                ) +
+                scale_y_continuous(
+                    expand = expansion(mult = c(0, 0.05))
+                ) +
+                plot_theme +
+                theme(
+                    legend.position = "bottom",
+                    legend.title = element_blank()
+                ) +
+                guides(
+                    colour = guide_legend(
+                        ncol = 3,
+                        byrow = TRUE,
+                        override.aes = list(alpha = 1, linewidth = 1)
+                    )
+                ) +
+                labs(
+                    title = paste(
+                        variant_type,
+                        if (per_population) {
+                            "per-population mask diagnostics:"
+                        } else {
+                            "mask diagnostics:"
+                        },
+                        selected_rule
+                    ),
+                    subtitle = "Normalised separately within each mask category",
+                    caption = paste(
+                        "Categories overlap. Unmasked does not imply PASS.",
+                        "Missing metric values are excluded from denominators."
+                    ),
+                    x = selected_rule,
+                    y = "Sites within category (% per bin)"
+                )
+
+            if (per_population) {
+                p + facet_wrap(~POP, scales = "fixed")
+            } else {
+                p
+            }
         }
-    }
 
     ordered_types <- function(x) {
         preferred <- c("SNP", "INDEL", "REF", "ALL")
@@ -142,64 +186,118 @@ process PLOT_VARIANT_MASKS {
         text(0.5, 0.5, message)
     }
 
-    # Global distributions: one page per variant type.
-    global_df <- plot_steps[POP == "."]
+    # Produce separate files for each observed variant type.
+    # REF and ALL are also included if present.
+    variant_types <- ordered_types(c(
+        as.character(plot_steps$TYPE),
+        as.character(record_totals$TYPE)
+    ))
 
-    pdf("vcf_masks_global.pdf", width = 11, height = 8)
-
-    if (nrow(global_df)) {
-        for (variant_type in ordered_types(global_df$TYPE)) {
-            print(distribution_plot(
-                global_df[TYPE == variant_type],
-                paste(variant_type, "mask diagnostics")
-            ))
-        }
-    } else {
-        empty_page("No global mask histogram data")
+    if (!length(variant_types)) {
+        stop("No variant types available for plotting.")
     }
 
-    dev.off()
+    for (variant_type in variant_types) {
+        file_type <- tolower(variant_type)
 
-    # Population distributions: one page per metric and variant type.
-    per_pop_df <- plot_steps[POP != "."]
+        # Global: one statistic per page, faceted by mask.
+        pdf(
+            paste0("vcf_masks_", file_type, "_global.pdf"),
+            width = 11,
+            height = 8
+        )
 
-    pdf("vcf_masks_perpop.pdf", width = 11, height = 8)
+        present_rules <- plot_steps[
+            POP == "." & TYPE == variant_type,
+            unique(as.character(RULE))
+        ]
 
-    if (nrow(per_pop_df)) {
-        combinations <- unique(per_pop_df[, .(RULE, TYPE)])
-        setorder(combinations, TYPE, RULE)
+        rules <- intersect(
+            levels(plot_steps$RULE),
+            present_rules
+        )
 
-        for (i in seq_len(nrow(combinations))) {
-            selected_rule <- as.character(combinations$RULE[[i]])
-            variant_type <- combinations$TYPE[[i]]
+        if (length(rules)) {
+            for (selected_rule in rules) {
+                x <- plot_steps[
+                    POP == "." &
+                    TYPE == variant_type &
+                    as.character(RULE) == selected_rule
+                ]
 
-            x <- per_pop_df[
-                as.character(RULE) == selected_rule &
-                TYPE == variant_type
-            ]
-
-            print(distribution_plot(
-                x,
-                paste(
+                print(distribution_plot(
+                    x,
                     variant_type,
-                    "per-population",
                     selected_rule
-                ),
-                per_population = TRUE
+                ))
+
+                rm(x)
+                invisible(gc())
+            }
+        } else {
+            empty_page(paste(
+                "No global mask histogram data for",
+                variant_type
             ))
         }
-    } else {
-        empty_page("No per-population mask histogram data")
-    }
 
-    dev.off()
+        dev.off()
 
-    # Counts: individual categories plus the masked union.
-    pdf("vcf_masks_counts.pdf", width = 9, height = 6)
+        # Population: one statistic per page.
+        # Masks occupy rows; populations occupy columns.
+        pdf(
+            paste0("vcf_masks_", file_type, "_perpop.pdf"),
+            width = 14,
+            height = 10
+        )
 
-    if (nrow(record_totals)) {
-        for (variant_type in ordered_types(record_totals$TYPE)) {
-            x <- copy(record_totals[TYPE == variant_type])
+        present_rules <- plot_steps[
+            POP != "." & TYPE == variant_type,
+            unique(as.character(RULE))
+        ]
+
+        rules <- intersect(
+            levels(plot_steps$RULE),
+            present_rules
+        )
+
+        if (length(rules)) {
+            for (selected_rule in rules) {
+                x <- plot_steps[
+                    POP != "." &
+                    TYPE == variant_type &
+                    as.character(RULE) == selected_rule
+                ]
+
+                print(distribution_plot(
+                    x,
+                    variant_type,
+                    selected_rule,
+                    per_population = TRUE
+                ))
+
+                rm(x)
+                invisible(gc())
+            }
+        } else {
+            empty_page(paste(
+                "No per-population mask histogram data for",
+                variant_type
+            ))
+        }
+
+        dev.off()
+
+        # Counts: individual categories plus the masked union.
+        pdf(
+            paste0("vcf_masks_", file_type, "_counts.pdf"),
+            width = 9,
+            height = 6
+        )
+
+        x <- copy(record_totals[TYPE == variant_type])
+
+        if (nrow(x)) {
             setorder(x, N_RECORDS, MASK)
 
             x[, LABEL := sub(
@@ -208,8 +306,11 @@ process PLOT_VARIANT_MASKS {
 
             x[MASK == "AnyMask", LABEL := "Any mask (union)"]
 
-            # Use the original ID as the axis key to keep categories distinct.
-            x[, MASK := factor(MASK, levels = as.character(MASK))]
+            # Keep the original ID as the axis key.
+            x[, MASK := factor(
+                MASK,
+                levels = as.character(MASK)
+            )]
 
             axis_labels <- setNames(
                 x$LABEL,
@@ -236,12 +337,19 @@ process PLOT_VARIANT_MASKS {
                 )
 
             print(p)
+            rm(p)
+        } else {
+            empty_page(paste(
+                "No mask membership data for",
+                variant_type
+            ))
         }
-    } else {
-        empty_page("No mask membership data")
-    }
 
-    dev.off()
+        dev.off()
+
+        rm(x)
+        invisible(gc())
+    }
     RSCRIPT
     '''
 }
