@@ -32,6 +32,7 @@ include {
     VariantFile
     MaskSummary
     PlinkDataset
+    UnmappedReads
 } from '../types'
 
 workflow SKIMSEQ {
@@ -345,10 +346,12 @@ workflow SKIMSEQ {
     // Alignment subworkflow
     new_cram: Channel<SampleCram> = alignment_results.new_cram
     cram_stats: Channel<CramStats> = alignment_results.cram_stats
+    unmapped_reads: Channel<UnmappedReads> = alignment_results.unmapped_reads
 
     // Masking subworkflow
     mask_summary: Value<MaskSummary> = masking_results.summary
     mask_bed: Value<Path> = masking_results.mask_bed
+    per_base_depth = masking_results.per_base_depth
 
     // Filtering subworkflow
     sample_filter_plots: Value<Set<Path>> = filtered_variants.sample_filter_plots

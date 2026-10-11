@@ -18,7 +18,8 @@ process EXTRACT_UNMAPPED {
     output:
     record(
         sample: sample,
-        unmapped_fastq: files("*.unmapped.R{1,2}.fastq.gz")
+        r1: file("${sample}.unmapped.R1.fastq.gz"),
+        r2: file("${sample}.unmapped.R2.fastq.gz")
     )
     
     script:

@@ -299,8 +299,9 @@ workflow {
 
     mask_summary     = skimseq.mask_summary
     mask_bed         = skimseq.mask_bed
-
+    per_base_depth   = skimseq.per_base_depth
     new_cram        = skimseq.new_cram
+    unmapped_reads  = skimseq.unmapped_reads
     mito_consensus  = skimseq.mito_consensus
 
     unfiltered_variants  = skimseq.merged_unfiltered_variants
@@ -344,10 +345,13 @@ workflow {
 
 output {
     mask_summary {
-        path 'qc'
+        path 'qc/masks'
     }
     mask_bed {
-        path 'qc'
+        path 'qc/masks'
+    }
+    per_base_depth {
+        path 'qc/per_base'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
     // Only publishes newly generated crams and GVCFS, doesnt overwrite those that passed validation
@@ -358,6 +362,10 @@ output {
     new_gvcf {
         enabled params.output_gvcf
         path 'gvcf'
+    }
+    unmapped_reads {
+        enabled params.output_unmapped_reads
+        path 'unmapped'
     }
     mito_consensus {
         path 'mito'
@@ -401,22 +409,22 @@ output {
         path 'metadata'
     }
     cram_stats {
-        path 'qc/cram_stats/cram_qc_data'
+        path 'qc/cram_stats'
     }
     vcf_stats {
         path 'qc/vcf_stats'
     }
     sample_filter_plots {
-        path 'qc'
+        path 'qc/vcf_filters'
     }   
     missing_summary {
-        path 'qc'
+        path 'qc/vcf_filters'
     }  
     site_filter_plots {
-        path 'qc'
+        path 'qc/vcf_filters'
     } 
     mask_filter_plots {
-        path 'qc'
+        path 'qc/vcf_filters'
     }   
     multiqc_report {
         path 'qc'

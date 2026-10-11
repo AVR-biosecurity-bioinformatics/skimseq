@@ -18,6 +18,7 @@ include {
     PreparedGenome
     SampleCram
     CramStats
+    UnmappedReads
 } from '../types'
 
 
@@ -178,9 +179,11 @@ workflow ALIGNMENT {
         ch_genome_indexed
     )
 
-    // Optional: extract unmapped reads 
+    // Optional: extract unmapped reads
+    ch_unmapped_reads = channel.empty()
+
     if (params.output_unmapped_reads) {
-        _unmapped_reads = EXTRACT_UNMAPPED(
+        ch_unmapped_reads = EXTRACT_UNMAPPED(
             ch_staged_cram,
             ch_genome_indexed
         )
@@ -190,5 +193,6 @@ workflow ALIGNMENT {
     cram: Channel<SampleCram> = ch_staged_cram
     new_cram: Channel<SampleCram> = ch_new_cram
     cram_stats: Channel<CramStats> = ch_cram_stats
+    unmapped_reads: Channel<UnmappedReads> = ch_unmapped_reads
 }
 

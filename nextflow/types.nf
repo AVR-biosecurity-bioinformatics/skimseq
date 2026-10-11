@@ -109,3 +109,9 @@ record SampleGvcf {
     vcf: Path
     index: Path
 }
+
+record UnmappedReads {
+    sample: String
+    r1: Path
+    r2: Path
+}

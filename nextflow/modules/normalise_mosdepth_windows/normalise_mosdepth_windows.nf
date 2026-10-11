@@ -1,30 +1,21 @@
 nextflow.enable.types = true
 
-process COUNT_CRAM_WINDOWS {
+process NORMALISE_MOSDEPTH_WINDOWS {
 
     tag "${sample}"
 
+    // Environment must contain bgzip and tabix.
     conda "${moduleDir}/environment.yml"
 
     input:
     record(
         sample: String,
-        cram: Path,
-        crai: Path
+        regions: Path?
     )
-
-    record(
-        ref_genome: Path,
-        genome_index_files: Set<Path>
-    )
-
-    windows_bed: Path
 
     output:
     record(
         sample: sample,
-        windows: file("${sample}.regions.bed.gz"),
-        windows_csi: file("${sample}.regions.bed.gz.csi"),
         normalised_windows: file(
             "${sample}.normalised.regions.bed.gz",
             optional: true
@@ -36,30 +27,16 @@ process COUNT_CRAM_WINDOWS {
     )
 
     script:
-    def exclude_flags = params.rmdup
-        ? 1796
-        : 772
+    assert regions != null:
+        'NORMALISE_MOSDEPTH_WINDOWS: MOSDEPTH must be run with --by'
 
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # windows_bed must be BED3: chrom, start, end.
-    # Its mosdepth output is then BED4: chrom, start, end, mean depth.
-    mosdepth \\
-        --threads ${task.cpus} \\
-        --fasta "${ref_genome}" \\
-        --mapq ${params.minmq} \\
-        --flag ${exclude_flags} \\
-        --fast-mode \\
-        --no-per-base \\
-        --by "${windows_bed}" \\
-        "${sample}" \\
-        "${cram}"
-
-    # Sort positive window depths to obtain a robust per-sample baseline.
-    # Zero-depth windows remain in the output, but do not set the baseline.
-    gzip -dc "${sample}.regions.bed.gz" |
+    # Require BED4: chrom, start, end, depth.
+    # Zero-depth windows remain in the output but do not set the baseline.
+    gzip -dc "${regions}" |
         awk '
             NF != 4 {
                 print "ERROR: expected BED4 mosdepth output" > "/dev/stderr"
@@ -67,12 +44,12 @@ process COUNT_CRAM_WINDOWS {
             }
             \$4 > 0 { print \$4 }
         ' |
-        sort -n > positive_depths.sorted
+        LC_ALL=C sort -n > positive_depths.sorted
 
     n=\$(wc -l < positive_depths.sorted)
 
     if (( n == 0 )); then
-        echo "WARNING: no positive-depth windows for ${sample}; retaining raw windows and skipping normalisation" >&2
+        echo "WARNING: no positive-depth windows for ${sample}; skipping normalisation" >&2
         exit 0
     fi
 
@@ -80,7 +57,7 @@ process COUNT_CRAM_WINDOWS {
         awk -v n="\${n}" '
             NR == int((n + 1) / 2) { lower = \$1 }
             NR == int((n + 2) / 2) {
-                print (lower + \$1) / 2
+                printf "%.17g\\n", (lower + \$1) / 2
                 exit
             }
         ' positive_depths.sorted
@@ -88,7 +65,7 @@ process COUNT_CRAM_WINDOWS {
 
     echo "Sample ${sample}: median positive window depth = \${baseline}" >&2
 
-    gzip -dc "${sample}.regions.bed.gz" |
+    gzip -dc "${regions}" |
         awk -v baseline="\${baseline}" '
             BEGIN { OFS = "\\t" }
             {
