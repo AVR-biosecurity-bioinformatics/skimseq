@@ -304,24 +304,36 @@ read_plink_pca <- function(eigenvec_file, eigenval_file) {
   )
 }
 
-# Read variant QC histogram outptus of filter_vcf
-read_variant_filter_histograms <- function(directory = "histograms") {
-    files <- list.files(directory, full.names = TRUE)
-    files <- files[endsWith(basename(files), ".filter_hist.tsv")]
+# Read and combine histogram TSV files.
+read_histogram_files <- function(
+    directory,
+    suffix,
+    required,
+    character_columns,
+    numeric_columns,
+    label,
+    add_source = FALSE
+) {
+    files <- sort(list.files(directory, full.names = TRUE))
+    files <- files[endsWith(basename(files), suffix)]
 
     if (!length(files)) {
-        stop("No filter histogram TSV files found in: ", directory)
+        stop("No ", label, " TSV files found in: ", directory)
     }
 
-    required <- c(
-        "RULE", "POP", "FILTER", "TYPE",
-        "BIN", "XMIN", "XMAX", "COUNT"
-    )
+    tables <- lapply(seq_along(files), function(i) {
+        file <- files[[i]]
 
-    tables <- lapply(files, function(file) {
-        x <- data.table::fread(file)
+        x <- data.table::fread(
+            file,
+            na.strings = "",
+            colClasses = list(
+                character = character_columns
+            )
+        )
 
         missing <- setdiff(required, names(x))
+
         if (length(missing)) {
             stop(
                 "Missing columns in ", file, ": ",
@@ -329,129 +341,52 @@ read_variant_filter_histograms <- function(directory = "histograms") {
             )
         }
 
-        x[, ..required]
-    })
-
-    hist <- data.table::rbindlist(tables, use.names = TRUE)
-
-    if (!nrow(hist)) {
-        stop("Histogram files contain no counts.")
-    }
-
-    hist[, `:=`(
-        BIN = as.numeric(BIN),
-        XMIN = as.numeric(XMIN),
-        XMAX = as.numeric(XMAX),
-        COUNT = as.numeric(COUNT)
-    )]
-
-    if (
-        anyNA(hist) ||
-        any(!is.finite(hist$BIN)) ||
-        any(!is.finite(hist$XMIN)) ||
-        any(!is.finite(hist$XMAX)) ||
-        any(!is.finite(hist$COUNT)) ||
-        any(hist$XMAX <= hist$XMIN) ||
-        any(hist$COUNT < 0) ||
-        any(!hist$FILTER %in% c("PASS", "FAIL"))
-    ) {
-        stop("Histogram files contain missing or invalid values.")
-    }
-
-    # A bin number must represent the same x interval in every chunk.
-    edges <- hist[
-        ,
-        .(
-            n_xmin = data.table::uniqueN(signif(XMIN, 12)),
-            n_xmax = data.table::uniqueN(signif(XMAX, 12))
-        ),
-        by = .(RULE, BIN)
-    ]
-
-    if (any(edges$n_xmin != 1L | edges$n_xmax != 1L)) {
-        stop("Inconsistent bin boundaries across histogram files.")
-    }
-
-    hist[
-        ,
-        .(COUNT = sum(COUNT)),
-        by = .(RULE, POP, FILTER, TYPE, BIN, XMIN, XMAX)
-    ]
-}
-
-# Read and aggregate mask QC histogram outputs from FILTER_VCF.
-read_variant_mask_histograms <- function(directory = "histograms") {
-    files <- sort(list.files(directory, full.names = TRUE))
-    files <- files[endsWith(basename(files), ".mask_hist.tsv")]
-
-    if (!length(files)) {
-        stop("No mask histogram TSV files found in: ", directory)
-    }
-
-    required <- c(
-        "RULE", "POP", "MASK", "TYPE",
-        "BIN", "XMIN", "XMAX", "COUNT",
-        "N_VALID", "N_RECORDS"
-    )
-
-    numeric_columns <- c(
-        "BIN", "XMIN", "XMAX", "COUNT", "N_VALID", "N_RECORDS"
-    )
-
-    tables <- lapply(seq_along(files), function(i) {
-        x <- data.table::fread(
-            files[[i]],
-            colClasses = list(
-                character = c("RULE", "POP", "MASK", "TYPE")
-            )
-        )
-
-        missing <- setdiff(required, names(x))
-        if (length(missing)) {
-            stop(
-                "Missing columns in ", files[[i]], ": ",
-                paste(missing, collapse = ", ")
-            )
-        }
-
         x <- x[, ..required]
 
-        x[, (numeric_columns) := lapply(.SD, as.numeric),
-          .SDcols = numeric_columns]
+        x[
+            ,
+            (numeric_columns) := lapply(.SD, as.numeric),
+            .SDcols = numeric_columns
+        ]
 
-        x[, SOURCE := i]
+        if (add_source) {
+            x[, SOURCE := i]
+        }
+
         x
     })
 
-    hist <- data.table::rbindlist(tables, use.names = TRUE)
+    hist <- data.table::rbindlist(
+        tables,
+        use.names = TRUE
+    )
 
     if (!nrow(hist)) {
-        stop("Mask histogram files contain no counts.")
+        stop(label, " files contain no counts.")
     }
 
+    hist
+}
+
+
+# Validate values and bin boundaries shared by all histogram types.
+validate_histogram_data <- function(
+    hist,
+    numeric_columns,
+    label = "Histogram"
+) {
     if (
         anyNA(hist) ||
         any(!is.finite(as.matrix(hist[, ..numeric_columns]))) ||
         any(hist$XMAX <= hist$XMIN) ||
         any(hist$COUNT < 0) ||
-        any(hist$N_VALID <= 0) ||
-        any(hist$N_RECORDS < hist$N_VALID) ||
         any(hist$BIN != floor(hist$BIN)) ||
-        any(hist$COUNT != floor(hist$COUNT)) ||
-        any(hist$N_VALID != floor(hist$N_VALID)) ||
-        any(hist$N_RECORDS != floor(hist$N_RECORDS))
+        any(hist$COUNT != floor(hist$COUNT))
     ) {
-        stop("Mask histogram files contain missing or invalid values.")
+        stop(label, " files contain missing or invalid values.")
     }
 
-    # Each file should contain one row per group and occupied bin.
-    bin_keys <- c("SOURCE", "RULE", "POP", "MASK", "TYPE", "BIN")
-
-    if (anyDuplicated(hist[, ..bin_keys])) {
-        stop("Duplicate histogram bins within an input file.")
-    }
-
-    # A bin must represent the same interval across chunks/populations.
+    # A bin number must represent the same interval everywhere.
     edges <- hist[
         ,
         .(
@@ -462,90 +397,36 @@ read_variant_mask_histograms <- function(directory = "histograms") {
     ]
 
     if (any(edges$n_xmin != 1L | edges$n_xmax != 1L)) {
-        stop("Inconsistent bin boundaries across mask histogram files.")
-    }
-
-    # Validate and extract one denominator per file and metric group.
-    denominators <- hist[
-        ,
-        .(
-            n_valid_values = data.table::uniqueN(N_VALID),
-            n_record_values = data.table::uniqueN(N_RECORDS),
-            total = sum(COUNT),
-            N_VALID = N_VALID[[1L]],
-            N_RECORDS = N_RECORDS[[1L]]
-        ),
-        by = .(SOURCE, RULE, POP, MASK, TYPE)
-    ]
-
-    if (denominators[
-        ,
-        any(
-            n_valid_values != 1L |
-            n_record_values != 1L |
-            total != N_VALID
+        stop(
+            "Inconsistent bin boundaries across ",
+            tolower(label),
+            " files."
         )
-    ]) {
-        stop("Inconsistent denominators or histogram totals.")
     }
 
-    # Record totals must agree across metrics and populations.
-    records <- unique(
-        denominators[, .(SOURCE, MASK, TYPE, N_RECORDS)]
-    )
-
-    record_checks <- records[
-        ,
-        .(n = data.table::uniqueN(N_RECORDS)),
-        by = .(SOURCE, MASK, TYPE)
-    ]
-
-    if (any(record_checks$n != 1L)) {
-        stop("Inconsistent record totals across metrics/populations.")
-    }
-
-    records <- records[
-        ,
-        .(N_RECORDS = sum(N_RECORDS)),
-        by = .(MASK, TYPE)
-    ]
-
-    # Aggregate denominators once per file, not once per bin.
-    denominators <- denominators[
-        ,
-        .(
-            N_VALID = sum(N_VALID),
-            N_RECORDS = sum(N_RECORDS)
-        ),
-        by = .(RULE, POP, MASK, TYPE)
-    ]
-
-    # Canonicalise edges after validating them.
+    # Canonicalise floating-point edges after validating them.
     hist[, `:=`(
         XMIN = signif(XMIN, 12),
         XMAX = signif(XMAX, 12)
     )]
 
-    counts <- hist[
+    invisible(hist)
+}
+
+
+# Aggregate histogram counts across input chunks.
+aggregate_histogram_counts <- function(hist, group_columns) {
+    hist[
         ,
         .(COUNT = sum(COUNT)),
-        by = .(RULE, POP, MASK, TYPE, BIN, XMIN, XMAX)
+        by = group_columns
     ]
+}
 
-    counts <- merge(
-        counts,
-        denominators,
-        by = c("RULE", "POP", "MASK", "TYPE"),
-        all.x = TRUE,
-        sort = FALSE
-    )
 
-    counts[, PERCENT := 100 * COUNT / N_VALID]
-
-    # Sparse step coordinates: drop to zero after each occupied bin,
-    # unless another occupied bin begins at that boundary.
-    # This avoids drawing lines across empty bins without dense expansion.
-    steps <- counts[
+# Generate sparse step coordinates from aggregated percentages.
+make_histogram_steps <- function(counts, group_columns) {
+    counts[
         ,
         {
             x <- data.table::rbindlist(list(
@@ -562,16 +443,232 @@ read_variant_mask_histograms <- function(directory = "histograms") {
             ))
 
             data.table::setorder(x, POSITION, PRIORITY)
+
+            # Retain the occupied-bin value when an XMIN and XMAX
+            # occur at the same boundary.
             x <- x[!duplicated(POSITION)]
 
             x[, .(POSITION, PERCENT)]
         },
+        by = group_columns
+    ]
+}
+
+
+# Read and aggregate variant filter histograms from FILTER_VCF.
+read_variant_filter_histograms <- function(
+    directory = "histograms"
+) {
+    required <- c(
+        "RULE", "POP", "FILTER", "TYPE",
+        "BIN", "XMIN", "XMAX", "COUNT"
+    )
+
+    numeric_columns <- c(
+        "BIN", "XMIN", "XMAX", "COUNT"
+    )
+
+    hist <- read_histogram_files(
+        directory = directory,
+        suffix = ".filter_hist.tsv",
+        required = required,
+        character_columns = c(
+            "RULE", "POP", "FILTER", "TYPE"
+        ),
+        numeric_columns = numeric_columns,
+        label = "Filter histogram"
+    )
+
+    validate_histogram_data(
+        hist = hist,
+        numeric_columns = numeric_columns,
+        label = "Filter histogram"
+    )
+
+    if (any(!hist$FILTER %in% c("PASS", "FAIL"))) {
+        stop(
+            "Filter histogram files contain invalid FILTER values."
+        )
+    }
+
+    counts <- aggregate_histogram_counts(
+        hist = hist,
+        group_columns = c(
+            "RULE", "POP", "FILTER", "TYPE",
+            "BIN", "XMIN", "XMAX"
+        )
+    )
+
+    data.table::setorder(
+        counts,
+        RULE, POP, FILTER, TYPE, BIN
+    )
+
+    counts
+}
+
+
+# Read and aggregate mask-stratified histograms from FILTER_VCF.
+read_variant_mask_histograms <- function(
+    directory = "histograms"
+) {
+    required <- c(
+        "RULE", "POP", "MASK", "TYPE",
+        "BIN", "XMIN", "XMAX", "COUNT",
+        "N_VALID", "N_RECORDS"
+    )
+
+    numeric_columns <- c(
+        "BIN", "XMIN", "XMAX", "COUNT",
+        "N_VALID", "N_RECORDS"
+    )
+
+    hist <- read_histogram_files(
+        directory = directory,
+        suffix = ".mask_hist.tsv",
+        required = required,
+        character_columns = c(
+            "RULE", "POP", "MASK", "TYPE"
+        ),
+        numeric_columns = numeric_columns,
+        label = "Mask histogram",
+        add_source = TRUE
+    )
+
+    validate_histogram_data(
+        hist = hist,
+        numeric_columns = numeric_columns,
+        label = "Mask histogram"
+    )
+
+    if (
+        any(hist$N_VALID <= 0) ||
+        any(hist$N_RECORDS < hist$N_VALID) ||
+        any(hist$N_VALID != floor(hist$N_VALID)) ||
+        any(hist$N_RECORDS != floor(hist$N_RECORDS))
+    ) {
+        stop(
+            "Mask histogram files contain invalid denominators."
+        )
+    }
+
+    # Each file should contain one row per group and occupied bin.
+    bin_keys <- c(
+        "SOURCE", "RULE", "POP", "MASK", "TYPE", "BIN"
+    )
+
+    if (anyDuplicated(hist[, ..bin_keys])) {
+        stop(
+            "Duplicate histogram bins within an input file."
+        )
+    }
+
+    # Validate and extract one denominator per file and metric group.
+    denominators <- hist[
+        ,
+        .(
+            n_valid_values = data.table::uniqueN(N_VALID),
+            n_record_values = data.table::uniqueN(N_RECORDS),
+            total = sum(COUNT),
+            N_VALID = N_VALID[[1L]],
+            N_RECORDS = N_RECORDS[[1L]]
+        ),
+        by = .(SOURCE, RULE, POP, MASK, TYPE)
+    ]
+
+    if (
+        denominators[
+            ,
+            any(
+                n_valid_values != 1L |
+                n_record_values != 1L |
+                total != N_VALID
+            )
+        ]
+    ) {
+        stop(
+            "Inconsistent denominators or histogram totals."
+        )
+    }
+
+    # N_RECORDS should be identical across metrics and populations
+    # for a given input chunk, mask, and variant type.
+    record_checks <- denominators[
+        ,
+        .(
+            n_record_values =
+                data.table::uniqueN(N_RECORDS)
+        ),
+        by = .(SOURCE, MASK, TYPE)
+    ]
+
+    if (any(record_checks$n_record_values != 1L)) {
+        stop(
+            "Inconsistent record totals across metrics/populations."
+        )
+    }
+
+    # Count records once per source, mask, and type.
+    records <- unique(
+        denominators[
+            ,
+            .(SOURCE, MASK, TYPE, N_RECORDS)
+        ]
+    )[
+        ,
+        .(N_RECORDS = sum(N_RECORDS)),
+        by = .(MASK, TYPE)
+    ]
+
+    # Count valid values once per source and metric group.
+    denominators <- denominators[
+        ,
+        .(
+            N_VALID = sum(N_VALID),
+            N_RECORDS = sum(N_RECORDS)
+        ),
         by = .(RULE, POP, MASK, TYPE)
     ]
 
-    data.table::setorder(counts, RULE, POP, TYPE, MASK, BIN)
-    data.table::setorder(steps, RULE, POP, TYPE, MASK, POSITION)
-    data.table::setorder(records, TYPE, MASK)
+    counts <- aggregate_histogram_counts(
+        hist = hist,
+        group_columns = c(
+            "RULE", "POP", "MASK", "TYPE",
+            "BIN", "XMIN", "XMAX"
+        )
+    )
+
+    counts <- merge(
+        counts,
+        denominators,
+        by = c("RULE", "POP", "MASK", "TYPE"),
+        all.x = TRUE,
+        sort = FALSE
+    )
+
+    counts[, PERCENT := 100 * COUNT / N_VALID]
+
+    steps <- make_histogram_steps(
+        counts = counts,
+        group_columns = c(
+            "RULE", "POP", "MASK", "TYPE"
+        )
+    )
+
+    data.table::setorder(
+        counts,
+        RULE, POP, TYPE, MASK, BIN
+    )
+
+    data.table::setorder(
+        steps,
+        RULE, POP, TYPE, MASK, POSITION
+    )
+
+    data.table::setorder(
+        records,
+        TYPE, MASK
+    )
 
     list(
         histograms = counts,
@@ -579,3 +676,4 @@ read_variant_mask_histograms <- function(directory = "histograms") {
         records = records
     )
 }
+

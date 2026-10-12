@@ -8,32 +8,82 @@ include {
 
 
 def parseSamplesheetRow(row: SamplesheetRow) {
-    def sample = row.sample
-    def lib = row.lib ?: sample
+    def sample = row.sample.trim()
+    def lib = row.lib?.trim() ?: ''
+    def pop = row.pop?.trim() ?: ''
+    def fwd = row.fwd.trim()
+    def rev = row.rev?.trim() ?: ''
 
-    def pop = row.pop
-        ? row.pop.replaceAll(/\s+/, '_')
-        : 'unknown'
+    /*
+     * Validate sample identifier.
+     */
+    if (sample.length() < 3) {
+        error(
+            "Sample identifier must contain at least 3 characters; " +
+            "found '${sample}'."
+        )
+    }
 
-    def fwd = row.fwd
-    def rev = row.rev ?: ''
+    /*
+     * Validate library identifier and default to sample when absent.
+     */
+    if (lib && lib.length() < 3) {
+        error(
+            "Library identifier for sample '${sample}' must contain " +
+            "at least 3 characters; found '${lib}'."
+        )
+    }
 
+    lib = lib ?: sample
+
+    /*
+     * Validate population identifier and default to unknown when absent.
+     */
+    if (pop == '.') {
+        error(
+            "Sample '${sample}' has invalid population assignment '.'. " +
+            "Population identifiers cannot consist of a single period."
+        )
+    }
+
+    if (pop && !(pop ==~ /[A-Za-z0-9_.-]+/)) {
+        error(
+            "Sample '${sample}' has invalid population identifier '${pop}'. " +
+            "Allowed characters are letters, numbers, underscores, " +
+            "dashes, and periods."
+        )
+    }
+
+    pop = pop ?: 'unknown'
+
+    /*
+     * Validate forward input.
+     */
+    if (!fwd) {
+        error(
+            "Sample '${sample}' requires a value in the fwd column."
+        )
+    }
+
+    /*
+     * Determine input type.
+     */
     def fwd_is_url =
         fwd ==~ /(?i)^(https?|ftp):\/\/.+/
 
     def rev_is_url =
-        rev &&
-        rev ==~ /(?i)^(https?|ftp):\/\/.+/
+        rev && rev ==~ /(?i)^(https?|ftp):\/\/.+/
 
     def fwd_is_accession =
         fwd ==~ /(?i)^(SRR|ERR|DRR)\d+$/
 
     def rev_is_accession =
-        rev &&
-        rev ==~ /(?i)^(SRR|ERR|DRR)\d+$/
+        rev && rev ==~ /(?i)^(SRR|ERR|DRR)\d+$/
 
+    /*
+     * Run accession input.
+     */
     if (fwd_is_accession) {
-
         if (rev) {
             error(
                 "Run accession '${fwd}' for sample '${sample}' " +
@@ -52,8 +102,10 @@ def parseSamplesheetRow(row: SamplesheetRow) {
         )
     }
 
+    /*
+     * Remote URL input.
+     */
     if (fwd_is_url) {
-
         if (!rev_is_url) {
             error(
                 "URL input for sample '${sample}' requires URLs " +
@@ -72,6 +124,9 @@ def parseSamplesheetRow(row: SamplesheetRow) {
         )
     }
 
+    /*
+     * Local FASTQ input.
+     */
     if (!rev || rev_is_url || rev_is_accession) {
         error(
             "Local input for sample '${sample}' requires local " +
