@@ -253,7 +253,7 @@ workflow {
     main:
     startupMessage()
 
-    // validate inpiut params
+    // validate input params
     validateParameters()
     log.info(
         paramsSummaryLog() as String

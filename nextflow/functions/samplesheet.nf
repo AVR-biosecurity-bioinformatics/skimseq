@@ -7,7 +7,9 @@ include {
 } from '../types'
 
 
-def parseSamplesheetRow(row: SamplesheetRow) {
+def parseSamplesheetRow(
+    row: SamplesheetRow
+    ) {
     def sample = row.sample.trim()
     def lib = row.lib?.trim() ?: sample
     def pop = row.pop?.trim() ?: 'unknown'
@@ -110,7 +112,7 @@ def parseSamplesheetRow(row: SamplesheetRow) {
 def groupSampleReads(
     sample: String,
     reads: Bag<LibraryReads>
-) {
+){
 
     def sources = reads
         .collect { read ->
@@ -153,23 +155,27 @@ def groupSampleReads(
         pop: pop,
         libs: sorted_reads.collect { read ->
             read.lib
-        },
+        }.toList(),
         source: source,
         input1s: sorted_reads.collect { read ->
             read.input1
-        },
+        }.toList(),
         input2s: sorted_reads.collect { read ->
             read.input2
-        },
-        local_r1s: source == 'local'
-            ? sorted_reads.collect { read ->
-                read.local_reads[0]
-            }
-            : [],
-        local_r2s: source == 'local'
-            ? sorted_reads.collect { read ->
-                read.local_reads[1]
-            }
-            : []
+        }.toList(),
+        local_r1s: (
+            source == 'local'
+                ? sorted_reads.collect { read ->
+                    read.local_reads[0]
+                }
+                : []
+        ).toList(),
+        local_r2s: (
+            source == 'local'
+                ? sorted_reads.collect { read ->
+                    read.local_reads[1]
+                }
+                : []
+        ).toList()
     )
 }

@@ -24,6 +24,8 @@ include {
 // Import record types
 include {
     SamplesheetRow
+    LibraryReads
+    SampleReads
     SampleCram
     CramStats
     PreparedGenome
