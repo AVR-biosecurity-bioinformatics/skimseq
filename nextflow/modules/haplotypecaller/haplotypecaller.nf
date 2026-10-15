@@ -1,25 +1,48 @@
+nextflow.enable.types = true
+
 process HAPLOTYPECALLER {
-    tag "${sample}:${interval_hash}"
+
+    tag "${sample}:${hc_id}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), val(interval_hash), val(n_intervals), path(interval_bed), path(bed_tbi), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
+    record(
+        sample: String,
+        jc_id: String,
+        hc_id: String,
+        order: Integer,
+        interval_bed: Path,
+        interval_index: Path,
+        cram: Path,
+        crai: Path
+    )
 
-    output: 
-    tuple val(sample), val(interval_hash), val(n_intervals), path("*.g.vcf.gz"), path("*.g.vcf.gz.tbi"),     emit: gvcf_intervals
-    tuple val(sample), val(interval_hash), path("*.stderr.log"), path("*.assembly.tsv"),   emit: log
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
-    script: 
+    output:
+    record(
+        sample: sample,
+        jc_id: jc_id,
+        hc_id: hc_id,
+        order: order,
+        gvcf: file("*.g.vcf.gz"),
+        gvcf_index: file("*.g.vcf.gz.tbi")
+    )
+
+    script:
     """
     #!/usr/bin/env bash
     set -euo pipefail
     
     GATK_TMP=${workflow.workDir}/tmp
+    mkdir -p \${GATK_TMP}
 
     # 1GB of memory should be retained outside the java heap
-    JAVA_MEM=\$(( ${task.memory.giga} - 1 ))
+    JAVA_MEM=\$(( ${task.memory.toGiga()} - 1 ))
     if (( JAVA_MEM < 1 )); then
         JAVA_MEM=1
     fi
@@ -71,8 +94,6 @@ process HAPLOTYPECALLER {
         -L "${interval_bed}" \
         --native-pair-hmm-threads "${task.cpus}" \
         --assembly-region-padding "${params.hc_interval_padding}" \
-        --exclude-intervals "${exclude_bed}" \
-        --interval-exclusion-padding "${params.exclude_padding}" \
         --interval-merging-rule ALL \
         --min-pruning "${params.hc_min_pruning}" \
         --min-dangling-branch-length "${params.hc_min_dangling_length}" \
@@ -90,7 +111,7 @@ process HAPLOTYPECALLER {
         --read-filter OverclippedReadFilter \
         --filter-too-short "${params.min_aligned_length}" \
         --mapping-quality-threshold-for-genotyping "${params.minmq}" \
-        --assembly-region-out "${sample}.${interval_hash}.assembly.tsv" \
+        --assembly-region-out "${sample}.${hc_id}.assembly.tsv" \
         -ploidy "${params.ploidy}" \
         --heterozygosity "${params.heterozygosity}" \
         --heterozygosity-stdev "${params.heterozygosity_stdev}" \
@@ -106,7 +127,7 @@ process HAPLOTYPECALLER {
         -GQB 80 \
         -GQB 90 \
         -O tmp.g.vcf.gz \
-        2> >(tee -a "${interval_hash}.${sample}.stderr.log" >&2)
+        2> >(tee -a "${hc_id}.${sample}.stderr.log" >&2)
 
 
     # Embed CRAM read groups in GVCF header
@@ -138,9 +159,9 @@ process HAPLOTYPECALLER {
         tmp.g.vcf.gz \
     | bcftools view \
         -e 'ALT="<NON_REF>" && (MAX(FORMAT/DP)=0 || MAX(FORMAT/MIN_DP)=0 || MAX(FORMAT/GQ)=0)' \
-        -Oz9 -o "${interval_hash}.${sample}.g.vcf.gz" 
+        -Oz9 -o "${hc_id}.${sample}.g.vcf.gz" 
 
-    bcftools index -t "${interval_hash}.${sample}.g.vcf.gz" 
+    bcftools index -t "${hc_id}.${sample}.g.vcf.gz" 
 
     rm -f tmp.g.vcf.gz tmp.g.vcf.gz.tbi ${sample}.bam ${sample}.bam.bai
     """

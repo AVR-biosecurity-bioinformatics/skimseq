@@ -1,13 +1,17 @@
-process SPLIT_BED_BY_CHR  {
+nextflow.enable.types = true
+
+process SPLIT_BED_BY_CHR {
+
     tag "${bed}"
-    //conda "${moduleDir}/environment.yml"
+
+    // conda "${moduleDir}/environment.yml"
 
     input:
-    path(bed)
+    bed: Path
 
-    output: 
-    path("*.bed"),               emit: per_chr_beds
-    
+    output:
+    files("*.bed")
+
     script:
     """
     #!/usr/bin/env bash

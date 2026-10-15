@@ -1,24 +1,52 @@
+nextflow.enable.types = true
+include {
+    SampleCram
+    PreparedMito
+    PreparedGenome
+} from '../../types'
+
 process REALIGN_MITO {
+
     tag "${sample}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(sample), path(cram), path(cram_index)
-    tuple path(ref_genome), path(genome_index_files)
-    tuple path(mito_fasta), path(mito_index_files)
-    tuple path(shifted_mito_fasta), path(shifted_mito_index_files)
-    path mito_bed
-    path numt_bed
+    record(
+        sample: String,
+        cram: Path,
+        crai: Path
+    )
 
-    output: 
-    tuple val(sample),
-          path("${sample}.mito.bam"),
-          path("${sample}.mito.bam.bai"),
-          path("${sample}.mito.shifted.bam"),
-          path("${sample}.mito.shifted.bam.bai"),
-          emit: mito_bams
-          
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+
+    record(
+        mito_genome: Path,
+        mito_index_files: Set<Path>,
+        mito_bed: Path,
+        shifted_mito_genome: Path,
+        shifted_mito_index_files: Set<Path>,
+        shifted_mito_bed: Path
+    )
+    numt_bed: Path
+    shifted: Boolean
+
+    output:
+    record(
+        reference: shifted ? 'shifted' : 'original',
+        sample: sample,
+        cram: file("${sample}.mito.cram"),
+        crai: file("${sample}.mito.cram.crai")
+    )
+
     script:
+    def mito_fasta = shifted
+        ? shifted_mito_genome
+        : mito_genome
+
     """
     #!/usr/bin/env bash
     set -euo pipefail
@@ -34,8 +62,7 @@ process REALIGN_MITO {
         exit 1
     fi
 
-    # Recruit primary, non-QC-failed, non-duplicate alignments overlapping
-    # the mitochondrial contig or known NUMT regions.
+    # Recruit reads, convert to interleaved FASTQ, align, and sort.
     #
     # -F 0xF04 excludes:
     #   0x004 unmapped
@@ -45,55 +72,36 @@ process REALIGN_MITO {
     #   0x800 supplementary
     samtools view \
         -@ ${task.cpus} \
-        -T ${ref_genome} \
+        -T '${ref_genome}' \
         -b \
         -F 0xF04 \
         --regions-file mt_numt.bed \
-        ${cram} \
-        | samtools collate -@ ${task.cpus} -Ou - \
+        '${cram}' \
+        | samtools collate \
+            -@ ${task.cpus} \
+            -Ou \
+            - \
         | samtools fastq \
             -@ ${task.cpus} \
             -n \
             -0 /dev/null \
             -s /dev/null \
-            -o mito.fq \
-            -
-
-    # Align the recruited reads against the original mitochondrial reference.
-    minibwa mem \
-        -t ${task.cpus} \
-        -p \
-        -R '@RG\\tID:${sample}\\tSM:${sample}\\tPL:ILLUMINA' \
-        '${mito_fasta}' \
-        mito.fq \
+            - \
+        | minibwa mem \
+            -t ${task.cpus} \
+            -p \
+            -R '@RG\\tID:${sample}\\tSM:${sample}\\tPL:ILLUMINA' \
+            '${mito_fasta}' \
+            - \
         | samtools sort \
             -@ ${task.cpus} \
-            -O BAM \
-            -o '${sample}.mito.bam' \
+            -O CRAM \
+            -o '${sample}.mito.cram' \
             -
 
     samtools index \
         -@ ${task.cpus} \
-        ${sample}.mito.bam
-
-    # Align the same reads against the shifted mitochondrial reference
-    minibwa mem \
-        -t ${task.cpus} \
-        -p \
-        -R '@RG\\tID:${sample}.shifted\\tSM:${sample}\\tPL:ILLUMINA' \
-        '${shifted_mito_fasta}' \
-        mito.fq \
-        | samtools sort \
-            -@ ${task.cpus} \
-            -O BAM \
-            -o '${sample}.mito.shifted.bam' \
-            -
-
-    samtools index \
-        -@ ${task.cpus} \
-        ${sample}.mito.shifted.bam
-
-    rm -f mito.fq
+        '${sample}.mito.cram'
 
     """
 }

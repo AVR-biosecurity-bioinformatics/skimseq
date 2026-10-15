@@ -16,17 +16,13 @@ A key challenge is that many variant-calling, filtering, and quality-control wor
 
 # Implementation
 
-`skimseq` is a nextlow workflow that primarily relies on widely used community tools for sequence alignment and variant calling, with variant discovery performed using a `bcftools mpileup` and `bcftools call`-based workflow. These standard approaches are complemented by additional quality control, filtering, and masking procedures designed specifically for low- and variable-coverage datasets. Particular emphasis is placed on minimising biases associated with missing data, uneven coverage, repetitive regions, and problematic genomic sites.
-
-`skimseq` broadly follows the nf-core template and conventions but intentionally diverges in several areas to prioritise computational efficiency, scalability, and reduced storage requirements. Many Nextflow workflows generate large numbers of intermediate files and repeatedly write data to disk. In contrast, `skimseq` aims to minimise I/O and temporary storage by streaming data between tools, combining logically related operations into single processes where appropriate, and avoiding unnecessary intermediate outputs.
-
-As a result, some implementation details differ from typical nf-core recommendations. These design choices are intentional and are aimed at improving performance on shared high-performance computing (HPC) systems and large sequencing datasets while maintaining reproducibility and portability.
+`skimseq` is a nextlow workflow that currently uses `bcftools mpileup` and `bcftools call`-based workflow. `skimseq` is developed for production-scale analyses and prioritises computational efficiency, scalability, and reduced storage requirements. In particular, `skimseq` aims to minimise I/O and temporary storage by streaming data between tools, combining logically related operations into single processes where appropriate, and avoiding unnecessary intermediate outputs. This approach diverges intentionally from standard nf-core pipelines.
 
 ## Requirements
 
 The pipeline requires:
 
-- Linux, macOS or Windows using WSL 2
+- Linux, macOS, or Windows using WSL 2
 - Bash
 - Java 17
 - Nextflow
@@ -47,7 +43,7 @@ git clone https://github.com/AVR-biosecurity-bioinformatics/skimseq.git
 cd skimseq
 ```
 
-Install Nextflow if it is not already available
+Install a local version of nextflow if it is not already available on your rsystem.
 ```
 curl -fsSL https://get.nextflow.io | bash
 chmod +x nextflow
@@ -60,28 +56,33 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Configuration profiles
 
-Profiles are composable. In most cases an institutional profile should be specified first, followed by any optional development profiles.
+Profiles are composable. In most cases, an institutional profile should be specified first to configure where tasks are executed, followed by a software environment profile specifying how process dependencies are provided. Optional testing and development profiles can be added last.
 
 ## Institutional profiles
-These profiles configure the execution environment for a specific HPC system, including scheduler settings, resource limits, queues, and software environment.
+Institutional profiles configure the execution environment for a specific compute system, including the scheduler/executor, queues, resource limits, filesystem settings, and other site-specific configuration.
 
+Included profiles:
 - `basc`: Agriculture Victoria BASC cluster (SLURM + Conda)
   - Requires `--slurm_account ACCOUNT`
 - `gadi`: NCI Gadi cluster (PBS Pro + Singularity)
 - config files for oher HPCs can be obtained from [nf-core/configs](https://github.com/nf-core/configs)
 
-## Software profiles:
-These profiles are primarily intended for local execution or unsupported HPC environments
-- `conda`: use module-level Conda environments
+## Software environment profiles:
+
+A software environment profile must be selected to provide the software dependencies required by each process.
+- `conda`: create and use the module-level Conda environments directly
 - `docker`: use Docker with Wave-provisioned containers
-- `singularity`: use Singularity with Wave-provisioned containers **UNTESTED**
-- `apptainer`: use Apptainer with Wave-provisioned containers **UNTESTED**
-- `podman`: use Podman with Wave-provisioned containers **UNTESTED**
+- `singularity`: use Singularity with Wave-provisioned containers
+- `apptainer`: use Apptainer with Wave-provisioned containers
+- `podman`: use Podman with Wave-provisioned containers
+
+For the container profiles, Wave dynamically provisions the container images required by the workflow from the software dependencies defined by each module. Wave provides the container image, while the selected container runtime (Docker, Singularity, Apptainer, or Podman) is responsible for executing that image on the compute system.
+
+The selected runtime must therefore be installed and supported on the target system. 
 
 ## Development profiles:
-- debug: retain intermediate process outputs and R session data
-- test: use the bundled minimal Queensland fruit fly test dataset and reduced resources
-  - The test profile should be specified last so that its reduced resource limits override production settings.
+- `test`: use the bundled minimal Queensland fruit fly test dataset and reduced resources
+  - The `test` profile should be specified last so that its reduced resource limits override production settings.
 
 # Usage examples:
 
@@ -120,7 +121,7 @@ export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
-    -profile conda,debug,test \
+    -profile conda,test \
     -resume
 ```
 
@@ -133,8 +134,21 @@ nextflow run . \
     -resume
 ```
 
+## Running test dataset on NCI GADI HPC
+
+**NOTE: THIS IS STILL TO BE TESTED**
+```
+nextflow run . \
+    -config conf/nci_gadi.config \
+    -resume
+```
+
+
 # Setting pipeline parameters
-Create a YAML parameter file containing the analysis inputs and settings, or edit the default parameters file found in `/assets/default_params.yml`
+Pipeline parameters can be supplied either in a YAML parameter file or directly on the command line. A parameter file is recommended for routine analyses because it provides a reproducible record of the inputs and settings used for a run.
+
+## Create a parameters file
+Create a YAML parameter file containing the analysis inputs and settings, or edit the example/default parameter file in assets/default_params.yml:
 ```
 samplesheet: "/path/to/samplesheet.csv"
 ref_genome: "/path/to/reference.fa"
@@ -147,7 +161,8 @@ ploidy: 2
 output_cram: true
 output_gvcf: true
 ```
-Supply it using `params-file`
+
+Supply the file using `-params-file`
 ```
 # Launch the job
 nextflow run . \
@@ -156,3 +171,38 @@ nextflow run . \
     --slurm_account YOUR_ACCOUNT \
     -resume
 ```
+
+## Setting parameters on the command line
+
+Pipeline parameters can also be provided directly on the command line using `--<parameter>`. For example, the equivalent inputs and calling settings could be specified as:
+
+```
+nextflow run . \
+    -config conf/basc.config \
+    --samplesheet /path/to/samplesheet.csv \
+    --ref_genome /path/to/reference.fa \
+    --mito_contig MT \
+    --variant_caller bcftools \
+    --calling_model cohort \
+    --ploidy 2 \
+    --output_cram true \
+    --output_gvcf true \
+    --slurm_account YOUR_ACCOUNT \
+    -resume
+```
+
+Command-line parameters can also be used together with -params-file, which is useful when most settings should come from a parameter file but one or two need to be changed for a particular run. Command line parameters are prioritised over those in the `params.yml` file
+
+```
+nextflow run . \
+    -config conf/basc.config \
+    -params-file params.yml \
+    --output_cram false \
+    --slurm_account YOUR_ACCOUNT \
+    -resume
+```
+
+# Full list of available parameters
+
+see `docs/parameters.md` for a full list of available pipeline parameters and their defaults.
+This can also be seen in the `main.nf` file.

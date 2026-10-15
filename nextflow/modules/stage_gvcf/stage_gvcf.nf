@@ -1,13 +1,26 @@
+nextflow.enable.types = true
+
 process STAGE_GVCF {
+
     tag "${sample}"
-    //conda "${moduleDir}/environment.yml"
+
+    // conda "${moduleDir}/environment.yml"
+
     cache 'deep'
 
     input:
-    tuple val(sample), path(vcf), path(vcf_tbi)
-        
-    output: 
-    tuple val(sample),  path("${sample}.g.vcf.gz"), path("${sample}.g.vcf.gz.tbi"),       emit: gvcf
+    record(
+        sample: String,
+        vcf: Path,
+        vcf_tbi: Path
+    )
+
+    output:
+    record(
+        sample: sample,
+        vcf: file("${sample}.g.vcf.gz"),
+        vcf_tbi: file("${sample}.g.vcf.gz.tbi")
+    )
 
     script:
     """

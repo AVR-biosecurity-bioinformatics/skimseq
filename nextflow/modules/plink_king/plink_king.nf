@@ -1,26 +1,37 @@
+nextflow.enable.types = true
+
 process PLINK_KING {
+
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(plinkfiles)
+    record(
+        outname: String,
+        bed: Path,
+        bim: Path,
+        fam: Path
+    )
 
-    output: 
-    tuple val(outname), path("*.king*"),                           emit: king
-    
+    output:
+    record(
+        outname: outname,
+        king: files("${outname}.king*")
+    )
+
     script:
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Then create king table
+    # Create KING relationship table.
     plink2 \
-    --threads ${task.cpus} \
-    --memory ${task.memory.mega} \
-    --bfile ${outname} \
-    --allow-extra-chr \
-    --make-king-table \
-    --out ${outname}.king
-
+        --threads ${task.cpus} \
+        --memory ${task.memory.toMega()} \
+        --bfile "${outname}" \
+        --allow-extra-chr \
+        --make-king-table \
+        --out "${outname}.king"
     """
 }

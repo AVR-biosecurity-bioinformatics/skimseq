@@ -1,16 +1,26 @@
+nextflow.enable.types = true
+
 process PLINK_PCA {
+
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(plinkfiles)
+    record(
+        outname: String,
+        bed: Path,
+        bim: Path,
+        fam: Path
+    )
 
-    output: 
-    tuple val(outname),
-          path("${outname}.eigenval"),
-          path("${outname}.eigenvec"),
-          emit: pca
-    
+    output:
+    record(
+        outname: outname,
+        eigenval: file("${outname}.eigenval"),
+        eigenvec: file("${outname}.eigenvec")
+    )
+
     script:
     """
     #!/usr/bin/env bash
@@ -38,7 +48,7 @@ process PLINK_PCA {
     # to run and makes the frequencies used by PCA reproducible.
     plink2 \
         --threads ${task.cpus} \
-        --memory ${task.memory.mega} \
+        --memory ${task.memory.toMega()} \
         --bfile "${outname}" \
         --allow-extra-chr \
         --freq \
@@ -47,7 +57,7 @@ process PLINK_PCA {
     # Run PLINK pca
     plink2 \
         --threads ${task.cpus} \
-        --memory ${task.memory.mega} \
+        --memory ${task.memory.toMega()} \
         --bfile "${outname}" \
         --allow-extra-chr \
         --read-freq "${outname}.afreq" \

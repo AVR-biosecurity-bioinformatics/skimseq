@@ -1,37 +1,57 @@
+nextflow.enable.types = true
+
 process GENOMICSDB_IMPORT {
-    tag "${ref_genome}:${interval_hash}"
+    tag "${ref_genome}:${jc_id}"
     conda "${moduleDir}/environment.yml"
     
     // Scale memory based on cohort size
-    memory {
-        def n = cohort_size as int
-
-        def tier = n <= 50   ? 24.GB  :
-                n <= 500  ? 48.GB  :
-                n <= 1000 ? 64.GB  :
-                            128.GB
-
-        tier * task.attempt
-    }
+    memory (
+        (
+            cohort_size <= 50   ? 24.GB  :
+            cohort_size <= 500  ? 48.GB  :
+            cohort_size <= 1000 ? 64.GB  :
+                                128.GB
+        ) * task.attempt
+    )
     
     input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(gvcf), path(tbi)
-    tuple path(ref_genome), path(genome_index_files)
-    val(cohort_size)
+    record(
+        jc_id: String,
+        interval_bed: Path,
+        interval_index: Path,
+        gvcfs: Iterable<Path>,
+        indices: Iterable<Path>
+    )
 
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
 
-    output: 
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("$interval_hash"),      emit: genomicsdb
+    cohort_size: Integer
+
+    stage:
+    stageAs(gvcfs, '*')
+    stageAs(indices, '*')
     
+    output:
+    record(
+        jc_id: jc_id,
+        interval_bed: interval_bed,
+        bed_tbi: interval_index,
+        genomicsdb: file("${jc_id}")
+    )
+
     script:
     """
     #!/usr/bin/env bash
     set -euo pipefail
     
     GATK_TMP=${workflow.workDir}/tmp
+    mkdir -p \${GATK_TMP}
 
     # Reserve 20% of task memory for native GenomicsDB/TileDB operations and clamp to at least 1GB.
-    JAVA_MEM=\$(( ${task.memory.giga} * 80 / 100 ))
+    JAVA_MEM=\$(( ${task.memory.toGiga()} * 80 / 100 ))
     if (( JAVA_MEM < 1 )); then
         JAVA_MEM=1
     fi
@@ -66,17 +86,17 @@ process GENOMICSDB_IMPORT {
     # Create sample map file
     VCF_LIST=\$(ls *.g.vcf.gz | sort | uniq )
     SAMPLE_ID=\$(echo "\$VCF_LIST" | cut -f1 -d '.')
-    paste -d '\t' <(echo "\$SAMPLE_ID") <(echo "\$VCF_LIST") > ${interval_hash}.sample_map
+    paste -d '\t' <(echo "\$SAMPLE_ID") <(echo "\$VCF_LIST") > ${jc_id}.sample_map
 
     # Import gvcfs into genomicsdb
     # NOTES from GATK warp pipeline: https://github.com/broadinstitute/warp/blob/develop/tasks/broad/JointGenotypingTasks.wdl
     # testing has shown that the multithreaded reader initialization
     # does not scale well beyond 5 threads, so pointless increase beyond that.
     gatk --java-options "-Xmx\${JAVA_MEM}G -Xms\${JAVA_MEM}g -Djava.io.tmpdir=\${GATK_TMP}" GenomicsDBImport \
-        --genomicsdb-workspace-path ${interval_hash} \
+        --genomicsdb-workspace-path ${jc_id} \
         --batch-size 50 \
         -L ${interval_bed} \
-        --sample-name-map ${interval_hash}.sample_map \
+        --sample-name-map ${jc_id}.sample_map \
         --tmp-dir /tmp \
         --merge-input-intervals \
         "\${MERGE_CONTIGS_ARGS[@]}" \

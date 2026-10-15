@@ -1,28 +1,44 @@
+nextflow.enable.types = true
+
 process JOINT_GENOTYPE {
-    tag "${ref_genome}:${interval_hash}"
+
+    tag "${ref_genome}:${jc_id}"
+
     conda "${moduleDir}/environment.yml"
 
     // Scale memory based on cohort size
-    memory {
-        def n = cohort_size as int
-
-        def tier = n <= 50   ? 24.GB  :
-                n <= 500  ? 48.GB  :
-                n <= 1000 ? 64.GB  :
-                            128.GB
-
-        tier * task.attempt
-    }
+    memory (
+        (
+            cohort_size <= 50   ? 24.GB  :
+            cohort_size <= 500  ? 48.GB  :
+            cohort_size <= 1000 ? 64.GB  :
+                                128.GB
+        ) * task.attempt
+    )
 
     input:
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path(genomicsdb)
-    tuple path(ref_genome), path(genome_index_files)
-    path(exclude_bed)
-    val(cohort_size)
+    record(
+        jc_id: String,
+        interval_bed: Path,
+        bed_tbi: Path,
+        genomicsdb: Path
+    )
 
-    output: 
-    tuple val(interval_hash), path(interval_bed), path(bed_tbi), path("*.vcf.gz"), path("*.vcf.gz.tbi"),    emit: vcf
-    tuple val(interval_hash), path("*.vcf.gz"), path("*.vcf.gz.tbi"), path("*.stderr.log"),  emit: log
+    record(
+        ref_genome: Path,
+        genome_index_files: Set<Path>
+    )
+
+    cohort_size: Integer
+
+    output:
+    record(
+        jc_id: jc_id,
+        interval_bed: interval_bed,
+        bed_tbi: bed_tbi,
+        bcf: file("*.bcf"),
+        bcf_index: file("*.bcf.csi")
+    )
 
     script:
     """
@@ -30,9 +46,10 @@ process JOINT_GENOTYPE {
     set -euo pipefail
     
     GATK_TMP=${workflow.workDir}/tmp
+    mkdir -p \${GATK_TMP}
 
     # Reserve 20% of task memory for native GenomicsDB/TileDB operations and clamp to at least 1GB.
-    JAVA_MEM=\$(( ${task.memory.giga} * 80 / 100 ))
+    JAVA_MEM=\$(( ${task.memory.toGiga()} * 80 / 100 ))
     if (( JAVA_MEM < 1 )); then
         JAVA_MEM=1
     fi
@@ -45,8 +62,6 @@ process JOINT_GENOTYPE {
         -L "${interval_bed}" \
         -O /dev/stdout \
         --create-output-variant-index false \
-        --exclude-intervals "${exclude_bed}" \
-        --interval-exclusion-padding "${params.exclude_padding}" \
         --include-non-variant-sites "${params.output_invariant}" \
         --interval-merging-rule ALL \
         --merge-input-intervals \
@@ -59,17 +74,17 @@ process JOINT_GENOTYPE {
         --indel-heterozygosity "${params.indel_heterozygosity}" \
         --tmp-dir /tmp \
         --genomicsdb-shared-posixfs-optimizations true \
-        2> >(tee -a ${interval_hash}.stderr.log >&2) \
+        2> >(tee -a ${jc_id}.stderr.log >&2) \
     | bcftools +setGT \
         -Ou -- \
         -t q -n . -i 'FMT/DP=0' \
     | bcftools annotate \
         --threads "${task.cpus}" \
         --set-id '%CHROM\\_%POS\\_%REF\\_%FIRST_ALT' \
-        -Oz9 -o "${interval_hash}.vcf.gz"
+        -Oz9 -o "${jc_id}.bcf"
 
     # index output
-    bcftools index -t ${interval_hash}.vcf.gz
+    bcftools index ${jc_id}.bcf
 
     """
 }

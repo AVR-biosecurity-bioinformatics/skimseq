@@ -10,22 +10,22 @@
     ],
     "properties": {
       "sample": {
-        "type": "string",
+      "type": ["string", "integer", "number"],
         "minLength": 3,
         "pattern": ".*\\S.*",
         "description": "Unique sample identifier."
       },
       "lib": {
-        "type": "string",
+        "type": ["string", "integer", "number"],
         "minLength": 3,
         "pattern": ".*\\S.*",
         "description": "Unique library identifier. Set to sample if not provided"
       },
       "pop": {
         "type": "string",
-        "minLength": 1,
-        "pattern": "^[A-Za-z0-9_.-]+$",
-        "description": "Population identifier. Allowed characters: letters, numbers, underscore, dash, and period."
+        "pattern": "^(?=.*[A-Za-z0-9])[A-Za-z0-9_.-]+$",
+        "errorMessage": "Population identifier must contain at least one letter or number and may contain only letters, numbers, underscores, dashes, and periods.",
+        "description": "Population identifier."
       },
       "fwd": {
         "type": "string",

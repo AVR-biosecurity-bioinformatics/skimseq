@@ -1,17 +1,19 @@
+nextflow.enable.types = true
+
 process MULTIQC {
-    //tag "${ref_genome}:${interval_hash}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    path(multiqc_files)
-    path(multiqc_config)
-    //path(renaming_csv)
+    multiqc_files: Iterable<Path>
+    multiqc_config: Path
 
-    output: 
-    path "*multiqc_report.html", emit: report
-    path "*_data"              , emit: data
-    path "*_plots"             , emit: plots
-    
+    stage:
+    stageAs multiqc_files, '*'
+
+    output:
+    file("multiqc_report.html")
+
     script:
     """
     #!/usr/bin/env bash

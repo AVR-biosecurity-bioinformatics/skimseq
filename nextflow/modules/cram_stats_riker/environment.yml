@@ -3,6 +3,7 @@
 channels:
   - conda-forge
   - bioconda
+  - nodefaults
 
 dependencies:
   - bioconda::riker=0.4.1

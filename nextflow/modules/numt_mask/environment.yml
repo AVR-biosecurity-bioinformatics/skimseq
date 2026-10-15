@@ -3,6 +3,7 @@
 channels:
   - conda-forge
   - bioconda
+  - nodefaults
 
 dependencies:
   - bioconda::seqkit=2.13.0

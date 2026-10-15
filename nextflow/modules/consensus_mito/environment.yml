@@ -3,7 +3,9 @@
 channels:
   - conda-forge
   - bioconda
+  - nodefaults
 
 dependencies:
-  - python=3.14.6
-  - bioconda::pyfaidx=0.9.0.4
+  - python=3.14
+  - numpy
+  - pyfaidx=0.9.0.4

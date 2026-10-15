@@ -1,103 +1,102 @@
+nextflow.enable.types = true
+
+include {
+    SampleCram
+} from '../../types'
+
 process PILEUP_MITO {
-    tag "${cohort}: ${samples.size()} samples"
+
+    tag "${shifted ? 'shifted' : 'original'}: ${interval_id} (${samples.size()} samples)"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(cohort),
-          val(samples),
-          path(bams),
-          path(bais),
-          path(shifted_bams),
-          path(shifted_bais)
+    record(
+        interval_id: String,
+        interval_bed: Path,
+        interval_index: Path,
+        samples: Bag<SampleCram>
+    )
 
-    tuple path(mito_fasta),
-          path(mito_index_files)
+    record(
+        mito_genome: Path,
+        mito_index_files: Set<Path>,
+        mito_bed: Path,
+        shifted_mito_genome: Path,
+        shifted_mito_index_files: Set<Path>,
+        shifted_mito_bed: Path
+    )
 
-    tuple path(shifted_mito_fasta),
-          path(shifted_mito_index_files)
+    shifted: Boolean
+
+    stage:
+    stageAs samples.collect { sample -> sample.cram }, "*"
+    stageAs samples.collect { sample -> sample.crai }, "*"
 
     output:
-    tuple val(cohort),
-          path("${cohort}.samples.tsv"),
-          path("${cohort}.original.all_sites.tsv"),
-          path("${cohort}.shifted.all_sites.tsv"),
-          emit: counts
+    record(
+        reference: shifted ? 'shifted' : 'original',
+        interval_id: interval_id,
+        samples_tsv: file("${shifted ? 'shifted' : 'original'}.${interval_id}.samples.tsv"),
+        counts_tsv: file("${shifted ? 'shifted' : 'original'}.${interval_id}.all_sites.tsv")
+    )
 
     script:
-    def ordered = [
-        samples,
-        bams,
-        shifted_bams
-    ]
-        .transpose()
-        .sort { a, b -> a[0].toString() <=> b[0].toString() }
-
-    def originalArgs = ordered
-        .collect { _sample, bam, _shiftedBam -> "'${bam}'" }
-        .join(' ')
-
-    def shiftedArgs = ordered
-        .collect { _sample, _bam, shiftedBam -> "'${shiftedBam}'" }
-        .join(' ')
-
-    def sampleLines = (0..<ordered.size())
-        .collect { index ->
-            def item = ordered[index]
-
-            [
-                index + 1,
-                item[0],
-                item[1],
-                item[2]
-            ].join('\t')
+    // Deterministic sample ordering.
+    def ordered_samples = samples
+        .toSorted { sample ->
+            sample.sample
         }
-        .join('\n')
 
-    def sampleManifest = [
-        'input_index\tsample_id\toriginal_bam\tshifted_bam',
-        sampleLines
-    ].join('\n') + '\n'
+    def sample_manifest =
+        'input_index\tsample_id\tbam\n' +
+        ordered_samples
+            .withIndex()
+            .collect { sample, i ->
+                "${i + 1}\t${sample.sample}\t${sample.cram.name}\n"
+            }
+            .join('')
+
+    def reference = shifted
+        ? 'shifted'
+        : 'original'
+
+    def mito_fasta = shifted
+        ? shifted_mito_genome
+        : mito_genome
+
+    def samples_file = "${reference}.${interval_id}.samples.tsv"
 
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    printf '%s' '${sampleManifest}' > '${cohort}.samples.tsv'
+    printf '%s' '${sample_manifest}' \
+        > "${samples_file}"
 
-    # All-sites pileup against the original mitochondrial reference.
-    #
-    # Do not use:
-    #   -v  variants only
-    #   -c  VCF output; forces variant-only mode
-    #   -y  conservative variant-calling preset
-    #
-    # Allele filtering remains permissive so that final depth, VAF,
-    # mixed-site and non-SNV filtering can be performed downstream.
-    minipileup \\
-        -f '${mito_fasta}' \\
-        -C \\
-        -e \\
-        -q ${params.mito_minmq} \\
-        -Q ${params.mito_minbq} \\
-        -T ${params.mito_trim_read_ends} \\
-        -s 1 \\
-        -a 0 \\
-        -p 0 \\
-        ${originalArgs} \\
-        > '${cohort}.original.all_sites.tsv'
+    awk 'NR > 1 { print \$3 }' \
+        "${samples_file}" \
+        > bam.list
 
-    # All-sites pileup against the shifted mitochondrial reference.
-    minipileup \\
-        -f '${shifted_mito_fasta}' \\
-        -C \\
-        -e \\
-        -q ${params.mito_minmq} \\
-        -Q ${params.mito_minbq} \\
-        -T ${params.mito_trim_read_ends} \\
-        -s 1 \\
-        -a 0 \\
-        -p 0 \\
-        ${shiftedArgs} \\
-        > '${cohort}.shifted.all_sites.tsv'
+    [[ -s bam.list ]] || {
+        echo "No CRAMs supplied for ${reference}:${interval_id}" >&2
+        exit 1
+    }
+
+    bcftools mpileup \\
+        --bam-list bam.list \\
+        --regions-file "${interval_bed}" \\
+        --threads ${task.cpus} \\
+        --count-orphans \\
+        --no-BAQ \\
+        --fasta-ref "${mito_fasta}" \\
+        --min-MQ ${params.mito_minmq} \\
+        --min-BQ ${params.mito_minbq} \\
+        --max-depth ${params.mito_max_depth_per_sample} \\
+        --annotate FORMAT/AD \\
+        -Ou |
+        bcftools query \\
+            -f '%CHROM\\t%POS\\t%REF\\t%ALT[\\t%AD]\\n' \\
+        > "${reference}.${interval_id}.all_sites.tsv"
     """
 }

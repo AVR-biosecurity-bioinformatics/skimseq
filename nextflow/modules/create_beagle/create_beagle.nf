@@ -1,25 +1,32 @@
+nextflow.enable.types = true
+
 process CREATE_BEAGLE {
-    tag "${outname}"
+
+    tag "${vcf}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(vcf), path(vcf_tbi)
-    tuple path(ref_genome), path(genome_index_files)
-    val(use_posteriors)
+    record(
+        outname: String,
+        vcf: Path,
+        index: Path
+    )
+    use_posteriors: Boolean
 
-    output: 
-    path("*.beagle.gz"),                           emit: beagle
-    
+    output:
+    file("*.beagle.gz")
+
     script:
-    def use_pp = use_posteriors.toString() == 'true'
-    def suffix = use_pp ? 'pp' : 'gl'
+    def suffix = use_posteriors ? 'pp' : 'gl'
+
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
     output="${outname}.${suffix}.beagle"
 
-    if [[ "${use_pp}" == "true" ]]; then
+    if [[ "${use_posteriors}" == "true" ]]; then
         # Replace PL with PP, then convert posterior phred scores to GP.
         bcftools view -i 'COUNT(FMT/PP!=".") > 0' -Ou "${vcf}" \
             | bcftools annotate -x FORMAT/PL -Ou \

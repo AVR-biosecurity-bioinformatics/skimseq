@@ -1,0 +1,12 @@
+# environment.yml
+
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+
+dependencies:
+  - bioconda::samtools=1.24
+  - bioconda::minibwa=0.7
+  - bioconda::seqtk=1.5
+  - bioconda::seqkit=2.13.0

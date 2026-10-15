@@ -1,15 +1,24 @@
+nextflow.enable.types = true
+
 process NGSRELATE {
+
     tag "${outname}"
+
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(outname), path(vcf), path(vcf_tbi)
+    record(
+        outname: String,
+        bcf: Path,
+        csi: Path
+    )
 
-    output: 
-    tuple val(outname),
-          path("${outname}.rel"),
-          path("${outname}.rel.id"),
-          emit: rel
+    output:
+    record(
+        outname: outname,
+        rel: file("${outname}.rel"),
+        rel_id: file("${outname}.rel.id")
+    )
 
     script:
     """
@@ -18,7 +27,7 @@ process NGSRELATE {
 
     ngsRelate \
         -p ${task.cpus} \
-        -h ${vcf} \
+        -h ${bcf} \
         -O ${outname}.res \
         -I 1 
     """

@@ -1,4 +1,6 @@
 #!/usr/bin/env nextflow
+
+nextflow.enable.types = true
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     AVR-biosecurity-bioinformatics/skimseq
@@ -14,14 +16,15 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+
 params {
     // General
     help: Boolean = false
     slurm_account: String?
 
     // Primary inputs
-    samplesheet: Path?
-    ref_genome: Path?
+    samplesheet: Path
+    ref_genome: Path
     mito_contig: String?
 
     // Intermediate inputs
@@ -33,44 +36,25 @@ params {
     skip_gvcf_validation: Boolean = false               // Whether validation of existing gvcf should be skipped
 
     // Parallelisation
-    hc_bases_per_chunk: Integer = 100_000_000           // Create GATK HaplotypeCaller intervals containing approximately this many aligned bases
-    jc_genotypes_per_chunk: Integer = 100_000_000       // Create GATK GenotypeGVCFs intervals containing approximately this many genotypes for joint calling
-    mp_bases_per_chunk: Integer = 250_000_000           // Create bcftools mpileup intervals containing approximately this many aligned bases
-    split_large_intervals: Boolean = true               // Split any intervals that are over hc_bases_per_chunk. Makes more even intervals at risk of artefacts near interval end
-    min_interval_gap: Integer = 100                     // Minimum gap of missing data (N or no reads) between intervals to consider them separate interval
-
-
-    // Reference-genome masking for genotyping
-    min_chr_length: Integer = 50_000_000                // Minimum length for a contig to be considered a chromosome
-    include_bed: Path?                                  // Optional input bed file to just include these intervals for genotyping
-    use_reference_hardmasks: Boolean = true             // Use hard masks (N bases) already present in reference genome
-    use_reference_softmasks: Boolean = false            // Use soft masks (lowercase bases) already present in reference genome
-    exclude_bed: Path?                                  // Optional exclusion of certain intervals
-    exclude_padding: Integer = 0                        // Optional padding of exclusion intervals
-    genotype_masked_bases: Boolean = false              // Whether to genotype masked bases
-    filter_masked_variants: Boolean = true              // Whether to filter masked bases from vcf
-    genmap_kmer_length: Integer = 100                   // Kmer length for calculating mapability. Should be roughly close to the read lengths that will be mapped
-    genmap_error_tol: Integer = 2                       // Number of errors to tolerate in calculating mapability
-    genmap_thresh: Float = 0.99f                        // Mapability threshold removes anything less than this. 1 = completely unique Kmer
-    longdust_kmer_length: Integer = 7                   // Kmer length for longdust
-    longdust_window_size: Integer = 5_000               // Context window length for longdust. Cannot find repeats with units longer than this
-    longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
-    numt_min_length: Integer = 100                      // Minimum length of a NUMT
-    numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
+    hc_target_sample_bases: Integer = 100_000_000       // Initial estimate of HaplotypeCaller chunk count from cohort size * genomic bases, then balances intervals by projected workload.
+    hc_chunks_per_jc: Integer = 20                      // Number of HaplotypeCaller chunks combined into each GenotypeGVCFs joint-calling chunk.
+    mp_target_sample_bases: Integer = 250_000_000       // Initial estimate of mpileup chunk count from cohort size * genomic bases, then balances intervals by projected workload.
+    mito_target_sample_bases: Integer = 100_000_000     // Initial estimate of Mito chunk count from cohort size * genomic bases, then balances intervals by projected workload.
+    split_large_intervals: Boolean = true               // Allow workload intervals to be split across chunk boundaries. Improves workload balance but may introduce boundaries within otherwise continuous genomic intervals.
+    min_interval_gap: Integer = 1000                    // Minimum gap of missing data (N or no reads) between intervals to consider them separate intervals for chunking
 
     // read filtering and alignment
-    trim_polyg: Boolean = true                          // Whether to trim polyG strings from read tails
-    polyg_min_length: Integer = 10                      // Minimum length to detect polyG in the read tail.
+    polyg_min_length: Integer = 10                      // Minimum length to detect and trimpolyG in the read tail. set to 0 to disable.
     minibwa_preset: String = 'adap'                     // alignment preset: adap (adaptive short reads), sr (short reads), or lr (long reads)
     minibwa_min_seed_length: Integer = 19               // minimum exact-match seed length used during alignment. Smaller values increase sensitivity but may increase runtime and spurious mappings
     minibwa_max_seed_occurrence: Integer = 250          // ignore seeds occurring more than N times in the reference. Lower values reduce mappings to repetitive regions and may improve performance
 
     // Mitochondrial variant calling
     mito_shift: Integer = 8_000                         // Create mito reference shifted by this many bases
-    mito_breakpoint_window: Integer = 500
+    mito_breakpoint_window: Integer = 500               // Number of bases at each end of the original mitochondrial reference where consensus calls are taken from the shifted-reference pileup to reduce circular-breakpoint artefacts
     mito_minbq: Integer = 10                            // Bases below this quality are excluded before allele counting.
     mito_minmq: Integer = 20                            // Reads below this mapping quality are excluded before allele counting.
-    mito_trim_read_ends: Integer = 0                    // Number of bases to ignore from each end of each read
+    mito_max_depth_per_sample: Integer = 10_000          // Max raw per-file depth; avoids excessive memory usage.
     mito_min_depth: Integer = 20                        // Minimum total site depth required to call a consensus base
     mito_major_af: Float = 0.8f                         // Minimum major allele fraction required to call an A/C/G/T consensus base
     mito_het_mode: String = 'iupac'                     // How to handle mixed SNV where the major allele does not pass mito_major_af. 'N' = mask, 'iupac' emits only when > mito_het_af & mito_het_min_depth
@@ -91,7 +75,6 @@ params {
     output_indel: Boolean = true                       // Whether to output indel sites
     output_invariant: Boolean = false                  // Whether to output invariant sites
 	
-
     // GATK-specific parameters
     hc_interval_padding: Integer = 100                 // Pad intervals by this many bases for genotyping
     hc_min_pruning: Integer = 2                        // Minimum read support (dp) to retain paths in the assembly graph. Smaller number increases sensitivity at expense of false positives
@@ -118,7 +101,7 @@ params {
     output_unmapped_reads: Boolean = false             // Whether to output unmapped reads as fastq
     output_cram: Boolean = true                        // Whether to output CRAM files
     output_gvcf: Boolean = true                        // Whether to output gvcf files
-    output_unfiltered_vcf: Boolean = false             // Whether to output unfiltered VCF files
+    output_unfiltered_bcf: Boolean = false             // Whether to output unfiltered VCF files
     output_beagle_gl: Boolean = false                  // Whether to output genotype likelihoods in BEAGLE format
     output_perbase_depth: Boolean = false              // Whether to output perbase read depths (large)
 
@@ -127,96 +110,117 @@ params {
     debug_mode: Boolean = false                        // save all data/objects from process-level R sessions as .RData files in work dir
     rdata: Boolean = false
 
+    // Reference-genome masking for filtering
+    min_chr_length: Integer = 50_000_000                // Minimum length for a contig to be considered a chromosome
+    include_bed: Path?                                  // Optional input bed file to just include these intervals for genotyping
+    exclude_reference_hardmasks: Boolean = true         // Exclude hard masks (N bases) already present in reference genome
+    exclude_reference_softmasks: Boolean = false        // Exclude soft masks (lowercase bases) already present in reference genome
+    exclude_bed: Path?                                  // Optional exclusion of certain intervals
+    exclude_padding: Integer = 0                        // Optional padding of exclusion intervals
+    filter_masked_variants: Boolean = true              // Whether to filter masked bases from vcf
+    genmap_kmer_length: Integer = 100                   // Kmer length for calculating mapability. Should be roughly close to the read lengths that will be mapped
+    genmap_error_tol: Integer = 2                       // Number of errors to tolerate in calculating mapability
+    genmap_thresh: Float = 0.99f                        // Mapability threshold removes anything less than this. 1 = completely unique Kmer
+    longdust_kmer_length: Integer = 7                   // Kmer length for longdust
+    longdust_window_size: Integer = 5_000               // Context window length for longdust. Cannot find repeats with units longer than this
+    longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
+    numt_min_length: Integer = 100                      // Minimum length of a NUMT
+    numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
+    depth_mask_low: Float = 0.5f                        // Flag a window as low-depth in a sample when its depth is <= 0.nx that sample's baseline
+    depth_mask_high: Float = 1.5f                       // Flag a window as high-depth in a sample when its depth is >= n5x that sample's baseline
+    depth_mask_fraction: Float = 0.8f                   // Mask a window when at least 80% of samples are flagged as low-depth or high-depth
+    depth_window_size: Integer = 1000                   // Window size used for masking
+
     // Population-level filtering
     vcf_population_min_samples: Integer = 1
     vcf_population_fail_mode: String = 'ALL'
 
     // Genotype-level masking
-    vcf_genotype_qual: Integer? = 0
-    vcf_genotype_dp_min: Integer? = 1
-    vcf_genotype_dp_max: Integer? = 1_000
+    vcf_genotype_qual: Integer = 0
+    vcf_genotype_dp_min: Integer = 1
+    vcf_genotype_dp_max: Integer = 1_000
 
     // Sample-level filtering
-    vcf_sample_max_missing: Float? = 0.5f
-
-    // Depth-percentile filtering
-    vcf_dp_percentile_lower: Float? = 1.0f
-    vcf_dp_percentile_upper: Float? = 99.0f
+    coverage_min_depth: Integer = 1                    // Minimum depth to determine a base as covered in a sample.
+    sample_max_missing: Float = 0.5f
 
     // Minimum site QUAL
-    vcf_qual_global_snp: Float? = 30.0f
-    vcf_qual_global_indel: Float? = 30.0f
-    vcf_qual_global_invariant: Float?
+    vcf_qual_global_snp: Float = 30.0f
+    vcf_qual_global_indel: Float = 30.0f
+    vcf_qual_global_invariant: Float = 0
 
     // Minimum site depth
-    vcf_dp_min_global_snp: Integer? = 6
-    vcf_dp_min_global_indel: Integer? = 6
-    vcf_dp_min_global_invariant: Integer? = 6
+    vcf_dp_min_global_snp: Integer = 6
+    vcf_dp_min_global_indel: Integer = 6
+    vcf_dp_min_global_invariant: Integer = 6
 
     // Minimum distance from an indel
-    vcf_dist_indel_global_snp: Integer? = 5
-    vcf_dist_indel_global_indel: Integer?
-    vcf_dist_indel_global_invariant: Integer?
+    vcf_dist_indel_global_snp: Integer = 5
+    vcf_dist_indel_global_indel: Integer = 0
+    vcf_dist_indel_global_invariant: Integer = 0
 
     // Excess heterozygosity
-    vcf_eh_global_snp: Float?
-    vcf_eh_global_indel: Float?
-    vcf_eh_global_invariant: Float?
+    vcf_eh_global_snp: Float = 0
+    vcf_eh_global_indel: Float = 0
+    vcf_eh_global_invariant: Float = 0
 
-    vcf_eh_pop_snp: Float?
-    vcf_eh_pop_indel: Float?
-    vcf_eh_pop_invariant: Float?
+    vcf_eh_pop_snp: Float = 0
+    vcf_eh_pop_indel: Float = 0
+    vcf_eh_pop_invariant: Float = 0
 
     // Hardy-Weinberg equilibrium
-    vcf_hwe_global_snp: Float?
-    vcf_hwe_global_indel: Float?
-    vcf_hwe_global_invariant: Float?
+    vcf_hwe_global_snp: Float = 0
+    vcf_hwe_global_indel: Float = 0
+    vcf_hwe_global_invariant: Float = 0
 
-    vcf_hwe_pop_snp: Float?
-    vcf_hwe_pop_indel: Float?
-    vcf_hwe_pop_invariant: Float?
+    vcf_hwe_pop_snp: Float = 0
+    vcf_hwe_pop_indel: Float = 0
+    vcf_hwe_pop_invariant: Float = 0
 
     // Minor allele frequency
-    vcf_maf_global_snp: Float? = 0.05f
-    vcf_maf_global_indel: Float? = 0.05f
-    vcf_maf_global_invariant: Float?
+    vcf_maf_global_snp: Float = 0.05f
+    vcf_maf_global_indel: Float = 0.05f
+    vcf_maf_global_invariant: Float = 0
 
-    vcf_maf_pop_snp: Float?
-    vcf_maf_pop_indel: Float?
-    vcf_maf_pop_invariant: Float?
+    vcf_maf_pop_snp: Float = 0
+    vcf_maf_pop_indel: Float = 0
+    vcf_maf_pop_invariant: Float = 0
 
     // Minimum number of called samples
-    vcf_min_samples_global_snp: Integer? = 1
-    vcf_min_samples_global_indel: Integer? = 1
-    vcf_min_samples_global_invariant: Integer? = 1
+    vcf_min_samples_global_snp: Integer = 1
+    vcf_min_samples_global_indel: Integer = 1
+    vcf_min_samples_global_invariant: Integer = 1
 
-    vcf_min_samples_pop_snp: Integer?
-    vcf_min_samples_pop_indel: Integer?
-    vcf_min_samples_pop_invariant: Integer?
+    vcf_min_samples_pop_snp: Integer = 0
+    vcf_min_samples_pop_indel: Integer = 0
+    vcf_min_samples_pop_invariant: Integer = 0
 
     // Minimum call rate
-    vcf_min_callrate_global_snp: Float? = 0.5f
-    vcf_min_callrate_global_indel: Float? = 0.5f
-    vcf_min_callrate_global_invariant: Float? = 0.5f
+    vcf_min_callrate_global_snp: Float = 0.5f
+    vcf_min_callrate_global_indel: Float = 0.5f
+    vcf_min_callrate_global_invariant: Float = 0.5f
 
-    vcf_min_callrate_pop_snp: Float?
-    vcf_min_callrate_pop_indel: Float?
-    vcf_min_callrate_pop_invariant: Float?
+    vcf_min_callrate_pop_snp: Float = 0
+    vcf_min_callrate_pop_indel: Float = 0
+    vcf_min_callrate_pop_invariant: Float = 0
 }
 
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    PRINT PARAMS SUMMARY
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ Imports
 */
 
-// include functions from nf-schema
+include {
+    SamplesheetRow
+} from './nextflow/types'
 
+//// workflows
+include { SKIMSEQ                                                   } from './nextflow/workflows/skimseq'
+
+// include functions from nf-schema
 include {
     paramsHelp
     validateParameters
     paramsSummaryLog
-    samplesheetToList
 } from 'plugin/nf-schema'
 
 ///// define functions 
@@ -237,17 +241,6 @@ def pipelineHeader() {
     """.stripIndent()
 }
 
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT LOCAL MODULES/SUBWORKFLOWS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//// workflows
-include { SKIMSEQ                                                   } from './nextflow/workflows/skimseq'
-
-
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -260,131 +253,127 @@ workflow {
     main:
     startupMessage()
 
-    // validate inpiut params
-    validateParameters(
-        cast_cli_params: true
+    // validate input params
+    validateParameters()
+    log.info(
+        paramsSummaryLog() as String
     )
-    log.info paramsSummaryLog(workflow)
-
-    // Hack to enforce cram_store and gvcf_store to be within results directory
-    // TODO: Replace directory-based reuse with CRAM/GVCF manifests.
-    // Workflow outputs currently require publication beneath workflow.outputDir.
-    def outdir = new File(workflow.outputDir.toString()).canonicalPath
-
-    if( params.output_cram ) {
-        def cramStore = new File(params.cram_store).canonicalPath
-
-        if( !cramStore.startsWith(outdir) ) {
-            error """
-            params.cram_store must be located within workflow.outputDir
-
-            workflow.outputDir = ${outdir}
-            cram_store         = ${cramStore}
-
-            External CRAM output locations are currently unsupported.
-            """
-        }
-    }
-
-    if( params.output_gvcf ) {
-        def gvcfStore = new File(params.gvcf_store).canonicalPath
-
-        if( !gvcfStore.startsWith(outdir) ) {
-            error """
-            params.gvcf_store must be located within workflow.outputDir
-
-            workflow.outputDir = ${outdir}
-            gvcf_store         = ${gvcfStore}
-
-            External GVCF output locations are currently unsupported.
-            """
-        }
-    }
-
-    workflow.onComplete = {
-        if ( workflow.success ) {
-        log.info "[$workflow.complete] >> Pipeline finished SUCCESSFULLY after $workflow.duration"
-        } else {
-        log.info "[$workflow.complete] >> Pipeline finished with ERRORS after $workflow.duration"
-        }
-    }
 
     // Print help message, supply typical command line usage for the pipeline
     if (params.help) {
-        //    log.info startupMessage()
-        log.info paramsHelp("nextflow run AVR-biosecurity-bioinformatics/skimseq") // TODO: add typical commands for pipeline
-        exit 0
+        def help_message = paramsHelp() as String
+        log.info help_message
+        exit 0, ''
     }
 
+    // Parse samplesheet
+    samplesheet = channel.of(params.samplesheet)
+        .flatMap { csv ->
+            csv.splitCsv(header: true)
+        }
+        .map { row ->
 
-    ///// run main skimseq workflow
-    SKIMSEQ ()
+            def fields = row as Map
+
+            def sample = fields['sample'] as String
+            def lib = fields['lib'] as String
+            def pop = fields['pop'] as String
+            def fwd = fields['fwd'] as String
+            def rev = fields['rev'] as String
+
+            record(
+                sample: sample.trim(),
+                lib: lib?.trim() ?: null,
+                pop: pop?.trim() ?: null,
+                fwd: fwd.trim(),
+                rev: rev?.trim() ?: null
+            )
+        }
+        
+    // Run main SKIMSEQ workflow.
+    skimseq = SKIMSEQ(
+        samplesheet
+    )
 
     publish:
 
-    mask_summary     = SKIMSEQ.out.mask_summary
-    mask_summary_bed = SKIMSEQ.out.mask_summary_bed
-    mask_pass_bed    = SKIMSEQ.out.mask_pass_bed
+    mask_summary     = skimseq.mask_summary
+    mask_bed         = skimseq.mask_bed
+    per_base_depth   = skimseq.per_base_depth
+    new_cram        = skimseq.new_cram
+    unmapped_reads  = skimseq.unmapped_reads
+    mito_consensus  = skimseq.mito_consensus
 
-    new_cram        = SKIMSEQ.out.new_cram
-    perbase         = SKIMSEQ.out.perbase
-    mito_consensus  = SKIMSEQ.out.mito_consensus
+    unfiltered_variants  = skimseq.merged_unfiltered_variants
+    new_gvcf        = skimseq.new_gvcf
+    final_bcf       = skimseq.final_bcf
 
-    unfiltered_vcf  = SKIMSEQ.out.unfiltered_vcf
-    new_gvcf        = SKIMSEQ.out.new_gvcf
-    final_vcf       = SKIMSEQ.out.final_vcf
-
-    beagle_gl       = SKIMSEQ.out.beagle_gl
-    plink           = SKIMSEQ.out.plink
-    pca             = SKIMSEQ.out.pca
-    relationship    = SKIMSEQ.out.relationship
-    king            = SKIMSEQ.out.king
-    distance        = SKIMSEQ.out.distance
-    ordination_plot = SKIMSEQ.out.ordination_plot
-    pca_plot        = SKIMSEQ.out.pca_plot
-    tree_plot       = SKIMSEQ.out.tree_plot
-    newick_tree     = SKIMSEQ.out.newick_tree
-    popmap          = SKIMSEQ.out.popmap
+    beagle_gl       = skimseq.beagle_gl
+    plink           = skimseq.plink
+    pca             = skimseq.pca
+    relationship    = skimseq.relationship
+    king            = skimseq.king
+    distance        = skimseq.distance
+    ordination_plot = skimseq.ordination_plot
+    pca_plot        = skimseq.pca_plot
+    tree_plot       = skimseq.tree_plot
+    popmap          = skimseq.popmap
 
     // QC outputs
-    sample_filter_plots = SKIMSEQ.out.sample_filter_plots
-    sample_missing_tsv = SKIMSEQ.out.sample_missing_tsv
-    site_filter_plots = SKIMSEQ.out.site_filter_plots
-    cram_stats      = SKIMSEQ.out.cram_stats
-    vcf_stats       = SKIMSEQ.out.vcf_stats
-    multiqc_report  = SKIMSEQ.out.multiqc_report
-    multiqc_plots   = SKIMSEQ.out.multiqc_plots
-    multiqc_data    = SKIMSEQ.out.multiqc_data
-
+    sample_filter_plots = skimseq.sample_filter_plots
+    missing_summary   = skimseq.missing_summary
+    site_filter_plots = skimseq.site_filter_plots
+    mask_filter_plots = skimseq.mask_filter_plots
+    cram_stats      = skimseq.cram_stats
+    vcf_stats       = skimseq.vcf_stats
+    multiqc_report  = skimseq.multiqc_report
+    
+    onComplete:
+    if (workflow.success) {
+        log.info(
+            "[$workflow.complete] >> Pipeline finished SUCCESSFULLY " +
+            "after $workflow.duration"
+        )
+    } else {
+        log.info(
+            "[$workflow.complete] >> Pipeline finished with ERRORS " +
+            "after $workflow.duration"
+        )
+    }
+}
 }
 
 output {
     mask_summary {
-        path 'qc'
+        path 'qc/masks'
     }
-    mask_summary_bed {
-        path 'qc'
+    mask_bed {
+        path 'qc/masks'
     }
-    mask_pass_bed {
-        path 'qc'
+    per_base_depth {
+        path 'qc/per_base'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
     // Only publishes newly generated crams and GVCFS, doesnt overwrite those that passed validation
     new_cram {
         enabled params.output_cram
-        path new File(params.cram_store).name
+        path 'cram'
     }
     new_gvcf {
         enabled params.output_gvcf
-        path new File(params.gvcf_store).name
+        path 'gvcf'
+    }
+    unmapped_reads {
+        enabled params.output_unmapped_reads
+        path 'unmapped'
     }
     mito_consensus {
         path 'mito'
     }
-    unfiltered_vcf {
+    unfiltered_variants {
         path 'vcf/unfiltered'
     }
-    final_vcf {
+    final_bcf {
         path 'vcf/filtered'
     }
 
@@ -416,38 +405,28 @@ output {
     tree_plot {
         path 'visualisation/trees'
     }
-    newick_tree {
-        path 'visualisation/trees'
-    }
     popmap {
         path 'metadata'
     }
-    perbase {
-        enabled params.output_perbase_depth
-        path 'qc/cram_stats/perbase_depth'
-    }
     cram_stats {
-        path 'qc/cram_stats/cram_qc_data'
+        path 'qc/cram_stats'
     }
     vcf_stats {
         path 'qc/vcf_stats'
     }
     sample_filter_plots {
-        path 'qc'
+        path 'qc/vcf_filters'
     }   
-    sample_missing_tsv {
-        path 'qc'
+    missing_summary {
+        path 'qc/vcf_filters'
     }  
     site_filter_plots {
-        path 'qc'
-    }  
+        path 'qc/vcf_filters'
+    } 
+    mask_filter_plots {
+        path 'qc/vcf_filters'
+    }   
     multiqc_report {
         path 'qc'
     }   
-    multiqc_plots {
-        path 'qc'
-    }    
-    multiqc_data {
-        path 'qc'
-    }    
 }
