@@ -113,10 +113,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          nextflow lint . -o concise
+
           nextflow \
             -log nextflow-docker.log \
             run . \
-            -profile test,docker \
+            -profile docker,test \
             -ansi-log false
 
       - name: Upload logs on failure
