@@ -81,8 +81,8 @@ For the container profiles, Wave dynamically provisions the container images req
 The selected runtime must therefore be installed and supported on the target system. 
 
 ## Development profiles:
-- test: use the bundled minimal Queensland fruit fly test dataset and reduced resources
-  - The test profile should be specified last so that its reduced resource limits override production settings.
+- `test`: use the bundled minimal Queensland fruit fly test dataset and reduced resources
+  - The `test` profile should be specified last so that its reduced resource limits override production settings.
 
 # Usage examples:
 
@@ -133,6 +133,16 @@ nextflow run . \
     -profile docker \
     -resume
 ```
+
+## Running test dataset on NCI GADI HPC
+
+**NOTE: THIS IS STILL TO BE TESTED**
+```
+nextflow run . \
+    -config conf/nci_gadi.config \
+    -resume
+```
+
 
 # Setting pipeline parameters
 Pipeline parameters can be supplied either in a YAML parameter file or directly on the command line. A parameter file is recommended for routine analyses because it provides a reproducible record of the inputs and settings used for a run.
