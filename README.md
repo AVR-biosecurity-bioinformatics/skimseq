@@ -138,8 +138,22 @@ nextflow run . \
 
 **NOTE: THIS IS STILL TO BE TESTED**
 ```
+# Clone the pipeline to your analysis directory
+git clone https://github.com/AVR-biosecurity-bioinformatics/skimseq.git path/to/your/analysis/dir
+cd path/to/your/analysis/dir
+
+# Check your NCI gadi project environment variable is set (may need to set yourself)
+$PROJECT
+
+# Load nextflow (check gadi docs)
+
+# Check nextflow version
+nextflow -v
+
+# Run the pipeline 
 nextflow run . \
     -config conf/nci_gadi.config \
+    -profile test \
     -resume
 ```
 
