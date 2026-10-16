@@ -383,3 +383,26 @@ grep -RIn \
     -e 'callingbed '\
     main.nf nextflow/
 ```
+
+
+# Build local riker version
+```
+
+# Install newer rust
+cd ~
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+rustup toolchain install 1.94.0
+rustup override set 1.94.0
+
+# Install riker update from branch
+git clone --branch tf_wgs_per_base_coverage \
+  https://github.com/fulcrumgenomics/riker.git
+
+cd riker
+module purge
+module load AOCC/4.2.0-GCCcore-13.3.0
+cargo build --release
+
+```

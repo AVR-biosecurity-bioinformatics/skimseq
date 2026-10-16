@@ -299,7 +299,6 @@ workflow {
 
     mask_summary     = skimseq.mask_summary
     mask_bed         = skimseq.mask_bed
-    per_base_depth   = skimseq.per_base_depth
     new_cram        = skimseq.new_cram
     unmapped_reads  = skimseq.unmapped_reads
     mito_consensus  = skimseq.mito_consensus
@@ -324,10 +323,25 @@ workflow {
     missing_summary   = skimseq.missing_summary
     site_filter_plots = skimseq.site_filter_plots
     mask_filter_plots = skimseq.mask_filter_plots
-    cram_stats      = skimseq.cram_stats
     vcf_stats       = skimseq.vcf_stats
     multiqc_report  = skimseq.multiqc_report
-    
+
+    // Extract per-base depth (optional output as can be large)
+    per_base_depth = skimseq.cram_stats
+        .map { result -> result.wgs_per_base }
+        .filter { bigwig -> bigwig != null }
+
+    // Cram stats for publishing (exclude BigWig)
+    cram_stats_publish = skimseq.cram_stats
+        .map { result ->
+            record(
+                sample: result.sample,
+                stats: result.stats,
+                wgs_coverage: result.wgs_coverage,
+                mean_coverage: result.mean_coverage
+            )
+        }
+
     onComplete:
     if (workflow.success) {
         log.info(
@@ -349,9 +363,6 @@ output {
     }
     mask_bed {
         path 'qc/masks'
-    }
-    per_base_depth {
-        path 'qc/per_base'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
     // Only publishes newly generated crams and GVCFS, doesnt overwrite those that passed validation
@@ -376,7 +387,6 @@ output {
     final_bcf {
         path 'vcf/filtered'
     }
-
     beagle_gl {
         enabled params.output_beagle_gl
         path 'beagle'
@@ -408,8 +418,12 @@ output {
     popmap {
         path 'metadata'
     }
-    cram_stats {
+    cram_stats_publish {
         path 'qc/cram_stats'
+    }
+    per_base_depth {
+        enabled params.output_perbase_depth
+        path 'qc/per_base'
     }
     vcf_stats {
         path 'qc/vcf_stats'
