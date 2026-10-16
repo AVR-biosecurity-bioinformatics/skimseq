@@ -21,7 +21,6 @@ include {
 workflow MASK_GENOME {
 
     take:
-    ch_sample_cram: Channel<SampleCram>
     ch_cram_stats: Channel<CramStats>
     genome: Value<PreparedGenome>
     mito_bed: Value<Path>
@@ -49,18 +48,43 @@ workflow MASK_GENOME {
     cohort_cram_stats = ch_cram_stats
         .collect()
         .map { stats ->
+            def excluded_stats = stats
+                .findAll { result ->
+                    result.mean_coverage.toDouble() <= 0.0d
+                }
+                .toList()
+
+            excluded_stats.each { result ->
+                log.warn(
+                    "Excluding '${result.sample}' from cohort coverage: " +
+                    "mean coverage is ${result.mean_coverage}"
+                )
+            }
+
+            def valid_stats = stats
+                .findAll { result ->
+                    result.mean_coverage.toDouble() > 0.0d
+                }
+                .toList()
+
+            assert !valid_stats.isEmpty() :
+                "No samples have positive mean coverage"
+
             record(
-                samples: stats.collect { result ->
-                    result.sample
-                }.toList(),
-                bigwigs: stats.collect { result ->
-                    result.wgs_per_base
-                }.toList(),
-                mean_coverages: stats.collect { result ->
-                    result.mean_coverage
-                }.toList()
+                samples: valid_stats
+                    .collect { result -> result.sample }
+                    .toList(),
+
+                bigwigs: valid_stats
+                    .collect { result -> result.wgs_per_base }
+                    .toList(),
+
+                mean_coverages: valid_stats
+                    .collect { result -> result.mean_coverage }
+                    .toList()
             )
         }
+
     // Scale each BigWig by 1 / mean coverage and calculate the
     // cohort-wide mean normalised coverage in fixed-size windows.
     depth_masks = BIGWIG_COHORT_AVERAGE(

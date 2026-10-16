@@ -42,11 +42,6 @@ record CramStats {
     mean_coverage: String
 }
 
-record PerBaseDepth {
-    sample: String
-    bigwig: Path
-}
-
 record PreparedGenome {
     ref_genome: Path
     ref_genome_uri: String

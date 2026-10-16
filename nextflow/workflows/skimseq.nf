@@ -277,7 +277,6 @@ workflow SKIMSEQ {
     */
 
     masking_results = MASK_GENOME(
-        alignment_results.cram,
         alignment_results.cram_stats,
         prepared_genome,
         mito_bed,
