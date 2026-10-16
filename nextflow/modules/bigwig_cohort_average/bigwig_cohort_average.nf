@@ -15,7 +15,6 @@ process BIGWIG_COHORT_AVERAGE {
 
     output:
     record(
-        summary: file("cohort.depth.bed"),
         cohort_bedgraph: file("cohort.normalised-coverage.bedgraph"),
         high_mask: file("cohort.high_depth.bed"),
         low_mask: file("cohort.low_depth.bed"),
@@ -27,142 +26,120 @@ process BIGWIG_COHORT_AVERAGE {
     assert samples.size() == bigwigs.size()
     assert samples.size() == mean_coverages.size()
 
-    def low = params.depth_mask_low == null
-        ? 0.5
-        : params.depth_mask_low
+    def low  = params.depth_mask_low  ?: 0.5
+    def high = params.depth_mask_high ?: 1.5
+    
+    def scaleFactors = samples
+        .withIndex()
+        .collect { sample, i ->
 
-    def high = params.depth_mask_high == null
-        ? 1.5
-        : params.depth_mask_high
+            def meanCoverage = mean_coverages[i].toDouble()
 
-    def fraction = params.depth_mask_fraction == null
-        ? 0.8
-        : params.depth_mask_fraction
+            assert meanCoverage > 0 :
+                "Mean coverage must be positive for sample '${sample}': ${mean_coverages[i]}"
+
+            1d / meanCoverage
+        }
+
+    def scaleFactorArgs = scaleFactors.join(':')
+
+    def scaleTable =
+        'sample\tbigwig\tmean_coverage\tscale_factor\n' +
+        samples.withIndex().collect { sample, i ->
+            [
+                sample,
+                bigwigs[i],
+                mean_coverages[i],
+                scaleFactors[i]
+            ].join('\t')
+        }.join('\n')
 
     def bigwigArgs = bigwigs
         .collect { bigwig -> "\"${bigwig}\"" }
         .join(' ')
 
-    def factors = mean_coverages.collect { coverage ->
-        def meanCoverage = coverage.toDouble()
-        assert meanCoverage > 0 : "Mean coverage must be positive: ${coverage}"
-        1.0d / meanCoverage
-    }
-
-    def scaleFactors = factors.join(':')
-
-    def scaleTable = samples
-        .withIndex()
-        .collect { sample, index ->
-            [
-                sample,
-                bigwigs[index],
-                mean_coverages[index],
-                factors[index]
-            ].join('\t')
-        }
-        .join('\n')
-
     """
     #!/usr/bin/env bash
     set -euo pipefail
 
-    printf 'sample\\tbigwig\\tmean_coverage\\tscale_factor\\n' > cohort.scale-factors.tsv
-    printf '%s\\n' '${scaleTable}' >> cohort.scale-factors.tsv
+    printf '%s\n' '${scaleTable}' > cohort.scale-factors.tsv
 
-    # Calculate raw mean coverage per window for each sample.
-    multiBigwigSummary bins \
-        --bwfiles ${bigwigArgs} \
+    # Scale each BigWig to mean coverage 1 and calculate the
+    # cohort-average normalized coverage in fixed-size windows.
+    bigwigAverage \
+        --bigwigs ${bigwigArgs} \
+        --scaleFactors "${scaleFactorArgs}" \
         --binSize ${params.depth_window_size} \
         --numberOfProcessors ${task.cpus} \
-        --outFileName cohort.raw-coverage.npz \
-        --outRawCounts cohort.raw-coverage.tsv
+        --outFileFormat bedgraph \
+        --outFileName cohort.normalised-coverage.bedgraph
 
-    : > cohort.depth.bed
-    : > cohort.normalised-coverage.bedgraph
     : > high.windows.bed
     : > low.windows.bed
 
-    # Normalise each sample, then count recurrent high/low windows.
-    gawk \
-        -v factors="${scaleFactors}" \
+    # Identify windows where the cohort-average normalized coverage
+    # lies outside the requested thresholds.
+    awk \
         -v low="${low}" \
-        -v high="${high}" \
-        -v fraction="${fraction}" '
+        -v high="${high}" '
         BEGIN {
             FS = OFS = "\\t"
-            samples = split(factors, scale, ":")
         }
 
-        /^#/ { next }
+        NF != 4 {
+            print \
+                "ERROR: Expected four bedGraph columns at line " NR \
+                > "/dev/stderr"
+            exit 1
+        }
 
-        {
-            if (NF != samples + 3) {
-                print "ERROR: Unexpected number of coverage columns" > "/dev/stderr"
-                exit 1
-            }
+        \$4 == "" || tolower(\$4) ~ /nan|inf/ {
+            skipped++
+            next
+        }
 
-            sum_depth = 0
-            n_high = 0
-            n_low = 0
-            missing = 0
+        \$4 >= high {
+            print \$1, \$2, \$3 > "high.windows.bed"
+        }
 
-            for (i = 1; i <= samples; i++) {
-                raw = \$(i + 3)
-
-                # Missing data are not assumed to mean zero coverage.
-                if (tolower(raw) ~ /nan|inf/ || raw == "") {
-                    missing = 1
-                    break
-                }
-
-                depth = (raw + 0) * scale[i]
-                sum_depth += depth
-
-                if (depth >= high) n_high++
-                if (depth <= low) n_low++
-            }
-
-            # Require data from every sample for this window.
-            if (missing) {
-                skipped++
-                next
-            }
-
-            mean_depth = sum_depth / samples
-            high_fraction = n_high / samples
-            low_fraction = n_low / samples
-
-            print \$1, \$2, \$3,
-                mean_depth, high_fraction, low_fraction \
-                > "cohort.depth.bed"
-
-            print \$1, \$2, \$3, mean_depth \
-                > "cohort.normalised-coverage.bedgraph"
-
-            if (high_fraction >= fraction)
-                print \$1, \$2, \$3 > "high.windows.bed"
-
-            if (low_fraction >= fraction)
-                print \$1, \$2, \$3 > "low.windows.bed"
+        \$4 <= low {
+            print \$1, \$2, \$3 > "low.windows.bed"
         }
 
         END {
-            if (skipped)
-                print "WARNING: Skipped " skipped \
-                    " windows containing missing coverage values" \
+            if (skipped) {
+                print \
+                    "WARNING: Skipped " skipped \
+                    " windows containing non-finite coverage values" \
                     > "/dev/stderr"
+            }
         }
-    ' cohort.raw-coverage.tsv
+    ' cohort.normalised-coverage.bedgraph
 
+    # Merge adjacent high-depth windows.
     bedtools sort -i high.windows.bed |
         bedtools merge -i stdin |
-        awk 'BEGIN { OFS = "\\t" } { print \$1, \$2, \$3, "HIGH_DEPTH" }' \
-        > cohort.high_depth.bed
+        awk '
+            BEGIN {
+                OFS = "\\t"
+            }
 
+            {
+                print \$1, \$2, \$3, "HIGH_DEPTH"
+            }
+        ' > cohort.high_depth.bed
+
+    # Merge adjacent low-depth windows.
     bedtools sort -i low.windows.bed |
         bedtools merge -i stdin |
-        awk 'BEGIN { OFS = "\\t" } { print \$1, \$2, \$3, "LOW_DEPTH" }' \
-        > cohort.low_depth.bed
+        awk '
+            BEGIN {
+                OFS = "\\t"
+            }
+
+            {
+                print \$1, \$2, \$3, "LOW_DEPTH"
+            }
+        ' > cohort.low_depth.bed
     """
 }

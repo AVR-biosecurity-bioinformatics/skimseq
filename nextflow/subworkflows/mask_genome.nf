@@ -48,22 +48,19 @@ workflow MASK_GENOME {
     cohort_cram_stats = ch_cram_stats
         .collect()
         .map { stats ->
-            def excluded_stats = stats
-                .findAll { result ->
-                    result.mean_coverage.toDouble() <= 0.0d
-                }
-                .toList()
-
-            excluded_stats.each { result ->
-                log.warn(
-                    "Excluding '${result.sample}' from cohort coverage: " +
-                    "mean coverage is ${result.mean_coverage}"
-                )
-            }
 
             def valid_stats = stats
                 .findAll { result ->
-                    result.mean_coverage.toDouble() > 0.0d
+                    def keep = result.mean_coverage.toDouble() > 0.0d
+
+                    if (!keep) {
+                        log.warn(
+                            "Excluding '${result.sample}' from cohort coverage: " +
+                            "mean coverage is ${result.mean_coverage}"
+                        )
+                    }
+
+                    keep
                 }
                 .toList()
 
