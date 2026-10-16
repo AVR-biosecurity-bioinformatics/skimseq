@@ -96,10 +96,6 @@ module purge
 module load Java/17
 module load Miniconda3/24.7.1-0
 
-# Export variables for nextflow:
-export NXF_VER=26.07.0-edge
-export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
-
 # Launch the job
 nextflow run . \
     -config conf/basc.config \
@@ -114,10 +110,6 @@ For small tests, use the local executor instead of SLURM.
 module purge
 module load Java/17
 module load Miniconda3/24.7.1-0
-
-# Export variables for nextflow:
-export NXF_VER=26.07.0-edge
-export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
