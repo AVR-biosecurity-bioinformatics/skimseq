@@ -7,6 +7,7 @@ nextflow.enable.types = true
 include { GENMAP                        } from '../modules/genmap/genmap'
 include { LONGDUST                      } from '../modules/longdust/longdust'
 include { BIGWIG_COHORT_AVERAGE         } from '../modules/bigwig_cohort_average/bigwig_cohort_average'
+include { WIGGLETOOLS_COHORT_AVERAGE         } from '../modules/wiggletools_cohort_average/wiggletools_cohort_average'
 include { COMBINE_BEDS as COMBINE_MASKS } from '../modules/combine_beds/combine_beds'
 include { SUMMARISE_MASKS               } from '../modules/summarise_masks/summarise_masks'
 
@@ -87,6 +88,11 @@ workflow MASK_GENOME {
     depth_masks = BIGWIG_COHORT_AVERAGE(
         cohort_cram_stats
     )
+
+    depth_masks_wiggle = WIGGLETOOLS_COHORT_AVERAGE(
+        cohort_cram_stats
+    )
+
 
     /*
      * Combine masks
