@@ -6,5 +6,5 @@ channels:
   - nodefaults
 
 dependencies:
-  - bioconda::riker=0.4.1
+  - bioconda::riker=0.5.0
   

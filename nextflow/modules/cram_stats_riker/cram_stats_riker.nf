@@ -4,7 +4,7 @@ process CRAM_STATS_RIKER {
 
     tag "${sample}"
 
-    //conda "${moduleDir}/environment.yml"
+    conda "${moduleDir}/environment.yml"
 
     input:
     record(
@@ -43,7 +43,7 @@ process CRAM_STATS_RIKER {
     #!/usr/bin/env bash
     set -euo pipefail
 
-    /group/home/ap0y/riker/target/release/riker multi \
+    riker multi \
         --threads ${task.cpus} \
         -i "${cram}" \
         -r ${ref_genome} \
@@ -79,6 +79,7 @@ process CRAM_STATS_RIKER {
         exit 1
     fi
 
+
     # Collect the remaining QC reports into a per-sample directory.
     qc_dir="${sample}.riker-qc"
     mkdir -p "\${qc_dir}"
@@ -95,6 +96,9 @@ process CRAM_STATS_RIKER {
                 ;;
         esac
     done
+
+    # Copy coverage file to the QC directory
+    cp -- "\${coverage_file}" "\${qc_dir}/"
 
     if [[ -z "\$(find "\${qc_dir}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
         echo "ERROR: No Riker QC reports were collected for ${sample}" >&2

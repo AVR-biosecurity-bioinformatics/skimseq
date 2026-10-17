@@ -336,9 +336,7 @@ workflow {
         .map { result ->
             record(
                 sample: result.sample,
-                stats: result.stats,
-                wgs_coverage: result.wgs_coverage,
-                mean_coverage: result.mean_coverage
+                stats: result.stats
             )
         }
 
