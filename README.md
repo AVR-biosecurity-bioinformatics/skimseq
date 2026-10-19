@@ -134,17 +134,17 @@ nextflow run . \
 git clone https://github.com/AVR-biosecurity-bioinformatics/skimseq.git path/to/your/analysis/dir
 cd path/to/your/analysis/dir
 
-# Check your NCI gadi project environment variable is set (may need to set yourself)
+# Check your NCI gadi PROJECT and USER environmental variables are set (may need to set yourself?)
 $PROJECT
-
-# Load nextflow (check gadi docs)
+$USER
 
 # Check nextflow version
 nextflow -v
 
-# Run the pipeline 
+# Run the pipeline - setting the work directory (temporary files) to the scratch directory
 nextflow run . \
     -config conf/nci_gadi.config \
+    -work-dir /scratch/${PROJECT}/${USER}/work \
     -profile test \
     -resume
 ```
