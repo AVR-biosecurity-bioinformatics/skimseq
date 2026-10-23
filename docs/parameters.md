@@ -145,9 +145,8 @@ use the defaults shown below.
 | `longdust_thresh` | Float | `0.6` | LongDust complexity threshold. |
 | `numt_min_length` | Integer | `100` | Minimum NUMT alignment length. |
 | `numt_max_gap` | Integer | `1000` | Maximum gap between NUMT alignments for them to be treated as the same region. |
-| `depth_mask_low` | Float | `0.5` | Flag a window as low-depth when its depth is ≤ this proportion of the sample baseline. |
-| `depth_mask_high` | Float | `1.5` | Flag a window as high-depth when its depth is ≥ this multiple of the sample baseline. |
-| `depth_mask_fraction` | Float | `0.8` | Mask a window when at least this fraction of samples is flagged for abnormal depth. |
+| `depth_mask_low_percentile` | Float | `1.0` | Mask windows with cohort-normalised coverage at or below this percentile (e.g. 1.0 masks the lowest 1% of windows). |
+| `depth_mask_high_percentile` | Float | `99.0` | Mask windows with cohort-normalised coverage at or above this percentile (e.g. 99.0 masks the highest 1% of windows). |
 | `depth_window_size` | Integer | `1000` | Window size used for depth-based masking. |
 
 ## Population-level filtering

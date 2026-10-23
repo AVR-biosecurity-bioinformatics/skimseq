@@ -4,7 +4,6 @@ import argparse
 import logging
 import math
 import time
-from contextlib import ExitStack
 from pathlib import Path
 
 import numpy as np
@@ -71,24 +70,69 @@ def window_batches(chrom_sizes, width, batch_size):
         )
 
 def read_bigwig_summary(path, expected_chrom_sizes=None):
-    """calculate genome-wide mean coverages from BigWig header"""
+    """Calculate genome-wide mean coverage from a BigWig header."""
+
     with pyBigWig.open(path) as bw:
         chrom_sizes = dict(bw.chroms())
         header = bw.header()
 
+    if not chrom_sizes or any(size <= 0 for size in chrom_sizes.values()):
+        raise ValueError(f"BigWig has invalid chromosome sizes: {path}")
+
     if expected_chrom_sizes is not None and chrom_sizes != expected_chrom_sizes:
-        raise ValueError(f"Chromosome names or lengths differ in BigWig: {path}")
+        raise ValueError(
+            f"Chromosome names or lengths differ in BigWig: {path}"
+        )
+
+    if not header or "sumData" not in header:
+        raise ValueError(f"BigWig has no stored sumData summary: {path}")
 
     genome_size = sum(chrom_sizes.values())
-    mean_coverage = float(header["sumData"]) / genome_size
+    sum_data = float(header["sumData"])
+    mean_coverage = sum_data / genome_size
 
     return {
         "chrom_sizes": chrom_sizes,
-        "sum_data": float(header["sumData"]),
-        "bases_covered": int(header.get("nBasesCovered", 0)),
-        "genome_size": genome_size,
         "mean_coverage": mean_coverage,
     }
+
+def write_depth_masks(
+        chrom_sizes,
+        width,
+        values,
+        low_path,
+        high_path,
+        low,
+        high,
+    ):
+    """Create merged low- and high-depth masks from cohort window means."""
+
+    with (
+        open(low_path, "w") as low_handle,
+        open(high_path, "w") as high_handle,
+    ):
+        low_mask = MaskWriter(low_handle, "LOW_DEPTH")
+        high_mask = MaskWriter(high_handle, "HIGH_DEPTH")
+
+        value_index = 0
+
+        for chrom, size in chrom_sizes.items():
+            for start in range(0, size, width):
+                end = min(start + width, size)
+                value = values[value_index]
+                value_index += 1
+
+                low_mask.add(chrom, start, end, value <= low)
+                high_mask.add(chrom, start, end, value >= high)
+
+        low_mask.flush()
+        high_mask.flush()
+
+    if value_index != len(values):
+        raise ValueError(
+            f"Generated {value_index} windows but received "
+            f"{len(values)} cohort means"
+        )
 
 def main():
     parser = argparse.ArgumentParser()
@@ -130,14 +174,17 @@ def main():
         help="Maximum size in MiB of the main dense FigWig output array.",
     )
     parser.add_argument(
-        "--low",
+        "--low-percentile",
         type=float,
-        default=0.5,
+        default=1.0,
+        help="Mask windows at or below this percentile.",
     )
+
     parser.add_argument(
-        "--high",
+        "--high-percentile",
         type=float,
-        default=1.5,
+        default=99.0,
+        help="Mask windows at or above this percentile.",
     )
     parser.add_argument(
         "--prefix",
@@ -169,72 +216,81 @@ def main():
         parser.error("--window-batch-size must be positive")
 
     if not (
-        math.isfinite(args.low)
-        and math.isfinite(args.high)
-        and args.low < args.high
+        math.isfinite(args.low_percentile)
+        and 0.0 <= args.low_percentile < 100.0
     ):
+        parser.error("--low-percentile must be between 0 and 100")
+
+    if not (
+        math.isfinite(args.high_percentile)
+        and 0.0 < args.high_percentile <= 100.0
+    ):
+        parser.error("--high-percentile must be between 0 and 100")
+
+    if args.low_percentile >= args.high_percentile:
         parser.error(
-            "Thresholds must be finite and low must be less than high"
+            "--low-percentile must be less than --high-percentile"
         )
 
-    bigwig_paths = [str(Path(path)) for path in args.bigwig]
-    sample_names = [
-        Path(path).name
-        .removesuffix(".bigwig")
-        .removesuffix(".bigWig")
-        .removesuffix(".bw")
-        for path in bigwig_paths
-    ]
+    bigwig_paths = args.bigwig
 
     if len(set(bigwig_paths)) != len(bigwig_paths):
         raise ValueError("Input BigWig paths must be unique")
 
-    if len(set(sample_names)) != len(sample_names):
-        raise ValueError(
-            "BigWig filenames produce duplicate sample names after "
-            "removing their extensions"
-        )
+    # Read BigWig summaries and require a consistent reference.
+    summaries = []
+    chrom_sizes = None
 
-    n_samples = len(bigwig_paths)
-
-    summaries = [read_bigwig_summary(bigwig_paths[0])]
-    chrom_sizes = summaries[0]["chrom_sizes"]
-
-    summaries.extend(
-        read_bigwig_summary(
+    for path in bigwig_paths:
+        summary = read_bigwig_summary(
             path,
             expected_chrom_sizes=chrom_sizes,
         )
-        for path in bigwig_paths[1:]
-    )
 
-    scales = np.asarray(
-        [1.0 / s["mean_coverage"] for s in summaries],
+        if chrom_sizes is None:
+            chrom_sizes = summary["chrom_sizes"]
+
+        summaries.append(summary)
+
+    # BigWigs with non-positive or non-finite mean coverage cannot be normalised.
+    valid = []
+
+    for path, summary in zip(bigwig_paths, summaries):
+        mean_coverage = summary["mean_coverage"]
+
+        if not math.isfinite(mean_coverage) or mean_coverage <= 0.0:
+            logger.warning(
+                "Excluding %s because it has invalid mean coverage: %.8g",
+                Path(path).name,
+                mean_coverage,
+            )
+            continue
+
+        valid.append((path, summary))
+
+    if not valid:
+        raise ValueError(
+            "No input BigWigs have finite, positive mean coverage"
+        )
+
+    bigwig_paths = [path for path, _ in valid]
+    summaries = [summary for _, summary in valid]
+
+    n_samples = len(bigwig_paths)
+
+    mean_coverages = np.asarray(
+        [summary["mean_coverage"] for summary in summaries],
         dtype=np.float64,
     )
-
-    for sample, path, summary, scale in zip(
-        sample_names,
-        bigwig_paths,
-        summaries,
-        scales,
-    ):
-        if summary["bases_covered"] != summary["genome_size"]:
-            logger.warning(
-                "Sample %s has %d bases represented in %s but %d bases "
-                "in the reference; omitted positions are included as "
-                "zero coverage when calculating the mean",
-                sample,
-                summary["bases_covered"],
-                path,
-                summary["genome_size"],
-            )
+    scales = 1.0 / mean_coverages
 
     logger.info(
-        "Sample %s: mean coverage %.8g; scale factor %.8g",
-        sample,
-        summary["mean_coverage"],
-        scale,
+        "Loaded %d BigWigs; sample mean coverage: "
+        "min=%.3f, median=%.3f, max=%.3f",
+        n_samples,
+        np.min(mean_coverages),
+        np.median(mean_coverages),
+        np.max(mean_coverages),
     )
 
     # Retain these objects so FigWig can reuse their cached indexes.
@@ -291,16 +347,25 @@ def main():
         n_windows,
     )
 
+    # Report the selected batch configuration and estimated peak array size.
     estimated_array_mib = (
         window_batch_size * bytes_per_window / 1024**2
     )
+
+    sample_batches = math.ceil(
+        n_samples / sample_batch_size
+    )
+
     logger.info(
-        "%d samples; %d contigs; %d windows; "
-        "batch limits: %d windows x %d samples; %d threads; "
+        "%d BigWigs; %d contigs; %d windows; "
+        "%d BigWig batches; "
+        "batch limits: %d windows x %d BigWigs; "
+        "%d threads; "
         "estimated dense array: %.1f MiB",
         n_samples,
         len(chrom_sizes),
         n_windows,
+        sample_batches,
         window_batch_size,
         sample_batch_size,
         args.threads,
@@ -310,67 +375,18 @@ def main():
     output_buffer_size = 8 * 1024 * 1024
     start_time = time.perf_counter()
 
-    with ExitStack() as stack:
-        bedgraph = stack.enter_context(
-            open(
-                f"{args.prefix}.normalised-coverage.bedgraph",
-                "w",
-                buffering=output_buffer_size,
-            )
-        )
-        high_handle = stack.enter_context(
-            open(
-                f"{args.prefix}.high_depth.bed",
-                "w",
-                buffering=output_buffer_size,
-            )
-        )
-        low_handle = stack.enter_context(
-            open(
-                f"{args.prefix}.low_depth.bed",
-                "w",
-                buffering=output_buffer_size,
-            )
-        )
-        scale_handle = stack.enter_context(
-            open(
-                f"{args.prefix}.scale-factors.tsv",
-                "w",
-                buffering=output_buffer_size,
-            )
-        )
+    bedgraph_path = f"{args.prefix}.normalised-coverage.bedgraph"
+    high_mask_path = f"{args.prefix}.high_depth.bed"
+    low_mask_path = f"{args.prefix}.low_depth.bed"
 
-        scale_handle.write(
-            "sample\tbigwig\tmean_coverage\tscale_factor\t"
-            "sum_data\tbases_covered\tgenome_size\n"
-        )
+    all_cohort_means = np.empty(n_windows, dtype=np.float64)
+    processed = 0
 
-        for sample, path, summary, scale in zip(
-            sample_names,
-            bigwig_paths,
-            summaries,
-            scales,
-        ):
-            scale_handle.write(
-                f"{sample}\t"
-                f"{path}\t"
-                f"{summary['mean_coverage']:.17g}\t"
-                f"{scale:.17g}\t"
-                f"{summary['sum_data']:.17g}\t"
-                f"{summary['bases_covered']}\t"
-                f"{summary['genome_size']}\n"
-            )
-
-        high_mask = MaskWriter(
-            high_handle,
-            "HIGH_DEPTH",
-        )
-        low_mask = MaskWriter(
-            low_handle,
-            "LOW_DEPTH",
-        )
-
-        processed = 0
+    with open(
+        bedgraph_path,
+        "w",
+        buffering=output_buffer_size,
+    ) as bedgraph:
 
         for batch_index, (chroms, starts, lengths) in enumerate(
             window_batches(
@@ -457,6 +473,9 @@ def main():
                     f"{batch_index}"
                 )
 
+            batch_end = processed + len(starts)
+            all_cohort_means[processed:batch_end] = cohort_mean
+
             for chrom, start, length, value in zip(
                 chroms,
                 starts,
@@ -469,35 +488,73 @@ def main():
                 bedgraph.write(
                     f"{chrom}\t{start}\t{end}\t{value:.8g}\n"
                 )
-                high_mask.add(
-                    chrom,
-                    start,
-                    end,
-                    value >= args.high,
-                )
-                low_mask.add(
-                    chrom,
-                    start,
-                    end,
-                    value <= args.low,
-                )
 
-            processed += len(starts)
+            processed = batch_end
 
-            if batch_index == 1 or batch_index % 100 == 0:
-                elapsed = time.perf_counter() - start_time
-                rate = processed / elapsed
+            elapsed = time.perf_counter() - start_time
+            rate = processed / elapsed
 
-                logger.info(
-                    "Processed %d / %d windows at %.0f windows/s",
-                    processed,
-                    n_windows,
-                    rate,
-                )
+            logger.info(
+                "Processed %d / %d windows (%.1f%%) at %.0f windows/s",
+                processed,
+                n_windows,
+                100.0 * processed / n_windows,
+                rate,
+            )
+    
+    if processed != n_windows:
+        raise ValueError(
+            f"Processed {processed} windows but expected {n_windows}"
+        )
 
-        high_mask.flush()
-        low_mask.flush()
+    # Calculate filtering thresholds
+    low_threshold, high_threshold = np.percentile(
+        all_cohort_means,
+        [
+            args.low_percentile,
+            args.high_percentile,
+        ],
+    )
+    low_selected = all_cohort_means <= low_threshold
+    high_selected = all_cohort_means >= high_threshold
 
+    logger.info(
+        "Selected %d low-depth windows (%.2f%%) and "
+        "%d high-depth windows (%.2f%%)",
+        np.count_nonzero(low_selected),
+        100.0 * np.mean(low_selected),
+        np.count_nonzero(high_selected),
+        100.0 * np.mean(high_selected),
+    )
+
+    logger.info(
+        "Empirical thresholds: %.2f%% = %.8g; %.2f%% = %.8g",
+        args.low_percentile,
+        low_threshold,
+        args.high_percentile,
+        high_threshold,
+    )
+
+    logger.info(
+        "Coverage quantiles: "
+        "1%%=%.3f 5%%=%.3f 50%%=%.3f 95%%=%.3f 99%%=%.3f",
+        *np.percentile(
+            all_cohort_means,
+            [1, 5, 50, 95, 99]
+        )
+    )
+    
+    write_depth_masks(
+        chrom_sizes=chrom_sizes,
+        width=args.window_size,
+        values=all_cohort_means,
+        low_path=low_mask_path,
+        high_path=high_mask_path,
+        low=low_threshold,
+        high=high_threshold,
+    )
+    del all_cohort_means
+    
     elapsed = time.perf_counter() - start_time
 
     logger.info(

@@ -126,9 +126,8 @@ params {
     longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
     numt_min_length: Integer = 100                      // Minimum length of a NUMT
     numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
-    depth_mask_low: Float = 0.5f                        // Flag a window as low-depth in a sample when its depth is <= 0.nx that sample's baseline
-    depth_mask_high: Float = 1.5f                       // Flag a window as high-depth in a sample when its depth is >= n5x that sample's baseline
-    depth_mask_fraction: Float = 0.8f                   // Mask a window when at least 80% of samples are flagged as low-depth or high-depth
+    depth_mask_low_percentile: Float = 1.0f             // Mask windows with cohort-normalised coverage at or below the 1st percentile genome-wide
+    depth_mask_high_percentile: Float = 99.0f           // Mask windows with cohort-normalised coverage at or above the 99th percentile genome-wide
     depth_window_size: Integer = 1000                   // Window size used for masking
 
     // Population-level filtering

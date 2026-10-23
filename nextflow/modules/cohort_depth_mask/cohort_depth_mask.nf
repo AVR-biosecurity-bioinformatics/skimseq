@@ -13,8 +13,7 @@ process COHORT_DEPTH_MASK {
     record(
         cohort_bedgraph: file("cohort.normalised-coverage.bedgraph"),
         high_mask: file("cohort.high_depth.bed"),
-        low_mask: file("cohort.low_depth.bed"),
-        scale_factors: file("cohort.scale-factors.tsv")
+        low_mask: file("cohort.low_depth.bed")
     )
 
     script:
@@ -34,8 +33,8 @@ process COHORT_DEPTH_MASK {
         --threads ${task.cpus} \
         --sample-batch-size 32 \
         --array-memory-mib ${(task.memory.toMega() * 7).intdiv(10)} \
-        --low ${params.depth_mask_low} \
-        --high ${params.depth_mask_high} \
+        --low-percentile ${params.depth_mask_low_percentile ?: 1.0} \
+        --high-percentile ${params.depth_mask_high_percentile ?: 99.0} \
         --prefix cohort
     """
 }
