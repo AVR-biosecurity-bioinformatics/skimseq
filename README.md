@@ -96,10 +96,6 @@ module purge
 module load Java/17
 module load Miniconda3/24.7.1-0
 
-# Export variables for nextflow:
-export NXF_VER=26.07.0-edge
-export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
-
 # Launch the job
 nextflow run . \
     -config conf/basc.config \
@@ -114,10 +110,6 @@ For small tests, use the local executor instead of SLURM.
 module purge
 module load Java/17
 module load Miniconda3/24.7.1-0
-
-# Export variables for nextflow:
-export NXF_VER=26.07.0-edge
-export NXF_CONDA_CACHEDIR="YOUR_CACHEDIR"
 
 # Launch the job
 nextflow run . \
@@ -142,17 +134,17 @@ nextflow run . \
 git clone https://github.com/AVR-biosecurity-bioinformatics/skimseq.git path/to/your/analysis/dir
 cd path/to/your/analysis/dir
 
-# Check your NCI gadi project environment variable is set (may need to set yourself)
+# Check your NCI gadi PROJECT and USER environmental variables are set (may need to set yourself?)
 $PROJECT
-
-# Load nextflow (check gadi docs)
+$USER
 
 # Check nextflow version
 nextflow -v
 
-# Run the pipeline 
+# Run the pipeline - setting the work directory (temporary files) to the scratch directory
 nextflow run . \
     -config conf/nci_gadi.config \
+    -work-dir /scratch/${PROJECT}/${USER}/work \
     -profile test \
     -resume
 ```

@@ -8,11 +8,11 @@ channels:
 dependencies:
   - bioconda::samtools=1.24
   - bioconda::minibwa=0.7
-  - bioconda::seqkit=2.13.0
+  - bioconda::seqkit=2.14.0
   - bioconda::dupblaster=0.3.0
   - bioconda::seqtk=1.5
   - bioconda::chelae=0.2.1
-  - conda-forge::curl=8.21.0
+  - conda-forge::curl=8.23.0
   - conda-forge::python=3.14.6
   - conda-forge::pip
   - pip:
