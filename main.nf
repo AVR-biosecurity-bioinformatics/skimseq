@@ -128,7 +128,7 @@ params {
     numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
     depth_mask_low_percentile: Float = 1.0f             // Mask windows with cohort-normalised coverage at or below the 1st percentile genome-wide
     depth_mask_high_percentile: Float = 99.0f           // Mask windows with cohort-normalised coverage at or above the 99th percentile genome-wide
-    depth_window_size: Integer = 1000                   // Window size used for masking
+    depth_window_size: Integer = 1000                   // Window size used for creating depth masks
 
     // Population-level filtering
     vcf_population_min_samples: Integer = 1
