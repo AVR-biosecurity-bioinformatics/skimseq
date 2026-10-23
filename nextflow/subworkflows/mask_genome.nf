@@ -6,7 +6,6 @@ nextflow.enable.types = true
 
 include { GENMAP                        } from '../modules/genmap/genmap'
 include { LONGDUST                      } from '../modules/longdust/longdust'
-include { BIGWIG_COHORT_AVERAGE         } from '../modules/bigwig_cohort_average/bigwig_cohort_average'
 include { COHORT_DEPTH_MASK             } from '../modules/cohort_depth_mask/cohort_depth_mask'
 include { COMBINE_BEDS as COMBINE_MASKS } from '../modules/combine_beds/combine_beds'
 include { SUMMARISE_MASKS               } from '../modules/summarise_masks/summarise_masks'
@@ -46,50 +45,6 @@ workflow MASK_GENOME {
      */
 
     // Collect all per-sample Riker BigWigs and mean coverage values.
-    cohort_cram_stats = ch_cram_stats
-        .collect()
-        .map { stats ->
-
-            def valid_stats = stats
-                .findAll { result ->
-                    def keep = result.mean_coverage.toDouble() > 0.0d
-
-                    if (!keep) {
-                        log.warn(
-                            "Excluding '${result.sample}' from cohort coverage: " +
-                            "mean coverage is ${result.mean_coverage}"
-                        )
-                    }
-
-                    keep
-                }
-                .toList()
-
-            assert !valid_stats.isEmpty() :
-                "No samples have positive mean coverage"
-
-            record(
-                samples: valid_stats
-                    .collect { result -> result.sample }
-                    .toList(),
-
-                bigwigs: valid_stats
-                    .collect { result -> result.wgs_per_base }
-                    .toList(),
-
-                mean_coverages: valid_stats
-                    .collect { result -> result.mean_coverage }
-                    .toList()
-            )
-        }
-
-    // Scale each BigWig by 1 / mean coverage and calculate the
-    // cohort-wide mean normalised coverage in fixed-size windows.
-    depth_masks = BIGWIG_COHORT_AVERAGE(
-        cohort_cram_stats
-    )
-
-    // Test figwig version
     cohort_bigwigs = ch_cram_stats
         .collect()
         .map { stats ->
@@ -97,8 +52,9 @@ workflow MASK_GENOME {
                 result.wgs_per_base
             }
         }
-
-    depth_masks_test = COHORT_DEPTH_MASK(
+    // Scale each BigWig by 1 / mean coverage and calculate the
+    // cohort-wide mean normalised coverage in fixed-size windows.
+    depth_masks = COHORT_DEPTH_MASK(
         cohort_bigwigs
     )
 
