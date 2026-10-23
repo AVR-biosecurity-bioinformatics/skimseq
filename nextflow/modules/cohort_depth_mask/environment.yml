@@ -5,6 +5,7 @@ dependencies:
   - python=3.11
   - numpy
   - numba
+  - pybigwig
   - pip
   - pip:
       - figwig==0.1.0
