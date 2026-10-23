@@ -54,7 +54,7 @@ workflow MASK_GENOME {
         }
     // Scale each BigWig by 1 / mean coverage and calculate the
     // cohort-wide mean normalised coverage in fixed-size windows.
-    depth_masks = COHORT_DEPTH_MASK(
+    depth_masks = COHORT_DEPTH_MASK(        
         cohort_bigwigs
     )
 

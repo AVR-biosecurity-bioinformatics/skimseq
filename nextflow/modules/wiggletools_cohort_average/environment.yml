@@ -1,8 +1,0 @@
-channels:
-  - conda-forge
-  - bioconda
-  - nodefaults
-
-dependencies:
-  - bioconda::wiggletools=1.2.11
-  - bioconda::bedtools=2.31.1
