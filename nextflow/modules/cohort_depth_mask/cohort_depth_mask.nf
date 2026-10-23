@@ -27,6 +27,9 @@ process COHORT_DEPTH_MASK {
     export NUMEXPR_NUM_THREADS=1
     export BLIS_NUM_THREADS=1
 
+    export NUMBA_CACHE_DIR="\$PWD/.numba_cache"
+    mkdir -p "\$NUMBA_CACHE_DIR"
+
     cohort_depth_mask.py \
         --bigwig ${bigwigs.join(' ')} \
         --window-size ${params.depth_window_size} \

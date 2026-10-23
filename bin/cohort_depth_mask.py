@@ -286,7 +286,7 @@ def main():
 
     logger.info(
         "Loaded %d BigWigs; sample mean coverage: "
-        "min=%.3f, median=%.3f, max=%.3f",
+        "min=%.6g, median=%.6g, max=%.6g",
         n_samples,
         np.min(mean_coverages),
         np.median(mean_coverages),
@@ -519,20 +519,21 @@ def main():
     high_selected = all_cohort_means >= high_threshold
 
     logger.info(
-        "Selected %d low-depth windows (%.2f%%) and "
-        "%d high-depth windows (%.2f%%)",
-        np.count_nonzero(low_selected),
-        100.0 * np.mean(low_selected),
-        np.count_nonzero(high_selected),
-        100.0 * np.mean(high_selected),
-    )
-
-    logger.info(
         "Empirical thresholds: %.2f%% = %.8g; %.2f%% = %.8g",
         args.low_percentile,
         low_threshold,
         args.high_percentile,
         high_threshold,
+    )
+
+    logger.info(
+        "Masking %d low-depth windows (%.2f%%; %d zero-depth) and "
+        "%d high-depth windows (%.2f%%)",
+        np.count_nonzero(low_selected),
+        100.0 * np.mean(low_selected),
+        np.count_nonzero(all_cohort_means == 0),
+        np.count_nonzero(high_selected),
+        100.0 * np.mean(high_selected),
     )
 
     logger.info(
