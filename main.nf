@@ -126,10 +126,9 @@ params {
     longdust_thresh: Float = 0.6f                       // Complexity theshold for longdust
     numt_min_length: Integer = 100                      // Minimum length of a NUMT
     numt_max_gap: Integer = 1_000                       // Maximum gap between NUMT alignments to be considered the same region
-    depth_mask_low: Float = 0.5f                        // Flag a window as low-depth in a sample when its depth is <= 0.nx that sample's baseline
-    depth_mask_high: Float = 1.5f                       // Flag a window as high-depth in a sample when its depth is >= n5x that sample's baseline
-    depth_mask_fraction: Float = 0.8f                   // Mask a window when at least 80% of samples are flagged as low-depth or high-depth
-    depth_window_size: Integer = 1000                   // Window size used for masking
+    depth_mask_low_percentile: Float = 1.0f             // Mask windows with cohort-normalised coverage at or below the 1st percentile genome-wide
+    depth_mask_high_percentile: Float = 99.0f           // Mask windows with cohort-normalised coverage at or above the 99th percentile genome-wide
+    depth_window_size: Integer = 1000                   // Window size used for creating depth masks
 
     // Population-level filtering
     vcf_population_min_samples: Integer = 1
@@ -299,7 +298,6 @@ workflow {
 
     mask_summary     = skimseq.mask_summary
     mask_bed         = skimseq.mask_bed
-    per_base_depth   = skimseq.per_base_depth
     new_cram        = skimseq.new_cram
     unmapped_reads  = skimseq.unmapped_reads
     mito_consensus  = skimseq.mito_consensus
@@ -324,10 +322,23 @@ workflow {
     missing_summary   = skimseq.missing_summary
     site_filter_plots = skimseq.site_filter_plots
     mask_filter_plots = skimseq.mask_filter_plots
-    cram_stats      = skimseq.cram_stats
     vcf_stats       = skimseq.vcf_stats
     multiqc_report  = skimseq.multiqc_report
-    
+
+    // Extract per-base depth (optional output as can be large)
+    per_base_depth = skimseq.cram_stats
+        .map { result -> result.wgs_per_base }
+        .filter { bigwig -> bigwig != null }
+
+    // Cram stats for publishing (exclude BigWig)
+    cram_stats_publish = skimseq.cram_stats
+        .map { result ->
+            record(
+                sample: result.sample,
+                stats: result.stats
+            )
+        }
+
     onComplete:
     if (workflow.success) {
         log.info(
@@ -349,9 +360,6 @@ output {
     }
     mask_bed {
         path 'qc/masks'
-    }
-    per_base_depth {
-        path 'qc/per_base'
     }
     // NOTE: For now cram store and gvcf store have to be within results directory
     // Only publishes newly generated crams and GVCFS, doesnt overwrite those that passed validation
@@ -376,7 +384,6 @@ output {
     final_bcf {
         path 'vcf/filtered'
     }
-
     beagle_gl {
         enabled params.output_beagle_gl
         path 'beagle'
@@ -408,8 +415,12 @@ output {
     popmap {
         path 'metadata'
     }
-    cram_stats {
+    cram_stats_publish {
         path 'qc/cram_stats'
+    }
+    per_base_depth {
+        enabled params.output_perbase_depth
+        path 'qc/per_base'
     }
     vcf_stats {
         path 'qc/vcf_stats'

@@ -315,7 +315,7 @@ nextflow run . \
 squeue     --user "$USER"     --format='%i|%T|%j|%R' | grep 'MAP_TO_GENOME'
 
 # Select job_id
-job_id=37915556
+job_id=38180080
 
 node=$(squeue -h -j "$job_id" -o '%N')
 
@@ -368,7 +368,7 @@ cd $TMPDIR
 ```
 
 
-# FInd where code has been used
+# Find where code has been used
 
 ```
 grep -RIn \

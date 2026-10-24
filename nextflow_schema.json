@@ -247,26 +247,19 @@
           "description": "Maximum gap between NUMT alignments in one region.",
           "minimum": 0
         },
-        "depth_mask_low": {
+        "depth_mask_low_percentile": {
           "type": "number",
-          "default": 0.5,
-          "description": "Flag a window as low-depth in a sample when its depth is at most this fraction of that sample's baseline (e.g. 0.5 means <=0.5x).",
+          "default": 1.0,
+          "description": "Mask windows with cohort-normalised coverage at or below this percentile (e.g. 1.0 masks the lowest 1% of windows).",
           "minimum": 0,
-          "exclusiveMaximum": 1
+          "exclusiveMaximum": 100
         },
-        "depth_mask_high": {
+        "depth_mask_high_percentile": {
           "type": "number",
-          "default": 1.5,
-          "description": "Flag a window as high-depth in a sample when its depth is at least this multiple of that sample's baseline (e.g. 1.5 means >=1.5x)",
-          "minimum": 0,
-          "exclusiveMinimum": 1
-        },
-        "depth_mask_fraction": {
-          "type": "number",
-          "default": 0.8,
-          "description": "Mask a window when at least this fraction of samples are flagged as low-depth or, separately, high-depth (e.g. 0.8 means 80%).",
+          "default": 99.0,
+          "description": "Mask windows with cohort-normalised coverage at or above this percentile (e.g. 99.0 masks the highest 1% of windows).",
           "exclusiveMinimum": 0,
-          "maximum": 1
+          "maximum": 100
         },
         "depth_window_size": {
           "type": "integer",

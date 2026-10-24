@@ -277,7 +277,7 @@ workflow SKIMSEQ {
     */
 
     masking_results = MASK_GENOME(
-        alignment_results.cram,
+        alignment_results.cram_stats,
         prepared_genome,
         mito_bed,
         mito_genotyping.numt_bed
@@ -353,7 +353,6 @@ workflow SKIMSEQ {
     // Masking subworkflow
     mask_summary: Value<MaskSummary> = masking_results.summary
     mask_bed: Value<Path> = masking_results.mask_bed
-    per_base_depth = masking_results.per_base_depth
 
     // Filtering subworkflow
     sample_filter_plots: Value<Set<Path>> = filtered_variants.sample_filter_plots

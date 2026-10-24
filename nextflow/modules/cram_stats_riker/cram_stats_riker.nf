@@ -22,12 +22,13 @@ process CRAM_STATS_RIKER {
     output:
     record(
         sample: sample,
-        stats: file("${sample}.riker.tar.gz"),
-        wgs_coverage: file("${sample}.wgs-coverage.txt")
+        stats: file("${sample}.riker-qc", type: 'dir'),
+        wgs_coverage: file("${sample}.wgs-coverage.txt"),
+        wgs_per_base: file("${sample}.wgs-per-base.bw"),
+        mean_coverage: eval("sed -n '2p' '${sample}.riker-qc/${sample}.wgs-metrics.txt' | cut -f3")
     )
-
     topic:
-    file("${sample}.riker.tar.gz") >> 'multiqc'
+    file("${sample}.riker-qc", type: 'dir') >> 'multiqc'   
 
     script:
     def riker_duplicate_args = params.rmdup
@@ -54,6 +55,7 @@ process CRAM_STATS_RIKER {
         --wgs::min-mapq ${params.minmq} \
         --wgs::min-bq ${params.minbq} \
         --wgs::coverage-cap 250 \
+        --wgs::per-base-coverage bigwig \
         --error::intervals "${genome_bed}" \
         --error::min-mapq ${params.minmq} \
         --error::min-bq ${params.minbq} \
@@ -62,25 +64,45 @@ process CRAM_STATS_RIKER {
         --isize::deviations 10 \
         ${riker_duplicate_args}
 
-    # create a single tar file containing all of the riker outputs, to avoid creating too many intermediate files
-    shopt -s nullglob
+   
+    # Outputs exposed separately by Nextflow.
+    coverage_file="${sample}.wgs-coverage.txt"
+    bigwig_file="${sample}.wgs-per-base.bw"
 
-    riker_outputs=( *.txt *.pdf )
-
-    if (( \${#riker_outputs[@]} == 0 )); then
-        echo "ERROR: Riker produced no TXT or PDF outputs for ${sample}" >&2
+    if [[ ! -s "\${coverage_file}" ]]; then
+        echo "ERROR: Riker did not produce \${coverage_file}" >&2
         exit 1
     fi
 
-    tar -czf "${sample}.riker.tar.gz" "\${riker_outputs[@]}"
+    if [[ ! -s "\${bigwig_file}" ]]; then
+        echo "ERROR: Riker did not produce \${bigwig_file}" >&2
+        exit 1
+    fi
 
-    # Keep the coverage table for the separate Nextflow output.
-    coverage_file="${sample}.wgs-coverage.txt"
 
-    for file in "\${riker_outputs[@]}"; do
-        if [[ "\${file}" != "\${coverage_file}" ]]; then
-            rm -f -- "\${file}"
-        fi
+    # Collect the remaining QC reports into a per-sample directory.
+    qc_dir="${sample}.riker-qc"
+    mkdir -p "\${qc_dir}"
+
+    shopt -s nullglob
+
+    for file in "${sample}".*.txt "${sample}".*.pdf; do
+        case "\${file}" in
+            "\${coverage_file}")
+                # Keep this as a separate Nextflow output.
+                ;;
+            *)
+                mv -- "\${file}" "\${qc_dir}/"
+                ;;
+        esac
     done
+
+    # Copy coverage file to the QC directory
+    cp -- "\${coverage_file}" "\${qc_dir}/"
+
+    if [[ -z "\$(find "\${qc_dir}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+        echo "ERROR: No Riker QC reports were collected for ${sample}" >&2
+        exit 1
+    fi
     """
 }

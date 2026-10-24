@@ -38,6 +38,8 @@ record CramStats {
     sample: String
     stats: Path
     wgs_coverage: Path
+    wgs_per_base: Path
+    mean_coverage: String
 }
 
 record PreparedGenome {
