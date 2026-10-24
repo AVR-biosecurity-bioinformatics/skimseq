@@ -98,140 +98,141 @@ process PLOT_VARIANT_MASKS {
         )
 
         distribution_plot <- function(
-            x,
-            variant_type,
-            selected_rule,
-            per_population = FALSE
-        ) {
-            # Work on a copy to avoid modifying the caller's data.table.
-            x <- copy(x)
-
-            page_masks <- mask_order[
-                mask_order %in% as.character(unique(x$MASK))
-            ]
-
-            x[, MASK := factor(
-                as.character(MASK),
-                levels = page_masks
-            )]
-
-            if (per_population) {
-                x[, POP := factor(
-                    as.character(POP),
-                    levels = sort(unique(as.character(POP)))
-                )]
-            }
-
-            all_positions <- sort(unique(plot_steps$POSITION))
-
-            x <- x[
-                CJ(
-                    MASK = unique(x$MASK),
-                    POP = unique(x$POP),
-                    POSITION = all_positions,
-                    unique = TRUE
-                ),
-                on = .(MASK, POP, POSITION)
-            ]
-
-            x[is.na(PERCENT), PERCENT := 0]
-            setorder(x, MASK, POP, POSITION)
-
-            # Connecting lines require one observation per bin and group.
-            # Do not silently aggregate duplicated step boundaries.
-            duplicate_bins <- x[
-                ,
-                .N,
-                by = .(MASK, POP, POSITION)
-            ][N > 1L]
-
-            if (nrow(duplicate_bins)) {
-                stop(
-                    "Repeated POSITION values within MASK/POP groups. ",
-                    "Check whether functions.R returns histogram bins or ",
-                    "expanded step coordinates before using geom_line()."
-                )
-            }
-
-            p <- ggplot(
                 x,
-                aes(
-                    x = POSITION,
-                    y = PERCENT,
-                    colour = MASK,
-                    group = interaction(MASK, POP, drop = TRUE)
-                )
-            ) +
-                geom_line(
-                    linewidth = 0.65,
-                    alpha = 0.95,
-                    linejoin = "round"
-                ) +
-                scale_colour_manual(
-                    values = colours,
-                    breaks = page_masks,
-                    guide = "none"
-                ) +
-                scale_x_continuous(
-                    breaks = scales::breaks_pretty(n = 5),
-                    expand = expansion(mult = c(0.01, 0.01))
-                ) +
-                scale_y_continuous(
-                    limits = c(0, NA),
-                    breaks = scales::breaks_pretty(n = 4),
-                    expand = expansion(mult = c(0, 0.08))
-                ) +
-                plot_theme +
-                theme(
-                    legend.position = "none",
-                    panel.spacing = grid::unit(0.8, "lines"),
-                    strip.text = element_text(size = 10),
-                    strip.text.y = element_text(angle = 0),
-                    axis.text.x = element_text(
-                        angle = 45,
-                        hjust = 1
-                    )
-                ) +
-                labs(
-                    title = paste(
-                        variant_type,
-                        if (per_population) {
-                            "per-population mask diagnostics:"
-                        } else {
-                            "mask diagnostics:"
-                        },
-                        selected_rule
-                    ),
-                    subtitle = if (per_population) {
-                        "y-scales vary by mask"
-                    } else {
-                        "Normalised within each mask;"
-                    },
-                    x = selected_rule,
-                    y = "Sites within category (% per bin)"
-                )
+                variant_type,
+                selected_rule,
+                per_population = FALSE
+            ) {
+                # Work on a copy to avoid modifying the caller's data.table.
+                x <- copy(x)
 
-            if (per_population) {
-                p + facet_grid(
-                    rows = vars(MASK),
-                    cols = vars(POP),
-                    scales = "fixed",
-                    labeller = labeller(
-                        MASK = as_labeller(mask_labels),
-                        POP = label_value
+                page_masks <- mask_order[
+                    mask_order %in% as.character(unique(x$MASK))
+                ]
+
+                x[, MASK := factor(
+                    as.character(MASK),
+                    levels = page_masks
+                )]
+
+                if (per_population) {
+                    x[, POP := factor(
+                        as.character(POP),
+                        levels = sort(unique(as.character(POP)))
+                    )]
+                }
+
+                # Complete bins using only positions belonging to the current rule.
+                # Using plot_steps$POSITION here would mix the scales of unrelated
+                # metrics such as DP, QUAL, HWE and MAF.
+                rule_positions <- sort(unique(x$POSITION))
+
+                x <- x[
+                    CJ(
+                        MASK = unique(x$MASK),
+                        POP = unique(x$POP),
+                        POSITION = rule_positions,
+                        unique = TRUE
+                    ),
+                    on = .(MASK, POP, POSITION)
+                ]
+
+                x[is.na(PERCENT), PERCENT := 0]
+                setorder(x, MASK, POP, POSITION)
+
+                duplicate_bins <- x[
+                    ,
+                    .N,
+                    by = .(MASK, POP, POSITION)
+                ][N > 1L]
+
+                if (nrow(duplicate_bins)) {
+                    stop(
+                        "Repeated POSITION values within MASK/POP groups. ",
+                        "Check whether functions.R returns histogram bins or ",
+                        "expanded step coordinates before using geom_line()."
                     )
-                )
-            } else {
-                p + facet_wrap(
-                    vars(MASK),
-                    ncol = 3,
-                    scales = "fixed",
-                    labeller = labeller(
-                        MASK = as_labeller(mask_labels)
+                }
+
+                p <- ggplot(
+                    x,
+                    aes(
+                        x = POSITION,
+                        y = PERCENT,
+                        colour = MASK,
+                        group = interaction(MASK, POP, drop = TRUE)
                     )
-                )
+                ) +
+                    geom_line(
+                        linewidth = 0.65,
+                        alpha = 0.95,
+                        linejoin = "round"
+                    ) +
+                    scale_colour_manual(
+                        values = colours,
+                        breaks = page_masks,
+                        guide = "none"
+                    ) +
+                    scale_x_continuous(
+                        breaks = scales::breaks_pretty(n = 5),
+                        expand = expansion(mult = c(0.01, 0.01))
+                    ) +
+                    scale_y_continuous(
+                        limits = c(0, NA),
+                        breaks = scales::breaks_pretty(n = 4),
+                        expand = expansion(mult = c(0, 0.08))
+                    ) +
+                    plot_theme +
+                    theme(
+                        legend.position = "none",
+                        panel.spacing = grid::unit(0.8, "lines"),
+                        strip.text = element_text(size = 10),
+                        strip.text.y = element_text(angle = 0),
+                        axis.text.x = element_text(
+                            angle = 45,
+                            hjust = 1
+                        )
+                    ) +
+                    labs(
+                        title = paste(
+                            variant_type,
+                            if (per_population) {
+                                "per-population mask diagnostics:"
+                            } else {
+                                "mask diagnostics:"
+                            },
+                            selected_rule
+                        ),
+                        subtitle = if (per_population) {
+                            "Normalised within each mask"
+                        } else {
+                            "Normalised within each mask"
+                        },
+                        x = selected_rule,
+                        y = "Sites within category (% per bin)"
+                    )
+
+                if (per_population) {
+                    p + facet_grid(
+                        rows = vars(MASK),
+                        cols = vars(POP),
+                        scales = "fixed",
+                        labeller = labeller(
+                            MASK = as_labeller(mask_labels),
+                            POP = label_value
+                        )
+                    )
+                } else {
+                    p + facet_wrap(
+                        vars(MASK),
+                        ncol = 3,
+                        scales = "fixed",
+                        labeller = labeller(
+                            MASK = as_labeller(mask_labels)
+                        )
+                    )
+                }
             }
-        }
 
     ordered_types <- function(x) {
         preferred <- c("SNP", "INDEL", "REF", "ALL")
