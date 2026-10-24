@@ -6,6 +6,6 @@ channels:
   - nodefaults
 
 dependencies:
-  - python=3.14
+  - python=3.15.1
   - numpy
   - pyfaidx=0.9.0.4

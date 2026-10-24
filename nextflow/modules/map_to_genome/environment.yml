@@ -13,7 +13,7 @@ dependencies:
   - bioconda::seqtk=1.5
   - bioconda::chelae=0.2.1
   - conda-forge::curl=8.23.0
-  - conda-forge::python=3.14.6
+  - conda-forge::python=3.15.1
   - conda-forge::pip
   - pip:
     - hydrastream==1.2.0
