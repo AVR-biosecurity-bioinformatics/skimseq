@@ -882,6 +882,18 @@
         }
       }
     },
+    "analysis_options": {
+      "title": "Analysis options",
+      "description": "Analysis options.",
+      "type": "object",
+      "properties": {
+        "relatedness_n_pcs": {
+          "type": "integer",
+          "default": 3,
+          "description": "Number of PCs used for relatedness analysis with PCAone."
+        }
+      }
+    },
     "output_options": {
       "title": "Output options",
       "description": "Optional output files retained by the pipeline.",
@@ -970,6 +982,9 @@
     },
     {
       "$ref": "#/$defs/vcf_filtering_options"
+    },
+    {
+      "$ref": "#/$defs/analysis_options"
     },
     {
       "$ref": "#/$defs/output_options"

@@ -371,14 +371,18 @@ workflow SKIMSEQ {
 
     // Outputs subworkflow
     plink: Channel<PlinkDataset> = outputs.plink
-    beagle_gl = outputs.beagle_gl
-    pca = outputs.pca
     relationship = outputs.relationship
     king = outputs.king
     distance = outputs.distance
     ordination_plot = outputs.ordination_plot
-    pca_plot = outputs.pca_plot
+    plink_pca = outputs.plink_pca
+    pca_plot_plink = outputs.pca_plot_plink
     tree_plot = outputs.tree
+
+    beagle_gl = outputs.beagle_gl
+    pcaone_rel = outputs.pcaone_rel
+    pcaone_pca = outputs.pcaone_pca
+    pca_plot_pcaone = outputs.pca_plot_pcaone
 
     // Other output
     popmap: Value<Path> = popmap

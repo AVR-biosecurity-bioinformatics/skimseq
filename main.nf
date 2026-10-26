@@ -202,6 +202,10 @@ params {
     vcf_min_callrate_pop_snp: Float = 0
     vcf_min_callrate_pop_indel: Float = 0
     vcf_min_callrate_pop_invariant: Float = 0
+
+
+    // Analysis
+    relatedness_n_pcs: Integer = 3
 }
 
 /*
@@ -307,13 +311,16 @@ workflow {
     final_bcf       = skimseq.final_bcf
 
     beagle_gl       = skimseq.beagle_gl
+    pcaone_rel      = skimseq.pcaone_rel
+    pcaone_pca      = skimseq.pcaone_pca
     plink           = skimseq.plink
-    pca             = skimseq.pca
+    plink_pca       = skimseq.plink_pca
     relationship    = skimseq.relationship
     king            = skimseq.king
     distance        = skimseq.distance
     ordination_plot = skimseq.ordination_plot
-    pca_plot        = skimseq.pca_plot
+    pca_plot_plink  = skimseq.pca_plot_plink
+    pca_plot_pcaone = skimseq.pca_plot_pcaone
     tree_plot       = skimseq.tree_plot
     popmap          = skimseq.popmap
 
@@ -388,10 +395,16 @@ output {
         enabled params.output_beagle_gl
         path 'beagle'
     }
+    pcaone_pca {
+        path 'pcaone'
+    }
+    pcaone_rel {
+        path 'pcaone'
+    }
     plink {
         path 'plink'
     }
-    pca {
+    plink_pca {
         path 'plink'
     }
     relationship {
@@ -406,8 +419,11 @@ output {
     ordination_plot {
         path 'visualisation/ordination'
     }
-    pca_plot {
+    pca_plot_plink {
         path 'visualisation/ordination'
+    }
+    pca_plot_pcaone {
+        path 'pcaone'
     }
     tree_plot {
         path 'visualisation/trees'
