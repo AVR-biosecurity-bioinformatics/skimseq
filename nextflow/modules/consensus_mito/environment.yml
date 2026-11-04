@@ -8,4 +8,4 @@ channels:
 dependencies:
   - python=3.14
   - numpy
-  - pyfaidx=0.9.0.4
+  - pyfaidx=0.9.1
