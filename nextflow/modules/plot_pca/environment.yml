@@ -6,5 +6,5 @@ channels:
   - nodefaults
 
 dependencies:
-  - conda-forge::r-base=4.5
+  - conda-forge::r-base=4.6.1
   - conda-forge::r-tidyverse
