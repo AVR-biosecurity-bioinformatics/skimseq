@@ -10,4 +10,4 @@ dependencies:
   - pybigwig
   - pip
   - pip:
-      - figwig==0.1.0
+      - figwig==0.2.0
