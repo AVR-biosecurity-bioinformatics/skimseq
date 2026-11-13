@@ -333,6 +333,7 @@ process MAP_TO_GENOME {
     | inject_sam_readgroups readgroups.sam \
     | dupblaster \
         --metrics-prefix ${sample} \
+        --sequencing-duplicate-detection off \
         -o - \
     | samtools sort \
         -@ "${sort_threads}" \
