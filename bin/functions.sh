@@ -480,8 +480,13 @@ detect_chelae_adapters() {
     rm -f -- "${sample_r1}" "${sample_r2}" "${output_fasta}"
 
     if grep -Fq 'No adapter reached --min-fraction' "${detect_log}" ||
-       grep -Fq 'No usable PE adapter detections' "${detect_log}"; then
-        echo "WARNING: no detectable adapter consensus; trimming will use --kit all" >&2
+    grep -Fq 'No usable PE adapter detections' "${detect_log}" ||
+    grep -Fq 'usable detections' "${detect_log}"; then
+
+        echo \
+            "WARNING: insufficient adapter evidence for reliable detection; " \
+            "trimming will use --kit all" >&2
+
         return 0
     fi
 
