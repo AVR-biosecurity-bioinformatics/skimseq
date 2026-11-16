@@ -6,4 +6,4 @@ channels:
   - nodefaults
 
 dependencies:
-  - bioconda::plink2=2.0.0a.6.9
+  - bioconda::plink2=2.0.0a.7.8
