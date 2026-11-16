@@ -6,6 +6,8 @@ channels:
   - nodefaults
 
 dependencies:
-  - conda-forge::r-base=4.5
-  - conda-forge::r-tidyverse
-  - bioconda::bioconductor-ggtree
+  - conda-forge::r-base=4.5.1
+  - conda-forge::r-ggplot2=4.0.0
+  - conda-forge::r-readr=2.1.5
+  - conda-forge::r-data.table=1.18.6
+  - bioconda::bioconductor-ggtree=4.0.5
